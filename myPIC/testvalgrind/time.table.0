@@ -1,0 +1,329 @@
+-----------
+Timer report 0 (74 timers)
+--------------
+---------------------------------------------------------
+[0]main 16.17452 1
+    28.8%    4.65600        2 System::writePlotFile() [1] f=0
+     6.9%    1.11717        1 System::initialize() [5] f=0
+     5.3%    0.85866        1 Write Level [6] f=0
+     5.0%    0.81202        1 System::getDisjointBoxLayout() [7] f=0
+     3.1%    0.49835        1 Simulation::advance() [10] f=0
+     2.0%    0.31547        1 System::createProblemDomain() [14] f=0
+     1.2%    0.19552        1 System::createState() [17] f=0
+     1.0%    0.16854        2 LevelData<T>::define(dbl,comps,ghost,factory) [19] f=0
+     0.1%    0.01316       32 FORT_GET_FC_MAPPED_COORDS [42] f=0
+     0.1%    0.00854       16 FORT_GET_CC_MAPPED_COORDS [48] f=0
+     0.0%    0.00675        1 System::createMeshInterp() [51] f=0
+    53.5%                  Total 
+---------------------------------------------------------
+[1]System::writePlotFile() 4.65600 2
+    85.8%    3.99451        2 dataFileIO::writeParticleDataFile() [2] f=0
+    14.2%    0.65935        2 PicParticle::setNumberDensity() [9] f=0
+    100.0%                  Total 
+---------------------------------------------------------
+[2]dataFileIO::writeParticleDataFile() 3.99451 2
+    68.2%    2.72389        2 writeParticlesToHDF [3] f=0
+     5.2%    0.20874        2 Write Level [16] f=0
+    73.4%                  Total 
+---------------------------------------------------------
+[3]writeParticlesToHDF 2.72389 2
+    89.4%    2.43589        2 writeParticlesToHDF::checkpoint [4] f=0
+    89.4%                  Total 
+---------------------------------------------------------
+[4]writeParticlesToHDF::checkpoint 2.43589 2
+     7.5%    0.18266       32 writeDataChunk [18] f=0
+     7.5%                  Total 
+---------------------------------------------------------
+[5]System::initialize() 1.11717 1
+    26.3%    0.29387        1 PicParticle::setNumberDensity() [15] f=0
+    10.5%    0.11733        1 ParticleData::remapOutcast [23] f=0
+    36.8%                  Total 
+---------------------------------------------------------
+[6]Write Level 0.85866 1
+    88.7%    0.76147        1 JRA::write_Level [8] f=0
+     0.9%    0.00762        1 writeToFile [50] f=0
+     0.2%    0.00183        1 setGroup [56] f=0
+     0.1%    0.00057        1 calc minimum in outputGhost [64] f=0
+    89.8%                  Total 
+---------------------------------------------------------
+[7]System::getDisjointBoxLayout() 0.81202 1
+    50.6%    0.41100        1 DisjointBoxLayout::computeNeighbors [13] f=0
+    11.3%    0.09190        1 LoadBalance:VectorBoxEntry [25] f=0
+    61.9%                  Total 
+---------------------------------------------------------
+[8]JRA::write_Level 0.76147 1
+    17.0%    0.12967        1 WriteAttributes [21] f=0
+    15.2%    0.11605        1 linearize_H5Dwrite [24] f=0
+    11.5%    0.08725        1 WriteOffsets [26] f=0
+    10.4%    0.07919        1 getOffsets [28] f=0
+    10.2%    0.07762        1 H5Dcreate [29] f=0
+     7.6%    0.05787        1 mallocMT_buffers [33] f=0
+     4.6%    0.03521        1 freeMT [35] f=0
+     1.7%    0.01286        1 ComputeBufferCapacity [44] f=0
+     1.3%    0.00969        1 H5Screate [46] f=0
+     1.2%    0.00912        1 H5Sclose [47] f=0
+     1.1%    0.00847        1 H5S_H5D_offsets_close [49] f=0
+     0.4%    0.00292        1 H5S_H5D_offsets_create [53] f=0
+     0.1%    0.00066        1 H5Dclose [63] f=0
+    82.3%                  Total 
+---------------------------------------------------------
+[9]PicParticle::setNumberDensity() 0.65935 2
+    17.9%    0.11818    16384 FORT_NGP_DEPOSIT [22] f=0
+    17.9%                  Total 
+---------------------------------------------------------
+[10]Simulation::advance() 0.49835 1
+    96.1%    0.47887        1 System::advance() [11] f=0
+     0.5%    0.00269        1 print_diagnostics [54] f=0
+    96.6%                  Total 
+---------------------------------------------------------
+[11]System::advance() 0.47887 1
+    97.9%    0.46863        1 PicParticle::advancePositions() [12] f=0
+    97.9%                  Total 
+---------------------------------------------------------
+[12]PicParticle::advancePositions() 0.46863 1
+     0.2%    0.00117        1 ParticleData::remapOutcast [60] f=0
+     0.2%                  Total 
+---------------------------------------------------------
+[13]DisjointBoxLayout::computeNeighbors 0.41100 1
+---------------------------------------------------------
+[14]System::createProblemDomain() 0.31547 1
+---------------------------------------------------------
+[15]PicParticle::setNumberDensity() 0.29387 1
+    24.9%    0.07319     8192 FORT_NGP_DEPOSIT [32] f=0
+    24.9%                  Total 
+---------------------------------------------------------
+[16]Write Level 0.20874 2
+    77.1%    0.16089        2 JRA::write_Level [20] f=0
+    10.6%    0.02221        2 writeToFile [38] f=0
+     0.8%    0.00166        2 setGroup [57] f=0
+     0.0%    0.00004        2 calc minimum in outputGhost [73] f=0
+    88.5%                  Total 
+---------------------------------------------------------
+[17]System::createState() 0.19552 1
+     6.7%    0.01308        3 LevelData<T>::define(dbl,comps,ghost,factory) [43] f=0
+     6.7%                  Total 
+---------------------------------------------------------
+[18]writeDataChunk 0.18266 32
+---------------------------------------------------------
+[19]LevelData<T>::define(dbl,comps,ghost,factory) 0.16854 2
+---------------------------------------------------------
+[20]JRA::write_Level 0.16089 2
+    53.1%    0.08538        2 linearize_H5Dwrite [27] f=0
+    15.1%    0.02428        2 WriteAttributes [37] f=0
+     9.6%    0.01549        2 WriteOffsets [40] f=0
+     9.5%    0.01527        2 H5S_H5D_offsets_create [41] f=0
+     7.5%    0.01211        2 getOffsets [45] f=0
+     1.6%    0.00253        2 H5Dcreate [55] f=0
+     0.6%    0.00097        2 ComputeBufferCapacity [62] f=0
+     0.2%    0.00039        2 mallocMT_buffers [65] f=0
+     0.2%    0.00029        2 freeMT [68] f=0
+     0.1%    0.00019        2 H5S_H5D_offsets_close [69] f=0
+     0.1%    0.00019        2 H5Dclose [70] f=0
+     0.1%    0.00013        2 H5Screate [71] f=0
+     0.0%    0.00007        2 H5Sclose [72] f=0
+    97.8%                  Total 
+---------------------------------------------------------
+[21]WriteAttributes 0.12967 1
+---------------------------------------------------------
+[22]FORT_NGP_DEPOSIT 0.11818 16384
+---------------------------------------------------------
+[23]ParticleData::remapOutcast 0.11733 1
+---------------------------------------------------------
+[24]linearize_H5Dwrite 0.11605 1
+    66.2%    0.07682       16 H5Dwrite [30] f=0
+    15.5%    0.01797       16 linearize [39] f=0
+    81.7%                  Total 
+---------------------------------------------------------
+[25]LoadBalance:VectorBoxEntry 0.09190 1
+    36.5%    0.03357        1 LoadBalance:VectorBoxSimple [36] f=0
+    36.5%                  Total 
+---------------------------------------------------------
+[26]WriteOffsets 0.08725 1
+---------------------------------------------------------
+[27]linearize_H5Dwrite 0.08538 2
+    89.9%    0.07675       32 H5Dwrite [31] f=0
+     5.0%    0.00425       32 linearize [52] f=0
+    94.9%                  Total 
+---------------------------------------------------------
+[28]getOffsets 0.07919 1
+    70.3%    0.05566        1 offsets.resize [34] f=0
+     1.8%    0.00145       16 offsets calc [58] f=0
+     1.7%    0.00133       16 dataSize [59] f=0
+    73.8%                  Total 
+---------------------------------------------------------
+[29]H5Dcreate 0.07762 1
+---------------------------------------------------------
+[30]H5Dwrite 0.07682 16
+---------------------------------------------------------
+[31]H5Dwrite 0.07675 32
+---------------------------------------------------------
+[32]FORT_NGP_DEPOSIT 0.07319 8192
+---------------------------------------------------------
+[33]mallocMT_buffers 0.05787 1
+---------------------------------------------------------
+[34]offsets.resize 0.05566 1
+---------------------------------------------------------
+[35]freeMT 0.03521 1
+---------------------------------------------------------
+[36]LoadBalance:VectorBoxSimple 0.03357 1
+---------------------------------------------------------
+[37]WriteAttributes 0.02428 2
+---------------------------------------------------------
+[38]writeToFile 0.02221 2
+---------------------------------------------------------
+[39]linearize 0.01797 16
+---------------------------------------------------------
+[40]WriteOffsets 0.01549 2
+---------------------------------------------------------
+[41]H5S_H5D_offsets_create 0.01527 2
+---------------------------------------------------------
+[42]FORT_GET_FC_MAPPED_COORDS 0.01316 32
+---------------------------------------------------------
+[43]LevelData<T>::define(dbl,comps,ghost,factory) 0.01308 3
+---------------------------------------------------------
+[44]ComputeBufferCapacity 0.01286 1
+---------------------------------------------------------
+[45]getOffsets 0.01211 2
+     9.1%    0.00110        2 offsets.resize [61] f=0
+     2.9%    0.00036       32 offsets calc [66] f=0
+     2.5%    0.00030       32 dataSize [67] f=0
+    14.5%                  Total 
+---------------------------------------------------------
+[46]H5Screate 0.00969 1
+---------------------------------------------------------
+[47]H5Sclose 0.00912 1
+---------------------------------------------------------
+[48]FORT_GET_CC_MAPPED_COORDS 0.00854 16
+---------------------------------------------------------
+[49]H5S_H5D_offsets_close 0.00847 1
+---------------------------------------------------------
+[50]writeToFile 0.00762 1
+---------------------------------------------------------
+[51]System::createMeshInterp() 0.00675 1
+---------------------------------------------------------
+[52]linearize 0.00425 32
+---------------------------------------------------------
+[53]H5S_H5D_offsets_create 0.00292 1
+---------------------------------------------------------
+[54]print_diagnostics 0.00269 1
+---------------------------------------------------------
+[55]H5Dcreate 0.00253 2
+---------------------------------------------------------
+[56]setGroup 0.00183 1
+---------------------------------------------------------
+[57]setGroup 0.00166 2
+---------------------------------------------------------
+[58]offsets calc 0.00145 16
+---------------------------------------------------------
+[59]dataSize 0.00133 16
+---------------------------------------------------------
+[60]ParticleData::remapOutcast 0.00117 1
+---------------------------------------------------------
+[61]offsets.resize 0.00110 2
+---------------------------------------------------------
+[62]ComputeBufferCapacity 0.00097 2
+---------------------------------------------------------
+[63]H5Dclose 0.00066 1
+---------------------------------------------------------
+[64]calc minimum in outputGhost 0.00057 1
+---------------------------------------------------------
+[65]mallocMT_buffers 0.00039 2
+---------------------------------------------------------
+[66]offsets calc 0.00036 32
+---------------------------------------------------------
+[67]dataSize 0.00030 32
+---------------------------------------------------------
+[68]freeMT 0.00029 2
+---------------------------------------------------------
+[69]H5S_H5D_offsets_close 0.00019 2
+---------------------------------------------------------
+[70]H5Dclose 0.00019 2
+---------------------------------------------------------
+[71]H5Screate 0.00013 2
+---------------------------------------------------------
+[72]H5Sclose 0.00007 2
+---------------------------------------------------------
+[73]calc minimum in outputGhost 0.00004 2
+=======================================================
+    0.12    16384  FORT_NGP_DEPOSIT [22]
+    0.07     8192  FORT_NGP_DEPOSIT [32]
+    0.01       32  FORT_GET_FC_MAPPED_COORDS [42]
+    0.01       16  FORT_GET_CC_MAPPED_COORDS [48]
+     0.21307    1.3%    Total
+=======================================================
+[0] main 16.17452 100.0% 1 0 0 MFlops 
+   [1] System::writePlotFile() 4.65600 28.8% 2 0 0 MFlops 
+      [2] dataFileIO::writeParticleDataFile() 3.99451 24.7% 2 0 0 MFlops 
+         [3] writeParticlesToHDF 2.72389 16.8% 2 0 0 MFlops 
+            [4] writeParticlesToHDF::checkpoint 2.43589 15.1% 2 0 0 MFlops 
+               [18] writeDataChunk 0.18266  1.1% 32 0 0 MFlops 
+         [16] Write Level 0.20874  1.3% 2 0 0 MFlops 
+            [20] JRA::write_Level 0.16089  1.0% 2 0 0 MFlops 
+               [27] linearize_H5Dwrite 0.08538  0.5% 2 0 0 MFlops 
+                  [31] H5Dwrite 0.07675  0.5% 32 0 0 MFlops 
+                  [52] linearize 0.00425  0.0% 32 0 0 MFlops 
+               [37] WriteAttributes 0.02428  0.2% 2 0 0 MFlops 
+               [40] WriteOffsets 0.01549  0.1% 2 0 0 MFlops 
+               [41] H5S_H5D_offsets_create 0.01527  0.1% 2 0 0 MFlops 
+               [45] getOffsets 0.01211  0.1% 2 0 0 MFlops 
+                  [61] offsets.resize 0.00110  0.0% 2 0 0 MFlops 
+                  [66] offsets calc 0.00036  0.0% 32 0 0 MFlops 
+                  [67] dataSize 0.00030  0.0% 32 0 0 MFlops 
+               [55] H5Dcreate 0.00253  0.0% 2 0 0 MFlops 
+               [62] ComputeBufferCapacity 0.00097  0.0% 2 0 0 MFlops 
+               [65] mallocMT_buffers 0.00039  0.0% 2 0 0 MFlops 
+               [68] freeMT 0.00029  0.0% 2 0 0 MFlops 
+               [69] H5S_H5D_offsets_close 0.00019  0.0% 2 0 0 MFlops 
+               [70] H5Dclose 0.00019  0.0% 2 0 0 MFlops 
+               [71] H5Screate 0.00013  0.0% 2 0 0 MFlops 
+               [72] H5Sclose 0.00007  0.0% 2 0 0 MFlops 
+            [38] writeToFile 0.02221  0.1% 2 0 0 MFlops 
+            [57] setGroup 0.00166  0.0% 2 0 0 MFlops 
+            [73] calc minimum in outputGhost 0.00004  0.0% 2 0 0 MFlops 
+      [9] PicParticle::setNumberDensity() 0.65935  4.1% 2 0 0 MFlops 
+         [22] FORT_NGP_DEPOSIT 0.11818  0.7% 16384 0 0 MFlops 
+   [5] System::initialize() 1.11717  6.9% 1 0 0 MFlops 
+      [15] PicParticle::setNumberDensity() 0.29387  1.8% 1 0 0 MFlops 
+         [32] FORT_NGP_DEPOSIT 0.07319  0.5% 8192 0 0 MFlops 
+      [23] ParticleData::remapOutcast 0.11733  0.7% 1 0 0 MFlops 
+   [6] Write Level 0.85866  5.3% 1 0 0 MFlops 
+      [8] JRA::write_Level 0.76147  4.7% 1 0 0 MFlops 
+         [21] WriteAttributes 0.12967  0.8% 1 0 0 MFlops 
+         [24] linearize_H5Dwrite 0.11605  0.7% 1 0 0 MFlops 
+            [30] H5Dwrite 0.07682  0.5% 16 0 0 MFlops 
+            [39] linearize 0.01797  0.1% 16 0 0 MFlops 
+         [26] WriteOffsets 0.08725  0.5% 1 0 0 MFlops 
+         [28] getOffsets 0.07919  0.5% 1 0 0 MFlops 
+            [34] offsets.resize 0.05566  0.3% 1 0 0 MFlops 
+            [58] offsets calc 0.00145  0.0% 16 0 0 MFlops 
+            [59] dataSize 0.00133  0.0% 16 0 0 MFlops 
+         [29] H5Dcreate 0.07762  0.5% 1 0 0 MFlops 
+         [33] mallocMT_buffers 0.05787  0.4% 1 0 0 MFlops 
+         [35] freeMT 0.03521  0.2% 1 0 0 MFlops 
+         [44] ComputeBufferCapacity 0.01286  0.1% 1 0 0 MFlops 
+         [46] H5Screate 0.00969  0.1% 1 0 0 MFlops 
+         [47] H5Sclose 0.00912  0.1% 1 0 0 MFlops 
+         [49] H5S_H5D_offsets_close 0.00847  0.1% 1 0 0 MFlops 
+         [53] H5S_H5D_offsets_create 0.00292  0.0% 1 0 0 MFlops 
+         [63] H5Dclose 0.00066  0.0% 1 0 0 MFlops 
+      [50] writeToFile 0.00762  0.0% 1 0 0 MFlops 
+      [56] setGroup 0.00183  0.0% 1 0 0 MFlops 
+      [64] calc minimum in outputGhost 0.00057  0.0% 1 0 0 MFlops 
+   [7] System::getDisjointBoxLayout() 0.81202  5.0% 1 0 0 MFlops 
+      [13] DisjointBoxLayout::computeNeighbors 0.41100  2.5% 1 0 0 MFlops 
+      [25] LoadBalance:VectorBoxEntry 0.09190  0.6% 1 0 0 MFlops 
+         [36] LoadBalance:VectorBoxSimple 0.03357  0.2% 1 0 0 MFlops 
+   [10] Simulation::advance() 0.49835  3.1% 1 0 0 MFlops 
+      [11] System::advance() 0.47887  3.0% 1 0 0 MFlops 
+         [12] PicParticle::advancePositions() 0.46863  2.9% 1 0 0 MFlops 
+            [60] ParticleData::remapOutcast 0.00117  0.0% 1 0 0 MFlops 
+      [54] print_diagnostics 0.00269  0.0% 1 0 0 MFlops 
+   [14] System::createProblemDomain() 0.31547  2.0% 1 0 0 MFlops 
+   [17] System::createState() 0.19552  1.2% 1 0 0 MFlops 
+      [43] LevelData<T>::define(dbl,comps,ghost,factory) 0.01308  0.1% 3 0 0 MFlops 
+   [19] LevelData<T>::define(dbl,comps,ghost,factory) 0.16854  1.0% 2 0 0 MFlops 
+   [42] FORT_GET_FC_MAPPED_COORDS 0.01316  0.1% 32 0 0 MFlops 
+   [48] FORT_GET_CC_MAPPED_COORDS 0.00854  0.1% 16 0 0 MFlops 
+   [51] System::createMeshInterp() 0.00675  0.0% 1 0 0 MFlops 
+stack top 0x541d54, stack bottom 0x52ad7e, stack size =    0.090 MB 
+[54] print_diagnostics

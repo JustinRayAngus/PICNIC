@@ -1,0 +1,10 @@
+maximum step = 1
+maximum time = 0.5
+checkpoint interval = 100000000
+plot interval = 0
+plot time interval = 0.05
+hist step interval = 10
+
+Step 0
+Step 1 completed, simulation time is 1e-05, solver wall time is 0.19 seconds
+----

@@ -1,0 +1,2 @@
+valgrind -s --track-origins=yes --leak-check=full --show-leak-kinds=all ./myPIC2d.ex testing.in >> log.txt 
+

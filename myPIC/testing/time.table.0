@@ -1,0 +1,652 @@
+-----------
+Timer report 0 (145 timers)
+--------------
+---------------------------------------------------------
+[0]main 1.68152 1
+    43.4%    0.73003    10001 Simulation::advance() [1] f=0
+     4.1%    0.06836        1 System::writePlotFile() [8] f=0
+     0.2%    0.00369        1 Write Level [16] f=0
+     0.0%    0.00037        1 System::initialize() [37] f=0
+     0.0%    0.00023        1 System::createState() [38] f=0
+     0.0%    0.00017        1 System::createProblemDomain() [40] f=0
+     0.0%    0.00008        1 System::getDisjointBoxLayout() [45] f=0
+     0.0%    0.00002        2 LevelData<T>::define(dbl,comps,ghost,factory) [66] f=0
+     0.0%    0.00000        1 FORT_GET_CC_MAPPED_COORDS [101] f=0
+     0.0%    0.00000        2 FORT_GET_FC_MAPPED_COORDS [107] f=0
+     0.0%    0.00000        1 System::createMeshInterp() [108] f=0
+    47.8%                  Total 
+---------------------------------------------------------
+[1]Simulation::advance() 0.73003 10001
+    44.6%    0.32559    10001 System::advance() [2] f=0
+    17.9%    0.13103        2 System::writePlotFile() [5] f=0
+    16.8%    0.12291    10001 print_diagnostics [7] f=0
+    79.4%                  Total 
+---------------------------------------------------------
+[2]System::advance() 0.32559 10001
+    99.6%    0.32441    10001 PicParticle::advancePositions() [3] f=0
+    99.6%                  Total 
+---------------------------------------------------------
+[3]PicParticle::advancePositions() 0.32441 10001
+    51.4%    0.16680    10001 ParticleData::remapOutcast [4] f=0
+    51.4%                  Total 
+---------------------------------------------------------
+[4]ParticleData::remapOutcast 0.16680 10001
+---------------------------------------------------------
+[5]System::writePlotFile() 0.13103 2
+    99.9%    0.13093        2 dataFileIO::writeParticleDataFile() [6] f=0
+     0.1%    0.00010        2 PicParticle::setNumberDensity() [44] f=0
+    100.0%                  Total 
+---------------------------------------------------------
+[6]dataFileIO::writeParticleDataFile() 0.13093 2
+    39.7%    0.05196        2 writeParticlesToHDF [10] f=0
+     4.8%    0.00625        2 Write Level [12] f=0
+    44.5%                  Total 
+---------------------------------------------------------
+[7]print_diagnostics 0.12291 10001
+---------------------------------------------------------
+[8]System::writePlotFile() 0.06836 1
+    99.3%    0.06791        1 dataFileIO::writeParticleDataFile() [9] f=0
+     0.7%    0.00045        1 PicParticle::setNumberDensity() [31] f=0
+    100.0%                  Total 
+---------------------------------------------------------
+[9]dataFileIO::writeParticleDataFile() 0.06791 1
+    37.7%    0.02558        1 writeParticlesToHDF [11] f=0
+     5.1%    0.00348        1 Write Level [18] f=0
+    42.8%                  Total 
+---------------------------------------------------------
+[10]writeParticlesToHDF 0.05196 2
+     9.1%    0.00475        2 writeParticlesToHDF::checkpoint [14] f=0
+     9.1%                  Total 
+---------------------------------------------------------
+[11]writeParticlesToHDF 0.02558 1
+    10.3%    0.00263        1 writeParticlesToHDF::checkpoint [23] f=0
+    10.3%                  Total 
+---------------------------------------------------------
+[12]Write Level 0.00625 2
+    97.8%    0.00611        2 JRA::write_Level [13] f=0
+     0.6%    0.00004        2 writeToFile [58] f=0
+     0.2%    0.00001        2 setGroup [78] f=0
+     0.0%    0.00000        2 calc minimum in outputGhost [140] f=0
+    98.5%                  Total 
+---------------------------------------------------------
+[13]JRA::write_Level 0.00611 2
+    48.4%    0.00296        2 linearize_H5Dwrite [20] f=0
+    46.9%    0.00286        2 WriteOffsets [22] f=0
+     2.8%    0.00017        2 WriteAttributes [41] f=0
+     0.6%    0.00003        2 H5Dcreate [61] f=0
+     0.5%    0.00003        2 H5S_H5D_offsets_create [62] f=0
+     0.2%    0.00001        2 getOffsets [79] f=0
+     0.1%    0.00001        2 H5S_H5D_offsets_close [82] f=0
+     0.1%    0.00001        2 H5Dclose [86] f=0
+     0.1%    0.00000        2 mallocMT_buffers [97] f=0
+     0.0%    0.00000        2 freeMT [105] f=0
+     0.0%    0.00000        2 H5Screate [111] f=0
+     0.0%    0.00000        2 ComputeBufferCapacity [113] f=0
+     0.0%    0.00000        2 H5Sclose [115] f=0
+    99.7%                  Total 
+---------------------------------------------------------
+[14]writeParticlesToHDF::checkpoint 0.00475 2
+    96.4%    0.00457        2 writeDataChunk [15] f=0
+    96.4%                  Total 
+---------------------------------------------------------
+[15]writeDataChunk 0.00457 2
+---------------------------------------------------------
+[16]Write Level 0.00369 1
+    97.5%    0.00360        1 JRA::write_Level [17] f=0
+     0.8%    0.00003        1 writeToFile [65] f=0
+     0.1%    0.00001        1 setGroup [91] f=0
+     0.0%    0.00000        1 calc minimum in outputGhost [142] f=0
+    98.5%                  Total 
+---------------------------------------------------------
+[17]JRA::write_Level 0.00360 1
+    50.1%    0.00180        1 WriteOffsets [25] f=0
+    43.0%    0.00155        1 linearize_H5Dwrite [28] f=0
+     3.6%    0.00013        1 WriteAttributes [42] f=0
+     1.0%    0.00004        1 H5S_H5D_offsets_create [59] f=0
+     0.6%    0.00002        1 H5Dcreate [67] f=0
+     0.5%    0.00002        1 mallocMT_buffers [72] f=0
+     0.3%    0.00001        1 freeMT [77] f=0
+     0.2%    0.00001        1 getOffsets [81] f=0
+     0.1%    0.00000        1 H5S_H5D_offsets_close [94] f=0
+     0.1%    0.00000        1 H5Dclose [100] f=0
+     0.0%    0.00000        1 H5Screate [121] f=0
+     0.0%    0.00000        1 H5Sclose [123] f=0
+     0.0%    0.00000        1 ComputeBufferCapacity [126] f=0
+    99.6%                  Total 
+---------------------------------------------------------
+[18]Write Level 0.00348 1
+    97.8%    0.00341        1 JRA::write_Level [19] f=0
+     0.5%    0.00002        1 writeToFile [71] f=0
+     0.1%    0.00000        1 setGroup [92] f=0
+     0.0%    0.00000        1 calc minimum in outputGhost [143] f=0
+    98.5%                  Total 
+---------------------------------------------------------
+[19]JRA::write_Level 0.00341 1
+    51.0%    0.00174        1 linearize_H5Dwrite [26] f=0
+    44.5%    0.00152        1 WriteOffsets [30] f=0
+     2.4%    0.00008        1 WriteAttributes [46] f=0
+     0.7%    0.00002        1 H5S_H5D_offsets_create [69] f=0
+     0.6%    0.00002        1 H5Dcreate [70] f=0
+     0.1%    0.00000        1 getOffsets [93] f=0
+     0.1%    0.00000        1 H5S_H5D_offsets_close [95] f=0
+     0.1%    0.00000        1 H5Dclose [98] f=0
+     0.0%    0.00000        1 mallocMT_buffers [109] f=0
+     0.0%    0.00000        1 freeMT [119] f=0
+     0.0%    0.00000        1 H5Screate [122] f=0
+     0.0%    0.00000        1 H5Sclose [127] f=0
+     0.0%    0.00000        1 ComputeBufferCapacity [128] f=0
+    99.6%                  Total 
+---------------------------------------------------------
+[20]linearize_H5Dwrite 0.00296 2
+    99.7%    0.00295        2 H5Dwrite [21] f=0
+     0.0%    0.00000        2 linearize [120] f=0
+    99.7%                  Total 
+---------------------------------------------------------
+[21]H5Dwrite 0.00295 2
+---------------------------------------------------------
+[22]WriteOffsets 0.00286 2
+---------------------------------------------------------
+[23]writeParticlesToHDF::checkpoint 0.00263 1
+    96.6%    0.00254        1 writeDataChunk [24] f=0
+    96.6%                  Total 
+---------------------------------------------------------
+[24]writeDataChunk 0.00254 1
+---------------------------------------------------------
+[25]WriteOffsets 0.00180 1
+---------------------------------------------------------
+[26]linearize_H5Dwrite 0.00174 1
+    99.7%    0.00173        1 H5Dwrite [27] f=0
+     0.0%    0.00000        1 linearize [132] f=0
+    99.8%                  Total 
+---------------------------------------------------------
+[27]H5Dwrite 0.00173 1
+---------------------------------------------------------
+[28]linearize_H5Dwrite 0.00155 1
+    99.2%    0.00153        1 H5Dwrite [29] f=0
+     0.2%    0.00000        1 linearize [99] f=0
+    99.4%                  Total 
+---------------------------------------------------------
+[29]H5Dwrite 0.00153 1
+---------------------------------------------------------
+[30]WriteOffsets 0.00152 1
+---------------------------------------------------------
+[31]PicParticle::setNumberDensity() 0.00045 1
+    95.1%    0.00043        1 exchange+copier [32] f=0
+     2.6%    0.00001      512 FORT_NGP_DEPOSIT [75] f=0
+    97.7%                  Total 
+---------------------------------------------------------
+[32]exchange+copier 0.00043 1
+    100.0%    0.00043        1 actual_exchange [33] f=0
+    100.0%                  Total 
+---------------------------------------------------------
+[33]actual_exchange 0.00043 1
+    100.0%    0.00042        1 exchange [34] f=0
+    100.0%                  Total 
+---------------------------------------------------------
+[34]exchange 0.00042 1
+    96.0%    0.00041        1 unpack_messages [35] f=0
+     3.4%    0.00001        1 post_messages [73] f=0
+     0.3%    0.00000        1 completePendingSends [116] f=0
+     0.1%    0.00000        1 write Data to buffers [129] f=0
+     0.0%    0.00000        1 MPI_allocateBuffers [138] f=0
+     0.0%    0.00000        1 local copying [144] f=0
+    99.8%                  Total 
+---------------------------------------------------------
+[35]unpack_messages 0.00041 1
+    99.8%    0.00041        1 MPI_Waitall [36] f=0
+    99.8%                  Total 
+---------------------------------------------------------
+[36]MPI_Waitall 0.00041 1
+---------------------------------------------------------
+[37]System::initialize() 0.00037 1
+    50.5%    0.00019        1 PicParticle::setNumberDensity() [39] f=0
+    17.1%    0.00006        1 ParticleData::remapOutcast [48] f=0
+    67.6%                  Total 
+---------------------------------------------------------
+[38]System::createState() 0.00023 1
+     4.0%    0.00001        3 LevelData<T>::define(dbl,comps,ghost,factory) [80] f=0
+     4.0%                  Total 
+---------------------------------------------------------
+[39]PicParticle::setNumberDensity() 0.00019 1
+    59.6%    0.00011        1 exchange+copier [43] f=0
+    34.6%    0.00006      512 FORT_NGP_DEPOSIT [47] f=0
+    94.1%                  Total 
+---------------------------------------------------------
+[40]System::createProblemDomain() 0.00017 1
+---------------------------------------------------------
+[41]WriteAttributes 0.00017 2
+---------------------------------------------------------
+[42]WriteAttributes 0.00013 1
+---------------------------------------------------------
+[43]exchange+copier 0.00011 1
+    51.1%    0.00006        1 actual_exchange [49] f=0
+    48.4%    0.00005        1 defining_copier [54] f=0
+    99.5%                  Total 
+---------------------------------------------------------
+[44]PicParticle::setNumberDensity() 0.00010 2
+    56.2%    0.00006        2 exchange+copier [51] f=0
+    23.5%    0.00002     1024 FORT_NGP_DEPOSIT [68] f=0
+    79.7%                  Total 
+---------------------------------------------------------
+[45]System::getDisjointBoxLayout() 0.00008 1
+    36.1%    0.00003        1 DisjointBoxLayout::computeNeighbors [63] f=0
+    13.0%    0.00001        1 LoadBalance:VectorBoxEntry [76] f=0
+    49.1%                  Total 
+---------------------------------------------------------
+[46]WriteAttributes 0.00008 1
+---------------------------------------------------------
+[47]FORT_NGP_DEPOSIT 0.00006 512
+---------------------------------------------------------
+[48]ParticleData::remapOutcast 0.00006 1
+---------------------------------------------------------
+[49]actual_exchange 0.00006 1
+    99.8%    0.00006        1 exchange [50] f=0
+    99.8%                  Total 
+---------------------------------------------------------
+[50]exchange 0.00006 1
+    63.1%    0.00004        1 post_messages [60] f=0
+    12.9%    0.00001        1 MPI_allocateBuffers [83] f=0
+    12.8%    0.00001        1 completePendingSends [84] f=0
+     6.9%    0.00000        1 unpack_messages [96] f=0
+     1.2%    0.00000        1 write Data to buffers [125] f=0
+     0.1%    0.00000        1 local copying [141] f=0
+    97.1%                  Total 
+---------------------------------------------------------
+[51]exchange+copier 0.00006 2
+    99.4%    0.00006        2 actual_exchange [52] f=0
+    99.4%                  Total 
+---------------------------------------------------------
+[52]actual_exchange 0.00006 2
+    99.7%    0.00005        2 exchange [53] f=0
+    99.7%                  Total 
+---------------------------------------------------------
+[53]exchange 0.00005 2
+    76.3%    0.00004        2 post_messages [56] f=0
+    11.7%    0.00001        2 completePendingSends [88] f=0
+     5.4%    0.00000        2 unpack_messages [104] f=0
+     2.8%    0.00000        2 write Data to buffers [110] f=0
+     0.2%    0.00000        2 MPI_allocateBuffers [137] f=0
+     0.1%    0.00000        2 local copying [139] f=0
+    96.6%                  Total 
+---------------------------------------------------------
+[54]defining_copier 0.00005 1
+    93.3%    0.00005        1 Copier::define [55] f=0
+    93.3%                  Total 
+---------------------------------------------------------
+[55]Copier::define 0.00005 1
+---------------------------------------------------------
+[56]post_messages 0.00004 2
+    90.3%    0.00004        2 post_Sends [57] f=0
+     7.6%    0.00000        2 post_Receives [102] f=0
+    97.9%                  Total 
+---------------------------------------------------------
+[57]post_Sends 0.00004 2
+---------------------------------------------------------
+[58]writeToFile 0.00004 2
+---------------------------------------------------------
+[59]H5S_H5D_offsets_create 0.00004 1
+---------------------------------------------------------
+[60]post_messages 0.00004 1
+    81.5%    0.00003        1 post_Sends [64] f=0
+    16.9%    0.00001        1 post_Receives [90] f=0
+    98.4%                  Total 
+---------------------------------------------------------
+[61]H5Dcreate 0.00003 2
+---------------------------------------------------------
+[62]H5S_H5D_offsets_create 0.00003 2
+---------------------------------------------------------
+[63]DisjointBoxLayout::computeNeighbors 0.00003 1
+---------------------------------------------------------
+[64]post_Sends 0.00003 1
+---------------------------------------------------------
+[65]writeToFile 0.00003 1
+---------------------------------------------------------
+[66]LevelData<T>::define(dbl,comps,ghost,factory) 0.00002 2
+---------------------------------------------------------
+[67]H5Dcreate 0.00002 1
+---------------------------------------------------------
+[68]FORT_NGP_DEPOSIT 0.00002 1024
+---------------------------------------------------------
+[69]H5S_H5D_offsets_create 0.00002 1
+---------------------------------------------------------
+[70]H5Dcreate 0.00002 1
+---------------------------------------------------------
+[71]writeToFile 0.00002 1
+---------------------------------------------------------
+[72]mallocMT_buffers 0.00002 1
+---------------------------------------------------------
+[73]post_messages 0.00001 1
+    89.4%    0.00001        1 post_Sends [74] f=0
+     8.4%    0.00000        1 post_Receives [114] f=0
+    97.9%                  Total 
+---------------------------------------------------------
+[74]post_Sends 0.00001 1
+---------------------------------------------------------
+[75]FORT_NGP_DEPOSIT 0.00001 512
+---------------------------------------------------------
+[76]LoadBalance:VectorBoxEntry 0.00001 1
+    61.5%    0.00001        1 LoadBalance:VectorBoxSimple [87] f=0
+    61.5%                  Total 
+---------------------------------------------------------
+[77]freeMT 0.00001 1
+---------------------------------------------------------
+[78]setGroup 0.00001 2
+---------------------------------------------------------
+[79]getOffsets 0.00001 2
+    23.3%    0.00000        2 offsets.resize [106] f=0
+     5.2%    0.00000       32 dataSize [130] f=0
+     4.9%    0.00000       32 offsets calc [131] f=0
+    33.5%                  Total 
+---------------------------------------------------------
+[80]LevelData<T>::define(dbl,comps,ghost,factory) 0.00001 3
+---------------------------------------------------------
+[81]getOffsets 0.00001 1
+    37.9%    0.00000        1 offsets.resize [103] f=0
+     2.9%    0.00000       16 dataSize [134] f=0
+     2.7%    0.00000       16 offsets calc [135] f=0
+    43.5%                  Total 
+---------------------------------------------------------
+[82]H5S_H5D_offsets_close 0.00001 2
+---------------------------------------------------------
+[83]MPI_allocateBuffers 0.00001 1
+---------------------------------------------------------
+[84]completePendingSends 0.00001 1
+    97.8%    0.00001        1 MPI_Waitall [85] f=0
+    97.8%                  Total 
+---------------------------------------------------------
+[85]MPI_Waitall 0.00001 1
+---------------------------------------------------------
+[86]H5Dclose 0.00001 2
+---------------------------------------------------------
+[87]LoadBalance:VectorBoxSimple 0.00001 1
+---------------------------------------------------------
+[88]completePendingSends 0.00001 2
+    96.6%    0.00001        2 MPI_Waitall [89] f=0
+    96.6%                  Total 
+---------------------------------------------------------
+[89]MPI_Waitall 0.00001 2
+---------------------------------------------------------
+[90]post_Receives 0.00001 1
+---------------------------------------------------------
+[91]setGroup 0.00001 1
+---------------------------------------------------------
+[92]setGroup 0.00000 1
+---------------------------------------------------------
+[93]getOffsets 0.00000 1
+    21.2%    0.00000        1 offsets.resize [118] f=0
+     5.4%    0.00000       16 dataSize [133] f=0
+     4.7%    0.00000       16 offsets calc [136] f=0
+    31.3%                  Total 
+---------------------------------------------------------
+[94]H5S_H5D_offsets_close 0.00000 1
+---------------------------------------------------------
+[95]H5S_H5D_offsets_close 0.00000 1
+---------------------------------------------------------
+[96]unpack_messages 0.00000 1
+    17.2%    0.00000        1 MPI_Waitall [124] f=0
+    17.2%                  Total 
+---------------------------------------------------------
+[97]mallocMT_buffers 0.00000 2
+---------------------------------------------------------
+[98]H5Dclose 0.00000 1
+---------------------------------------------------------
+[99]linearize 0.00000 1
+---------------------------------------------------------
+[100]H5Dclose 0.00000 1
+---------------------------------------------------------
+[101]FORT_GET_CC_MAPPED_COORDS 0.00000 1
+---------------------------------------------------------
+[102]post_Receives 0.00000 2
+---------------------------------------------------------
+[103]offsets.resize 0.00000 1
+---------------------------------------------------------
+[104]unpack_messages 0.00000 2
+    43.0%    0.00000        2 MPI_Waitall [112] f=0
+    43.0%                  Total 
+---------------------------------------------------------
+[105]freeMT 0.00000 2
+---------------------------------------------------------
+[106]offsets.resize 0.00000 2
+---------------------------------------------------------
+[107]FORT_GET_FC_MAPPED_COORDS 0.00000 2
+---------------------------------------------------------
+[108]System::createMeshInterp() 0.00000 1
+---------------------------------------------------------
+[109]mallocMT_buffers 0.00000 1
+---------------------------------------------------------
+[110]write Data to buffers 0.00000 2
+---------------------------------------------------------
+[111]H5Screate 0.00000 2
+---------------------------------------------------------
+[112]MPI_Waitall 0.00000 2
+---------------------------------------------------------
+[113]ComputeBufferCapacity 0.00000 2
+---------------------------------------------------------
+[114]post_Receives 0.00000 1
+---------------------------------------------------------
+[115]H5Sclose 0.00000 2
+---------------------------------------------------------
+[116]completePendingSends 0.00000 1
+    92.9%    0.00000        1 MPI_Waitall [117] f=0
+    92.9%                  Total 
+---------------------------------------------------------
+[117]MPI_Waitall 0.00000 1
+---------------------------------------------------------
+[118]offsets.resize 0.00000 1
+---------------------------------------------------------
+[119]freeMT 0.00000 1
+---------------------------------------------------------
+[120]linearize 0.00000 2
+---------------------------------------------------------
+[121]H5Screate 0.00000 1
+---------------------------------------------------------
+[122]H5Screate 0.00000 1
+---------------------------------------------------------
+[123]H5Sclose 0.00000 1
+---------------------------------------------------------
+[124]MPI_Waitall 0.00000 1
+---------------------------------------------------------
+[125]write Data to buffers 0.00000 1
+---------------------------------------------------------
+[126]ComputeBufferCapacity 0.00000 1
+---------------------------------------------------------
+[127]H5Sclose 0.00000 1
+---------------------------------------------------------
+[128]ComputeBufferCapacity 0.00000 1
+---------------------------------------------------------
+[129]write Data to buffers 0.00000 1
+---------------------------------------------------------
+[130]dataSize 0.00000 32
+---------------------------------------------------------
+[131]offsets calc 0.00000 32
+---------------------------------------------------------
+[132]linearize 0.00000 1
+---------------------------------------------------------
+[133]dataSize 0.00000 16
+---------------------------------------------------------
+[134]dataSize 0.00000 16
+---------------------------------------------------------
+[135]offsets calc 0.00000 16
+---------------------------------------------------------
+[136]offsets calc 0.00000 16
+---------------------------------------------------------
+[137]MPI_allocateBuffers 0.00000 2
+---------------------------------------------------------
+[138]MPI_allocateBuffers 0.00000 1
+---------------------------------------------------------
+[139]local copying 0.00000 2
+---------------------------------------------------------
+[140]calc minimum in outputGhost 0.00000 2
+---------------------------------------------------------
+[141]local copying 0.00000 1
+---------------------------------------------------------
+[142]calc minimum in outputGhost 0.00000 1
+---------------------------------------------------------
+[143]calc minimum in outputGhost 0.00000 1
+---------------------------------------------------------
+[144]local copying 0.00000 1
+=======================================================
+    0.00      512  FORT_NGP_DEPOSIT [47]
+    0.00     1024  FORT_NGP_DEPOSIT [68]
+    0.00      512  FORT_NGP_DEPOSIT [75]
+    0.00        1  FORT_GET_CC_MAPPED_COORDS [101]
+    0.00        2  FORT_GET_FC_MAPPED_COORDS [107]
+     0.00010    0.0%    Total
+=======================================================
+    0.00        1  MPI_Waitall [36]
+    0.00        1  MPI_allocateBuffers [83]
+    0.00        1  MPI_Waitall [85]
+    0.00        2  MPI_Waitall [89]
+    0.00        2  MPI_Waitall [112]
+    0.00        1  MPI_Waitall [117]
+    0.00        1  MPI_Waitall [124]
+    0.00        2  MPI_allocateBuffers [137]
+    0.00        1  MPI_allocateBuffers [138]
+     0.00043    0.0%    Total
+[0] main 1.68152 100.0% 1 0 0 MFlops 
+   [1] Simulation::advance() 0.73003 43.4% 10001 0 0 MFlops 
+      [2] System::advance() 0.32559 19.4% 10001 0 0 MFlops 
+         [3] PicParticle::advancePositions() 0.32441 19.3% 10001 0 0 MFlops 
+            [4] ParticleData::remapOutcast 0.16680  9.9% 10001 0 0 MFlops 
+      [5] System::writePlotFile() 0.13103  7.8% 2 0 0 MFlops 
+         [6] dataFileIO::writeParticleDataFile() 0.13093  7.8% 2 0 0 MFlops 
+            [10] writeParticlesToHDF 0.05196  3.1% 2 0 0 MFlops 
+               [14] writeParticlesToHDF::checkpoint 0.00475  0.3% 2 0 0 MFlops 
+                  [15] writeDataChunk 0.00457  0.3% 2 0 0 MFlops 
+            [12] Write Level 0.00625  0.4% 2 0 0 MFlops 
+               [13] JRA::write_Level 0.00611  0.4% 2 0 0 MFlops 
+                  [20] linearize_H5Dwrite 0.00296  0.2% 2 0 0 MFlops 
+                     [21] H5Dwrite 0.00295  0.2% 2 0 0 MFlops 
+                     [120] linearize 0.00000  0.0% 2 0 0 MFlops 
+                  [22] WriteOffsets 0.00286  0.2% 2 0 0 MFlops 
+                  [41] WriteAttributes 0.00017  0.0% 2 0 0 MFlops 
+                  [61] H5Dcreate 0.00003  0.0% 2 0 0 MFlops 
+                  [62] H5S_H5D_offsets_create 0.00003  0.0% 2 0 0 MFlops 
+                  [79] getOffsets 0.00001  0.0% 2 0 0 MFlops 
+                     [106] offsets.resize 0.00000  0.0% 2 0 0 MFlops 
+                     [130] dataSize 0.00000  0.0% 32 0 0 MFlops 
+                     [131] offsets calc 0.00000  0.0% 32 0 0 MFlops 
+                  [82] H5S_H5D_offsets_close 0.00001  0.0% 2 0 0 MFlops 
+                  [86] H5Dclose 0.00001  0.0% 2 0 0 MFlops 
+                  [97] mallocMT_buffers 0.00000  0.0% 2 0 0 MFlops 
+                  [105] freeMT 0.00000  0.0% 2 0 0 MFlops 
+                  [111] H5Screate 0.00000  0.0% 2 0 0 MFlops 
+                  [113] ComputeBufferCapacity 0.00000  0.0% 2 0 0 MFlops 
+                  [115] H5Sclose 0.00000  0.0% 2 0 0 MFlops 
+               [58] writeToFile 0.00004  0.0% 2 0 0 MFlops 
+               [78] setGroup 0.00001  0.0% 2 0 0 MFlops 
+               [140] calc minimum in outputGhost 0.00000  0.0% 2 0 0 MFlops 
+         [44] PicParticle::setNumberDensity() 0.00010  0.0% 2 0 0 MFlops 
+            [51] exchange+copier 0.00006  0.0% 2 0 0 MFlops 
+               [52] actual_exchange 0.00006  0.0% 2 0 0 MFlops 
+                  [53] exchange 0.00005  0.0% 2 0 0 MFlops 
+                     [56] post_messages 0.00004  0.0% 2 0 0 MFlops 
+                        [57] post_Sends 0.00004  0.0% 2 0 0 MFlops 
+                        [102] post_Receives 0.00000  0.0% 2 0 0 MFlops 
+                     [88] completePendingSends 0.00001  0.0% 2 0 0 MFlops 
+                        [89] MPI_Waitall 0.00001  0.0% 2 0 0 MFlops 
+                     [104] unpack_messages 0.00000  0.0% 2 0 0 MFlops 
+                        [112] MPI_Waitall 0.00000  0.0% 2 0 0 MFlops 
+                     [110] write Data to buffers 0.00000  0.0% 2 0 0 MFlops 
+                     [137] MPI_allocateBuffers 0.00000  0.0% 2 0 0 MFlops 
+                     [139] local copying 0.00000  0.0% 2 0 0 MFlops 
+            [68] FORT_NGP_DEPOSIT 0.00002  0.0% 1024 0 0 MFlops 
+      [7] print_diagnostics 0.12291  7.3% 10001 0 0 MFlops 
+   [8] System::writePlotFile() 0.06836  4.1% 1 0 0 MFlops 
+      [9] dataFileIO::writeParticleDataFile() 0.06791  4.0% 1 0 0 MFlops 
+         [11] writeParticlesToHDF 0.02558  1.5% 1 0 0 MFlops 
+            [23] writeParticlesToHDF::checkpoint 0.00263  0.2% 1 0 0 MFlops 
+               [24] writeDataChunk 0.00254  0.2% 1 0 0 MFlops 
+         [18] Write Level 0.00348  0.2% 1 0 0 MFlops 
+            [19] JRA::write_Level 0.00341  0.2% 1 0 0 MFlops 
+               [26] linearize_H5Dwrite 0.00174  0.1% 1 0 0 MFlops 
+                  [27] H5Dwrite 0.00173  0.1% 1 0 0 MFlops 
+                  [132] linearize 0.00000  0.0% 1 0 0 MFlops 
+               [30] WriteOffsets 0.00152  0.1% 1 0 0 MFlops 
+               [46] WriteAttributes 0.00008  0.0% 1 0 0 MFlops 
+               [69] H5S_H5D_offsets_create 0.00002  0.0% 1 0 0 MFlops 
+               [70] H5Dcreate 0.00002  0.0% 1 0 0 MFlops 
+               [93] getOffsets 0.00000  0.0% 1 0 0 MFlops 
+                  [118] offsets.resize 0.00000  0.0% 1 0 0 MFlops 
+                  [133] dataSize 0.00000  0.0% 16 0 0 MFlops 
+                  [136] offsets calc 0.00000  0.0% 16 0 0 MFlops 
+               [95] H5S_H5D_offsets_close 0.00000  0.0% 1 0 0 MFlops 
+               [98] H5Dclose 0.00000  0.0% 1 0 0 MFlops 
+               [109] mallocMT_buffers 0.00000  0.0% 1 0 0 MFlops 
+               [119] freeMT 0.00000  0.0% 1 0 0 MFlops 
+               [122] H5Screate 0.00000  0.0% 1 0 0 MFlops 
+               [127] H5Sclose 0.00000  0.0% 1 0 0 MFlops 
+               [128] ComputeBufferCapacity 0.00000  0.0% 1 0 0 MFlops 
+            [71] writeToFile 0.00002  0.0% 1 0 0 MFlops 
+            [92] setGroup 0.00000  0.0% 1 0 0 MFlops 
+            [143] calc minimum in outputGhost 0.00000  0.0% 1 0 0 MFlops 
+      [31] PicParticle::setNumberDensity() 0.00045  0.0% 1 0 0 MFlops 
+         [32] exchange+copier 0.00043  0.0% 1 0 0 MFlops 
+            [33] actual_exchange 0.00043  0.0% 1 0 0 MFlops 
+               [34] exchange 0.00042  0.0% 1 0 0 MFlops 
+                  [35] unpack_messages 0.00041  0.0% 1 0 0 MFlops 
+                     [36] MPI_Waitall 0.00041  0.0% 1 0 0 MFlops 
+                  [73] post_messages 0.00001  0.0% 1 0 0 MFlops 
+                     [74] post_Sends 0.00001  0.0% 1 0 0 MFlops 
+                     [114] post_Receives 0.00000  0.0% 1 0 0 MFlops 
+                  [116] completePendingSends 0.00000  0.0% 1 0 0 MFlops 
+                     [117] MPI_Waitall 0.00000  0.0% 1 0 0 MFlops 
+                  [129] write Data to buffers 0.00000  0.0% 1 0 0 MFlops 
+                  [138] MPI_allocateBuffers 0.00000  0.0% 1 0 0 MFlops 
+                  [144] local copying 0.00000  0.0% 1 0 0 MFlops 
+         [75] FORT_NGP_DEPOSIT 0.00001  0.0% 512 0 0 MFlops 
+   [16] Write Level 0.00369  0.2% 1 0 0 MFlops 
+      [17] JRA::write_Level 0.00360  0.2% 1 0 0 MFlops 
+         [25] WriteOffsets 0.00180  0.1% 1 0 0 MFlops 
+         [28] linearize_H5Dwrite 0.00155  0.1% 1 0 0 MFlops 
+            [29] H5Dwrite 0.00153  0.1% 1 0 0 MFlops 
+            [99] linearize 0.00000  0.0% 1 0 0 MFlops 
+         [42] WriteAttributes 0.00013  0.0% 1 0 0 MFlops 
+         [59] H5S_H5D_offsets_create 0.00004  0.0% 1 0 0 MFlops 
+         [67] H5Dcreate 0.00002  0.0% 1 0 0 MFlops 
+         [72] mallocMT_buffers 0.00002  0.0% 1 0 0 MFlops 
+         [77] freeMT 0.00001  0.0% 1 0 0 MFlops 
+         [81] getOffsets 0.00001  0.0% 1 0 0 MFlops 
+            [103] offsets.resize 0.00000  0.0% 1 0 0 MFlops 
+            [134] dataSize 0.00000  0.0% 16 0 0 MFlops 
+            [135] offsets calc 0.00000  0.0% 16 0 0 MFlops 
+         [94] H5S_H5D_offsets_close 0.00000  0.0% 1 0 0 MFlops 
+         [100] H5Dclose 0.00000  0.0% 1 0 0 MFlops 
+         [121] H5Screate 0.00000  0.0% 1 0 0 MFlops 
+         [123] H5Sclose 0.00000  0.0% 1 0 0 MFlops 
+         [126] ComputeBufferCapacity 0.00000  0.0% 1 0 0 MFlops 
+      [65] writeToFile 0.00003  0.0% 1 0 0 MFlops 
+      [91] setGroup 0.00001  0.0% 1 0 0 MFlops 
+      [142] calc minimum in outputGhost 0.00000  0.0% 1 0 0 MFlops 
+   [37] System::initialize() 0.00037  0.0% 1 0 0 MFlops 
+      [39] PicParticle::setNumberDensity() 0.00019  0.0% 1 0 0 MFlops 
+         [43] exchange+copier 0.00011  0.0% 1 0 0 MFlops 
+            [49] actual_exchange 0.00006  0.0% 1 0 0 MFlops 
+               [50] exchange 0.00006  0.0% 1 0 0 MFlops 
+                  [60] post_messages 0.00004  0.0% 1 0 0 MFlops 
+                     [64] post_Sends 0.00003  0.0% 1 0 0 MFlops 
+                     [90] post_Receives 0.00001  0.0% 1 0 0 MFlops 
+                  [83] MPI_allocateBuffers 0.00001  0.0% 1 0 0 MFlops 
+                  [84] completePendingSends 0.00001  0.0% 1 0 0 MFlops 
+                     [85] MPI_Waitall 0.00001  0.0% 1 0 0 MFlops 
+                  [96] unpack_messages 0.00000  0.0% 1 0 0 MFlops 
+                     [124] MPI_Waitall 0.00000  0.0% 1 0 0 MFlops 
+                  [125] write Data to buffers 0.00000  0.0% 1 0 0 MFlops 
+                  [141] local copying 0.00000  0.0% 1 0 0 MFlops 
+            [54] defining_copier 0.00005  0.0% 1 0 0 MFlops 
+               [55] Copier::define 0.00005  0.0% 1 0 0 MFlops 
+         [47] FORT_NGP_DEPOSIT 0.00006  0.0% 512 0 0 MFlops 
+      [48] ParticleData::remapOutcast 0.00006  0.0% 1 0 0 MFlops 
+   [38] System::createState() 0.00023  0.0% 1 0 0 MFlops 
+      [80] LevelData<T>::define(dbl,comps,ghost,factory) 0.00001  0.0% 3 0 0 MFlops 
+   [40] System::createProblemDomain() 0.00017  0.0% 1 0 0 MFlops 
+   [45] System::getDisjointBoxLayout() 0.00008  0.0% 1 0 0 MFlops 
+      [63] DisjointBoxLayout::computeNeighbors 0.00003  0.0% 1 0 0 MFlops 
+      [76] LoadBalance:VectorBoxEntry 0.00001  0.0% 1 0 0 MFlops 
+         [87] LoadBalance:VectorBoxSimple 0.00001  0.0% 1 0 0 MFlops 
+   [66] LevelData<T>::define(dbl,comps,ghost,factory) 0.00002  0.0% 2 0 0 MFlops 
+   [101] FORT_GET_CC_MAPPED_COORDS 0.00000  0.0% 1 0 0 MFlops 
+   [107] FORT_GET_FC_MAPPED_COORDS 0.00000  0.0% 2 0 0 MFlops 
+   [108] System::createMeshInterp() 0.00000  0.0% 1 0 0 MFlops 
+stack top 0x5164ab, stack bottom 0x513092, stack size =    0.013 MB 
+[7] print_diagnostics

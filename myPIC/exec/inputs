@@ -1,0 +1,18 @@
+cfl = 1.0
+verbosity = 3
+max_step = 100000
+max_time = 0.1
+plot_interval = 1
+plot_prefix  = plt
+chk_prefix = chk
+
+# perturbation wavenumber in terms of the fundamental mode
+wavenums = 1 0 0
+
+# interpolation type for poisson solve
+poissonInterpType = 2
+
+# cell mass threshold for grid refinement, set to threshFac times the 
+# average cell mass on the base level, which is (domain_length / n_cell)**DIM
+# since the mean density is 1.0.
+threshFac = 1.5

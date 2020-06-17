@@ -1,0 +1,2 @@
+srun -p pdebug -n 2 valgrind -s --track-origins=yes ./myPIC2d.ex 
+

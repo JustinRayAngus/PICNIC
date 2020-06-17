@@ -1,0 +1,96 @@
+c  ----------------------------------------------------------------------------
+
+      subroutine get_nc_mapped_coords(
+     &     CHF_BOX[box],
+     &     CHF_CONST_REALVECT[dx],
+     &     CHF_FRA[xi]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k]
+
+      CHF_MULTIDO[box;i;j;k]
+        CHF_DTERM[xi(CHF_IX[i;j;k],0) = i*dx(0);
+                  xi(CHF_IX[i;j;k],1) = j*dx(1);
+                  xi(CHF_IX[i;j;k],2) = k*dx(2);]
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+
+      subroutine get_cc_mapped_coords(
+     &     CHF_BOX[box],
+     &     CHF_CONST_REALVECT[dx],
+     &     CHF_FRA[xi]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k]
+
+      CHF_MULTIDO[box;i;j;k]
+        CHF_DTERM[xi(CHF_IX[i;j;k],0) = (i + half)*dx(0);
+                  xi(CHF_IX[i;j;k],1) = (j + half)*dx(1);
+                  xi(CHF_IX[i;j;k],2) = (k + half)*dx(2)]
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+
+      subroutine get_fc_mapped_coords(
+     &     CHF_BOX[box],
+     &     CHF_CONST_INT[dir],
+     &     CHF_CONST_REALVECT[dx],
+     &     CHF_FRA[xi]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k]
+      double precision offset(0:CH_SPACEDIM-1)
+
+      CHF_DTERM[offset(0) = half;
+                offset(1) = half;
+                offset(2) = half]
+      offset(dir) = zero
+
+      CHF_MULTIDO[box;i;j;k]
+        CHF_DTERM[xi(CHF_IX[i;j;k],0) = (i + offset(0))*dx(0);
+                  xi(CHF_IX[i;j;k],1) = (j + offset(1))*dx(1);
+                  xi(CHF_IX[i;j;k],2) = (k + offset(2))*dx(2)]
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+      
+      subroutine get_ec_mapped_coords(
+     &     CHF_BOX[box],
+     &     CHF_CONST_INT[dir],
+     &     CHF_CONST_REALVECT[dx],
+     &     CHF_FRA[xi]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k]
+      double precision offset(0:CH_SPACEDIM-1)
+
+      CHF_DTERM[offset(0) = zero;
+                offset(1) = zero;
+                offset(2) = zero]
+      offset(dir) = half
+
+      CHF_MULTIDO[box;i;j;k]
+        CHF_DTERM[xi(CHF_IX[i;j;k],0) = (i + offset(0))*dx(0);
+                  xi(CHF_IX[i;j;k],1) = (j + offset(1))*dx(1);
+                  xi(CHF_IX[i;j;k],2) = (k + offset(2))*dx(2)]
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+

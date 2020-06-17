@@ -1,0 +1,109 @@
+#ifndef  _SYSTEM_H_
+#define  _SYSTEM_H_
+
+//#include "TimeIntegratorLibrary.H"
+//#include "GKOps.H"
+//#include "evalOpMatrix.H"
+
+#include <string>
+#include <vector>
+#include <time.h>
+
+#include "ParmParse.H"
+#include "CH_HDF5.H"
+
+#include "PicSpecies.H"
+#include "dataFileIO.H"
+
+#include "ProblemDomain.H"
+#include "DisjointBoxLayout.H"
+#include "DomainGrid.H"
+
+#include "MeshInterp.H"
+
+#ifdef CH_USE_TIMER
+#include "CH_Timer.H"
+#endif
+
+#include "NamespaceHeader.H"
+
+/**
+ * Gyrokinetic System class.
+ *
+ * A concrete implementation of the ODEInterface<Vector<SpeciesModel>>
+ * interface, this class owns the simulation data and the Vlasov and Poisson
+ * operator classes and orchestrates the time advancement.
+ *
+ * \verbatim
+ * gksystem.verbosity   = 1
+ * gksystem.hdf_density = true
+ * gkysytem.hdf_vpartheta = false
+ * gkysytem.hdf_frtheta = true
+ * gksystem.fixed_plot_indices = 3 1 0 2 2
+ *
+ */
+
+class System 
+{
+   public:
+
+      System( ParmParse&  pp );
+      virtual ~System();
+
+      virtual void initialize( const int cur_step, const double cur_time );
+      
+      void writePlotFile(const int cur_step, const double cur_time);
+      
+      void writeHistFile(const int cur_step, const double cur_time, const bool startup_flag);
+
+      Real stableDt( const int a_step_number );
+
+      void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+      
+   private:
+
+      void parseParameters( ParmParse& ppsys );
+      
+      void createProblemDomain();
+      
+      void getDisjointBoxLayout( DisjointBoxLayout& grids );
+      
+      void setupHistFile();
+      
+      void createMeshInterp();
+
+      void createState( ParmParse& ppsys );
+   
+      void createPICspecies();
+      
+      //void createPICspecies( PICspeciesPtrVect& pic_species );
+
+
+      //GKState m_state_comp;
+      //GKState m_state_phys;
+      //GKRHSData m_rhs;   // needed for the PETSc option
+      //GKVector m_serialized_vector;
+
+      DomainGrid* m_mesh;
+      dataFileIO* m_dataFile;
+      MeshInterp* m_meshInterp;
+      PicSpecies* m_picSpecies;
+      //RefCountedPtr<PicSpecies> m_picSpecies;
+      
+      bool m_verbosity;
+
+      // problem domain 
+      //
+      ProblemDomain     m_domain;
+      std::string       m_geom_type; 
+      int               m_num_ghosts;
+      std::vector<int>  m_num_cells;
+      std::vector<bool> m_is_periodic;
+      std::vector<int>  m_config_decomp;
+
+
+};
+
+#include "NamespaceFooter.H"
+
+#endif
