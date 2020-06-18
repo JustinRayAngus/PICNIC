@@ -50,6 +50,12 @@ public:
 
   // retrieve const. reference mass field
   const Real& mass() const;
+  
+  // wrapper to call mass to be consistent with changes to deposit function
+  Real& weight();
+
+  // wrapper to call mass to be consistent with changes to deposit function
+  const Real& weight() const;
 
   /// set velocity field
   void setVelocity(const RealVect& a_velocity);

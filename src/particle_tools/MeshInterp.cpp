@@ -40,16 +40,9 @@ void MeshInterp::depositParticle(FArrayBox& a_rho,
                                  const InterpType a_interpType) const // JRA const
 
 {
-      //if(!procID()) cout << " a_mass = " << a_mass << endl;
-      //if(!procID()) cout << " a_dx[0] = " << a_dx[0] << endl;
-      //if(!procID()) cout << " a_dx[1] = " << a_dx[1] << endl;
-      //if(!procID()) cout << " a_domLE[0] = " << a_domainLeftEdge[0] << endl;
-      //if(!procID()) cout << " a_domLE[1] = " << a_domainLeftEdge[1] << endl;
-      //if(!procID()) cout << " a_interpType = " << (int)a_interpType << endl;
   switch (a_interpType)
     {
     case NGP:
-      //if(!procID()) cout << " NGP: a_interpType = " << (int)a_interpType << endl;
       FORT_NGP_DEPOSIT(CHF_FRA1(a_rho, 0),
                        CHF_CONST_REALVECT(a_domainLeftEdge),
                        CHF_CONST_REALVECT(a_dx),
@@ -57,7 +50,6 @@ void MeshInterp::depositParticle(FArrayBox& a_rho,
                        CHF_CONST_REAL(a_mass));
       break;
     case CIC:
-      //if(!procID()) cout << " CIC: a_interpType = " << (int)a_interpType << endl;
       FORT_CIC_DEPOSIT(CHF_FRA1(a_rho, 0),
                        CHF_CONST_REALVECT(a_domainLeftEdge),
                        CHF_CONST_REALVECT(a_dx),
@@ -65,7 +57,6 @@ void MeshInterp::depositParticle(FArrayBox& a_rho,
                        CHF_CONST_REAL(a_mass));
       break;
     case TSC:
-      //if(!procID()) cout << " TSC: a_interpType = " << (int)a_interpType << endl;
       FORT_TSC_DEPOSIT(CHF_FRA1(a_rho, 0),
                        CHF_CONST_REALVECT(a_domainLeftEdge),
                        CHF_CONST_REALVECT(a_dx),
@@ -73,7 +64,6 @@ void MeshInterp::depositParticle(FArrayBox& a_rho,
                        CHF_CONST_REAL(a_mass));
       break;
     case W4:
-      //if(!procID()) cout << " W4: a_interpType = " << (int)a_interpType << endl;
       FORT_W4_DEPOSIT(CHF_FRA1(a_rho, 0),
                       CHF_CONST_REALVECT(a_domainLeftEdge),
                       CHF_CONST_REALVECT(a_dx),

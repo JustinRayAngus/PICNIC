@@ -17,6 +17,7 @@
 
 #include "ParticleData.H"
 #include "Particle.H"
+#include "JustinsParticle.H"
 #include "ListBox.H"
 #include "ListBoxFactory.H"
 #include "MeshInterp.H"
@@ -51,9 +52,11 @@ public:
   
   virtual bool isSpecies( const string& name ) const;
 
-  virtual ParticleData<Particle>& partData() {return m_data;}
+  //virtual ParticleData<Particle>& partData() {return m_data;}
+  virtual ParticleData<JustinsParticle>& partData() {return m_data;}
   
-  virtual const ParticleData<Particle>& partData() const {return m_data;}
+  //virtual const ParticleData<Particle>& partData() const {return m_data;}
+  virtual const ParticleData<JustinsParticle>& partData() const {return m_data;}
   
   // ways to get/set number density member
   //
@@ -91,7 +94,8 @@ private:
   
   //MeshInterp* m_meshInterp;
   
-  ParticleData<Particle> m_data; // container for storing list of particle data
+  //ParticleData<Particle> m_data; // container for storing list of particle data
+  ParticleData<JustinsParticle> m_data; // container for storing list of particle data
 
   mutable LevelData<FArrayBox> m_density;     // density moment at cell center
   LevelData<FArrayBox> m_velocity;    // mean velocity at cell center

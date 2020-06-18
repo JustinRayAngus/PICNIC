@@ -22,7 +22,11 @@ void MeshInterp::deposit(const List<P>& a_particleList,
   {
     const P& this_particle = lit();
     const RealVect& this_x = this_particle.position();
-    const Real& this_m = this_particle.mass();
+    //const Real& this_m = this_particle.mass();
+    const Real& this_m = this_particle.weight(); // JRA
+    //const Real& this_pos_virt = this_particle.pos_virt();
+    //if(!procID()) cout << "this_pos_virt = " << this_pos_virt << endl;
+    //if(!procID()) cout << "this_pos_virt = " << this_particle.pos_virt() << endl;
     depositParticle(a_rho, 
                     m_domainLeftEdge, 
                     m_dx, 

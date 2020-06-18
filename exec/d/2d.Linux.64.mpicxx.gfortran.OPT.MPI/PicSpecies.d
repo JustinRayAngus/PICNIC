@@ -16,6 +16,7 @@ o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran
 o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.d : ../src/state_variables/species/pic/PicSpecies.H
 o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.d : ../../Chombo_3.2/lib/src/BoxTools/DataIterator.H
 o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.d : ../../Chombo_3.2/lib/src/BoxTools/SPACE.H
+o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.d : ../src/particle_tools/JustinsParticle.H
 o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.d : ../../Chombo_3.2/lib/src/BoxTools/BoxLayoutData.H
 o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.d : ../../Chombo_3.2/lib/src/BoxTools/FArrayBox.H
 o/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.o d/2d.Linux.64.mpicxx.gfortran.OPT.MPI/PicSpecies.d : ../../Chombo_3.2/lib/src/BaseTools/GenericArithmetic.H

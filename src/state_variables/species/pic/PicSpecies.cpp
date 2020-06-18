@@ -35,13 +35,6 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       cout << "name = " << m_name << endl;
       cout << "mass = " << m_mass << endl;
       cout << "charge = " << m_charge << endl;
-      cout << "erfinv(-0.99) = " << MathUtils::errorinv(-0.99) << endl;
-      cout << "erfinv(-0.9) = " << MathUtils::errorinv(-0.9) << endl;
-      cout << "erfinv(-0.1) = " << MathUtils::errorinv(-0.1) << endl;
-      cout << "erfinv(0.0) = " << MathUtils::errorinv(0.0) << endl;
-      cout << "erfinv(0.1) = " << MathUtils::errorinv(0.1) << endl;
-      cout << "erfinv(0.9) = " << MathUtils::errorinv(0.9) << endl;
-      cout << "erfinv(0.99) = " << MathUtils::errorinv(0.99) << endl;
    }
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -49,6 +42,8 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    const RealVect& meshSpacing(m_mesh.getdX());
    const RealVect& meshOrigin(m_mesh.getXmin());
    const int ghosts(m_mesh.ghosts());
+   //RealVect particleOrigin = RealVect(D_DECL(0.0,0.0,0.0));
+   //if(!procID()) cout << "particleOrigin = " << particleOrigin << endl; 
 
    // set initial piston position
    //
@@ -122,9 +117,11 @@ void PicSpecies::advancePositions( const Real& a_dt )
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
 
-      //ListBox<Particle>& box_list = m_data[dit];
-      List<Particle>& pList = m_data[dit].listItems();
-      ListIterator<Particle> li(pList);
+      // //ListBox<Particle>& box_list = m_data[dit];
+      // List<Particle>& pList = m_data[dit].listItems();
+      // ListIterator<Particle> li(pList);
+      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
          RealVect&  x = li().position();
@@ -212,13 +209,15 @@ void PicSpecies::initialize()
       partsPerCell[dir] = partsPerCellstd[dir];
       CH_assert( partsPerCell[dir]>0 );
    }
-   Real density, temperature;
+   Real density, meanVelocity, temperature;
    ppspcIC.query( "density", density );
+   ppspcIC.query( "meanVelocity", meanVelocity );
    ppspcIC.query( "temperature", temperature );
 
    if(!procID()) {
       cout << "PicSpecies::inititialize() Setting initial conditions for species " << endl;
       cout << "density = " << density << endl;
+      cout << "meanVelocity = " << meanVelocity << endl;
       cout << "temperature = " << temperature << endl;
       cout << "particles per cell = " << partsPerCell[0] << endl;
    }
@@ -261,7 +260,8 @@ void PicSpecies::initialize()
 
    for (dit.begin(); dit.ok(); ++dit) {
 
-      CH_XD::List<Particle> thisList;
+      //CH_XD::List<Particle> thisList;
+      CH_XD::List<JustinsParticle> thisList;
 
       // refine the box so we can iterate over cell centers
       // and get the right number of particles per cell
@@ -302,11 +302,22 @@ void PicSpecies::initialize()
              }
 
           }
+
+          /////////////////////////////////////////////////////
+
+          // initialize particle velocities by randomly sampling 
+          // a maxwellian
+          //
+          double rand = MathUtils::rand();
+          Vpart[1] = MathUtils::errorinv(2.0*rand-1.0);
           
+          /////////////////////////////////////////////////////
+
           // create this particle and append to list
-          Particle particle(pWeight, Xpart, Vpart);
+          //Particle particle(pWeight, Xpart, Vpart);
+          JustinsParticle particle(pWeight, Xpart, Vpart);
           thisList.append(particle);
-          
+          //if(!procID()) cout << "pos_virt = " << particle.pos_virt() << endl; 
       }
 
       // finally, add particles destructively to this ListBox. Those that are
@@ -344,7 +355,8 @@ void PicSpecies::setNumberDensity()
 
       FArrayBox& box_rho = m_density[dit];
       box_rho.setVal(0.0);
-      const ListBox<Particle>& box_list = m_data[dit];
+      //const ListBox<Particle>& box_list = m_data[dit];
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
       //const List<Particle>& pList = m_data[dit].listItems();
       
       int interpFlag = 0;

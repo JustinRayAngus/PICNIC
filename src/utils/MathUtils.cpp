@@ -2,6 +2,7 @@
 //#include "MathUtilsF_F.H"
 
 #include <cmath>
+#include <cstdlib>
 
 #include "NamespaceHeader.H"
       
@@ -50,5 +51,18 @@ double MathUtils::errorinv( const double&  a_x )
    return soln;
 
 }
+
+double MathUtils::rand()
+{
+   
+   std::random_device rd;
+   std::mt19937 gen(rd());
+   std::uniform_real_distribution<> dis(0,1);
+   double randNum = dis(gen);
+
+   return randNum;
+
+}
+
 
 

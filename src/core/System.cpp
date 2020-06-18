@@ -419,7 +419,8 @@ void System::writePlotFile( const int     a_cur_step,
    // eventually will loop over species/vars here
    //
    //ParticleData<Particle>& Ptest = m_picSpecies->partData(); //ref, so can change
-   const ParticleData<Particle>& Pdata = m_picSpecies->partData(); // const ref, so can't change
+   //const ParticleData<Particle>& Pdata = m_picSpecies->partData(); // const ref, so can't change
+   const ParticleData<JustinsParticle>& Pdata = m_picSpecies->partData(); // const ref, so can't change
    //m_picSpecies->setNumberDensity(); 
    const bool setDensity = true;
    const LevelData<FArrayBox>& density = m_picSpecies->getNumberDensity(setDensity);

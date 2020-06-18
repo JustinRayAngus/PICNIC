@@ -191,7 +191,8 @@ std::string plotFileName( const std::string& a_prefix,
 }
 
 
-void dataFileIO::writeParticleDataFile( const ParticleData<Particle>&  a_Pdata,
+//void dataFileIO::writeParticleDataFile( const ParticleData<Particle>&  a_Pdata,
+void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_Pdata,
                                         const LevelData<FArrayBox>&    a_density, 
                                         const int                      a_cur_step,
                                         const double                   a_cur_time )
@@ -252,7 +253,6 @@ void dataFileIO::writeParticleDataFile( const ParticleData<Particle>&  a_Pdata,
    // now write header for particles
    //
    vectNames.clear();
-   int numComps = 1 + 3*SpaceDim;
    for (int dir=0; dir<SpaceDim; dir++) {
       sprintf(field_name, "particle_position_%c", coords[dir]);
       vectNames.push_back(field_name);
@@ -266,7 +266,10 @@ void dataFileIO::writeParticleDataFile( const ParticleData<Particle>&  a_Pdata,
       vectNames.push_back(field_name);
    }
    vectNames.push_back("particle_weight");
+   vectNames.push_back("pos_virt");
 
+   //int numComps = 2 + 3*SpaceDim;
+   int numComps = vectNames.size();
    for (int i=0; i<numComps; ++i) {
       sprintf(comp_name, "particle_component_%d", i);
       headerParts.m_string[comp_name] = vectNames[i];

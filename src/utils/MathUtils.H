@@ -21,7 +21,8 @@ namespace MathUtils {
    double errorfun( const double&  a_x );
    
    double errorinv( const double&  a_x );
-  
+
+   double rand();
 
 }
 

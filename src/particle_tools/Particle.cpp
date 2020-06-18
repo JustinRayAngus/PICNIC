@@ -55,6 +55,16 @@ Real& Particle::mass()
   return m_mass;
 }
 
+const Real& Particle::weight() const
+{
+  return m_mass;
+}
+
+Real& Particle::weight()
+{
+  return m_mass;
+}
+
 // velocity functions
 void Particle::setVelocity(const RealVect& a_velocity)
 {
