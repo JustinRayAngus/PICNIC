@@ -34,9 +34,10 @@ class dataFileIO
                   const DomainGrid&  mesh );
       ~dataFileIO() {;}
       
-      //void writeParticleDataFile( const ParticleData<Particle>&  a_Pdata,
       void writeParticleDataFile( const ParticleData<JustinsParticle>&  a_Pdata,
                                   const LevelData<FArrayBox>&    a_density, 
+                                  const LevelData<FArrayBox>&    a_momentum, 
+                                  const LevelData<FArrayBox>&    a_energy, 
                                   const int                      a_cur_step, 
                                   const double                   a_cur_time );
 

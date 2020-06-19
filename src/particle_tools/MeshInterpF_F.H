@@ -8,6 +8,40 @@
 extern "C"
 {
 
+#ifndef GUARDMOMENT_DEPOSIT 
+#define GUARDMOMENT_DEPOSIT 
+// Prototype for Fortran procedure moment_deposit ...
+//
+void FORTRAN_NAME( MOMENT_DEPOSIT ,moment_deposit )(
+      CHFp_FRA1(moment)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(x)
+      ,CHFp_CONST_REAL(kernal)
+      ,CHFp_CONST_REAL(q) );
+
+#define FORT_MOMENT_DEPOSIT FORTRAN_NAME( inlineMOMENT_DEPOSIT, inlineMOMENT_DEPOSIT)
+#define FORTNT_MOMENT_DEPOSIT FORTRAN_NAME( MOMENT_DEPOSIT, moment_deposit)
+
+inline void FORTRAN_NAME(inlineMOMENT_DEPOSIT, inlineMOMENT_DEPOSIT)(
+      CHFp_FRA1(moment)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(x)
+      ,CHFp_CONST_REAL(kernal)
+      ,CHFp_CONST_REAL(q) )
+{
+ CH_TIMELEAF("FORT_MOMENT_DEPOSIT");
+ FORTRAN_NAME( MOMENT_DEPOSIT ,moment_deposit )(
+      CHFt_FRA1(moment)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(x)
+      ,CHFt_CONST_REAL(kernal)
+      ,CHFt_CONST_REAL(q) );
+}
+#endif  // GUARDMOMENT_DEPOSIT 
+
 #ifndef GUARDNGP_DEPOSIT 
 #define GUARDNGP_DEPOSIT 
 // Prototype for Fortran procedure ngp_deposit ...

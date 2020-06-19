@@ -69,7 +69,33 @@ public:
   }
   
   void setNumberDensity();
+  
+  // ways to get/set momentum density member
+  //
+  virtual void momentumDensity( LevelData<FArrayBox>& a_mom );
+  
+  virtual const LevelData<FArrayBox>& getMomentumDensity( const bool setData )
+  { 
+    if(setData) setMomentumDensity();
+    return m_momentum;
+  }
+  
+  void setMomentumDensity();
+  
+  // ways to get/set energy density member
+  //
+  virtual void energyDensity( LevelData<FArrayBox>& a_ene );
+  
+  virtual const LevelData<FArrayBox>& getEnergyDensity( const bool setData )
+  { 
+    if(setData) setEnergyDensity();
+    return m_energy;
+  }
+  
+  void setEnergyDensity();
  
+  // advance particle positions
+  //
   void advancePositions( const Real&  a_dt );
 
   //const PicSpecies& operator=( const PicSpecies& a_species );
@@ -98,8 +124,8 @@ private:
   ParticleData<JustinsParticle> m_data; // container for storing list of particle data
 
   mutable LevelData<FArrayBox> m_density;     // density moment at cell center
-  LevelData<FArrayBox> m_velocity;    // mean velocity at cell center
-  LevelData<FArrayBox> m_temperature; // temperature at cell center
+  mutable LevelData<FArrayBox> m_momentum;    // mean momentum density at cell center
+  mutable LevelData<FArrayBox> m_energy; // mean energy density at cell center
 
 
   void createMeshInterp();

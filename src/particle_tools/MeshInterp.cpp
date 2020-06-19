@@ -118,4 +118,63 @@ void MeshInterp::interpolateParticle(RealVect& a_particleField,
     }
 }
 
+//
+//
+//
+
+void MeshInterp::momentParticle( FArrayBox&  a_moment,
+                           const RealVect&   a_domainLeftEdge,
+                           const RealVect&   a_dx,
+                           const RealVect&   a_position,
+                           const RealVect&   a_velocity,
+                           const Real&       a_weight, 
+                           const Real&       a_species_mass, 
+                           const MomentType  a_momentType ) const // JRA const
+
+{ 
+  Real kernal;
+  switch (a_momentType)
+    {
+    case density:
+      kernal = 1.0;
+      FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, 0),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position),
+                   CHF_CONST_REAL(kernal),
+                   CHF_CONST_REAL(a_weight) );
+      break;
+    case momentum:
+      // CH_assert(a_moment.nComp()==SpaceDim); // done at higher level
+      for(int dir=0; dir<SpaceDim; dir++) {
+         kernal = a_species_mass*a_velocity[dir];
+         FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, dir),
+                      CHF_CONST_REALVECT(a_domainLeftEdge),
+                      CHF_CONST_REALVECT(a_dx),
+                      CHF_CONST_REALVECT(a_position),
+                      CHF_CONST_REAL(kernal),
+                      CHF_CONST_REAL(a_weight) );
+      }
+      break;
+    case energy:
+      kernal = 0.0;
+      for(int dir=0; dir<SpaceDim; dir++) {
+         kernal = kernal + a_velocity[dir]*a_velocity[dir];
+      }
+      kernal = a_species_mass*kernal/2.0;
+      FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, 0),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position),
+                   CHF_CONST_REAL(kernal),
+                   CHF_CONST_REAL(a_weight) );
+      break;
+    case heatFlux:
+      MayDay::Error("heatFlux type in MeshInterp::momentParticle not defined yet");
+      break;
+    default:
+      MayDay::Error("Invalid moment type in MeshInterp::momentParticle");
+    }
+}
+
 #include "NamespaceFooter.H"

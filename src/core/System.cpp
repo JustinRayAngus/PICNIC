@@ -433,8 +433,15 @@ void System::writePlotFile( const int     a_cur_step,
    }
    rho.exchange();
    */
+   const bool setMomentum = true;
+   const LevelData<FArrayBox>& momentum = m_picSpecies->getMomentumDensity(setMomentum);
+   
+   const bool setEnergy = true;
+   const LevelData<FArrayBox>& energy = m_picSpecies->getEnergyDensity(setEnergy);
 
-   m_dataFile->writeParticleDataFile( Pdata, density, a_cur_step, a_cur_time );
+
+   m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy,
+                                      a_cur_step, a_cur_time );
 
    //m_dataFile->writeScalarDataFile();
 

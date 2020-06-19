@@ -56,6 +56,37 @@ void MeshInterp::interpolate(List<P>& a_particleList,
     }
 }
 
+//
+//  new functions by JRA
+//
+
+template <class P>
+void MeshInterp::moment( FArrayBox&  a_moment,
+                   const List<P>&    a_particleList,
+                   const Real&       a_species_mass,
+                   const MomentType  a_momentType ) const // JRA const
+{
+
+  if(a_momentType==momentum) CH_assert(a_moment.nComp()==SpaceDim);
+
+  for (ListIterator<P> lit(a_particleList); lit; ++lit)
+  {
+     const P& this_particle = lit();
+     const RealVect& this_x = this_particle.position();
+     const RealVect& this_v = this_particle.velocity();
+     const Real& this_w = this_particle.weight();
+     momentParticle( a_moment, 
+                     m_domainLeftEdge, 
+                     m_dx, 
+                     this_x, 
+                     this_v, 
+                     this_w,
+                     a_species_mass,
+                     a_momentType );
+   }
+}
+
+
 #include "NamespaceFooter.H"
 
 #endif // include guard

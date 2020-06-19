@@ -20,6 +20,7 @@
 
 #include "NamespaceHeader.H"
 
+typedef enum {density, momentum, energy, heatFlux} MomentType;
 typedef enum {NGP, CIC, TSC, W4} InterpType;
 
 /**
@@ -57,8 +58,34 @@ public:
   void interpolate(List<P>& a_particleList,
                    const FArrayBox& a_field,
                    InterpType& a_interpType);
+  
+  //
+  //
+  //
+
+  /// Deposit the particles in a_particleList onto a_rho.
+  /// The type of interpolation to perform is passed in as an argument.
+  template <class P>
+  void moment( FArrayBox&  a_moment,
+         const List<P>&    a_particleList,
+         const Real&       a_species_mass,
+         const MomentType  a_momentType ) const; // JRA const
+  
     
 private:
+  
+  /// a wrapper function that deposits the contribution of a single 
+  //  particle to the specified moment using the 
+  /// interpolating functions defined in MeshInterpF.ChF
+  void momentParticle( FArrayBox&  a_moment,
+                 const RealVect&   a_domainLeftEdge,
+                 const RealVect&   a_dx,
+                 const RealVect&   a_position,
+                 const RealVect&   a_velocity,
+                 const Real&       a_species_mass,
+                 const Real&       a_weight,
+                 const MomentType  a_momentType ) const; // JRA const;
+  
 
   /// a wrapper function that deposits a single particle using the 
   /// interpolating functions defined in MeshInterpF.ChF

@@ -56,10 +56,12 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    const IntVect ghostVect = ghosts*IntVect::Unit; 
    
    m_density.define(grids,1,ghostVect);
-   m_velocity.define(grids,1,ghostVect);
-   m_temperature.define(grids,1,ghostVect);
+   m_momentum.define(grids,SpaceDim,ghostVect);
+   m_energy.define(grids,1,ghostVect);
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       m_density[dit].setVal(0.0);
+      m_momentum[dit].setVal(0.0);
+      m_energy[dit].setVal(0.0);
    } 
    // each box has to be square with fixedBoxSize length to use ParticleData()
    // I need a better way to ensure this and get this parameter here!
@@ -339,10 +341,9 @@ void PicSpecies::initialize()
    m_data.remapOutcast();
    CH_assert(m_data.isClosed());
 
-   setNumberDensity();
+   //setNumberDensity();
 
 }
-
 
 void PicSpecies::setNumberDensity()
 {
@@ -358,7 +359,7 @@ void PicSpecies::setNumberDensity()
       //const ListBox<Particle>& box_list = m_data[dit];
       const ListBox<JustinsParticle>& box_list = m_data[dit];
       //const List<Particle>& pList = m_data[dit].listItems();
-      
+      /*
       int interpFlag = 0;
       InterpType interpMethod = (InterpType)interpFlag;
       //m_meshInterp->deposit( box_list.listItems(),
@@ -367,12 +368,65 @@ void PicSpecies::setNumberDensity()
                             interpMethod ); 
       // NOTE that for m_meshInterp being const ref, I have to remove const
       // qualifiers in 4 places in MeshInterp files. !!!!!!!!!!!!!!!!!!!
+      */
+      MomentType thisMoment = density;
+      m_meshInterp.moment( box_rho,
+                           box_list.listItems(),
+                           m_mass,
+                           thisMoment ); 
 
    }
    m_density.exchange(); // causes ERROR: corrupted double-linked list at code exit!!!!   
      
 }
 
+void PicSpecies::setMomentumDensity()
+{
+   CH_TIME("PicParticle::setMomentumDensity()");
+    
+   CH_assert(m_data.isClosed());
+    
+   const DisjointBoxLayout& grids = m_momentum.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      FArrayBox& box_mom = m_momentum[dit];
+      box_mom.setVal(0.0);
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
+      
+      MomentType thisMoment = momentum;
+      m_meshInterp.moment( box_mom,
+                           box_list.listItems(),
+                           m_mass,
+                           thisMoment ); 
+
+   }
+   m_momentum.exchange(); 
+     
+}
+
+void PicSpecies::setEnergyDensity()
+{
+   CH_TIME("PicParticle::setEnergyDensity()");
+    
+   CH_assert(m_data.isClosed());
+    
+   const DisjointBoxLayout& grids = m_energy.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      FArrayBox& box_ene = m_energy[dit];
+      box_ene.setVal(0.0);
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
+      
+      MomentType thisMoment = energy;
+      m_meshInterp.moment( box_ene,
+                           box_list.listItems(),
+                           m_mass,
+                           thisMoment ); 
+
+   }
+   m_energy.exchange(); 
+     
+}
 
 void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )
 {
@@ -382,6 +436,30 @@ void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )
    const DisjointBoxLayout& grids = a_rho.disjointBoxLayout();
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       a_rho[dit].copy(m_density[dit]);   
+   }
+  
+}
+
+void PicSpecies::momentumDensity( LevelData<FArrayBox>&  a_mom )
+{
+   CH_TIME("PicParticle::momentumDensity()");
+ 
+   setMomentumDensity();
+   const DisjointBoxLayout& grids = a_mom.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      a_mom[dit].copy(m_momentum[dit]);   
+   }
+  
+}
+
+void PicSpecies::energyDensity( LevelData<FArrayBox>&  a_ene )
+{
+   CH_TIME("PicParticle::energyDensity()");
+ 
+   setEnergyDensity();
+   const DisjointBoxLayout& grids = a_ene.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      a_ene[dit].copy(m_energy[dit]);   
    }
   
 }

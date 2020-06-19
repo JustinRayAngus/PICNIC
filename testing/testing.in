@@ -2,13 +2,12 @@
 # Verbosity Definitions
 #####################################################
 simulation.verbosity = 10
-gksystem.hdf_fluids = true
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
 simulation.max_step            = 100000
-simulation.max_time            = 0.1
+simulation.max_time            = 0.9
 #simulation.max_dt_grow         = 0.1
 #simulation.initial_dt_fraction = 1.0
 #simulation.cfl_number          = 0.1
@@ -19,12 +18,8 @@ simulation.checkpoint_prefix   = "chk"
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 5.0e-2
 simulation.plot_prefix         = "plt"
-
 simulation.history             = true
 simulation.history_interval    = 10
-
-gksystem.ti_class = "rk"
-gksystem.ti_method = "2"
 
 #####################################################
 # Computational Grid Definitions
@@ -32,7 +27,7 @@ gksystem.ti_method = "2"
 grid.num_cells     = 64 16 
 grid.is_periodic   = 1  1
 grid.config_decomp = 8  2
-grid.fixedBoxSize = 8
+grid.fixedBoxSize  = 8
 grid.geometry      = "cylindrical"
 grid.num_ghosts    = 2
 
@@ -46,7 +41,7 @@ grid.verbosity = 1
 # Units Definitions
 #####################################################
 units.number_density = 1.0e23   # num/m^3
-units.temperature    = 1000.0   # eV
+units.temperature    = 1.0      # eV
 units.length         = 1.0e-2   # m
 units.mass           = 1.00784  # amu
 units.magnetic_field = 1.0 

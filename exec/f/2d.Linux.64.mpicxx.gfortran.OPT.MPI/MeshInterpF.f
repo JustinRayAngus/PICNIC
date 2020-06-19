@@ -1,3 +1,36 @@
+      subroutine MOMENT_DEPOSIT(
+     & moment
+     & ,imomentlo0,imomentlo1
+     & ,imomenthi0,imomenthi1
+     & ,left_edge
+     & ,dx
+     & ,x
+     & ,kernal
+     & ,q
+     & )
+      implicit none
+      integer*8 ch_flops
+      COMMON/ch_timer/ ch_flops
+      integer imomentlo0,imomentlo1
+      integer imomenthi0,imomenthi1
+      REAL*8 moment(
+     & imomentlo0:imomenthi0,
+     & imomentlo1:imomenthi1)
+      REAL*8 left_edge(0:1)
+      REAL*8 dx(0:1)
+      REAL*8 x(0:1)
+      REAL*8 kernal
+      REAL*8 q
+      integer index(0:2 - 1)
+      integer idir
+      REAL*8 volume
+      volume = dx(0)*dx(1)
+      do idir = 0, 2 - 1
+        index(idir) = floor((x(idir) - left_edge(idir)) / dx(idir))
+      enddo
+      moment(index(0), index(1)) =
+     & moment(index(0), index(1)) + q*kernal / volume
+      end
       subroutine NGP_DEPOSIT(
      & rho
      & ,irholo0,irholo1
