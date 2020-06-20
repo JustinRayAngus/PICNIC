@@ -40,6 +40,40 @@ c     assign the particle weight X kernal to that cell
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
+c     set the particle weights using grid profile for density
+c     
+c     Arguments:
+c
+c         moment:     the moment container onto which to deposit the particle moment
+c         left_edge:  the physical location of the left edge of the domain
+c         dx:         the mesh spacing
+c         x:          the position coordinate of the particle
+
+      subroutine set_particle_weight( 
+     &                                CHF_REAL[weight], 
+     &                                CHF_CONST_REAL[partsPerCell],
+     &                                CHF_CONST_FRA1[density],
+     &                                CHF_CONST_REALVECT[left_edge],
+     &                                CHF_CONST_REALVECT[dx],
+     &                                CHF_CONST_REALVECT[x] ) 
+
+      integer index(0:CH_SPACEDIM - 1)
+      integer idir
+      REAL_T volume 
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2);*dx(3);*dx(4);*dx(5)]
+
+c     compute the index of the cell containing this particle
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((x(idir) - left_edge(idir)) / dx(idir))
+      enddo
+
+c     assign the particle weight
+      weight = density(CHF_IX[index(0); index(1); index(2); index(3); index(4); index(5)])*volume/partsPerCell
+
+      end
+
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
 c     Deposits a particle using nearest grid point interpolation
 c     
 c     Arguments:

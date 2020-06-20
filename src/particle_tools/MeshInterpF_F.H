@@ -42,6 +42,40 @@ inline void FORTRAN_NAME(inlineMOMENT_DEPOSIT, inlineMOMENT_DEPOSIT)(
 }
 #endif  // GUARDMOMENT_DEPOSIT 
 
+#ifndef GUARDSET_PARTICLE_WEIGHT 
+#define GUARDSET_PARTICLE_WEIGHT 
+// Prototype for Fortran procedure set_particle_weight ...
+//
+void FORTRAN_NAME( SET_PARTICLE_WEIGHT ,set_particle_weight )(
+      CHFp_REAL(weight)
+      ,CHFp_CONST_REAL(partsPerCell)
+      ,CHFp_CONST_FRA1(density)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(x) );
+
+#define FORT_SET_PARTICLE_WEIGHT FORTRAN_NAME( inlineSET_PARTICLE_WEIGHT, inlineSET_PARTICLE_WEIGHT)
+#define FORTNT_SET_PARTICLE_WEIGHT FORTRAN_NAME( SET_PARTICLE_WEIGHT, set_particle_weight)
+
+inline void FORTRAN_NAME(inlineSET_PARTICLE_WEIGHT, inlineSET_PARTICLE_WEIGHT)(
+      CHFp_REAL(weight)
+      ,CHFp_CONST_REAL(partsPerCell)
+      ,CHFp_CONST_FRA1(density)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(x) )
+{
+ CH_TIMELEAF("FORT_SET_PARTICLE_WEIGHT");
+ FORTRAN_NAME( SET_PARTICLE_WEIGHT ,set_particle_weight )(
+      CHFt_REAL(weight)
+      ,CHFt_CONST_REAL(partsPerCell)
+      ,CHFt_CONST_FRA1(density)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(x) );
+}
+#endif  // GUARDSET_PARTICLE_WEIGHT 
+
 #ifndef GUARDNGP_DEPOSIT 
 #define GUARDNGP_DEPOSIT 
 // Prototype for Fortran procedure ngp_deposit ...

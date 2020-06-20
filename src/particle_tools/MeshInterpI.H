@@ -86,6 +86,26 @@ void MeshInterp::moment( FArrayBox&  a_moment,
    }
 }
 
+template <class P>
+void MeshInterp::setWeightFromGridProfile( List<P>&    a_particleList,
+                                     const FArrayBox&  a_density,
+                                     const Real        a_partsPerCell ) const
+{
+
+  for (ListIterator<P> lit(a_particleList); lit; ++lit)
+  {
+     P& this_particle = lit();
+     Real& this_w = this_particle.weight();
+     const RealVect& this_x = this_particle.position();
+     setParticleWeight( this_w,
+                        a_partsPerCell, 
+                        a_density,
+                        m_domainLeftEdge, 
+                        m_dx, 
+                        this_x );
+   }
+}
+
 
 #include "NamespaceFooter.H"
 

@@ -70,7 +70,13 @@ public:
          const List<P>&    a_particleList,
          const Real&       a_species_mass,
          const MomentType  a_momentType ) const; // JRA const
-  
+
+   // set the particle weights using a grid-profile for density
+   //
+   template <class P>
+   void setWeightFromGridProfile( List<P>&    a_particleList,
+                            const FArrayBox&  a_density,
+                            const Real        a_partsPerCell ) const;
     
 private:
   
@@ -85,7 +91,14 @@ private:
                  const Real&       a_species_mass,
                  const Real&       a_weight,
                  const MomentType  a_momentType ) const; // JRA const;
-  
+
+  void setParticleWeight( Real&       a_weight,
+                    const Real&       a_partsPerCell,
+                    const FArrayBox&  a_density,
+                    const RealVect&   a_domainLeftEdge,
+                    const RealVect&   a_dx,
+                    const RealVect&   a_position ) const;
+
 
   /// a wrapper function that deposits a single particle using the 
   /// interpolating functions defined in MeshInterpF.ChF

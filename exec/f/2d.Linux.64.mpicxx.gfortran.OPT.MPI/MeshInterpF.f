@@ -31,6 +31,38 @@
       moment(index(0), index(1)) =
      & moment(index(0), index(1)) + q*kernal / volume
       end
+      subroutine SET_PARTICLE_WEIGHT(
+     & weight
+     & ,partsPerCell
+     & ,density
+     & ,idensitylo0,idensitylo1
+     & ,idensityhi0,idensityhi1
+     & ,left_edge
+     & ,dx
+     & ,x
+     & )
+      implicit none
+      integer*8 ch_flops
+      COMMON/ch_timer/ ch_flops
+      REAL*8 weight
+      REAL*8 partsPerCell
+      integer idensitylo0,idensitylo1
+      integer idensityhi0,idensityhi1
+      REAL*8 density(
+     & idensitylo0:idensityhi0,
+     & idensitylo1:idensityhi1)
+      REAL*8 left_edge(0:1)
+      REAL*8 dx(0:1)
+      REAL*8 x(0:1)
+      integer index(0:2 - 1)
+      integer idir
+      REAL*8 volume
+      volume = dx(0)*dx(1)
+      do idir = 0, 2 - 1
+        index(idir) = floor((x(idir) - left_edge(idir)) / dx(idir))
+      enddo
+      weight = density(index(0), index(1))*volume/partsPerCell
+      end
       subroutine NGP_DEPOSIT(
      & rho
      & ,irholo0,irholo1

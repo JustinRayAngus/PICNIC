@@ -4,6 +4,7 @@
 #include <cmath>
 #include "BoxIterator.H"
 #include "ProblemDomain.H"
+#include "GridFunctionFactory.H"
 
 #include "MathUtils.H"
 
@@ -216,6 +217,29 @@ void PicSpecies::initialize()
    ppspcIC.query( "meanVelocity", meanVelocity );
    ppspcIC.query( "temperature", temperature );
 
+   
+   // set density profile from ICs
+   //
+   const std::string spcdenIC("IC." + m_name + ".density");
+   ParmParse ppdenIC( spcdenIC.c_str() );
+   GridFunctionFactory  gridFactory;
+   RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppdenIC,1);
+
+   //const DisjointBoxLayout& grids(m_mesh.getDBL());
+   //LevelData<FArrayBox> densityProfile;
+   //densityProfile.define(grids,1,m_mesh.ghosts()*IntVect::Unit);
+   const Real this_time = 0.0;
+   //gridFunction->assign( densityProfile, m_mesh, this_time );
+   gridFunction->assign( m_density, m_mesh, this_time );
+   /*
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      cout << "JRA: densityProfile.min() = " << densityProfile[dit].min() << endl;
+      cout << "JRA: densityProfile.max() = " << densityProfile[dit].max() << endl;
+   }
+   */
+   //
+   //
+
    if(!procID()) {
       cout << "PicSpecies::inititialize() Setting initial conditions for species " << endl;
       cout << "density = " << density << endl;
@@ -240,18 +264,20 @@ void PicSpecies::initialize()
    const RealVect Lbox = Xmax - Xmin; 
    
    int numParticles = 1;
+   int totalPartsPerCell = 1;
    Real volume = 1.0;
    for (int dir=0; dir<SpaceDim; dir++)
    {
+      totalPartsPerCell *= partsPerCell[dir];
       numParticles *= partsPerCell[dir]*domainDimensions[dir];
       volume *= Lbox[dir];
    }
-   Real pWeight = density*volume/(Real)numParticles; 
+   //Real pWeight = density*volume/(Real)numParticles; 
+   Real pWeight = 0.0; 
    
    if(!procID()) {
       cout << "JRA: numParticles = " << numParticles << endl;
       cout << "JRA: volume = " << volume << endl << endl;
-      cout << "JRA: pWeight = " << pWeight << endl << endl;
    }
    
 
@@ -272,7 +298,6 @@ void PicSpecies::initialize()
       const Box thisBox = BL.get(dit);
       Box partBox = thisBox;
       
-      const int totalPartsPerCell = partsPerCell[0]*partsPerCell[1];
       if(totalPartsPerCell > 1 ) {
          partBox.refine(partsPerCell);
          for(int dir=0; dir<SpaceDim; dir++) dXpart[dir] /= partsPerCell[dir];
@@ -313,13 +338,10 @@ void PicSpecies::initialize()
           double rand = MathUtils::rand();
           Vpart[1] = MathUtils::errorinv(2.0*rand-1.0);
           
-          /////////////////////////////////////////////////////
-
           // create this particle and append to list
           //Particle particle(pWeight, Xpart, Vpart);
           JustinsParticle particle(pWeight, Xpart, Vpart);
           thisList.append(particle);
-          //if(!procID()) cout << "pos_virt = " << particle.pos_virt() << endl; 
       }
 
       // finally, add particles destructively to this ListBox. Those that are
@@ -335,13 +357,29 @@ void PicSpecies::initialize()
 
    }
    //const int numOutcast = m_PNew.numOutcast();
-   //const RealVect meshSpace = m_PNew.meshSpacing();
-   //const RealVect thisOrigin = m_PNew.origin();
-   //const ProblemDomain& thisPhysDomain= m_PNew.physDomain();
    m_data.remapOutcast();
    CH_assert(m_data.isClosed());
 
-   //setNumberDensity();
+
+   //
+   // need to set the particle weights using loop over grid boxes
+   // since particle box may not contain grid box
+   //
+   //
+   const DisjointBoxLayout& grids = m_density.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      const FArrayBox& this_density = m_density[dit];
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+      m_meshInterp.setWeightFromGridProfile( pList,
+                                             this_density,
+                                             totalPartsPerCell ); 
+   }
+
+   //
+   // shift velocity by mean and normalize to thermal speed
+   //
+
 
 }
 

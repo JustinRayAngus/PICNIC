@@ -177,4 +177,22 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
     }
 }
 
+void MeshInterp::setParticleWeight( Real&       a_weight,
+                              const Real&       a_partsPerCell,
+                              const FArrayBox&  a_density,
+                              const RealVect&   a_domainLeftEdge,
+                              const RealVect&   a_dx,
+                              const RealVect&   a_position ) const
+{ 
+   CH_TIME("MeshInterp::setParticleWeight()");
+
+   FORT_SET_PARTICLE_WEIGHT( CHF_REAL(a_weight),
+                             CHF_CONST_REAL(a_partsPerCell), 
+                             CHF_CONST_FRA1(a_density,0),
+                             CHF_CONST_REALVECT(a_domainLeftEdge), 
+                             CHF_CONST_REALVECT(a_dx), 
+                             CHF_CONST_REALVECT(a_position) );
+}
+
+
 #include "NamespaceFooter.H"

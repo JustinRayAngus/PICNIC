@@ -58,11 +58,11 @@ IC.deuteriumIon.parts_per_cell = 2 4
 IC.deuteriumIon.density = 1.0e17
 IC.deuteriumIon.temperature = 1.0
 
+IC.deuteriumIon.density.type = "constant"
+IC.deuteriumIon.density.value = 1.0e17
+#IC.deuteriumIon.density.grid_function_dir0 = "constant"
+#IC.deuteriumIon.density.grid_function_dir1 = "linear"
 
-#####################################################
-# Initial Condition Definitions
-#####################################################
-IC.potential.function = "zero_grid_func"
 
 #####################################################
 # Boundary Condition Definitions
