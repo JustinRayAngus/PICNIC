@@ -33,9 +33,9 @@ JustinsParticle::JustinsParticle(const Real      a_weight,
      std::array<Real,3-SpaceDim> thisVelVirt;
      std::array<Real,3-SpaceDim> thisAccVirt;
      for(int i=0; i<3-SpaceDim; i++) {
-        thisPosVirt[i] = 7.0+i*1.0;
-        thisVelVirt[i] = 3.0+i*1.0;
-        thisAccVirt[i] = 12.0+i*1.0;
+        thisPosVirt[i] = 0.0 + i*0.0;
+        thisVelVirt[i] = 0.0 + i*0.0;
+        thisAccVirt[i] = 0.0 + i*0.0;
      }
      setPositionVirt(thisPosVirt);
      setVelocityVirt(thisVelVirt);
@@ -56,9 +56,9 @@ void JustinsParticle::define(const Real      a_weight,
      std::array<Real,3-SpaceDim> thisVelVirt;
      std::array<Real,3-SpaceDim> thisAccVirt;
      for(int i=0; i<3-SpaceDim; i++) {
-        thisPosVirt[i] = 7.0+i*1.0;
-        thisVelVirt[i] = 3.0+i*1.0;
-        thisAccVirt[i] = 12.0+i*1.0;
+        thisPosVirt[i] = 0.0 + i*0.0;
+        thisVelVirt[i] = 0.0 + i*0.0;
+        thisAccVirt[i] = 0.0 + i*0.0;
      }
      setPositionVirt(thisPosVirt);
      setVelocityVirt(thisVelVirt);
@@ -167,7 +167,7 @@ void JustinsParticle::setVelocityVirt(const std::array<Real,3-SpaceDim>& a_vel_v
 }
 
 void JustinsParticle::setVelocityVirt(const Real& a_vel_virt,
-                            const int   a_dir)
+                                      const int   a_dir)
 {
   m_vel_virt[a_dir] = a_vel_virt;
 }

@@ -60,8 +60,18 @@ IC.deuteriumIon.temperature = 1.0
 
 IC.deuteriumIon.density.type = "constant"
 IC.deuteriumIon.density.value = 1.0e17
-#IC.deuteriumIon.density.grid_function_dir0 = "constant"
-#IC.deuteriumIon.density.grid_function_dir1 = "linear"
+IC.deuteriumIon.temperature_0.type = "constant"
+IC.deuteriumIon.temperature_0.value = 0.0
+IC.deuteriumIon.temperature_1.type = "constant"
+IC.deuteriumIon.temperature_1.value = 25.9e-3
+IC.deuteriumIon.temperature_2.type = "constant"
+IC.deuteriumIon.temperature_2.value = 25.9e-3
+IC.deuteriumIon.velocity_0.type = "constant"
+IC.deuteriumIon.velocity_0.value = 0.0
+IC.deuteriumIon.velocity_1.type = "constant"
+IC.deuteriumIon.velocity_1.value = 0.0
+IC.deuteriumIon.velocity_2.type = "constant"
+IC.deuteriumIon.velocity_2.value = -1.0e3
 
 
 #####################################################

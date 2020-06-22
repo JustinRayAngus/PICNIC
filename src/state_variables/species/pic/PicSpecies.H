@@ -125,7 +125,12 @@ private:
 
   mutable LevelData<FArrayBox> m_density;     // density moment at cell center
   mutable LevelData<FArrayBox> m_momentum;    // mean momentum density at cell center
-  mutable LevelData<FArrayBox> m_energy; // mean energy density at cell center
+  mutable LevelData<FArrayBox> m_energy;      // mean energy density at cell center
+  
+  // physical quantities
+  //
+  mutable LevelData<FArrayBox> m_temperature; // temperature at cell center
+  mutable LevelData<FArrayBox> m_velocity;    // velocity at cell center
 
 
   void createMeshInterp();
