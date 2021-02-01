@@ -344,4 +344,44 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
 
 }
 
+void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,
+                                      const int                      a_cur_step,
+                                      const double                   a_cur_time )
+{
+   CH_TIME("dataFileIO::writeBinFabDataFile()");
+   if(!procID()) {
+      cout << "writing BinFab particle data file" << endl;
+      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
+      cout << "... " << endl;
+   }
+   
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const ProblemDomain& domain(m_mesh.getDomain());
+   //const RealVect& meshSpacing(m_mesh.getdX());
+   
+   ///////////// 
+   //
+   //   write the particles
+   //
+   //std::string plotFileNameParts = "parts.h5";
+   std::string prefix = "binfab";
+   std::string plotFileNameParts( plotFileName( prefix,
+                                                "parts",
+                                                a_cur_step ) );
+
+   HDF5Handle handleParts( plotFileNameParts.c_str(), HDF5Handle::CREATE );
+   
+   handleParts.setGroup("/");
+   
+   // There is no function to write BinFab???????????
+   //write(handleParts, grids);
+   //writeParticlesToHDF(handleParts, a_Pdata, "particles");
+
+   handleParts.close();
+   
+   if(!procID()) cout << "finished writing binfab particle data file" << endl << endl;
+
+}
+
+
 #include "NamespaceFooter.H"

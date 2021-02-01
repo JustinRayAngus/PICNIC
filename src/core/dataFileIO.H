@@ -11,6 +11,7 @@
 #include "Particle.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
+#include "BinFab.H"
 #include "LevelData.H"
 #include "FArrayBox.H"
 
@@ -40,6 +41,12 @@ class dataFileIO
                                   const LevelData<FArrayBox>&    a_energy, 
                                   const int                      a_cur_step, 
                                   const double                   a_cur_time );
+      
+      void writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,
+                                const int                      a_cur_step, 
+                                const double                   a_cur_time );
+
+   private:
 
    private:
 

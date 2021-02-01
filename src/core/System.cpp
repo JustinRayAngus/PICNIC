@@ -147,7 +147,7 @@ void System::createProblemDomain()
          m_is_periodic[dim] = (isPeriodic[dim] == 1);
       }
 
-      // Get the domain decomposition parameters
+      // Get the domain box decomposition parameters
       //
       if (ppgrid.contains("config_decomp")) {
          m_config_decomp.resize( DIM );
@@ -223,11 +223,9 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
       //if(!procID()) cout << "JRA: boxSize[dir] = " << boxSize[dir] << endl;
    }
    
-
-   //
    // Chop up the configuration space domain box over the number of processors specified
-   // for this block.  At this point, we insist that the box decomposes uniformly, or an
-   // error is thrown.
+   // for this block (single block here).  At this point, we insist that the box 
+   // decomposes uniformly, or an error is thrown.
    //
    IntVect n_loc = IntVect::Zero;
    for (int dir=0; dir<SpaceDim; ++dir) {
@@ -421,6 +419,7 @@ void System::writePlotFile( const int     a_cur_step,
    //ParticleData<Particle>& Ptest = m_picSpecies->partData(); //ref, so can change
    //const ParticleData<Particle>& Pdata = m_picSpecies->partData(); // const ref, so can't change
    const ParticleData<JustinsParticle>& Pdata = m_picSpecies->partData(); // const ref, so can't change
+   //const LevelData<BinFab<JustinsParticle>>& Pdata_binfab = m_picSpecies->partData_binfab(); // const ref, so can't change
    //m_picSpecies->setNumberDensity(); 
    const bool setDensity = true;
    const LevelData<FArrayBox>& density = m_picSpecies->getNumberDensity(setDensity);
@@ -442,6 +441,8 @@ void System::writePlotFile( const int     a_cur_step,
 
    m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy,
                                       a_cur_step, a_cur_time );
+   
+   //m_dataFile->writeBinFabDataFile( Pdata_binfab, a_cur_step, a_cur_time );
 
    //m_dataFile->writeScalarDataFile();
 

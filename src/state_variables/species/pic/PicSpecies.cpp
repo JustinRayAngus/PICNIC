@@ -5,6 +5,7 @@
 #include "BoxIterator.H"
 #include "ProblemDomain.H"
 #include "GridFunctionFactory.H"
+#include "BinFabFactory.H"
 
 #include "MathUtils.H"
 
@@ -83,6 +84,31 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    //
    m_data.define(grids, domain, fixedBoxSize,
                  meshSpacing, meshOrigin);
+   
+   
+   // In order to initialize a LevelData<BinFab<T>>, first need to define a
+   // BinFabFactory. The factor has a "create" function to define "new" pointers
+   // to the BinFab that lives at the box level... Not sure if I need to use this
+   // or If I can just do what I'm doing below....
+   //
+   BinFabFactory<JustinsParticle> bfFactory(meshSpacing, meshOrigin);
+   m_data_binfab.define(grids, 1, 1*IntVect::Unit, bfFactory);
+   
+   // Do I need to loop over the grids and define each BinFab<T> in the
+   // LevelData? What is the "create" pointer in BinFabFactor<> used for?
+   // Do I need to use that?
+   //
+   // How do I define a DataIndex?
+   //
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      //const DataIndex& dataIndex( const DataIterator& a_dit ) const;
+      //BinFab<T>*  thisbinfab_pointer = 0;
+      //thisbinfab_pointer = bfFactor.create( grids[dit], 1, thisDataIndex );
+      //BinFab<T>*  thisbinfab = bfFactory.create( grids[dit], 1, thisDataIndex ); 
+      //BinFab<JustinsParticle>& thisbinfab = m_data_binfab[dit];
+      //thisbinfab.define(grids[dit], meshSpacing, meshOrigin);
+   }
+   
 
 }
 
@@ -395,6 +421,8 @@ void PicSpecies::initialize()
          }
 
       }
+
+      m_data_binfab[dit].addItems(thisList); // JRA testing binfab
 
       // finally, add particles destructively to this ListBox. Those that are
       // left behind are outcasts.

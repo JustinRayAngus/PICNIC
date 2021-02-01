@@ -15,6 +15,7 @@
 #include "RealVect.H"
 #include "DisjointBoxLayout.H"
 
+#include "BinFab.H"
 #include "ParticleData.H"
 #include "Particle.H"
 #include "JustinsParticle.H"
@@ -57,6 +58,7 @@ public:
   
   //virtual const ParticleData<Particle>& partData() const {return m_data;}
   virtual const ParticleData<JustinsParticle>& partData() const {return m_data;}
+  virtual const LevelData<BinFab<JustinsParticle>>& partData_binfab() const {return m_data_binfab;}
   
   // ways to get/set number density member
   //
@@ -121,7 +123,9 @@ private:
   //MeshInterp* m_meshInterp;
   
   //ParticleData<Particle> m_data; // container for storing list of particle data
-  ParticleData<JustinsParticle> m_data; // container for storing list of particle data
+  ParticleData<JustinsParticle> m_data; // container for storing list of particles for each box
+  LevelData<BinFab<JustinsParticle>> m_data_binfab; // container for storing array of lists in a box. 
+                                         // each grid cell has a list of all particles living in that cell
 
   mutable LevelData<FArrayBox> m_density;     // density moment at cell center
   mutable LevelData<FArrayBox> m_momentum;    // mean momentum density at cell center
