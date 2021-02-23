@@ -6,6 +6,7 @@ simulation.verbosity = 10
 #####################################################
 # Time Stepping Definitions
 #####################################################
+#simulation.max_step            = 2
 simulation.max_step            = 100000
 simulation.max_time            = 0.9
 #simulation.max_dt_grow         = 0.1
@@ -53,6 +54,9 @@ units.magnetic_field = 1.0
 pic_species.1.name   = "deuteriumIon"
 pic_species.1.mass   = 3670
 pic_species.1.charge = 1.0
+pic_species.1.motion = true
+pic_species.1.forces = false
+pic_species.1.scatter = true
 
 IC.deuteriumIon.parts_per_cell = 2 4
 IC.deuteriumIon.density = 1.0e17
