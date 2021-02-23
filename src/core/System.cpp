@@ -425,6 +425,21 @@ void System::writePlotFile( const int     a_cur_step,
    const LevelData<FArrayBox>& density = m_picSpecies->getNumberDensity(setDensity);
    /*
    const DisjointBoxLayout& grids = density.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      const Box gridBox = grids.get(dit);
+      BoxIterator gbit(gridBox); 
+      for(gbit.begin(); gbit.ok(); ++gbit) {
+         if(!procID()) {
+            const IntVect ig = gbit();
+            const Real thisDen = density[dit].get(ig,0); 
+            cout << "JRA: ig = " << ig << endl;
+            cout << "JRA: thisDen = " << thisDen << endl;
+         } 
+      }
+   }
+   */
+   /*
+   const DisjointBoxLayout& grids = density.disjointBoxLayout();
    LevelData<FArrayBox> rho;
    rho.define(grids,density.nComp(),density.ghostVect());
    for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -438,6 +453,7 @@ void System::writePlotFile( const int     a_cur_step,
    const bool setEnergy = true;
    const LevelData<FArrayBox>& energy = m_picSpecies->getEnergyDensity(setEnergy);
 
+   m_picSpecies->inspectBinFab();
 
    m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy,
                                       a_cur_step, a_cur_time );
@@ -518,8 +534,16 @@ void System::advance( Real&  a_cur_time,
    // advance particle positions
    //
    //ParticleData<Particle>& Ptest = m_picSpecies->partData(); //ref, so can change
-   m_picSpecies->advancePositions(a_dt);
- 
+   if(m_picSpecies->motion()) {
+      m_picSpecies->advancePositions(a_dt);
+   }
+
+   // scatter the particles
+   //
+   if(m_picSpecies->scatter()) {
+      m_picSpecies->scatterParticles(a_dt);
+   }
+
    // advance state vector of grid/0D variables
    //
    //m_state_comp.copyTo  ( m_serialized_vector.data() );

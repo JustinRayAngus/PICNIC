@@ -19,6 +19,7 @@
 #include "ParticleData.H"
 #include "Particle.H"
 #include "JustinsParticle.H"
+#include "JustinsParticlePtr.H"
 #include "ListBox.H"
 #include "ListBoxFactory.H"
 #include "MeshInterp.H"
@@ -50,6 +51,7 @@ public:
 
   virtual bool motion() const { return m_motion; }
   virtual bool forces() const { return m_forces; }
+  virtual bool scatter() const { return m_scatter; }
   
   virtual bool isSpecies( const string& name ) const;
 
@@ -58,7 +60,7 @@ public:
   
   //virtual const ParticleData<Particle>& partData() const {return m_data;}
   virtual const ParticleData<JustinsParticle>& partData() const {return m_data;}
-  virtual const LevelData<BinFab<JustinsParticle>>& partData_binfab() const {return m_data_binfab;}
+  virtual const LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() const {return m_data_binfab_ptr;}
   
   // ways to get/set number density member
   //
@@ -99,8 +101,17 @@ public:
   // advance particle positions
   //
   void advancePositions( const Real&  a_dt );
+  
+  // scatter particle
+  //
+  void scatterParticles( const Real&  a_dt );
 
   //const PicSpecies& operator=( const PicSpecies& a_species );
+  
+  void inspectBinFab()
+  {
+     inspectBinFab(m_data_binfab_ptr);
+  }
   
 private:
   
@@ -116,6 +127,7 @@ private:
 
   bool m_motion;
   bool m_forces;
+  bool m_scatter;
 
   const DomainGrid& m_mesh;
   const MeshInterp& m_meshInterp;
@@ -124,7 +136,7 @@ private:
   
   //ParticleData<Particle> m_data; // container for storing list of particle data
   ParticleData<JustinsParticle> m_data; // container for storing list of particles for each box
-  LevelData<BinFab<JustinsParticle>> m_data_binfab; // container for storing array of lists in a box. 
+  LevelData<BinFab<JustinsParticlePtr>> m_data_binfab_ptr; // container for storing array of lists of ptrs to JustinsParticles 
                                          // each grid cell has a list of all particles living in that cell
 
   mutable LevelData<FArrayBox> m_density;     // density moment at cell center
@@ -138,6 +150,8 @@ private:
 
 
   void createMeshInterp();
+
+  void inspectBinFab(const LevelData<BinFab<JustinsParticlePtr>>&  a_binfab_ptr);
 
 };
 

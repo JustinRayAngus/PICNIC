@@ -33,17 +33,31 @@ public:
   JustinsParticle();
 
   /// same as define()
-  JustinsParticle(const Real      a_weight,
-           const RealVect& a_position,
-           const RealVect& a_velocity = RealVect::Zero);
+  JustinsParticle( const Real       a_weight,
+                   const RealVect&  a_position,
+                   const RealVect&  a_velocity = RealVect::Zero );
 
   /// default
   virtual ~JustinsParticle();
 
   /// for non-default constructor
-  void define(const Real      a_weight,
-              const RealVect& a_position,
-              const RealVect& a_velocity = RealVect::Zero);
+  void define( const Real       a_weight,
+               const RealVect&  a_position,
+               const RealVect&  a_velocity = RealVect::Zero );
+  
+  /// set particle ID
+  void setID();
+  
+  void setID(const uint64_t a_ID);
+  //void setID(const Real a_ID);
+
+  // retrieve reference ID
+  uint64_t& ID();
+  //Real& ID();
+
+  // retrieve const. reference ID
+  const uint64_t& ID() const;
+  //const Real& ID() const;
 
   /// set particle weight
   void setWeight(const Real a_weight);
@@ -165,6 +179,8 @@ public:
 
 protected:
 
+  uint64_t m_ID;
+  //Real     m_ID;
   Real     m_weight;
   RealVect m_velocity;
   RealVect m_acceleration;

@@ -19,9 +19,9 @@ JustinsParticle::JustinsParticle() :
 JustinsParticle::~JustinsParticle()
 {}
 
-JustinsParticle::JustinsParticle(const Real      a_weight,
-                   const RealVect& a_position,
-                   const RealVect& a_velocity)
+JustinsParticle::JustinsParticle( const Real       a_weight,
+                                  const RealVect&  a_position,
+                                  const RealVect&  a_velocity )
   :
   BinItem(a_position),
   m_weight(a_weight),
@@ -41,12 +41,14 @@ JustinsParticle::JustinsParticle(const Real      a_weight,
      setVelocityVirt(thisVelVirt);
      setAccelerationVirt(thisAccVirt);
   }
+  setID();
 }
 
-void JustinsParticle::define(const Real      a_weight,
-                      const RealVect& a_position,
-                      const RealVect& a_velocity)
+void JustinsParticle::define( const Real       a_weight,
+                              const RealVect&  a_position,
+                              const RealVect&  a_velocity )
 {
+  setID();
   setWeight(a_weight);
   setPosition(a_position);
   setVelocity(a_velocity);
@@ -64,6 +66,29 @@ void JustinsParticle::define(const Real      a_weight,
      setVelocityVirt(thisVelVirt);
      setAccelerationVirt(thisAccVirt);
   }
+}
+
+void JustinsParticle::setID(const uint64_t a_ID)
+//void JustinsParticle::setID(const Real a_ID)
+{
+  m_ID = a_ID;
+}
+
+void JustinsParticle::setID()
+{
+  m_ID = reinterpret_cast<uint64_t>(this);
+}
+
+const uint64_t& JustinsParticle::ID() const
+//const Real& JustinsParticle::ID() const
+{
+  return m_ID;
+}
+
+uint64_t& JustinsParticle::ID()
+//Real& JustinsParticle::ID()
+{
+  return m_ID;
 }
 
 void JustinsParticle::setWeight(const Real a_weight)
@@ -222,7 +247,8 @@ Real JustinsParticle::accelerationVirt(const int a_dir) const
 
 bool JustinsParticle::operator == (const JustinsParticle& a_p) const
 {
-  return ( m_weight    == a_p.m_weight   &&
+  return ( m_ID        == a_p.m_ID       &&
+           m_weight    == a_p.m_weight   &&
            m_position  == a_p.m_position &&
            m_velocity  == a_p.m_velocity &&
            m_acceleration  == a_p.m_acceleration &&
@@ -243,7 +269,8 @@ bool JustinsParticle::operator != (const JustinsParticle& a_p) const
 
 int JustinsParticle::size() const
 {
-  return ( BinItem::size() + sizeof(m_weight) 
+  //return ( BinItem::size() + sizeof(m_weight) 
+  return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
                            + sizeof(m_pos_virt) + sizeof(m_vel_virt) + sizeof(m_acc_virt)
                            + sizeof(m_velocity) + sizeof(m_acceleration) );
 }
@@ -287,7 +314,9 @@ void JustinsParticle::linearOut(void* buf) const
       *buffer++ = m_acc_virt[i];
    }
 
-   *buffer = m_weight;
+   *buffer++ = m_weight;
+   *buffer = m_ID;
+
 }
 
 
@@ -329,13 +358,16 @@ void JustinsParticle::linearIn(void* buf)
       m_acc_virt[i] = *buffer++;
    }
 
-   m_weight = *buffer;
+   m_weight = *buffer++;
+   m_ID = *buffer;
+
 }
 
 std::ostream & operator<<(std::ostream& ostr, const JustinsParticle& p)
 {
   ostr << " JustinsParticle : " << std::endl;
   ostr << " weight " << p.weight() << std::endl;
+  ostr << " ID " << p.ID() << std::endl;
   ostr << " position ( ";
   for ( int i=0; i<SpaceDim; ++i ){ ostr << " " << p.position(i); }
   ostr << " ) ";

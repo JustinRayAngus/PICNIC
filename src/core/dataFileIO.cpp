@@ -290,6 +290,7 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
      }
    }
    vectNames.push_back("particle_weight");
+   vectNames.push_back("particle_ID");
 
    int numComps = vectNames.size();
    for (int i=0; i<numComps; ++i) {
