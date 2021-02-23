@@ -1,0 +1,6 @@
+*.o
+*.a
+*_F.H
+exec/d/
+exec/f/
+exec/p/
