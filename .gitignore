@@ -1,6 +1,8 @@
 *.o
 *.a
 *_F.H
+exec/*.ex
 exec/d/
 exec/f/
+exec/o/
 exec/p/
