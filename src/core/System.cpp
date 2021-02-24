@@ -533,9 +533,13 @@ void System::advance( Real&  a_cur_time,
   
    // advance particle positions
    //
-   //ParticleData<Particle>& Ptest = m_picSpecies->partData(); //ref, so can change
    if(m_picSpecies->motion()) {
       m_picSpecies->advancePositions(a_dt);
+      ParticleData<JustinsParticle>& Pdata = m_picSpecies->partData();
+      //m_domain->applyParticleBCs(Pdata, a_dt); // probably a way to predefine list of particles outside physical domain
+                                                 // and only loop over this list when applying Particle BCs.
+                                                 // At the very least, should define BoxLayout of boxes that touch the
+                                                 // simulation boundaries and only loop over those boxes 
    }
 
    // scatter the particles
@@ -560,8 +564,9 @@ void System::advance( Real&  a_cur_time,
 
 Real System::stableDt( const int a_step_number )
 {
+   m_picSpecies->setStableDt();
    Real stableDt = m_picSpecies->stableDt();
-   if(!procID()) cout << "Stable time step = " << stableDt << endl;
+   if(!procID()) cout << "stable particle time step = " << stableDt << endl;
    return stableDt;
 }
 

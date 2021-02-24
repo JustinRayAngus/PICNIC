@@ -102,6 +102,10 @@ public:
   //
   void advancePositions( const Real&  a_dt );
   
+  // compute stable time step based on particle CFL
+  //
+  void setStableDt();
+  
   // scatter particle
   //
   void scatterParticles( const Real&  a_dt );

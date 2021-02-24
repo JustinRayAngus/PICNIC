@@ -133,17 +133,13 @@ void PicSpecies::advancePositions( const Real& a_dt )
    const RealVect& Xmax(m_mesh.getXmax());
    const RealVect Lbox = Xmax - Xmin; 
    
-   Real maxDtinv = abs(vpiston)/dX[0];
-
-   // Each proc loops over its own boxes, setting the initial
-   // particle positions in each cell.
+   // Each proc loops over its own boxes
+   //
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
 
-      // //ListBox<Particle>& box_list = m_data[dit];
-      // List<Particle>& pList = m_data[dit].listItems();
-      // ListIterator<Particle> li(pList);
+      //ListBox<JustinsParticle>& box_list = m_data[dit];
       List<JustinsParticle>& pList = m_data[dit].listItems();
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
@@ -156,54 +152,92 @@ void PicSpecies::advancePositions( const Real& a_dt )
          x += v*a_dt;
 
          // check to see if particle crosses piston boundary
-         // or axis boundary
+         // Note that this is a special operator that needs
+         // special treatment
          //
-         if(x[0]>=rpiston) { // specular refletion
+         if(x[0]>=rpiston) { // specular reflection
             Real dr = x[0]-rpiston;
             x[0] = rpiston-dr;
             //v[0] = -2.0*abs(v[0]+vpiston);
             v[0] = -(v[0]-vpiston) + vpiston;
          }
-         if(x[0]<=Xmin[0]) { // symmetry
-            x[0] = -x[0];
-            v[0] = abs(v[0]);
-         }
          
-         // set periodic boundary conditions
+         // set particle boundary conditions here for now
+         //
+         // What I should do is create a list of particles that cross the
+         // domain boundaries, and then apply the BCs to that list elsewhere
          //
          for(int dir=0; dir<SpaceDim; dir++) {
-            if( x[dir]<Xmin[dir] && domain.isPeriodic(dir) ) {
-               x[dir] = x[dir] + Lbox[dir];
+            if( domain.isPeriodic(dir) ) {
+               if( x[dir]<Xmin[dir] ) x[dir] = x[dir] + Lbox[dir];
+               if( x[dir]>=Xmax[dir] ) x[dir] = x[dir] - Lbox[dir];
             }
-            if( x[dir]>Xmax[dir] && domain.isPeriodic(dir) ) {
-               x[dir] = x[dir] - Lbox[dir];
+            else { // symmetry BCs
+               if(x[dir]<=Xmin[dir]) {
+                  x[dir] = 2.*Xmin[dir] - x[dir];
+                  v[dir] = -v[dir];
+               }
+               if(x[dir]>=Xmax[dir]) {
+                  x[dir] = 2.*Xmax[dir] - x[dir];
+                  v[dir] = -v[dir];
+               }
             }
          }
-
-         // set max dt for stability
          //
-         Real thisDtinv = abs(v[0])/dX[0];
-         maxDtinv = Max(thisDtinv,maxDtinv);
-         for(int dir=1; dir<SpaceDim; dir++) {
-            thisDtinv = abs(v[dir])/dX[dir];
-            maxDtinv = Max(thisDtinv,maxDtinv);
-         }
+         //
+         //////////////////////////////////////////////////
 
-      }
+      } // end loop over particle list
       
-   }
+   } // end loop over boxes
+
    m_data.gatherOutcast();
    m_data.remapOutcast();
    CH_assert(m_data.isClosed());
    
 
    // update piston position
+   //
    rpiston = rpiston + vpiston*a_dt;
    if(rpiston<dX[0]) {
       rpiston = Xmin[0] + dX[0];
       vpiston = -vpiston;
       if(!procID()) cout << "piston too close to axis !!! " << endl;
       exit(EXIT_FAILURE);
+   }
+
+}
+
+
+void PicSpecies::setStableDt()
+{
+   CH_TIME("PicParticle::setStableDt()");
+   
+   // set the stable time step based on particles crossing a grid cell
+   //
+   const RealVect& dX(m_mesh.getdX());
+   Real maxDtinv = abs(vpiston)/dX[0]; // MOVE this to piston model once created
+   Real thisDtinv;
+
+   // Each proc loops over its own boxes
+   //
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      //ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListIterator<JustinsParticle> li(pList);
+      for(li.begin(); li.ok(); ++li) {
+
+         RealVect&  v = li().velocity();
+         for(int dir=0; dir<SpaceDim; dir++) {
+            thisDtinv = abs(v[dir])/dX[dir];
+            maxDtinv = Max(thisDtinv,maxDtinv);
+         }
+
+      }
+      
    }
 
    // update stable time step
@@ -216,6 +250,7 @@ void PicSpecies::advancePositions( const Real& a_dt )
    m_stable_dt = stable_dt; 
 
 }
+
 
 void PicSpecies::scatterParticles( const Real& a_dt )
 {

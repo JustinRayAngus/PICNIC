@@ -391,7 +391,6 @@ void Simulation::preTimeStep()
 {
    //m_system->preTimeStep( m_cur_step, m_cur_time );
    Real dt_stable = m_system->stableDt( m_cur_step )*m_cfl;
-   //Real dt_stable = 123456789.0; //m_system->stableDt( m_cur_step ) * m_cfl;
    CH_assert( dt_stable > 1.0e-16 );
 
    if ( m_cur_time>0.0 ) { 
