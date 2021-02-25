@@ -123,8 +123,8 @@ private:
   Real m_Uint;     // species internal energy [eV]
   Real m_charge;   // species charge [1.6022e-13 muC]
  
-  Real rpiston = 1.0;
-  Real vpiston = -1.0; 
+  //Real rpiston = 1.0;
+  //Real vpiston = -1.0; 
   Real m_stable_dt = DBL_MAX; 
 
   std::string m_name;  // species name

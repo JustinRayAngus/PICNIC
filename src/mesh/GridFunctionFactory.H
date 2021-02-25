@@ -12,7 +12,7 @@
  * Configuration space function factory class.
  * Allows calling routine to create a function of abstract class
  * GridFunction with no knowledge of the specific type.  In this way,
- * the calling code is insulted from modifications due to the addition of
+ * the calling code is insulated from modifications due to the addition of
  * new functions.
 */
 class GridFunctionFactory

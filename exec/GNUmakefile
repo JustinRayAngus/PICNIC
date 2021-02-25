@@ -16,7 +16,7 @@ CHOMBO_HOME = ../../Chombo_3.2/lib
 
 # names of Chombo libraries needed by this program, in order of search.
 LibNames = BaseTools AMRElliptic AMRTimeDependent AMRTools BoxTools HOAMRTools
-//LibNames = BaseTools AMRElliptic AMRTimeDependent AMRTools BoxTools ParticleTools HOAMRTools
+#LibNames = BaseTools AMRElliptic AMRTimeDependent AMRTools BoxTools ParticleTools HOAMRTools
 
 # the locations of the source code directories
 base_dir = .
@@ -26,6 +26,7 @@ src_dirs += ../src/core
 src_dirs += ../src/utils
 src_dirs += ../src/particle_tools
 src_dirs += ../src/state_variables/species/pic
+src_dirs += ../src/special_operators
 
 # input file for 'run' target
 INPUT = inputs

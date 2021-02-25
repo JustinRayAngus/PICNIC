@@ -6,6 +6,8 @@
 
 #include "dataFileIO.H"
 
+#include "SpecialOperatorFactory.H"
+
 #include "NamespaceHeader.H"
 
 
@@ -321,6 +323,10 @@ void System::createState( ParmParse&  a_pp )
    //PICspeciesPtrVect pic_species;
    createPICspecies();
 
+   // create special operators
+   //
+   createSpecialOperators();
+
    /*
 
    FluidSpeciesPtrVect fluid_species;
@@ -403,6 +409,47 @@ void System::createPICspecies()
 
    if(!procID()) {
       cout << "Done adding PIC species" << endl << endl;
+   }
+
+
+}
+
+void System::createSpecialOperators()
+{
+   //
+   // Create the vector of special operator (pointers)
+   //
+   
+   SpecialOperatorFactory  specialOpFactory;
+   
+   if(!procID()) {
+      cout << "Adding special operators..." << endl;
+   }
+   //DomainGrid* mesh = DomainGrid::mesh;
+
+   bool more_ops(true);
+   string name0;
+   int special_op_num = 0;
+   while(more_ops) { // look for special operator...
+ 
+      special_op_num = special_op_num + 1;
+
+      stringstream s;
+      s << "special_operator." << special_op_num; 
+      ParmParse ppspop( s.str().c_str() );
+     
+      if(ppspop.contains("model")) {
+         m_use_specialOps = true;
+         m_specialOps = specialOpFactory.create( ppspop, 1 );
+      } 
+      else {
+         more_ops = false;
+      }
+   
+   }
+
+   if(!procID()) {
+      cout << "Done adding special operators" << endl << endl;
    }
 
 
@@ -534,12 +581,15 @@ void System::advance( Real&  a_cur_time,
    // advance particle positions
    //
    if(m_picSpecies->motion()) {
+      //ParticleData<JustinsParticle>& Pdata = m_picSpecies->partData();
       m_picSpecies->advancePositions(a_dt);
-      ParticleData<JustinsParticle>& Pdata = m_picSpecies->partData();
-      //m_domain->applyParticleBCs(Pdata, a_dt); // probably a way to predefine list of particles outside physical domain
-                                                 // and only loop over this list when applying Particle BCs.
-                                                 // At the very least, should define BoxLayout of boxes that touch the
-                                                 // simulation boundaries and only loop over those boxes 
+   }
+   
+   // apply special operators
+   //
+   if(m_use_specialOps) {
+      m_specialOps->applyOp(*m_picSpecies,*m_mesh,a_dt);
+      m_specialOps->updateOp(*m_mesh,a_dt);
    }
 
    // scatter the particles

@@ -18,6 +18,7 @@
 #include "ProblemDomain.H"
 #include "DisjointBoxLayout.H"
 #include "DomainGrid.H"
+#include "SpecialOperator.H"
 
 #include "MeshInterp.H"
 
@@ -77,7 +78,8 @@ class System
       void createPICspecies();
       
       //void createPICspecies( PICspeciesPtrVect& pic_species );
-
+      
+      void createSpecialOperators();
 
       //GKState m_state_comp;
       //GKState m_state_phys;
@@ -88,9 +90,12 @@ class System
       dataFileIO* m_dataFile;
       MeshInterp* m_meshInterp;
       PicSpecies* m_picSpecies;
+      //SpecialOperator* m_specialOps;
+      RefCountedPtr<SpecialOperator> m_specialOps;
       //RefCountedPtr<PicSpecies> m_picSpecies;
       
-      bool m_verbosity;
+      bool m_verbosity = true;
+      bool m_use_specialOps = false;
 
       // problem domain 
       //

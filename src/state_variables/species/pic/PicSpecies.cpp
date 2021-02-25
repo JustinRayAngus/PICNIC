@@ -54,11 +54,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    //RealVect particleOrigin = RealVect(D_DECL(0.0,0.0,0.0));
    //if(!procID()) cout << "particleOrigin = " << particleOrigin << endl; 
 
-   // set initial piston position
-   //
-   const RealVect& Xmax(m_mesh.getXmax());
-   rpiston = Xmax[0];
-   m_stable_dt = meshSpacing[0]/abs(vpiston); // initialize stable time step
+   m_stable_dt = meshSpacing[0]; // initialize stable time step
 
    // initialize the member LevelDatas
    //
@@ -151,17 +147,6 @@ void PicSpecies::advancePositions( const Real& a_dt )
          // update particle position
          x += v*a_dt;
 
-         // check to see if particle crosses piston boundary
-         // Note that this is a special operator that needs
-         // special treatment
-         //
-         if(x[0]>=rpiston) { // specular reflection
-            Real dr = x[0]-rpiston;
-            x[0] = rpiston-dr;
-            //v[0] = -2.0*abs(v[0]+vpiston);
-            v[0] = -(v[0]-vpiston) + vpiston;
-         }
-         
          // set particle boundary conditions here for now
          //
          // What I should do is create a list of particles that cross the
@@ -195,17 +180,6 @@ void PicSpecies::advancePositions( const Real& a_dt )
    m_data.remapOutcast();
    CH_assert(m_data.isClosed());
    
-
-   // update piston position
-   //
-   rpiston = rpiston + vpiston*a_dt;
-   if(rpiston<dX[0]) {
-      rpiston = Xmin[0] + dX[0];
-      vpiston = -vpiston;
-      if(!procID()) cout << "piston too close to axis !!! " << endl;
-      exit(EXIT_FAILURE);
-   }
-
 }
 
 
@@ -216,7 +190,7 @@ void PicSpecies::setStableDt()
    // set the stable time step based on particles crossing a grid cell
    //
    const RealVect& dX(m_mesh.getdX());
-   Real maxDtinv = abs(vpiston)/dX[0]; // MOVE this to piston model once created
+   Real maxDtinv = 0.0;
    Real thisDtinv;
 
    // Each proc loops over its own boxes
