@@ -2,6 +2,7 @@
 #include "PicSpecies.H"
 #include <array>
 #include <cmath>
+#include "Constants.H"
 #include "BoxIterator.H"
 #include "ProblemDomain.H"
 #include "GridFunctionFactory.H"
@@ -96,6 +97,11 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    //
    BinFabFactory<JustinsParticlePtr> bfptrFactory(meshSpacing, meshOrigin);
    m_data_binfab_ptr.define(grids, 1, 0*IntVect::Unit, bfptrFactory);
+
+   //cout << "JRA: me = " << Constants::ME << endl;
+   //cout << "JRA: amu = " << Constants::AMU << endl;
+   //cout << "JRA: eV per K = " << Constants::EV_PER_K << endl;
+   //cout << "JRA: K per eV = " << Constants::K_PER_EV << endl;
    
 }
 
