@@ -98,11 +98,6 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    BinFabFactory<JustinsParticlePtr> bfptrFactory(meshSpacing, meshOrigin);
    m_data_binfab_ptr.define(grids, 1, 0*IntVect::Unit, bfptrFactory);
 
-   //cout << "JRA: me = " << Constants::ME << endl;
-   //cout << "JRA: amu = " << Constants::AMU << endl;
-   //cout << "JRA: eV per K = " << Constants::EV_PER_K << endl;
-   //cout << "JRA: K per eV = " << Constants::K_PER_EV << endl;
-   
 }
 
 
@@ -225,7 +220,7 @@ void PicSpecies::setStableDt()
    Real local_stable_dt = 1.0/maxDtinv;
    Real stable_dt = local_stable_dt;
 #ifdef CH_MPI
-   MPI_Allreduce( &local_stable_dt, &stable_dt, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+   MPI_Allreduce( &local_stable_dt, &stable_dt, 1, MPI_CH_REAL, MPI_MIN, MPI_COMM_WORLD ); 
 #endif
    m_stable_dt = stable_dt; 
 
@@ -497,6 +492,8 @@ void PicSpecies::initialize()
          // loop over subgrid corresponding to where particles are 
          // placed in each grid cell    
          //
+         Real V0 = sqrt(Constants::QE/Constants::ME); // ele thermal speed at 1eV [m/s]
+         //Real beta0 = V0/Constants::CVAC;
          for(pbit.begin(); pbit.ok(); ++pbit) {
             
             // set particle position uniformly on grid
@@ -515,7 +512,7 @@ void PicSpecies::initialize()
             for(int dir=0; dir<SpaceDim; dir++) { 
                thisRand = MathUtils::rand();
                Vpart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
-               thisVT = 4.19e5*sqrt(local_temperature[dir]/m_mass); // [m/s]
+               thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
                Vpart[dir] = Vpart[dir]*sqrt(2.0)*thisVT + local_velocity[dir];
             } 
             
@@ -534,7 +531,7 @@ void PicSpecies::initialize()
                   thisVpart = MathUtils::errorinv(2.0*thisRand-1.0);
                   local_temp_virt = m_temperature[dit].get(ig,SpaceDim+dir);
                   local_vel_virt = m_velocity[dit].get(ig,SpaceDim+dir);
-                  thisVT = 4.19e5*sqrt(local_temp_virt/m_mass); // [m/s]
+                  thisVT = V0*sqrt(local_temp_virt/m_mass); // [m/s]
                   thisVpart = thisVpart*sqrt(2.0)*thisVT + local_vel_virt;
                   particle.setVelocityVirt(thisVpart, dir);
                }  
