@@ -1,0 +1,94 @@
+#####################################################
+# Verbosity Definitions
+#####################################################
+simulation.verbosity = 10
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 2
+simulation.max_step            = 100000
+simulation.max_time            = 0.9
+#simulation.max_dt_grow         = 0.1
+#simulation.cfl_number          = 0.7
+simulation.fixed_dt            = 0.00001
+simulation.checkpoint_interval = 100000000
+simulation.checkpoint_prefix   = "chk"
+#simulation.restart_file = "chk3200.4d.hdf5"
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 5.0e-2
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 64 16 
+grid.is_periodic   = 0  1
+grid.config_decomp = 8  2
+grid.fixedBoxSize  = 8
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.Z_min = -1.0
+grid.Z_max = 1.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+#units.number_density = 1.0e23   # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Species Definitions
+#####################################################
+pic_species.1.name   = "deuteriumAtom"
+pic_species.1.mass   = 3670
+pic_species.1.charge = 0
+pic_species.1.motion = false # must be false to use piston operator
+pic_species.1.forces = false
+pic_species.1.scatter = true
+
+IC.deuteriumAtom.parts_per_cell = 2 4
+
+IC.deuteriumAtom.density.type = "constant"
+IC.deuteriumAtom.density.value = 1.0e17
+IC.deuteriumAtom.temperature_0.type = "constant"
+IC.deuteriumAtom.temperature_0.value = 0.0
+IC.deuteriumAtom.temperature_1.type = "constant"
+IC.deuteriumAtom.temperature_1.value = 25.9e-3
+IC.deuteriumAtom.temperature_2.type = "constant"
+IC.deuteriumAtom.temperature_2.value = 25.9e-3
+IC.deuteriumAtom.velocity_0.type = "constant"
+IC.deuteriumAtom.velocity_0.value = 0.0
+IC.deuteriumAtom.velocity_1.type = "constant"
+IC.deuteriumAtom.velocity_1.value = 0.0
+IC.deuteriumAtom.velocity_2.type = "constant"
+IC.deuteriumAtom.velocity_2.value = -1.0e3
+
+#####################################################
+# Special Operator Definitions
+#####################################################
+
+special_operator.1.model = "piston"
+special_operator.1.direction = 0
+special_operator.1.position = 1.0
+special_operator.1.velocity = -1.0
+
+#####################################################
+# Grid Function Definitions
+#####################################################
+grid_function_library.number = 1
+grid_function_library.verbosity = 1
+grid_function_library.list = "zero_grid_func"
+
+grid_function_library.zero_grid_func.type = "zero" 
+
+
+

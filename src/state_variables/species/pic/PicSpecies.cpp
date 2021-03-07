@@ -267,8 +267,7 @@ void PicSpecies::scatterParticles( const Real& a_dt )
    const DisjointBoxLayout& grids = m_data_binfab_ptr.disjointBoxLayout();
    DataIterator ditg(grids);
    int thisNumCell;
-   //int num=0;
-   int verbosity=1; // using this as a verbosity flag
+   int verbosity=0; // using this as a verbosity flag
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
    
       const Box gridBox = grids.get(ditg);
@@ -281,17 +280,31 @@ void PicSpecies::scatterParticles( const Real& a_dt )
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
          thisNumCell = cell_pList.length();
          if(thisNumCell < 2) break;        
-         if(!procID() && verbosity==0) cout << "JRA: thisNumCell = " << thisNumCell << endl;
+         if(!procID() && verbosity) cout << "JRA: thisNumCell = " << thisNumCell << endl;
  
          //cell_pList.shuffle();
          //thisNumCell = cell_pList.length();
          
          ListIterator<JustinsParticlePtr> lit(cell_pList);
            
-         // copy the iterators to a vector and shuffle the vector
+         // copy the iterators to a vector
          std::vector<JustinsParticlePtr> shuffled_parts;
          shuffled_parts.reserve(thisNumCell);
          for (lit.begin(); lit.ok(); ++lit) shuffled_parts.push_back(lit());
+        
+         // randomly choose two unique elements from the vector
+         int random_index1, random_index2; 
+         for (auto n=0; n<thisNumCell; n++) {
+            random_index1 = std::rand() % thisNumCell;  
+            random_index2 = std::rand() % thisNumCell;
+            while(random_index2==random_index1) random_index2 = std::rand() % thisNumCell;  
+            if(procID()==0 && verbosity) {
+               cout << "JRA random_index1 = " << random_index1 << endl;
+               cout << "JRA random_index2 = " << random_index2 << endl;
+            }
+         }
+
+         // randomly shuffle the entire vector of iterators 
          std::random_shuffle(shuffled_parts.begin(), shuffled_parts.end());
          
          // one way to loop over vector
@@ -299,7 +312,7 @@ void PicSpecies::scatterParticles( const Real& a_dt )
             JustinsParticlePtr& this_particle = (*it);
             this_part_ptr = this_particle.getPointer();
             const uint64_t& this_ID = this_part_ptr->ID();
-            if(procID()==0 && verbosity==0) {
+            if(procID()==0 && verbosity) {
                cout << "JRA (shuffled): ID = " << this_ID << endl;
             }
          }
@@ -309,7 +322,7 @@ void PicSpecies::scatterParticles( const Real& a_dt )
             JustinsParticlePtr& this_particle = shuffled_parts[n];
             this_part_ptr = this_particle.getPointer();
             const uint64_t& this_ID = this_part_ptr->ID();
-            if(procID()==0 && verbosity==0) {
+            if(procID()==0 && verbosity) {
                cout << "JRA (shuffled 2): ID = " << this_ID << endl;
             }
          }
@@ -320,7 +333,7 @@ void PicSpecies::scatterParticles( const Real& a_dt )
             this_part_ptr = this_particle.getPointer();
             const uint64_t& this_ID = this_part_ptr->ID();
             const RealVect& this_x = this_part_ptr->position();
-            if(procID()==0 && verbosity==0) {
+            if(procID()==0 && verbosity) {
                cout << "JRA: ID = " << this_ID << endl;
                cout << "JRA: position = " << this_x << endl;
             }

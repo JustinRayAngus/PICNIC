@@ -1,0 +1,23 @@
+#!/bin/csh 
+#MSUB -l walltime=0:05:00
+#MSUB -N piston
+#MSUB -V -j oe 
+#MSUB -l partition=quartz
+#MSUB -l nodes=1
+#MSUB -A wbronze
+#MSUB -m abe
+#MSUB -M angus1@llnl.gov
+#MSUB -q pdebug
+
+setenv DECK    piston.in
+setenv ESL     myPIC2d.ex
+
+setenv NTASKS 16
+setenv NNODES 1
+setenv CH_OUTPUT_INTERVAL NTASKS
+
+touch log.txt
+
+srun -N $NNODES -n $NTASKS ./$ESL $DECK >>& log.txt
+
+
