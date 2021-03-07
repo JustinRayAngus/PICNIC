@@ -14,7 +14,6 @@ Simulation::Simulation( ParmParse& a_pp )
        m_cur_dt(-1.0),
        m_fixed_dt(-1.0),
        m_max_dt_grow(1.1),
-       m_init_dt_frac(0.1),
        m_cfl(1.0),
        m_adapt_dt(true),
        m_checkpoint_interval(0),
@@ -337,14 +336,6 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
       }
    }
 
-   // If set, reduce initial stable time step to this fraction
-   if ( a_ppsim.query( "initial_dt_fraction", m_init_dt_frac ) ) {
-      CH_assert( m_init_dt_frac>0.0 && m_init_dt_frac<=1.0 );
-      if (!m_adapt_dt) {
-         MayDay::Error( "fixed_dt and initial_dt_frac are mutually exclusive!" );
-      }
-   }
-
    // set cfl number for the case of dynamic timestep selection
    if ( a_ppsim.query( "cfl_number", m_cfl ) ) {
       CH_assert( m_cfl>0.0 && m_cfl<=2.0 );
@@ -393,24 +384,11 @@ void Simulation::preTimeStep()
    Real dt_stable = m_system->stableDt( m_cur_step )*m_cfl;
    CH_assert( dt_stable > 1.0e-16 );
 
-   if ( m_cur_time>0.0 ) { 
-      // not initial time step
-      if ( m_adapt_dt ) { 
-         // adjustable time step
-         m_cur_dt = std::min( dt_stable, m_max_dt_grow * m_cur_dt );
-      } else {                 
-         // fixed time step
-         setFixedTimeStep( dt_stable );
-      }
-   } else { 
-      // initial time step
-      if ( m_adapt_dt ) { 
-         // adjustable time step
-         m_cur_dt = m_init_dt_frac * dt_stable;
-      } else {                 
-         // fixed time step
-         setFixedTimeStep( dt_stable );
-      }
+   if ( m_adapt_dt ) { 
+      m_cur_dt = std::min( dt_stable, m_max_dt_grow * m_cur_dt );
+   } 
+   else {
+      setFixedTimeStep( dt_stable );
    }
    
    // If less than a time step from the final time, adjust time step
