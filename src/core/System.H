@@ -18,6 +18,7 @@
 #include "ProblemDomain.H"
 #include "DisjointBoxLayout.H"
 #include "DomainGrid.H"
+#include "CodeUnits.H"
 #include "SpecialOperator.H"
 
 #include "MeshInterp.H"
@@ -87,6 +88,7 @@ class System
       //GKVector m_serialized_vector;
 
       DomainGrid* m_mesh;
+      CodeUnits*  m_units;
       dataFileIO* m_dataFile;
       MeshInterp* m_meshInterp;
       PicSpecies* m_picSpecies;

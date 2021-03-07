@@ -14,6 +14,7 @@
 System::System( ParmParse& a_pp )
    :
      m_mesh(NULL),
+     m_units(NULL),
      m_dataFile(NULL),
      m_meshInterp(NULL),
      m_picSpecies(NULL),
@@ -21,8 +22,8 @@ System::System( ParmParse& a_pp )
 {
    ParmParse ppsys("system");
 
-   //m_units = new GKUnits( ppgksys );
-   //if(!procID()) m_units->print(cout);
+   m_units = new CodeUnits( ppsys );
+   if(!procID()) m_units->printParameters( procID() );
  
    createProblemDomain();          // create the problem domain
   
@@ -80,6 +81,7 @@ System::System( ParmParse& a_pp )
 System::~System()
 {
    delete m_mesh;
+   delete m_units;
    delete m_dataFile;
    if(m_meshInterp!=NULL) {
       delete m_meshInterp;
@@ -162,31 +164,29 @@ void System::createProblemDomain()
    else {
       // stringstream msg("m_geom_type ",m_geom_type, " not supported");
       // MayDay::Error( msg.str().c_str() );
-      cout << "m_geom_type " << m_geom_type << " not supported " << endl;
+      if(!procID()) cout << "m_geom_type " << m_geom_type << " not supported " << endl;
       exit(EXIT_FAILURE);
    }
    
    int grid_verbosity;
    ppgrid.query( "verbosity", grid_verbosity );
    if (procID() == 0 && grid_verbosity) {
-      
-      cout << "grid parameters: " << endl;
-      cout << "m_geom_type = " << m_geom_type << endl;
-      cout << "m_num_ghosts = " << m_num_ghosts << endl;
-      cout << "num_cells = ";
+      cout << "====================== Spatial Grid Parameters =====================" << endl;
+      cout << "  geometry = " << m_geom_type << endl;
+      cout << "  ghost layers = " << m_num_ghosts << endl;
+      cout << "  number of cells = ";
       for (int i=0; i<SpaceDim; i++) cout << m_num_cells[i] << " ";
          cout << endl;
-         cout << "is_periodic = ";
+         cout << "  is periodic = ";
       for (int i=0; i<SpaceDim; i++) cout << m_is_periodic[i] << " ";
          cout << endl;
          if (m_config_decomp.size() > 0) {
-            cout << "config_decomp = ";
+            cout << "  configuration decomposition = ";
          for (int i=0; i<m_config_decomp.size(); i++)
             cout << m_config_decomp[i] << " ";
             cout << endl << endl;
          }
    }
-
 
    if(!procID()) cout << "Constructing ProblemDomain" << endl;
 
@@ -500,7 +500,7 @@ void System::writePlotFile( const int     a_cur_step,
    const bool setEnergy = true;
    const LevelData<FArrayBox>& energy = m_picSpecies->getEnergyDensity(setEnergy);
 
-   m_picSpecies->inspectBinFab();
+   //m_picSpecies->inspectBinFab();
 
    m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy,
                                       a_cur_step, a_cur_time );

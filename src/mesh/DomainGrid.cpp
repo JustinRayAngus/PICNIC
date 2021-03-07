@@ -59,20 +59,22 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
    int grid_verbosity;
    a_ppgrid.query( "verbosity", grid_verbosity );
    if(!procID() && grid_verbosity) {
-      cout << "X_min, X_max = " << m_Xmin[0] << ", " << m_Xmax[0] << endl;
-      cout << "dX = " << m_dX[0] << endl;
+      //cout << "====================== Spatial Grid Parameters =====================" << endl;
+      cout << "  X_min, X_max = " << m_Xmin[0] << ", " << m_Xmax[0] << endl;
+      cout << "  dX = " << m_dX[0] << endl;
       if(SpaceDim==2) {
-          cout << "Z_min, Z_max = " << m_Xmin[1] << ", " << m_Xmax[1] << endl;
-          cout << "dZ = " << m_dX[1] << endl;
+          cout << "  Z_min, Z_max = " << m_Xmin[1] << ", " << m_Xmax[1] << endl;
+          cout << "  dZ = " << m_dX[1] << endl;
       }
       if(SpaceDim==3) {
-         cout << "Y_min, Y_max = " << m_Xmin[1] << ", " << m_Xmax[1] << endl;
-         cout << "dY = " << m_dX[1] << endl;
-         cout << "Z_min, Z_max = " << m_Xmin[2] << ", " << m_Xmax[2] << endl;
-         cout << "dZ = " << m_dX[2] << endl;
+         cout << "  Y_min, Y_max = " << m_Xmin[1] << ", " << m_Xmax[1] << endl;
+         cout << "  dY = " << m_dX[1] << endl;
+         cout << "  Z_min, Z_max = " << m_Xmin[2] << ", " << m_Xmax[2] << endl;
+         cout << "  dZ = " << m_dX[2] << endl;
       }
-      if(SpaceDim<3) cout << "axisymmetric = " << m_axisymmetric << endl;
-      cout << endl << endl;
+      if(SpaceDim<3) cout << "  axisymmetric = " << m_axisymmetric << endl;
+      cout << "====================================================================" << endl;
+      cout << endl;
    }
 
    // set the physical coordinates

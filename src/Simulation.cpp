@@ -95,12 +95,19 @@ Simulation::s_DT_EPS = std::numeric_limits<Real>::epsilon();
 
 void Simulation::printParameters()
 {
-   pout() << "maximum step = " << m_max_step << endl;
-   pout() << "maximum time = " << m_max_time << endl;
-   pout() << "checkpoint interval = " << m_checkpoint_interval << endl;
-   pout() << "plot interval = " << m_plot_interval << endl;
-   if(m_plot_time_interval>0.0) pout() << "plot time interval = " << m_plot_time_interval << endl;
-   if(m_history)                pout() << "hist step interval = " << m_history_interval << endl;
+   if(!procID()) {
+      std::cout << "maximum step = " << m_max_step << endl;
+      std::cout << "maximum time = " << m_max_time << endl;
+      std::cout << "checkpoint interval = " << m_checkpoint_interval << endl;
+      if(m_plot_time_interval>0.0) {
+         std::cout << "plot time interval = " << m_plot_time_interval << endl;
+      }
+      else {
+         std::cout << "plot step interval = " << m_plot_interval << endl;
+      }
+      if(m_history)                std::cout << "hist step interval = " << m_history_interval << endl;
+      std::cout << endl;
+   }
 }
 
 
@@ -122,7 +129,7 @@ void Simulation::loadRestartFile( ParmParse& a_ppsim )
 void Simulation::writePlotFile()
 {
    if (!procID() && m_verbosity) {
-      cout << "Simulation::writePlotFile" << endl;
+      cout << "writing plot file" << endl << endl;
    }
 
 #ifdef CH_USE_HDF5

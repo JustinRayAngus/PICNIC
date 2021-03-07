@@ -39,12 +39,12 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    a_ppspc.query( "scatter", m_scatter );
 
    if ( procID() == 0 ) {
-      cout << "name = " << m_name << endl;
-      cout << "mass = " << m_mass << endl;
-      cout << "charge = " << m_charge << endl;
-      cout << "motion = " << m_motion << endl;
-      cout << "forces = " << m_forces << endl;
-      cout << "scatter = " << m_scatter << endl;
+      cout << "  name = " << m_name << endl;
+      cout << "  mass = " << m_mass << endl;
+      cout << "  charge = " << m_charge << endl;
+      cout << "  motion = " << m_motion << endl;
+      cout << "  forces = " << m_forces << endl;
+      cout << "  scatter = " << m_scatter << endl;
    }
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -245,16 +245,14 @@ void PicSpecies::scatterParticles( const Real& a_dt )
       List<JustinsParticle>& pList = m_data[dit].listItems();
       
       // clear the binfab_ptr container
-      //
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = m_data_binfab_ptr[dit];
       for (gbit.begin(); gbit.ok(); ++gbit) { // loop over grid indices
-         const IntVect ig = gbit(); // grid index
+         const IntVect ig = gbit();
          List<JustinsParticlePtr>& cell_pList_ptr = thisBinFab_ptr(ig,0);
          cell_pList_ptr.clear();
       }
 
       // refill the binfab_ptr container
-      //
       ListIterator<JustinsParticle> li(pList);
       CH_XD::List<JustinsParticlePtr> pListPtr;
       for(li.begin(); li.ok(); ++li) {
@@ -269,7 +267,8 @@ void PicSpecies::scatterParticles( const Real& a_dt )
    const DisjointBoxLayout& grids = m_data_binfab_ptr.disjointBoxLayout();
    DataIterator ditg(grids);
    int thisNumCell;
-   int num=0;
+   //int num=0;
+   int verbosity=1; // using this as a verbosity flag
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
    
       const Box gridBox = grids.get(ditg);
@@ -282,14 +281,14 @@ void PicSpecies::scatterParticles( const Real& a_dt )
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
          thisNumCell = cell_pList.length();
          if(thisNumCell < 2) break;        
+         if(!procID() && verbosity==0) cout << "JRA: thisNumCell = " << thisNumCell << endl;
  
          //cell_pList.shuffle();
          //thisNumCell = cell_pList.length();
          
          ListIterator<JustinsParticlePtr> lit(cell_pList);
            
-         // copy the iterators to a vector and shuffle it
-         //
+         // copy the iterators to a vector and shuffle the vector
          std::vector<JustinsParticlePtr> shuffled_parts;
          shuffled_parts.reserve(thisNumCell);
          for (lit.begin(); lit.ok(); ++lit) shuffled_parts.push_back(lit());
@@ -299,37 +298,34 @@ void PicSpecies::scatterParticles( const Real& a_dt )
          for (auto it = shuffled_parts.begin(); it != shuffled_parts.end(); ++it) {  
             JustinsParticlePtr& this_particle = (*it);
             this_part_ptr = this_particle.getPointer();
-            //const uint64_t& this_ID = this_part_ptr->ID();
-            //if(procID()==0 && num==0) {
-            //   cout << "JRA (shuffled): ID = " << this_ID << endl;
-            //}
+            const uint64_t& this_ID = this_part_ptr->ID();
+            if(procID()==0 && verbosity==0) {
+               cout << "JRA (shuffled): ID = " << this_ID << endl;
+            }
          }
          
          // another way to loop over vector
          for (auto n=0; n<shuffled_parts.size(); n++) {  
             JustinsParticlePtr& this_particle = shuffled_parts[n];
             this_part_ptr = this_particle.getPointer();
-            //const uint64_t& this_ID = this_part_ptr->ID();
-            //if(procID()==0 && num==0) {
-            //   cout << "JRA (shuffled 2): ID = " << this_ID << endl;
-            //}
+            const uint64_t& this_ID = this_part_ptr->ID();
+            if(procID()==0 && verbosity==0) {
+               cout << "JRA (shuffled 2): ID = " << this_ID << endl;
+            }
          }
         
          // loop over the particles in this cell using the iterator 
-         for (lit.begin(); lit.ok(); ++lit)
-         {
+         for (lit.begin(); lit.ok(); ++lit) {
             JustinsParticlePtr& this_particle = lit();
-            //JustinsParticle* this_part_ptr = this_particle.getPointer();
             this_part_ptr = this_particle.getPointer();
-            //const uint64_t& this_ID = this_part_ptr->ID();
+            const uint64_t& this_ID = this_part_ptr->ID();
             const RealVect& this_x = this_part_ptr->position();
-            //if(procID()==0 && num==0) {
-            //   cout << "JRA: ID = " << this_ID << endl;
-            //   cout << "JRA: thisNumCell = " << thisNumCell << endl;
-            //   cout << "JRA: position = " << this_x << endl;
-            //}
+            if(procID()==0 && verbosity==0) {
+               cout << "JRA: ID = " << this_ID << endl;
+               cout << "JRA: position = " << this_x << endl;
+            }
          }
-         num=num+1;
+         verbosity=verbosity+1;
       }
 
    }
@@ -562,7 +558,7 @@ void PicSpecies::initialize()
    CH_assert(m_data.isClosed());
       
    if(!procID()) {
-      cout << "Finished initializing pic species " << m_name  << endl;
+      cout << "Finished initializing pic species " << m_name  << endl << endl;
    }
 
    // JRA, testing what's in binfab...

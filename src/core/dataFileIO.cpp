@@ -31,7 +31,7 @@ dataFileIO::dataFileIO( ParmParse&   a_pp,
 void dataFileIO::writeMeshDataFile()
 {
 
-   if(!procID()) cout << "Simulation::writeMeshDataFile" << endl;
+   if(!procID()) cout << "writing mesh data file ..." << endl << endl;
 
 #ifdef CH_USE_HDF5
 
