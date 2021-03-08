@@ -20,6 +20,7 @@
 #include "DomainGrid.H"
 #include "CodeUnits.H"
 #include "SpecialOperator.H"
+#include "Scattering.H"
 
 #include "MeshInterp.H"
 
@@ -80,6 +81,8 @@ class System
       
       //void createPICspecies( PICspeciesPtrVect& pic_species );
       
+      void createScattering();
+      
       void createSpecialOperators();
 
       //GKState m_state_comp;
@@ -93,10 +96,12 @@ class System
       MeshInterp* m_meshInterp;
       PicSpecies* m_picSpecies;
       //SpecialOperator* m_specialOps;
+      RefCountedPtr<Scattering> m_scattering;
       RefCountedPtr<SpecialOperator> m_specialOps;
       //RefCountedPtr<PicSpecies> m_picSpecies;
       
       bool m_verbosity = true;
+      bool m_use_scattering = false;
       bool m_use_specialOps = false;
 
       // problem domain 

@@ -226,11 +226,9 @@ void PicSpecies::setStableDt()
 
 }
 
-
-void PicSpecies::scatterParticles( const Real& a_dt )
+void PicSpecies::binTheParticles()
 {
-   CH_TIME("PicParticle::scatterParticles()");
-   JustinsParticle* this_part_ptr = NULL;  
+   CH_TIME("PicParticle::binTheParticles()");
    
    ///////////////////////////////////////////////////////////
    //
@@ -244,8 +242,9 @@ void PicSpecies::scatterParticles( const Real& a_dt )
       BoxIterator gbit(gridBox);
       List<JustinsParticle>& pList = m_data[dit].listItems();
       
-      // clear the binfab_ptr container
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = m_data_binfab_ptr[dit];
+      
+      // clear the binfab_ptr container
       for (gbit.begin(); gbit.ok(); ++gbit) { // loop over grid indices
          const IntVect ig = gbit();
          List<JustinsParticlePtr>& cell_pList_ptr = thisBinFab_ptr(ig,0);
@@ -261,6 +260,17 @@ void PicSpecies::scatterParticles( const Real& a_dt )
       }
       thisBinFab_ptr.addItems(pListPtr); // JRA testing binfab_ptr
    }
+}
+
+void PicSpecies::testParticleShuffling( const Real& a_dt )
+{
+   CH_TIME("PicParticle::testParticleShuffling()");
+  
+    JustinsParticle* this_part_ptr = NULL;  
+   
+   // fill BinFab container with pointers to particles
+   //
+   binTheParticles();
    
    // loop over lists in each cell and test shuffle
    //
@@ -338,7 +348,7 @@ void PicSpecies::scatterParticles( const Real& a_dt )
                cout << "JRA: position = " << this_x << endl;
             }
          }
-         verbosity=verbosity+1;
+         verbosity=0;
       }
 
    }
@@ -576,7 +586,7 @@ void PicSpecies::initialize()
 
    // JRA, testing what's in binfab...
    //
-   //scatterParticles( 0.0 );
+   //testParticleShuffling( 0.0 );
    //inspectBinFab( m_data_binfab_ptr );
 
    /*

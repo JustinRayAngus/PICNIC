@@ -55,10 +55,11 @@ public:
   
   virtual bool isSpecies( const string& name ) const;
 
-  //virtual ParticleData<Particle>& partData() {return m_data;}
+  // return non-const reference to particle data containers
   virtual ParticleData<JustinsParticle>& partData() {return m_data;}
+  virtual LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() {return m_data_binfab_ptr;}
   
-  //virtual const ParticleData<Particle>& partData() const {return m_data;}
+  // return const reference to particle data containers
   virtual const ParticleData<JustinsParticle>& partData() const {return m_data;}
   virtual const LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() const {return m_data_binfab_ptr;}
   
@@ -106,9 +107,13 @@ public:
   //
   void setStableDt();
   
-  // scatter particle
+  // bin the particle up for scattering
   //
-  void scatterParticles( const Real&  a_dt );
+  void binTheParticles();
+  
+  // test particle shuffling
+  //
+  void testParticleShuffling( const Real&  a_dt );
 
   //const PicSpecies& operator=( const PicSpecies& a_species );
   

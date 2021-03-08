@@ -7,6 +7,7 @@
 #include "dataFileIO.H"
 
 #include "SpecialOperatorFactory.H"
+#include "ScatteringFactory.H"
 
 #include "NamespaceHeader.H"
 
@@ -111,6 +112,12 @@ void System::initialize( const int     a_cur_step,
       if(!procID()) cout << "System::initialize() called at step = " << a_cur_step << endl;
       if(!procID()) cout << "restarting not currently an option !!! " << endl;
       exit(EXIT_FAILURE);
+   }
+
+   // check for scattering and initialize scattering models
+   //
+   if(m_picSpecies->scatter()) {
+
    }
 
    /*
@@ -322,6 +329,8 @@ void System::createState( ParmParse&  a_pp )
    //
    //PICspeciesPtrVect pic_species;
    createPICspecies();
+   
+   createScattering();
 
    // create special operators
    //
@@ -411,6 +420,34 @@ void System::createPICspecies()
       cout << "Done adding PIC species" << endl << endl;
    }
 
+}
+
+
+void System::createScattering()
+{
+   if(m_picSpecies->scatter()) {  
+
+      ScatteringFactory  scatteringFactory;
+   
+      if(!procID()) {
+         cout << "Adding scattering operators... " << endl;
+      }
+      
+      int species_num = 1;
+      stringstream s;
+      s << "scattering." << m_picSpecies->name(); 
+      
+      ParmParse pp_scatter( s.str().c_str() );
+      if(pp_scatter.contains("model")) {
+         m_use_scattering = true;
+         m_scattering = scatteringFactory.create( pp_scatter, *m_picSpecies, 1 );
+      } 
+      
+      if(!procID()) {
+         cout << "Done adding scattering models" << endl << endl;
+      }
+
+   }
 
 }
 
@@ -585,17 +622,24 @@ void System::advance( Real&  a_cur_time,
       m_picSpecies->advancePositions(a_dt);
    }
    
+   // scatter the particles
+   //
+   if(m_use_scattering) {
+      //m_picSpecies->testParticleShuffling(a_dt);
+      if(m_picSpecies->scatter()) {
+         m_picSpecies->binTheParticles(); // bin particles up for scattering call below
+         const bool setMoments = true;
+         const LevelData<FArrayBox>& numberDensity = m_picSpecies->getNumberDensity(setMoments);
+         const LevelData<FArrayBox>& energyDensity = m_picSpecies->getEnergyDensity(setMoments);
+         m_scattering->applySelfScattering( *m_picSpecies, *m_mesh, numberDensity, energyDensity, a_dt );
+      }
+   }
+   
    // apply special operators
    //
    if(m_use_specialOps) {
       m_specialOps->applyOp(*m_picSpecies,*m_mesh,a_dt);
       m_specialOps->updateOp(*m_mesh,a_dt);
-   }
-
-   // scatter the particles
-   //
-   if(m_picSpecies->scatter()) {
-      m_picSpecies->scatterParticles(a_dt);
    }
 
    // advance state vector of grid/0D variables
