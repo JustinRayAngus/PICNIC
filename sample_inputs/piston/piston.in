@@ -9,7 +9,6 @@ simulation.verbosity = 10
 #simulation.max_step            = 2
 simulation.max_step            = 100000
 simulation.max_time            = 0.9
-#simulation.max_dt_grow         = 0.1
 #simulation.cfl_number          = 0.7
 simulation.fixed_dt            = 0.00001
 simulation.checkpoint_interval = 100000000
@@ -49,22 +48,26 @@ units.time           = 1.0e-9  # s
 # Species Definitions
 #####################################################
 pic_species.1.name   = "deuteriumAtom"
-pic_species.1.mass   = 3670
+pic_species.1.mass   = 3671
 pic_species.1.charge = 0
 pic_species.1.motion = false # must be false to use piston operator
 pic_species.1.forces = false
 pic_species.1.scatter = true
 
-IC.deuteriumAtom.parts_per_cell = 2 4
+scattering.deuteriumAtom.model = "VHS"
+scattering.deuteriumAtom.reference_temperature = 300   # [K]
+scattering.deuteriumAtom.reference_viscosity = 1.26e-5 # [Pa-s]
+scattering.deuteriumAtom.eta = 0.69
 
+IC.deuteriumAtom.parts_per_cell = 2 4
 IC.deuteriumAtom.density.type = "constant"
-IC.deuteriumAtom.density.value = 1.0e17
+IC.deuteriumAtom.density.value = 1.0e23 # [number/m^3]
 IC.deuteriumAtom.temperature_0.type = "constant"
-IC.deuteriumAtom.temperature_0.value = 0.0
+IC.deuteriumAtom.temperature_0.value = 0.0 # [eV]
 IC.deuteriumAtom.temperature_1.type = "constant"
-IC.deuteriumAtom.temperature_1.value = 25.9e-3
+IC.deuteriumAtom.temperature_1.value = 25.9e-3 # [eV]
 IC.deuteriumAtom.temperature_2.type = "constant"
-IC.deuteriumAtom.temperature_2.value = 25.9e-3
+IC.deuteriumAtom.temperature_2.value = 25.9e-3 # [eV]
 IC.deuteriumAtom.velocity_0.type = "constant"
 IC.deuteriumAtom.velocity_0.value = 0.0
 IC.deuteriumAtom.velocity_1.type = "constant"
