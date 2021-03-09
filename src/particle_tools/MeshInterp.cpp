@@ -126,7 +126,7 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
                            const RealVect&   a_domainLeftEdge,
                            const RealVect&   a_dx,
                            const RealVect&   a_position,
-                           const RealVect&   a_velocity,
+                           const std::array<Real,3>&   a_velocity,
                            const Real&       a_weight, 
                            const Real&       a_species_mass, 
                            const MomentType  a_momentType ) const // JRA const
@@ -145,8 +145,8 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
                    CHF_CONST_REAL(a_weight) );
       break;
     case momentum:
-      // CH_assert(a_moment.nComp()==SpaceDim); // done at higher level
-      for(int dir=0; dir<SpaceDim; dir++) {
+      // CH_assert(a_moment.nComp()==3); // done at higher level
+      for(int dir=0; dir<3; dir++) {
          kernal = a_species_mass*a_velocity[dir];
          FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, dir),
                       CHF_CONST_REALVECT(a_domainLeftEdge),
@@ -158,7 +158,7 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
       break;
     case energy:
       kernal = 0.0;
-      for(int dir=0; dir<SpaceDim; dir++) {
+      for(int dir=0; dir<3; dir++) {
          kernal = kernal + a_velocity[dir]*a_velocity[dir];
       }
       kernal = a_species_mass*kernal/2.0;

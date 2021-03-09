@@ -62,7 +62,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    const IntVect ghostVect = ghosts*IntVect::Unit; 
    
    m_density.define(grids,1,ghostVect);
-   m_momentum.define(grids,SpaceDim,ghostVect);
+   m_momentum.define(grids,3,ghostVect);
    m_energy.define(grids,1,ghostVect);
    m_temperature.define(grids,3,ghostVect);
    m_velocity.define(grids,3,ghostVect);
@@ -142,11 +142,13 @@ void PicSpecies::advancePositions( const Real& a_dt )
       for(li.begin(); li.ok(); ++li) {
 
          RealVect&  x = li().position();
-         RealVect&  v = li().velocity();
-         //RealVect&  a = li().acceleration();
+         std::array<Real,3>&  v = li().velocity();
 
          // update particle position
-         x += v*a_dt;
+         //x += v*a_dt;
+         for(int dir=0; dir<SpaceDim; dir++) {
+            x[dir] += v[dir]*a_dt;
+         }
 
          // set particle boundary conditions here for now
          //
@@ -205,7 +207,7 @@ void PicSpecies::setStableDt()
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
-         RealVect&  v = li().velocity();
+         std::array<Real,3>&  v = li().velocity();
          for(int dir=0; dir<SpaceDim; dir++) {
             thisDtinv = abs(v[dir])/dX[dir];
             maxDtinv = Max(thisDtinv,maxDtinv);
@@ -501,10 +503,12 @@ void PicSpecies::initialize()
          pWeight = local_density*cellVolume/(Real)totalPartsPerCell; 
         
          RealVect local_Xcc; 
-         RealVect local_temperature;
-         RealVect local_velocity;
+         std::array<Real,3> local_temperature;
+         std::array<Real,3> local_velocity;
          for(int dir=0; dir<SpaceDim; dir++) {
             local_Xcc[dir] = Xcc[dit].get(ig,dir);
+         }
+         for(int dir=0; dir<3; dir++) {
             local_temperature[dir] = m_temperature[dit].get(ig,dir);
             local_velocity[dir] = m_velocity[dit].get(ig,dir);
          }
@@ -527,9 +531,9 @@ void PicSpecies::initialize()
             // initialize particle velocities by randomly sampling 
             // a maxwellian
             //
-            RealVect Vpart = RealVect::Zero;
+            std::array<Real,3> Vpart = {0,0,0};
             Real thisRand, thisVT;
-            for(int dir=0; dir<SpaceDim; dir++) { 
+            for(int dir=0; dir<3; dir++) { 
                thisRand = MathUtils::rand();
                Vpart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
                thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
@@ -542,21 +546,6 @@ void PicSpecies::initialize()
             particle.setID(ID);
             ID = ID + 1;
  
-            // set velocities in virtual directions
-            //
-            if(SpaceDim<3){
-               Real thisVpart, local_temp_virt, local_vel_virt;
-               for(int dir=0; dir<3-SpaceDim; dir++) { 
-                  thisRand = MathUtils::rand();
-                  thisVpart = MathUtils::errorinv(2.0*thisRand-1.0);
-                  local_temp_virt = m_temperature[dit].get(ig,SpaceDim+dir);
-                  local_vel_virt = m_velocity[dit].get(ig,SpaceDim+dir);
-                  thisVT = V0*sqrt(local_temp_virt/m_mass); // [m/s]
-                  thisVpart = thisVpart*sqrt(2.0)*thisVT + local_vel_virt;
-                  particle.setVelocityVirt(thisVpart, dir);
-               }  
-            }
-            
             // append particle to the list
             //
             thisList.append(particle);

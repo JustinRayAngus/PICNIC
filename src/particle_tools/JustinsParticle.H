@@ -20,8 +20,8 @@
 #include "NamespaceHeader.H"
 
 //  A basic particle class. 
-//  Includes weight, position, velocity, and acceleration
-//  position is separated into those corresonding to the 
+//  Includes weight, position, velocity, and acceleration.
+//  The position is separated into those corresonding to the 
 //  SpaceDim of the build and virtual components
 //
 
@@ -35,7 +35,8 @@ public:
   /// same as define()
   JustinsParticle( const Real       a_weight,
                    const RealVect&  a_position,
-                   const RealVect&  a_velocity = RealVect::Zero );
+                   const std::array<Real,3>&  a_velocity = {0,0,0} );
+                   //const RealVect&  a_velocity = RealVect::Zero );
 
   /// default
   virtual ~JustinsParticle();
@@ -43,7 +44,8 @@ public:
   /// for non-default constructor
   void define( const Real       a_weight,
                const RealVect&  a_position,
-               const RealVect&  a_velocity = RealVect::Zero );
+               const std::array<Real,3>&  a_velocity = {0,0,0} );
+               //const RealVect&  a_velocity = RealVect::Zero );
   
   /// set particle ID
   void setID();
@@ -69,20 +71,21 @@ public:
   const Real& weight() const;
   
   /// set velocity field
-  void setVelocity(const RealVect& a_velocity);
+  void setVelocity(const std::array<Real,3>& a_velocity);
   void setVelocity(const Real& a_velocity, const int a_dir);
 
-  // retrieve reference velocity field
-  RealVect& velocity();
+  // retrieve reference virtual velocity field
+  std::array<Real,3>& velocity();
 
-  // retrieve const. reference velocity field
-  const RealVect& velocity() const;
+  // retrieve const. reference virtual velocity field
+  const std::array<Real,3>& velocity() const;
 
   // retrieve vel. comp. in a given direction
   Real velocity(const int a_dir) const;
-
+  
   /// set acceleration field
   void setAcceleration(const std::array<Real,3>& a_acceleration);
+  void setAcceleration(const Real& a_acceleration, const int a_dir);
 
   // retrieve reference acceleration field
   std::array<Real,3>& acceleration();
@@ -110,23 +113,6 @@ public:
   // retrieve virt. pos. comp. in a given direction
   Real positionVirt(const int a_dir) const;
 
-  //
-  //  define functions for virtual velocity (for 1D/2D sims)
-  //
-
-  /// set virtual velocity field
-  void setVelocityVirt(const std::array<Real,3-SpaceDim>& a_vel_virt);
-  void setVelocityVirt(const Real& a_vel_virt, const int a_dir);
-
-  // retrieve reference virtual velocity field
-  std::array<Real,3-SpaceDim>& velocityVirt();
-
-  // retrieve const. reference virtual velocity field
-  const std::array<Real,3-SpaceDim>& velocityVirt() const;
-
-  // retrieve virt. vel. comp. in a given direction
-  Real velocityVirt(const int a_dir) const;
-  
   //
   ///////////////
   //
@@ -165,10 +151,9 @@ protected:
   uint64_t m_ID;
   //Real     m_ID;
   Real     m_weight;
-  RealVect m_velocity;
-  std::array<Real,3> m_acceleration; // virtual acceleration for 1D/2D sims
+  std::array<Real,3> m_velocity;
+  std::array<Real,3> m_acceleration;
   std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
-  std::array<Real,3-SpaceDim> m_vel_virt; // virtual velocity for 1D/2D sims
 };
 
 std::ostream & operator<<(std::ostream& ostr, const JustinsParticle& p);

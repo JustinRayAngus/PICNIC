@@ -67,13 +67,13 @@ void MeshInterp::moment( FArrayBox&  a_moment,
                    const MomentType  a_momentType ) const // JRA const
 {
 
-  if(a_momentType==momentum) CH_assert(a_moment.nComp()==SpaceDim);
+  if(a_momentType==momentum) CH_assert(a_moment.nComp()==3);
 
   for (ListIterator<P> lit(a_particleList); lit; ++lit)
   {
      const P& this_particle = lit();
      const RealVect& this_x = this_particle.position();
-     const RealVect& this_v = this_particle.velocity();
+     const std::array<Real,3>& this_v = this_particle.velocity();
      const Real& this_w = this_particle.weight();
      momentParticle( a_moment, 
                      m_domainLeftEdge, 

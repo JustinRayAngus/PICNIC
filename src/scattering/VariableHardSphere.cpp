@@ -7,6 +7,7 @@
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
 #include "BinFab.H"
+#include "ScatteringUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -39,7 +40,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
    Real local_sigmaT, local_nuDt, g12, q12;
    Real fourPiA = 4.*Constants::PI*m_Aconst;
    Real fourOverAlpha = 4.0/m_alpha;   
-   std::array<Real,3> deltaV;
+   std::array<Real,3> deltaU;
   
    Real box_nuMaxDt=0.0;
  
@@ -127,25 +128,25 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
             this_part1_ptr = this_part1.getPointer();
             const uint64_t& this_ID1 = this_part1_ptr->ID();
             const RealVect& this_xp1 = this_part1_ptr->position();
-            RealVect& this_vp1 = this_part1_ptr->velocity();
-            std::array<Real,3-SpaceDim>& this_vp1_virt = this_part1_ptr->velocityVirt();
+            //RealVect& this_vp1 = this_part1_ptr->velocity();
+            std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part_ptrs[random_index2];
             this_part2_ptr = this_part2.getPointer();
             const uint64_t& this_ID2 = this_part2_ptr->ID();
             const RealVect& this_xp2 = this_part2_ptr->position();
-            RealVect& this_vp2 = this_part2_ptr->velocity();
-            std::array<Real,3-SpaceDim>& this_vp2_virt = this_part2_ptr->velocityVirt();
+            //RealVect& this_vp2 = this_part2_ptr->velocity();
+            std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
 
             // compute relative velocity magnitude
             g12 = 0.0;
-            for (int dir=0; dir<SpaceDim; dir++) {
+            for (int dir=0; dir<3; dir++) {
                g12 = g12 + pow(this_vp2[dir]-this_vp1[dir],2);
             }
-            for (int dir=0; dir<3-SpaceDim; dir++) {
-               g12 = g12 + pow(this_vp2_virt[dir]-this_vp1_virt[dir],2);
-            }
+            //for (int dir=0; dir<3-SpaceDim; dir++) {
+             //  g12 = g12 + pow(this_vp2_virt[dir]-this_vp1_virt[dir],2);
+            //}
             g12 = sqrt(g12); // relavive velocity [m/s]
          
             // compute local sigmaT = sigmaT(g12) local nu*dt
@@ -157,19 +158,26 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
             rand_num = MathUtils::rand();
             if(rand_num<q12) { // this pair collides
 
-               //compute deltaV
+               //compute deltaU
                numCollisions = numCollisions + 1;
-               deltaV = {0,0,0};
+               deltaU = {0,0,0};
+               //for (int dir=0; dir<SpaceDim; dir++) {
+               //   Real& vx1 = this_vp1[dir];
+               //}
+               //for (int dir=0; dir<3-SpaceDim; dir++) {
+               //   this_vp1_virt[dir] = this_vp1_virt[dir] + deltaU[SpaceDim+dir];
+               //ScatteringUtils::computeDeltaU(deltaU,
+               //                               vx1,vy1,vz1,vx2,vy2,vz2,theta); 
 
                // update particle velocities
-               for (int dir=0; dir<SpaceDim; dir++) {
-                  this_vp1[dir] = this_vp1[dir] + deltaV[dir];
-                  this_vp2[dir] = this_vp2[dir] - deltaV[dir];
+               for (int dir=0; dir<3; dir++) {
+                  this_vp1[dir] = this_vp1[dir] + deltaU[dir];
+                  this_vp2[dir] = this_vp2[dir] - deltaU[dir];
                }
-               for (int dir=0; dir<3-SpaceDim; dir++) {
-                  this_vp1_virt[dir] = this_vp1_virt[dir] + deltaV[SpaceDim+dir];
-                  this_vp2_virt[dir] = this_vp2_virt[dir] + deltaV[SpaceDim+dir];
-               }
+               //for (int dir=0; dir<3-SpaceDim; dir++) {
+                //  this_vp1_virt[dir] = this_vp1_virt[dir] + deltaU[SpaceDim+dir];
+                //  this_vp2_virt[dir] = this_vp2_virt[dir] + deltaU[SpaceDim+dir];
+               //}
                if(procID()==0 && verbosity) {
                   cout << "JRA random_index1 = " << random_index1 << endl;
                   cout << "JRA random_index2 = " << random_index2 << endl;

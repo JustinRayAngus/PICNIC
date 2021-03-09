@@ -74,10 +74,13 @@ class Piston : public SpecialOperator
             for(li.begin(); li.ok(); ++li) {
 
                RealVect&  xp = li().position();
-               RealVect&  vp = li().velocity();
+               std::array<Real,3>&  vp = li().velocity();
 
                // update particle position
-               xp += vp*a_dt;
+               //xp += vp*a_dt;
+               for(int dir=0; dir<SpaceDim; dir++) {
+                  xp[dir] += vp[dir]*a_dt;
+               }
 
                // check to see if particle crosses piston boundary
                //
@@ -147,16 +150,6 @@ class Piston : public SpecialOperator
        */
       void parseParameters( ParmParse& a_pp )
       {
-         /*
-         std::vector<Real> input_piston_position( SpaceDim );
-         std::vector<Real> input_piston_velocity( SpaceDim );
-         a_pp.getarr( "position", input_piston_position, 0, SpaceDim );
-         a_pp.getarr( "velocity", input_piston_velocity, 0, SpaceDim );
-         for (int dim=0; dim<SpaceDim; dim++)  {
-            m_piston_position[dim] = input_piston_position[dim];
-            m_piston_velocity[dim] = input_piston_velocity[dim];
-         }
-         */
          a_pp.query( "position", m_piston_position );
          a_pp.query( "velocity", m_piston_velocity );
          a_pp.query( "direction", m_piston_dir );

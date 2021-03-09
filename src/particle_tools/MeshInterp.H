@@ -87,7 +87,7 @@ private:
                  const RealVect&   a_domainLeftEdge,
                  const RealVect&   a_dx,
                  const RealVect&   a_position,
-                 const RealVect&   a_velocity,
+                 const std::array<Real,3>&   a_velocity,
                  const Real&       a_species_mass,
                  const Real&       a_weight,
                  const MomentType  a_momentType ) const; // JRA const;

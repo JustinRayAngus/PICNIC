@@ -231,19 +231,16 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
    Vector<string> vectNames;
    char field_name[50];
    char comp_name[50];
-   char coords[SpaceDim];
+   char coords[3];
    coords[0] = 'x';
-   if(SpaceDim==2) coords[1] = 'z';
-   if(SpaceDim==3) {
-      coords[1] = 'y';
-      coords[2] = 'z';
-   }
+   coords[1] = 'y';
+   coords[2] = 'z';
 
    // first write header for mesh data
    //
    int numMeshComps = a_density.nComp() + a_momentum.nComp() + a_energy.nComp();
    vectNames.push_back("density");
-   for (int dir=0; dir<SpaceDim; dir++) {
+   for (int dir=0; dir<a_momentum.nComp(); dir++) {
       sprintf(field_name, "momentumDensity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
@@ -269,26 +266,26 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
         vectNames.push_back(field_name);
      }
    }
-   for (int dir=0; dir<SpaceDim; dir++) {
+   for (int dir=0; dir<3; dir++) {
       sprintf(field_name, "particle_velocity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   if(SpaceDim<3) {
-     for(int i=0; i<3-SpaceDim; i++) {
-        sprintf(field_name, "virtual_particle_velocity_%c", i);
-        vectNames.push_back(field_name);
-     }
-   }
-   for (int dir=0; dir<SpaceDim; dir++) {
+   //if(SpaceDim<3) {
+   //  for(int i=0; i<3-SpaceDim; i++) {
+   //     sprintf(field_name, "virtual_particle_velocity_%c", i);
+   //     vectNames.push_back(field_name);
+   //  }
+   //}
+   for (int dir=0; dir<3; dir++) {
       sprintf(field_name, "particle_acceleration_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   if(SpaceDim<3) {
-     for(int i=0; i<3-SpaceDim; i++) {
-        sprintf(field_name, "virtual_particle_acceleration_%c", i);
-        vectNames.push_back(field_name);
-     }
-   }
+   //if(SpaceDim<3) {
+   //  for(int i=0; i<3-SpaceDim; i++) {
+   //     sprintf(field_name, "virtual_particle_acceleration_%c", i);
+   //     vectNames.push_back(field_name);
+   //  }
+   //}
    vectNames.push_back("particle_weight");
    vectNames.push_back("particle_ID");
 
@@ -331,7 +328,7 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
    momentData.define(grids,numMeshComps,a_density.ghostVect());
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       momentData[dit].copy(a_density[dit],0,0,1);
-      for (int dir=0; dir<SpaceDim; dir++) { 
+      for (int dir=0; dir<a_momentum.nComp(); dir++) { 
          momentData[dit].copy(a_momentum[dit],dir,1+dir,1);
       } 
       momentData[dit].copy(a_energy[dit],0,numMeshComps-1,1);
