@@ -1,6 +1,7 @@
 
 #include "VariableHardSphere.H"
 #include "Constants.H"
+#include "MathUtils.H"
 #include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
@@ -18,20 +19,34 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
 {
    CH_TIME("VariableHardSphere::applySelfScattering()");
  
+   if(!procID()) {
+     //for (int i=0; i<10;i++) {
+     //   cout << MathUtils::rand() << endl;
+     //}  
+   }
+
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
     
-   // define refence to a_picSpcies binfab container of pointers to particle data
+   // define reference to a_picSpcies binfab container of pointers to particle data
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
 
-   // loop over lists in each cell and test shuffle
-   //
-   const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
-   DataIterator ditg(grids);
- 
+   // predefine some variables
    const Real Mass = a_picSpecies.mass(); // species mass in units of electron mass
    Real local_Teff, local_numberDensity, local_energyDensity, local_gmax;
+   Real local_sigmaTmax, local_nuMaxDt, local_Nmax, local_Nmax_remainder, local_Nmax_whole;
    int local_numCell;
+   Real local_sigmaT, local_nuDt, g12, q12;
+   Real fourPiA = 4.*Constants::PI*m_Aconst;
+   Real fourOverAlpha = 4.0/m_alpha;   
+   std::array<Real,3> deltaV;
+  
+   Real box_nuMaxDt=0.0;
+ 
+   // loop over lists in each cell and test shuffle
+   const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
+   DataIterator ditg(grids);
+
    int verbosity=0; // using this as a verbosity flag
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
 
@@ -42,21 +57,48 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
    
       const Box gridBox = grids.get(ditg);
       BoxIterator gbit(gridBox);
-      for (gbit.begin(); gbit.ok(); ++gbit) { // loop over grid indices
+      for (gbit.begin(); gbit.ok(); ++gbit) { // loop over cells
          
          const IntVect ig = gbit(); // grid index
-        
+       
+         /////////////////////////////////////////////////////////////////
+         //
+         // compute the number of possible collisions for this cell
+         //
+          
          // get local density and temperature and compute local gmax
          local_numberDensity = this_numberDensity.get(ig,0); 
          local_energyDensity = this_energyDensity.get(ig,0); 
+         if(local_numberDensity == 0.0) continue;
          local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
          local_gmax = 5.0*sqrt(local_Teff/Mass); // 5x thermal speed [m/s]
 
+         // compute local sigmaTmax = sigmaT(gmax) local nuMax*dt
+         local_sigmaTmax = fourPiA*pow(local_gmax,-fourOverAlpha);
+         local_nuMaxDt = local_numberDensity*local_sigmaTmax*local_gmax*a_dt;         
+         box_nuMaxDt = Max(box_nuMaxDt,local_nuMaxDt);
+
+         // compute local maximum number of collsions: Nmax = 1/2*(N-1)*n*sigmaTmax*gmax*dt
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
          local_numCell = cell_pList.length();
-         if(local_numCell < 2) break;        
+         if(local_numCell < 2) continue;
+         local_Nmax = 0.5*(local_numCell-1)*local_nuMaxDt;
+    
+         // separate Nmax into whole integer and remainder and set integer Nmax
+         local_Nmax_remainder = modf(local_Nmax, &local_Nmax_whole);
+         Real rand_num = MathUtils::rand();
+         int local_Nmax_integer = static_cast<int>(local_Nmax_whole);
+         if(rand_num<local_Nmax_remainder) {
+            local_Nmax_integer = local_Nmax_integer + 1;
+         }
+         
          if(!procID() && verbosity) {
             cout << "JRA: local_numCell = " << local_numCell << endl;
+            cout << "JRA: local_nuMaxDt = " << local_nuMaxDt << endl;
+            cout << "JRA: local_Nmax    = " << local_Nmax << endl;
+            cout << "JRA: local_Nmax_whole = " << local_Nmax_whole << endl;
+            cout << "JRA: local_Nmax_remainder = " << local_Nmax_remainder << endl;
+            cout << "JRA: local_Nmax_integer = " << local_Nmax_integer << endl;
             cout << "JRA: local_numberDensity = " << local_numberDensity << endl;
             cout << "JRA: local_energyDensity = " << local_energyDensity << endl;
             cout << "JRA: local_gmax [m/s] = " << local_gmax << endl;
@@ -68,46 +110,97 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
          ListIterator<JustinsParticlePtr> lit(cell_pList);
          for (lit.begin(); lit.ok(); ++lit) vector_part_ptrs.push_back(lit());
         
-         // loop over number of collisions to perform and randomly choose two unique elements from the vector
-         int random_index1, random_index2; 
-         for (auto n=0; n<local_numCell; n++) {
-            random_index1 = std::rand() % local_numCell;  
-            random_index2 = std::rand() % local_numCell;
-            while(random_index2==random_index1) random_index2 = std::rand() % local_numCell;  
+         ////////////////////////////////////////////////////////////////////////
+         //
+         // loop over Nmax and randomly choose two unique elements from the vector to scatter
+         //
+         int random_index1, random_index2;
+         int numCollisions = 0;
+         for (auto n=0; n<local_Nmax_integer; n++) { // loop over collision for this cell
+         
+            random_index1 = MathUtils::randInt(0, local_numCell-1);  
+            random_index2 = MathUtils::randInt(0, local_numCell-1);  
+            while(random_index2==random_index1) random_index2 = MathUtils::randInt(0, local_numCell-1);  
 
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part_ptrs[random_index1];
             this_part1_ptr = this_part1.getPointer();
             const uint64_t& this_ID1 = this_part1_ptr->ID();
             const RealVect& this_xp1 = this_part1_ptr->position();
-            const RealVect& this_vp1 = this_part1_ptr->velocity();
+            RealVect& this_vp1 = this_part1_ptr->velocity();
+            std::array<Real,3-SpaceDim>& this_vp1_virt = this_part1_ptr->velocityVirt();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part_ptrs[random_index2];
             this_part2_ptr = this_part2.getPointer();
             const uint64_t& this_ID2 = this_part2_ptr->ID();
             const RealVect& this_xp2 = this_part2_ptr->position();
-            const RealVect& this_vp2 = this_part2_ptr->velocity();
+            RealVect& this_vp2 = this_part2_ptr->velocity();
+            std::array<Real,3-SpaceDim>& this_vp2_virt = this_part2_ptr->velocityVirt();
 
-            if(procID()==0 && verbosity) {
-               cout << "JRA random_index1 = " << random_index1 << endl;
-               cout << "JRA random_index2 = " << random_index2 << endl;
-               cout << "JRA: ID1 = " << this_ID1 << endl;
-               cout << "JRA: ID2 = " << this_ID2 << endl;
-               cout << "JRA: position1 = " << this_xp1 << endl;
-               cout << "JRA: position2 = " << this_xp2 << endl;
+            // compute relative velocity magnitude
+            g12 = 0.0;
+            for (int dir=0; dir<SpaceDim; dir++) {
+               g12 = g12 + pow(this_vp2[dir]-this_vp1[dir],2);
+            }
+            for (int dir=0; dir<3-SpaceDim; dir++) {
+               g12 = g12 + pow(this_vp2_virt[dir]-this_vp1_virt[dir],2);
+            }
+            g12 = sqrt(g12); // relavive velocity [m/s]
+         
+            // compute local sigmaT = sigmaT(g12) local nu*dt
+            local_sigmaT = fourPiA*pow(g12,-fourOverAlpha);
+            local_nuDt = local_numberDensity*local_sigmaT*g12*a_dt;         
+
+            // determine if the pair collide and then do the collision
+            q12 = g12*local_sigmaT/(local_gmax*local_sigmaTmax);
+            rand_num = MathUtils::rand();
+            if(rand_num<q12) { // this pair collides
+
+               //compute deltaV
+               numCollisions = numCollisions + 1;
+               deltaV = {0,0,0};
+
+               // update particle velocities
+               for (int dir=0; dir<SpaceDim; dir++) {
+                  this_vp1[dir] = this_vp1[dir] + deltaV[dir];
+                  this_vp2[dir] = this_vp2[dir] - deltaV[dir];
+               }
+               for (int dir=0; dir<3-SpaceDim; dir++) {
+                  this_vp1_virt[dir] = this_vp1_virt[dir] + deltaV[SpaceDim+dir];
+                  this_vp2_virt[dir] = this_vp2_virt[dir] + deltaV[SpaceDim+dir];
+               }
+               if(procID()==0 && verbosity) {
+                  cout << "JRA random_index1 = " << random_index1 << endl;
+                  cout << "JRA random_index2 = " << random_index2 << endl;
+                  cout << "JRA: ID1 = " << this_ID1 << endl;
+                  cout << "JRA: ID2 = " << this_ID2 << endl;
+                  cout << "JRA: position1 = " << this_xp1 << endl;
+                  cout << "JRA: position2 = " << this_xp2 << endl;
+               }
             }
 
-         }
+         } // end loop over collisions for this cell
+         if(procID()==0 && verbosity) cout << "numCollisions = " << numCollisions << endl;
          verbosity=0;
-      }
 
-   }
+      } // end loop over cells
+
+   } // end loop over boxes
    
    this_part1_ptr = NULL;
    this_part2_ptr = NULL;
    delete this_part1_ptr;
    delete this_part2_ptr;
+   
+   // While we are here, update the stable time step
+   //
+   Real global_nuMaxDt = box_nuMaxDt;
+#ifdef CH_MPI
+   MPI_Allreduce( &box_nuMaxDt, &global_nuMaxDt, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+#endif
+   m_scatter_dt = 5.0*a_dt/global_nuMaxDt; // mean free time 
+  // if(!procID()) cout << "m_scatter_dt = " << m_scatter_dt << endl;
 
 }
 

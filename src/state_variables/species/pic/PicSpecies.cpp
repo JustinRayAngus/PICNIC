@@ -223,6 +223,7 @@ void PicSpecies::setStableDt()
    MPI_Allreduce( &local_stable_dt, &stable_dt, 1, MPI_CH_REAL, MPI_MIN, MPI_COMM_WORLD ); 
 #endif
    m_stable_dt = stable_dt; 
+   //if(!procID()) cout << "m_particle_dt = " << m_stable_dt << endl;
 
 }
 

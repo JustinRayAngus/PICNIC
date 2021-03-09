@@ -660,7 +660,9 @@ Real System::stableDt( const int a_step_number )
 {
    m_picSpecies->setStableDt();
    Real stableDt = m_picSpecies->stableDt();
+   Real scatterDt = m_scattering->scatterDt();
    if(!procID()) cout << "stable particle time step = " << stableDt << endl;
+   if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
    return stableDt;
 }
 

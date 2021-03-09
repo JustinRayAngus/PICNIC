@@ -24,6 +24,8 @@ class Scattering
       // Destructor
       //
       virtual ~Scattering() {;}
+      
+      virtual Real scatterDt() const = 0;
 
       // apply self scattering to passed pic species
       //

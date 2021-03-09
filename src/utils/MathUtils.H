@@ -23,6 +23,8 @@ namespace MathUtils {
    double errorinv( const double&  a_x );
 
    double rand();
+ 
+   int randInt(const int& A, const int& B);
 
 }
 

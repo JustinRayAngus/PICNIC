@@ -30,6 +30,7 @@ class VariableHardSphere : public Scattering
          : Scattering(a_verbosity)
       {
          m_species_name = a_picSpecies.name();
+         m_scatter_dt = DBL_MAX;
 
          parseParameters( a_pp );
          
@@ -49,6 +50,8 @@ class VariableHardSphere : public Scattering
       // Destructor
       //
       virtual ~VariableHardSphere() {;}
+  
+      virtual Real scatterDt() const { return m_scatter_dt; }
 
       // Print object parameters.
       //
@@ -86,6 +89,7 @@ class VariableHardSphere : public Scattering
       }
 
       std::string m_species_name;
+      mutable Real m_scatter_dt; // (mean free time)
       Real m_T0;     // reference temperature [K]
       Real m_mu0;    // reference viscosity [Pa-s]
       Real m_eta;    // mu = mu0*(T/T0)^eta

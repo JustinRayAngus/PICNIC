@@ -55,14 +55,29 @@ double MathUtils::errorinv( const double&  a_x )
 double MathUtils::rand()
 {
    
-   std::random_device rd;
-   std::mt19937 gen(rd());
-   std::uniform_real_distribution<> dis(0,1);
+   static std::random_device rd;
+   static std::mt19937 gen(rd());
+   static std::uniform_real_distribution<> dis(0,1);
    double randNum = dis(gen);
 
    return randNum;
 
 }
+
+int MathUtils::randInt(const int& A, const int& B)
+{
+   
+   static std::random_device randDev;
+   static std::mt19937 twister(randDev());
+   static std::uniform_int_distribution<int> dist;
+
+   dist.param(std::uniform_int_distribution<int>::param_type(A,B));
+
+   return dist(twister);
+
+}
+
+
 
 
 
