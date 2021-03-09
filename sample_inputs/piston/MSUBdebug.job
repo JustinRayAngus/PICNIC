@@ -4,7 +4,7 @@
 #MSUB -V -j oe 
 #MSUB -l partition=quartz
 #MSUB -l nodes=1
-#MSUB -A wbronze
+#MSUB -A wsilver
 #MSUB -m abe
 #MSUB -M angus1@llnl.gov
 #MSUB -q pdebug

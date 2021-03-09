@@ -6,16 +6,17 @@ simulation.verbosity = 10
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 2
+#simulation.max_step            = 10
 simulation.max_step            = 100000
-simulation.max_time            = 0.9
-#simulation.cfl_number          = 0.7
-simulation.fixed_dt            = 0.00001
+simulation.max_time            = 9.0e-3
+simulation.cfl_number          = 0.7
+simulation.cfl_scatter         = 1.0
+#simulation.fixed_dt            = 1.0e-5
 simulation.checkpoint_interval = 100000000
 simulation.checkpoint_prefix   = "chk"
 #simulation.restart_file = "chk3200.4d.hdf5"
 #simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 5.0e-2
+simulation.plot_time_interval  = 5.0e-4
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
@@ -61,7 +62,7 @@ scattering.deuteriumAtom.eta = 0.69
 
 IC.deuteriumAtom.parts_per_cell = 2 4
 IC.deuteriumAtom.density.type = "constant"
-IC.deuteriumAtom.density.value = 1.0e23 # [number/m^3]
+IC.deuteriumAtom.density.value = 1.0e21 # [number/m^3]
 IC.deuteriumAtom.temperature_0.type = "constant"
 IC.deuteriumAtom.temperature_0.value = 0.0 # [eV]
 IC.deuteriumAtom.temperature_1.type = "constant"
@@ -82,7 +83,7 @@ IC.deuteriumAtom.velocity_2.value = -1.0e3
 special_operator.1.model = "piston"
 special_operator.1.direction = 0
 special_operator.1.position = 1.0
-special_operator.1.velocity = -1.0
+special_operator.1.velocity = -100.0 # [m/s]
 
 #####################################################
 # Grid Function Definitions

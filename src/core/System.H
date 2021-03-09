@@ -60,6 +60,8 @@ class System
       void writeHistFile(const int cur_step, const double cur_time, const bool startup_flag);
 
       Real stableDt( const int a_step_number );
+      
+      Real scatterDt( const int a_step_number );
 
       void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
       

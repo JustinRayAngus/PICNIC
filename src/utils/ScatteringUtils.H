@@ -11,13 +11,9 @@
 namespace ScatteringUtils {
   
    void computeDeltaU( std::array<Real,3>&  a_deltaU,
-                 const Real  a_vx1,
-                 const Real  a_vy1,
-                 const Real  a_vz1,
-                 const Real  a_vx2,
-                 const Real  a_vy2,
-                 const Real  a_vz2,
-                 const Real  a_th );
+                 const std::array<Real,3>&  a_vp1,
+                 const std::array<Real,3>&  a_vp2,
+                 const Real&                a_theta );
    
 }
 

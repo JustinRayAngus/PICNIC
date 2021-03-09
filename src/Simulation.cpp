@@ -15,6 +15,7 @@ Simulation::Simulation( ParmParse& a_pp )
        m_fixed_dt(-1.0),
        m_max_dt_grow(1.1),
        m_cfl(1.0),
+       m_cfl_scatter(0.1),
        m_adapt_dt(true),
        m_checkpoint_interval(0),
        m_last_checkpoint(0),
@@ -350,6 +351,14 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
          MayDay::Error( "fixed_dt and cfl are mutually exclusive!" );
       }
    }
+   
+   // set cfl number for scattering
+   if ( a_ppsim.query( "cfl_scatter", m_cfl_scatter ) ) {
+      CH_assert( m_cfl_scatter>0.0 && m_cfl_scatter<=2.0 );
+      if (!m_adapt_dt) {
+         MayDay::Error( "fixed_dt and cfl_scatter are mutually exclusive!" );
+      }
+   }
 
    // Set up checkpointing
    a_ppsim.query( "checkpoint_interval", m_checkpoint_interval );
@@ -389,10 +398,13 @@ void Simulation::preTimeStep()
 {
    //m_system->preTimeStep( m_cur_step, m_cur_time );
    Real dt_stable = m_system->stableDt( m_cur_step )*m_cfl;
+   Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
    CH_assert( dt_stable > 1.0e-16 );
 
    if ( m_adapt_dt ) { 
-      m_cur_dt = std::min( dt_stable, m_max_dt_grow * m_cur_dt );
+      dt_stable = std::min( dt_scatter, dt_stable );
+      m_cur_dt = dt_stable;
+      //m_cur_dt = std::min( dt_stable, m_max_dt_grow * m_cur_dt );
    } 
    else {
       setFixedTimeStep( dt_stable );

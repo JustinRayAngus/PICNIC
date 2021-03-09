@@ -20,12 +20,6 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
 {
    CH_TIME("VariableHardSphere::applySelfScattering()");
  
-   if(!procID()) {
-     //for (int i=0; i<10;i++) {
-     //   cout << MathUtils::rand() << endl;
-     //}  
-   }
-
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
     
@@ -78,6 +72,8 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
          local_sigmaTmax = fourPiA*pow(local_gmax,-fourOverAlpha);
          local_nuMaxDt = local_numberDensity*local_sigmaTmax*local_gmax*a_dt;         
          box_nuMaxDt = Max(box_nuMaxDt,local_nuMaxDt);
+         if(local_nuMaxDt>10.0) 
+            cout << "WARNING: local_nuMaxDt = " << local_nuMaxDt << endl;
 
          // compute local maximum number of collsions: Nmax = 1/2*(N-1)*n*sigmaTmax*gmax*dt
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
@@ -128,7 +124,6 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
             this_part1_ptr = this_part1.getPointer();
             const uint64_t& this_ID1 = this_part1_ptr->ID();
             const RealVect& this_xp1 = this_part1_ptr->position();
-            //RealVect& this_vp1 = this_part1_ptr->velocity();
             std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
@@ -136,17 +131,13 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
             this_part2_ptr = this_part2.getPointer();
             const uint64_t& this_ID2 = this_part2_ptr->ID();
             const RealVect& this_xp2 = this_part2_ptr->position();
-            //RealVect& this_vp2 = this_part2_ptr->velocity();
             std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
 
             // compute relative velocity magnitude
             g12 = 0.0;
             for (int dir=0; dir<3; dir++) {
-               g12 = g12 + pow(this_vp2[dir]-this_vp1[dir],2);
+               g12 = g12 + pow(this_vp1[dir]-this_vp2[dir],2);
             }
-            //for (int dir=0; dir<3-SpaceDim; dir++) {
-             //  g12 = g12 + pow(this_vp2_virt[dir]-this_vp1_virt[dir],2);
-            //}
             g12 = sqrt(g12); // relavive velocity [m/s]
          
             // compute local sigmaT = sigmaT(g12) local nu*dt
@@ -158,26 +149,18 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
             rand_num = MathUtils::rand();
             if(rand_num<q12) { // this pair collides
 
-               //compute deltaU
                numCollisions = numCollisions + 1;
-               deltaU = {0,0,0};
-               //for (int dir=0; dir<SpaceDim; dir++) {
-               //   Real& vx1 = this_vp1[dir];
-               //}
-               //for (int dir=0; dir<3-SpaceDim; dir++) {
-               //   this_vp1_virt[dir] = this_vp1_virt[dir] + deltaU[SpaceDim+dir];
-               //ScatteringUtils::computeDeltaU(deltaU,
-               //                               vx1,vy1,vz1,vx2,vy2,vz2,theta); 
+               
+               //compute deltaU
+               Real theta = Constants::TWOPI*MathUtils::rand();
+               ScatteringUtils::computeDeltaU(deltaU,this_vp1,this_vp2,theta);
+               //deltaU = {0,0,0};
 
                // update particle velocities
                for (int dir=0; dir<3; dir++) {
-                  this_vp1[dir] = this_vp1[dir] + deltaU[dir];
-                  this_vp2[dir] = this_vp2[dir] - deltaU[dir];
+                  this_vp1[dir] = this_vp1[dir] + 0.5*deltaU[dir];
+                  this_vp2[dir] = this_vp2[dir] - 0.5*deltaU[dir];
                }
-               //for (int dir=0; dir<3-SpaceDim; dir++) {
-                //  this_vp1_virt[dir] = this_vp1_virt[dir] + deltaU[SpaceDim+dir];
-                //  this_vp2_virt[dir] = this_vp2_virt[dir] + deltaU[SpaceDim+dir];
-               //}
                if(procID()==0 && verbosity) {
                   cout << "JRA random_index1 = " << random_index1 << endl;
                   cout << "JRA random_index2 = " << random_index2 << endl;

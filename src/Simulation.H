@@ -139,6 +139,7 @@ class Simulation
       Real m_fixed_dt;
       Real m_max_dt_grow;
       Real m_cfl;
+      Real m_cfl_scatter;
       bool m_adapt_dt;
       static const Real s_DT_EPS;
 
