@@ -21,8 +21,8 @@
 
 //  A basic particle class. 
 //  Includes weight, position, velocity, and acceleration
-//  position, velocity, and acc. are separated into those
-//  corresonding the the SpaceDim of the build and virtual components
+//  position is separated into those corresonding to the 
+//  SpaceDim of the build and virtual components
 //
 
 class JustinsParticle : public BinItem
@@ -82,13 +82,13 @@ public:
   Real velocity(const int a_dir) const;
 
   /// set acceleration field
-  void setAcceleration(const RealVect& a_velocity);
+  void setAcceleration(const std::array<Real,3>& a_acceleration);
 
   // retrieve reference acceleration field
-  RealVect& acceleration();
+  std::array<Real,3>& acceleration();
 
   // retrieve const. reference acceleration field
-  const RealVect& acceleration() const;
+  const std::array<Real,3>& acceleration() const;
 
   // retrieve acc. comp. in a given direction
   Real acceleration(const int a_dir) const;
@@ -128,23 +128,6 @@ public:
   Real velocityVirt(const int a_dir) const;
   
   //
-  //  define functions for virtual acceleration (for 1D/2D sims)
-  //
-
-  /// set virtual acceleration field
-  void setAccelerationVirt(const std::array<Real,3-SpaceDim>& a_acc_virt);
-  void setAccelerationVirt(const Real& a_acc_virt, const int a_dir);
-
-  // retrieve reference virtual acceleration field
-  std::array<Real,3-SpaceDim>& accelerationVirt();
-
-  // retrieve const. reference virtual acceleration field
-  const std::array<Real,3-SpaceDim>& accelerationVirt() const;
-
-  // retrieve virt. acc. comp. in a given direction
-  Real accelerationVirt(const int a_dir) const;
-
-  //
   ///////////////
   //
 
@@ -183,10 +166,9 @@ protected:
   //Real     m_ID;
   Real     m_weight;
   RealVect m_velocity;
-  RealVect m_acceleration;
+  std::array<Real,3> m_acceleration; // virtual acceleration for 1D/2D sims
   std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
   std::array<Real,3-SpaceDim> m_vel_virt; // virtual velocity for 1D/2D sims
-  std::array<Real,3-SpaceDim> m_acc_virt; // virtual acceleration for 1D/2D sims
 };
 
 std::ostream & operator<<(std::ostream& ostr, const JustinsParticle& p);

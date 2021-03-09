@@ -20,11 +20,7 @@
 #include "JustinsParticle.H"
 #include "NamespaceHeader.H"
 
-//  A basic particle class. 
-//  Includes weight, position, velocity, and acceleration
-//  position, velocity, and acc. are separated into those
-//  corresonding the the SpaceDim of the build and virtual components
-//
+//  A pointer to a JustinsParticle. 
 
 class JustinsParticlePtr : public BinItem
 {

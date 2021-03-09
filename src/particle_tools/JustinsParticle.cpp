@@ -27,19 +27,17 @@ JustinsParticle::JustinsParticle( const Real       a_weight,
   m_weight(a_weight),
   m_velocity(a_velocity)
 {
-  setAcceleration(RealVect(D_DECL6(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)));
+  std::array<Real,3> thisAcceleration = {0,0,0};
+  setAcceleration(thisAcceleration);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      std::array<Real,3-SpaceDim> thisVelVirt;
-     std::array<Real,3-SpaceDim> thisAccVirt;
      for(int i=0; i<3-SpaceDim; i++) {
         thisPosVirt[i] = 0.0 + i*0.0;
         thisVelVirt[i] = 0.0 + i*0.0;
-        thisAccVirt[i] = 0.0 + i*0.0;
      }
      setPositionVirt(thisPosVirt);
      setVelocityVirt(thisVelVirt);
-     setAccelerationVirt(thisAccVirt);
   }
   setID();
 }
@@ -52,19 +50,17 @@ void JustinsParticle::define( const Real       a_weight,
   setWeight(a_weight);
   setPosition(a_position);
   setVelocity(a_velocity);
-  setAcceleration(RealVect(D_DECL6(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)));
+  std::array<Real,3> thisAcceleration = {0,0,0};
+  setAcceleration(thisAcceleration);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      std::array<Real,3-SpaceDim> thisVelVirt;
-     std::array<Real,3-SpaceDim> thisAccVirt;
      for(int i=0; i<3-SpaceDim; i++) {
         thisPosVirt[i] = 0.0 + i*0.0;
         thisVelVirt[i] = 0.0 + i*0.0;
-        thisAccVirt[i] = 0.0 + i*0.0;
      }
      setPositionVirt(thisPosVirt);
      setVelocityVirt(thisVelVirt);
-     setAccelerationVirt(thisAccVirt);
   }
 }
 
@@ -134,17 +130,17 @@ Real JustinsParticle::velocity(const int a_dir) const
 }
 
 // acceleration functions
-void JustinsParticle::setAcceleration(const RealVect& a_acceleration)
+void JustinsParticle::setAcceleration(const std::array<Real,3>& a_acceleration)
 {
   m_acceleration= a_acceleration;
 }
 
-RealVect& JustinsParticle::acceleration()
+std::array<Real,3>& JustinsParticle::acceleration()
 {
   return m_acceleration;
 }
 
-const RealVect& JustinsParticle::acceleration() const
+const std::array<Real,3>& JustinsParticle::acceleration() const
 {
   return m_acceleration;
 }
@@ -213,35 +209,6 @@ Real JustinsParticle::velocityVirt(const int a_dir) const
 }
 
 //
-// virtual acceleration functions (for 1D/2D sims)
-//
-void JustinsParticle::setAccelerationVirt(const std::array<Real,3-SpaceDim>& a_acc_virt)
-{
-  m_acc_virt = a_acc_virt;
-}
-
-void JustinsParticle::setAccelerationVirt(const Real& a_acc_virt,
-                            const int   a_dir)
-{
-  m_acc_virt[a_dir] = a_acc_virt;
-}
-
-std::array<Real,3-SpaceDim>& JustinsParticle::accelerationVirt()
-{
-  return m_acc_virt;
-}
-
-const std::array<Real,3-SpaceDim>& JustinsParticle::accelerationVirt() const
-{
-  return m_acc_virt;
-}
-
-Real JustinsParticle::accelerationVirt(const int a_dir) const
-{
-  return m_acc_virt[a_dir];
-}
-
-//
 //////////
 //
 
@@ -253,8 +220,7 @@ bool JustinsParticle::operator == (const JustinsParticle& a_p) const
            m_velocity  == a_p.m_velocity &&
            m_acceleration  == a_p.m_acceleration &&
            m_pos_virt  == a_p.m_pos_virt &&
-           m_vel_virt  == a_p.m_vel_virt &&
-           m_acc_virt  == a_p.m_acc_virt);
+           m_vel_virt  == a_p.m_vel_virt );
 }
 
 bool JustinsParticle::operator == (const JustinsParticle* a_p) const
@@ -269,9 +235,8 @@ bool JustinsParticle::operator != (const JustinsParticle& a_p) const
 
 int JustinsParticle::size() const
 {
-  //return ( BinItem::size() + sizeof(m_weight) 
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
-                           + sizeof(m_pos_virt) + sizeof(m_vel_virt) + sizeof(m_acc_virt)
+                           + sizeof(m_pos_virt) + sizeof(m_vel_virt)
                            + sizeof(m_velocity) + sizeof(m_acceleration) );
 }
 
@@ -303,15 +268,8 @@ void JustinsParticle::linearOut(void* buf) const
       *buffer++ = m_vel_virt[i];
    }
 
-   D_TERM6( *buffer++ = m_acceleration[0];,
-            *buffer++ = m_acceleration[1];,
-            *buffer++ = m_acceleration[2];,
-            *buffer++ = m_acceleration[3];,
-            *buffer++ = m_acceleration[4];,
-            *buffer++ = m_acceleration[5];);
-   
-   for(int i=0; i<3-SpaceDim; i++) {
-      *buffer++ = m_acc_virt[i];
+   for(int i=0; i<3; i++) {
+      *buffer++ = m_acceleration[i];
    }
 
    *buffer++ = m_weight;
@@ -347,15 +305,8 @@ void JustinsParticle::linearIn(void* buf)
       m_vel_virt[i] = *buffer++;
    }
 
-   D_TERM6( m_acceleration[0] = *buffer++;,
-            m_acceleration[1] = *buffer++;,
-            m_acceleration[2] = *buffer++;,
-            m_acceleration[3] = *buffer++;,
-            m_acceleration[4] = *buffer++;,
-            m_acceleration[5] = *buffer++;);
-   
-   for(int i=0; i<3-SpaceDim; i++) {
-      m_acc_virt[i] = *buffer++;
+   for(int i=0; i<3; i++) {
+      m_acceleration[i] = *buffer++;
    }
 
    m_weight = *buffer++;
@@ -375,7 +326,7 @@ std::ostream & operator<<(std::ostream& ostr, const JustinsParticle& p)
   for ( int i=0; i<SpaceDim; ++i ){ ostr << " " << p.velocity(i); }
   ostr << " ) ";
   ostr << std::endl << " acceleration ( ";
-  for ( int i=0; i<SpaceDim; ++i ){ ostr << " " << p.acceleration(i); }
+  for ( int i=0; i<3; ++i ){ ostr << " " << p.acceleration(i); }
   ostr << " ) " << std::endl;
   return ostr;
 }
