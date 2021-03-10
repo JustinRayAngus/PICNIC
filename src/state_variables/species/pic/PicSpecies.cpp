@@ -287,6 +287,7 @@ void PicSpecies::testParticleShuffling( const Real& a_dt )
       BoxIterator gbit(gridBox);
       
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = m_data_binfab_ptr[ditg];
+      std::vector<JustinsParticlePtr> shuffled_parts;
       for (gbit.begin(); gbit.ok(); ++gbit) { // loop over grid indices
          
          const IntVect ig = gbit(); // grid index
@@ -301,7 +302,8 @@ void PicSpecies::testParticleShuffling( const Real& a_dt )
          ListIterator<JustinsParticlePtr> lit(cell_pList);
            
          // copy the iterators to a vector
-         std::vector<JustinsParticlePtr> shuffled_parts;
+         //std::vector<JustinsParticlePtr> shuffled_parts;
+         shuffled_parts.clear();
          shuffled_parts.reserve(thisNumCell);
          for (lit.begin(); lit.ok(); ++lit) shuffled_parts.push_back(lit());
         

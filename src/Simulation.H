@@ -46,59 +46,6 @@ static void __attribute__ ((constructor)) trapfpe(void)
  * simulation.  This class specifically controls the monitoring of the number
  * of steps and of the simulation time in order to execute plotfile and
  * checkpoint file creation as well as simulation termination.
- *
- * Required input keys and data types:
- *
- *    -\b max_step
- *      positiveinteger value maximum number of simulation steps
- *
- *    -\b max_time
- *      positive real value final time at which simulation terminates
- *
- *    -\b fixed_dt
- *      positive real value, if set, for the time step to be used
- *
- *    -\b max_dt_grow
- *      positive real value of the multiple of the current time step to use for
- *      the next time step.  Must be grater than 1.  Multually exclusive with
- *      fixed_dt
- *
- *    -\b initial_dt_fraction
- *      positive real value fraction of the initial stable time step to use.
- *      Must be less than 1.  Multually exclusive with fixed_dt
- *
- *    -\b checkpoint_interval
- *      integer value specifying the number of steps between checkpoint dumps
- *
- *    -\b checkpoint_prefix
- *      string used as prefix for checkpoint file names ["chk"]
- *
- *    -\b plot_interval
- *      integer value specifying the number of steps between plot dumps
- *
- *    -\b plot_time_interval
- *      Real value specifying the time interval between plot dumps
- *
- *    -\b plot_prefix
- *      string used as prefix for plot file names ["plt"]
- *
- *    -\b verbosity
- *      integer flag specifying the verbosity of logging output; zero turns
- *      of output, and increasing values produce more detailed logs
- *
- * The following represents a sample input entry:
- *
- * \verbatim
- *  simulation.max_step = 1000
- *  simulation.max_time = 1.0
- *  simulation.max_dt_grow = 1.1
- *  simultaion.initial_dt_fraction = 0.1
- *  simulation.checkpoint_interval = 50
- *  simulation.checkpoint_prefix = "chk"
- *  simulation.plot_interval = 10
- *  simulation.plot_prefix = "plt"
- *  simulation.verbosity = 1
- * \endverbatim
 */
 class Simulation
 {
@@ -119,7 +66,6 @@ class Simulation
       void loadRestartFile( ParmParse& ppsim );
       void writePlotFile();
       inline void writeHistFile(bool startup_flag);
-      void writeCheckpointFile();
       void setFixedTimeStep(const Real& a_dt_stable);
       void preTimeStep();
       inline void postTimeStep();
@@ -142,10 +88,6 @@ class Simulation
       Real m_cfl_scatter;
       bool m_adapt_dt;
       static const Real s_DT_EPS;
-
-      int         m_checkpoint_interval;
-      int         m_last_checkpoint;
-      std::string m_checkpoint_prefix;
 
       int         m_plot_interval;
       Real        m_plot_time_interval;

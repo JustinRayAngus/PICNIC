@@ -34,8 +34,10 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
    Real local_sigmaT, local_nuDt, g12, q12;
    Real fourPiA = 4.*Constants::PI*m_Aconst;
    Real fourOverAlpha = 4.0/m_alpha;   
+   
    std::array<Real,3> deltaU;
-  
+   Real theta; 
+ 
    Real box_nuMaxDt=0.0;
  
    // loop over lists in each cell and test shuffle
@@ -50,6 +52,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
      
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = data_binfab_ptr[ditg];
    
+      std::vector<JustinsParticlePtr> vector_part_ptrs;
       const Box gridBox = grids.get(ditg);
       BoxIterator gbit(gridBox);
       for (gbit.begin(); gbit.ok(); ++gbit) { // loop over cells
@@ -102,7 +105,8 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
          }
         
          // copy the iterators to a vector in order to randomly selection
-         std::vector<JustinsParticlePtr> vector_part_ptrs;
+         //std::vector<JustinsParticlePtr> vector_part_ptrs;
+         vector_part_ptrs.clear();
          vector_part_ptrs.reserve(local_numCell);
          ListIterator<JustinsParticlePtr> lit(cell_pList);
          for (lit.begin(); lit.ok(); ++lit) vector_part_ptrs.push_back(lit());
@@ -152,7 +156,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
                numCollisions = numCollisions + 1;
                
                //compute deltaU
-               Real theta = Constants::TWOPI*MathUtils::rand();
+               theta = Constants::TWOPI*MathUtils::rand();
                ScatteringUtils::computeDeltaU(deltaU,this_vp1,this_vp2,theta);
                //deltaU = {0,0,0};
 

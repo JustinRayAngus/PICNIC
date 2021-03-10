@@ -45,38 +45,6 @@ System::System( ParmParse& a_pp )
 
    createState( a_pp );
 
-   /*
-   createGlobalDOF();
-   m_state_comp.setGlobalDOF(&m_global_dof);
-
-   const Real BASE_DT( 1.0 );
-   if (!m_use_native_time_integrator) {
-      m_gk_ops = new GKOps;
-      m_gk_ops->define( m_state_comp, BASE_DT );
-      m_rhs.define( m_state_comp );
-   }
-   else {
-      m_serialized_vector.define(m_state_comp);
-      if (m_ti_class == _TI_RK_) {
-         m_integrator = new TiRK<GKVector, GKOps>;
-      }
-      else if (m_ti_class == _TI_ARK_) {
-         m_integrator = new TiARK<GKVector, GKOps>;
-      } 
-      else {
-         MayDay::Error("Unrecognized input for m_ti_class.");
-      }
-      m_integrator->define( a_pp, m_ti_method, m_serialized_vector, BASE_DT );
-      m_gk_ops = &( m_integrator->getOperators() );
-   }
-   
-   setupFieldHistories();
-
-   if (m_compute_op_matrices && m_use_native_time_integrator) {
-      m_op_matrices.define(m_gk_ops, m_serialized_vector, m_op_matrices_tolerance);
-   }
-   */
-
 }
 
 System::~System()
@@ -120,15 +88,6 @@ void System::initialize( const int     a_cur_step,
 
    }
 
-   /*
-
-   // Initialize physical fluid species used in fluidOp (has ghost cells)
-   m_gk_ops->initializeFluidSpeciesPhysical( m_state_comp.dataFluid(), a_cur_time );
-   
-   // Initialize the physical state variables
-   m_gk_ops->convertToPhysical( m_state_comp, m_state_phys, a_cur_time );
-   
-   */
 }
 
 void System::createProblemDomain()
@@ -338,33 +297,9 @@ void System::createState( ParmParse&  a_pp )
 
    /*
 
-   FluidSpeciesPtrVect fluid_species;
-   createFluidSpecies( fluid_species );
-   
-   MHDspeciesPtrVect mhd_species;
-   createMHDspecies( mhd_species );
-
    FieldPtrVect fields;
    createFields( fields );
-   
-   ScalarPtrVect scalars;
-   createScalars( scalars );
 
-   // Define the computational state object by cloning from the argument vectors.  
-   // Ghost cells are added for the kinetic and fluid species.
-   //
-   m_state_comp.define( kinetic_species,
-                        fluid_species,
-                        scalars,
-                        m_phase_geom,
-                        m_kinetic_ghosts * IntVect::Unit,
-                        m_fluid_ghosts * CFG::IntVect::Unit );
-
-   // Define the physical state object by cloning from the argument vectors.  
-   // No ghost cells are included, since this state object is generally used for output.
-   //
-   m_state_phys.define( m_state_comp, IntVect::Zero );
- 
    */
 
 }
@@ -544,12 +479,8 @@ void System::writePlotFile( const int     a_cur_step,
    
    //m_dataFile->writeBinFabDataFile( Pdata_binfab, a_cur_step, a_cur_time );
 
-   //m_dataFile->writeScalarDataFile();
-
    //m_dataFile->writeFieldDataFile();
    
-   //m_dataFile->writeMHDDataFile();
-
 }
 
 void System::writeHistFile( const int     a_cur_step,
@@ -573,38 +504,6 @@ void System::setupHistFile()
 
 void System::parseParameters( ParmParse&  a_ppsys )
 {
-   /*
- 
-   // Get fluid ghost layer width
-   a_ppgksys.query( "fluid_ghost_width", m_fluid_ghosts );
-   
-   // Get magnetic geometry type
-   a_ppgksys.get( "magnetic_geometry_mapping", m_mag_geom_type );
-
-   // This determines the amount of diagnositic output generated
-   a_ppgksys.query( "verbosity", m_verbosity );
-   CH_assert( m_verbosity >= 0 );
-
-      // Get the domain decomposition parameters
-      if (a_ppgksys.contains("configuration_decomp")) {
-         m_configuration_decomposition.resize( CFG_DIM );
-         for (int i=0; i<CFG_DIM; ++i) m_configuration_decomposition[i] = 0;
-         a_ppgksys.getarr( "configuration_decomp", m_configuration_decomposition, 0, CFG_DIM );
-         for (int i=0; i<CFG_DIM; ++i) CH_assert( m_configuration_decomposition[i]>0 );
-      }
-
-   // time integration method to use 
-   a_ppgksys.query("ti_class",m_ti_class);
-   a_ppgksys.query("ti_method",m_ti_method);
-
-   // Should we make an hdf file for the potential?
-   a_ppgksys.query("hdf_potential",m_hdf_potential);
-
-   // Should we make hdf files for momentum? 
-   a_ppgksys.query("hdf_momentum",m_hdf_momentum);
-
-   */
-
 }
 
 void System::advance( Real&  a_cur_time,
@@ -642,14 +541,6 @@ void System::advance( Real&  a_cur_time,
       m_specialOps->updateOp(*m_mesh,a_dt);
    }
 
-   // advance state vector of grid/0D variables
-   //
-   //m_state_comp.copyTo  ( m_serialized_vector.data() );
-   //m_integrator->advance( a_cur_time, m_serialized_vector );
-   //m_state_comp.copyFrom( m_serialized_vector.data() );
-   
-   //m_integrator->getCurrentTime( a_cur_time );
-   //m_integrator->getTimeStep( a_step_number );
    a_cur_time = a_cur_time + a_dt;
    a_step_number = a_step_number + 1;
 
@@ -664,6 +555,7 @@ Real System::stableDt( const int a_step_number )
    return stableDt;
 }
 
+
 Real System::scatterDt( const int a_step_number )
 {
    Real scatterDt = DBL_MAX;
@@ -671,5 +563,6 @@ Real System::scatterDt( const int a_step_number )
    if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
    return scatterDt;
 }
+
 
 #include "NamespaceFooter.H"

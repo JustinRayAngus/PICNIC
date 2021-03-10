@@ -17,9 +17,6 @@ Simulation::Simulation( ParmParse& a_pp )
        m_cfl(1.0),
        m_cfl_scatter(0.1),
        m_adapt_dt(true),
-       m_checkpoint_interval(0),
-       m_last_checkpoint(0),
-       m_checkpoint_prefix( "chk" ),
        m_plot_interval(0),
        m_plot_time_interval(0.0),
        m_plot_time(0.0),
@@ -99,7 +96,6 @@ void Simulation::printParameters()
    if(!procID()) {
       std::cout << "maximum step = " << m_max_step << endl;
       std::cout << "maximum time = " << m_max_time << endl;
-      std::cout << "checkpoint interval = " << m_checkpoint_interval << endl;
       if(m_plot_time_interval>0.0) {
          std::cout << "plot time interval = " << m_plot_time_interval << endl;
       }
@@ -118,7 +114,6 @@ void Simulation::loadRestartFile( ParmParse& a_ppsim )
    a_ppsim.query( "restart_file", restartFile );
 #ifdef CH_USE_HDF5
    HDF5Handle handle( restartFile, HDF5Handle::OPEN_RDONLY );
-   //m_system->readCheckpointFile( handle, m_cur_step, m_cur_time, m_cur_dt );
    handle.close();
 #else
    MayDay::Error("restart only defined with hdf5");
@@ -146,30 +141,6 @@ inline void Simulation::writeHistFile(bool startup_flag)
    // the startup_flag is used to force a write on start-up
    m_system->writeHistFile(m_cur_step, m_cur_time, startup_flag);
 
-}
-
-void Simulation::writeCheckpointFile()
-{
-   if (m_verbosity>=3) {
-      pout() << "Simulation::writeCheckpointFile" << endl;
-   }
-
-#ifdef CH_USE_HDF5
-   char iter_str[100];
-
-   sprintf( iter_str, "%s%04d.%dd.hdf5",
-            m_checkpoint_prefix.c_str(), m_cur_step, SpaceDim );
-
-   if (m_verbosity>=2) {
-      pout() << "checkpoint file name = " << iter_str << endl;
-   }
-
-   HDF5Handle handle( iter_str, HDF5Handle::CREATE );
-   //m_system->writeCheckpointFile( handle, m_cur_step, m_cur_time, m_cur_dt );
-   handle.close();
-#else
-   MayDay::Error( "restart only defined with hdf5" );
-#endif
 }
 
 void Simulation::initializeTimers()
@@ -244,21 +215,6 @@ void Simulation::advance()
 
    //writeHistFile(false);
 
-   if ( (m_cur_step % m_checkpoint_interval)==0 ) {
-      if (!procID()) {
-         cout << "----\n";
-      }
-      //m_system->printFunctionCounts();
-      if (!procID()) {
-         cout << "----\n";
-      }
-      //m_system->printTimeIntegratorCounts();
-      if (!procID()) {
-         cout << "----\n";
-      }
-      //writeCheckpointFile();
-      //m_last_checkpoint = m_cur_step;
-   }
 }
 
 
@@ -274,21 +230,6 @@ void Simulation::finalize()
 
    if ( (m_plot_interval >= 0 || m_plot_time_interval >= 0.0) && (m_last_plot!=m_cur_step) ) {
       writePlotFile();
-   }
-
-   if ( m_last_checkpoint!=m_cur_step ) {
-      if (!procID()) {
-         cout << "----\n";
-      }
-      //m_system->printFunctionCounts();
-      if (!procID()) {
-        cout << "----\n";
-      }
-      //m_system->printTimeIntegratorCounts();
-      if (!procID()) {
-        cout << "----\n";
-      }
-      //writeCheckpointFile();
    }
 
    m_main_end = clock();
@@ -359,11 +300,7 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
          MayDay::Error( "fixed_dt and cfl_scatter are mutually exclusive!" );
       }
    }
-
-   // Set up checkpointing
-   a_ppsim.query( "checkpoint_interval", m_checkpoint_interval );
-   a_ppsim.query( "checkpoint_prefix", m_checkpoint_prefix );
-
+ 
    // Set up plot file writing
    a_ppsim.query( "plot_interval", m_plot_interval );
    a_ppsim.query( "plot_time_interval", m_plot_time_interval );

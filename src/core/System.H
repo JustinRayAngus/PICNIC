@@ -31,18 +31,11 @@
 #include "NamespaceHeader.H"
 
 /**
- * Gyrokinetic System class.
+ * System class.
  *
  * A concrete implementation of the ODEInterface<Vector<SpeciesModel>>
  * interface, this class owns the simulation data and the Vlasov and Poisson
  * operator classes and orchestrates the time advancement.
- *
- * \verbatim
- * gksystem.verbosity   = 1
- * gksystem.hdf_density = true
- * gkysytem.hdf_vpartheta = false
- * gkysytem.hdf_frtheta = true
- * gksystem.fixed_plot_indices = 3 1 0 2 2
  *
  */
 
@@ -86,11 +79,6 @@ class System
       void createScattering();
       
       void createSpecialOperators();
-
-      //GKState m_state_comp;
-      //GKState m_state_phys;
-      //GKRHSData m_rhs;   // needed for the PETSc option
-      //GKVector m_serialized_vector;
 
       DomainGrid* m_mesh;
       CodeUnits*  m_units;
