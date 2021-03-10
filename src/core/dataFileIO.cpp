@@ -194,6 +194,7 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
                                         const LevelData<FArrayBox>&    a_density, 
                                         const LevelData<FArrayBox>&    a_momentum, 
                                         const LevelData<FArrayBox>&    a_energy, 
+                                        const Real                     a_mass, 
                                         const int                      a_cur_step,
                                         const double                   a_cur_time )
 {
@@ -302,6 +303,7 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
 
    int totalParticleCount = a_Pdata.numParticles();
    headerParts.m_int["num_particles"] = totalParticleCount;
+   headerParts.m_real["mass"] = a_mass;
    headerParts.m_int["step_number"] = a_cur_step;
    headerParts.m_real["time"] = a_cur_time;
    headerParts.m_box["prob_domain"] = domain.domainBox();

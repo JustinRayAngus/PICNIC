@@ -474,7 +474,7 @@ void System::writePlotFile( const int     a_cur_step,
 
    //m_picSpecies->inspectBinFab();
 
-   m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy,
+   m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy, m_picSpecies->mass(),
                                       a_cur_step, a_cur_time );
    
    //m_dataFile->writeBinFabDataFile( Pdata_binfab, a_cur_step, a_cur_time );
