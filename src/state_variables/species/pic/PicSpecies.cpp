@@ -63,7 +63,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    
    m_density.define(grids,1,ghostVect);
    m_momentum.define(grids,3,ghostVect);
-   m_energy.define(grids,1,ghostVect);
+   m_energy.define(grids,3,ghostVect); // direction-depenent energy
    m_temperature.define(grids,3,ghostVect);
    m_velocity.define(grids,3,ghostVect);
    for(DataIterator dit(grids); dit.ok(); ++dit) {

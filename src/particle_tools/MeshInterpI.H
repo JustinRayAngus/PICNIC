@@ -22,16 +22,12 @@ void MeshInterp::deposit(const List<P>& a_particleList,
   {
     const P& this_particle = lit();
     const RealVect& this_x = this_particle.position();
-    //const Real& this_m = this_particle.mass();
-    const Real& this_m = this_particle.weight(); // JRA
-    //const Real& this_pos_virt = this_particle.pos_virt();
-    //if(!procID()) cout << "this_pos_virt = " << this_pos_virt << endl;
-    //if(!procID()) cout << "this_pos_virt = " << this_particle.pos_virt() << endl;
+    const Real& this_w = this_particle.weight();
     depositParticle(a_rho, 
                     m_domainLeftEdge, 
                     m_dx, 
                     this_x, 
-                    this_m, 
+                    this_w, 
                     a_interpType);
   }
 }
@@ -68,6 +64,7 @@ void MeshInterp::moment( FArrayBox&  a_moment,
 {
 
   if(a_momentType==momentum) CH_assert(a_moment.nComp()==3);
+  if(a_momentType==energy) CH_assert(a_moment.nComp()==3);
 
   for (ListIterator<P> lit(a_particleList); lit; ++lit)
   {

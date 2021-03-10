@@ -65,9 +65,12 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
          //
           
          // get local density and temperature and compute local gmax
-         local_numberDensity = this_numberDensity.get(ig,0); 
-         local_energyDensity = this_energyDensity.get(ig,0); 
+         local_numberDensity = this_numberDensity.get(ig,0);
          if(local_numberDensity == 0.0) continue;
+         local_energyDensity = 0.0;
+         for( int dir=0; dir<3; dir++) {
+            local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
+         }
          local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
          local_gmax = 5.0*sqrt(local_Teff/Mass); // 5x thermal speed [m/s]
 

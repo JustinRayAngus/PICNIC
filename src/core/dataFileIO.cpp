@@ -244,7 +244,10 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
       sprintf(field_name, "momentumDensity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   vectNames.push_back("energyDensity");
+   for (int dir=0; dir<a_energy.nComp(); dir++) {
+      sprintf(field_name, "energyDensity_%c", coords[dir]);
+      vectNames.push_back(field_name);
+   }
    
    for(int i=0; i<numMeshComps; i++) {
       sprintf(comp_name,"component_%d", i);
@@ -270,22 +273,10 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
       sprintf(field_name, "particle_velocity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   //if(SpaceDim<3) {
-   //  for(int i=0; i<3-SpaceDim; i++) {
-   //     sprintf(field_name, "virtual_particle_velocity_%c", i);
-   //     vectNames.push_back(field_name);
-   //  }
-   //}
    for (int dir=0; dir<3; dir++) {
       sprintf(field_name, "particle_acceleration_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   //if(SpaceDim<3) {
-   //  for(int i=0; i<3-SpaceDim; i++) {
-   //     sprintf(field_name, "virtual_particle_acceleration_%c", i);
-   //     vectNames.push_back(field_name);
-   //  }
-   //}
    vectNames.push_back("particle_weight");
    vectNames.push_back("particle_ID");
 
@@ -326,12 +317,18 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
    // write the moment data
    LevelData<FArrayBox> momentData;
    momentData.define(grids,numMeshComps,a_density.ghostVect());
+   int compData = 0;
    for(DataIterator dit(grids); dit.ok(); ++dit) {
-      momentData[dit].copy(a_density[dit],0,0,1);
+      momentData[dit].copy(a_density[dit],0,compData,1);
+      compData = compData + 1;
       for (int dir=0; dir<a_momentum.nComp(); dir++) { 
-         momentData[dit].copy(a_momentum[dit],dir,1+dir,1);
+         momentData[dit].copy(a_momentum[dit],dir,compData,1);
+         compData = compData + 1;
       } 
-      momentData[dit].copy(a_energy[dit],0,numMeshComps-1,1);
+      for (int dir=0; dir<a_energy.nComp(); dir++) { 
+         momentData[dit].copy(a_energy[dit],dir,compData,1);
+         compData = compData + 1;
+      } 
    }
    write(handleParts, momentData.boxLayout());
    write(handleParts, momentData, "data", a_density.ghostVect());
