@@ -37,10 +37,11 @@ class VariableHardSphere : public Scattering
          // define alpha and Aconst
          //
          m_alpha = 4./(2.*m_eta-1.);
-         const Real Mass = a_picSpecies.mass()*Constants::ME; // species mass [kg]
-         const Real VT0 = sqrt(Constants::KB*m_T0/Mass);     // reference thermal speed [m/s]
+         m_mass = a_picSpecies.mass(); // normalized mass
+         const Real Mass_kg = m_mass*Constants::ME; // species mass [kg]
+         const Real VT0 = sqrt(Constants::KB*m_T0/Mass_kg);     // reference thermal speed [m/s]
          const Real Gamma0 = tgamma(4.-2./m_alpha);
-         m_Aconst = 15./32./Gamma0/m_mu0*Mass/sqrt(Constants::PI)*VT0*pow(4.*VT0*VT0,2./m_alpha);
+         m_Aconst = 15./32./Gamma0/m_mu0*Mass_kg/sqrt(Constants::PI)*VT0*pow(4.*VT0*VT0,2./m_alpha);
          
          if (m_verbosity) {
             printParameters();
@@ -50,6 +51,13 @@ class VariableHardSphere : public Scattering
       // Destructor
       //
       virtual ~VariableHardSphere() {;}
+      
+      // initialization
+      //
+      virtual void initialize( const DomainGrid&            a_mesh,
+                               const LevelData<FArrayBox>&  a_numberDensity,
+                               const LevelData<FArrayBox>&  a_energyDensity ) ;
+
   
       virtual Real scatterDt() const { return m_scatter_dt; }
 
@@ -66,11 +74,11 @@ class VariableHardSphere : public Scattering
          }
       }
       
-      virtual void applySelfScattering( PicSpecies&             a_picSpecies, 
-                                  const DomainGrid&             a_mesh,
-                                  const LevelData<FArrayBox>&   a_numberDensity,
-                                  const LevelData<FArrayBox>&   a_energyDensity,
-                                  const Real                    a_dt ) const;
+      virtual void applySelfScattering( PicSpecies&            a_picSpecies, 
+                                  const DomainGrid&            a_mesh,
+                                  const LevelData<FArrayBox>&  a_numberDensity,
+                                  const LevelData<FArrayBox>&  a_energyDensity,
+                                  const Real                   a_dt ) const;
  
    private:
 
@@ -94,6 +102,7 @@ class VariableHardSphere : public Scattering
       Real m_mu0;    // reference viscosity [Pa-s]
       Real m_eta;    // mu = mu0*(T/T0)^eta
       Real m_alpha;  // alpha = 4/(2*eta-1)
+      Real m_mass;   // neutral mass / electron mass
       Real m_Aconst; // sigmaT = 4*pi*Aconst*g^(-4/alpha), g is relative speed [m/s]
 
 };

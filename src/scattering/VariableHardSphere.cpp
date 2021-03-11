@@ -11,12 +11,68 @@
 
 #include "NamespaceHeader.H"
 
+
+void VariableHardSphere::initialize( const DomainGrid&            a_mesh,
+                                     const LevelData<FArrayBox>&  a_numberDensity,
+                                     const LevelData<FArrayBox>&  a_energyDensity )
+{
+   CH_TIME("VariableHardSphere::initialize()");
+   
+   // 
+   // currently this function is just used to set the scattering time at t=0
+   //
+
+   // predefine some variables
+   Real local_Teff, local_numberDensity, local_energyDensity, local_VTeff;
+   Real local_sigmaTmax, local_nuMax;
+   Real fourPiA = 4.*Constants::PI*m_Aconst;
+   Real fourOverAlpha = 4.0/m_alpha;   
+   Real box_nuMax=0.0; // for scattering time step calculation
+ 
+   // loop over lists in each cell and test shuffle
+   const DisjointBoxLayout& grids = a_numberDensity.disjointBoxLayout();
+   DataIterator ditg(grids);
+   for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
+
+      const FArrayBox& this_numberDensity = a_numberDensity[ditg];
+      const FArrayBox& this_energyDensity = a_energyDensity[ditg];
+     
+      const Box gridBox = grids.get(ditg);
+      BoxIterator gbit(gridBox);
+      for (gbit.begin(); gbit.ok(); ++gbit) { // loop over cells
+         const IntVect ig = gbit(); // grid index
+       
+         // get local density and temperature and compute local VTeff
+         local_numberDensity = this_numberDensity.get(ig,0);
+         if(local_numberDensity == 0.0) continue;
+         local_energyDensity = 0.0;
+         for( int dir=0; dir<3; dir++) {
+            local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
+         }
+         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
+         local_VTeff = sqrt(local_Teff/m_mass); // thermal speed [m/s]
+
+         // compute local sigmaTmax = sigmaT(VTeff) local nuMax*dt
+         local_sigmaTmax = fourPiA*pow(local_VTeff,-fourOverAlpha);
+         local_nuMax = local_numberDensity*local_sigmaTmax*local_VTeff;
+         box_nuMax = Max(box_nuMax,local_nuMax);
+      }
+   
+   }
+   
+   Real global_nuMax = box_nuMax;
+#ifdef CH_MPI
+   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+#endif
+   m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
+
+}
       
-void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpecies, 
-                                        const DomainGrid&             a_mesh,
-                                        const LevelData<FArrayBox>&   a_numberDensity,
-                                        const LevelData<FArrayBox>&   a_energyDensity,
-                                        const Real                    a_dt ) const
+void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecies, 
+                                        const DomainGrid&            a_mesh,
+                                        const LevelData<FArrayBox>&  a_numberDensity,
+                                        const LevelData<FArrayBox>&  a_energyDensity,
+                                        const Real                   a_dt ) const
 {
    CH_TIME("VariableHardSphere::applySelfScattering()");
  
@@ -27,7 +83,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
 
    // predefine some variables
-   const Real Mass = a_picSpecies.mass(); // species mass in units of electron mass
+   //const Real Mass = a_picSpecies.mass(); // species mass in units of electron mass
    Real local_Teff, local_numberDensity, local_energyDensity, local_gmax;
    Real local_sigmaTmax, local_nuMaxDt, local_Nmax, local_Nmax_remainder, local_Nmax_whole;
    int local_numCell;
@@ -38,7 +94,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
    std::array<Real,3> deltaU;
    Real theta; 
  
-   Real box_nuMaxDt=0.0;
+   Real box_nuMaxDt=0.0; // for scattering time step calculation
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
@@ -72,7 +128,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&             a_picSpeci
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
          local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
-         local_gmax = 5.0*sqrt(local_Teff/Mass); // 5x thermal speed [m/s]
+         local_gmax = 5.0*sqrt(local_Teff/m_mass); // 5x thermal speed [m/s]
 
          // compute local sigmaTmax = sigmaT(gmax) local nuMax*dt
          local_sigmaTmax = fourPiA*pow(local_gmax,-fourOverAlpha);

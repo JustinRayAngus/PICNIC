@@ -25,6 +25,13 @@ class Scattering
       //
       virtual ~Scattering() {;}
       
+      // initialization
+      //
+      virtual void initialize( const DomainGrid&            a_mesh,
+                               const LevelData<FArrayBox>&  a_numberDensity,
+                               const LevelData<FArrayBox>&  a_energyDensity ) 
+      {};
+      
       virtual Real scatterDt() const = 0;
 
       // apply self scattering to passed pic species

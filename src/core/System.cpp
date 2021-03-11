@@ -88,8 +88,14 @@ void System::initialize( const int     a_cur_step,
 
    // check for scattering and initialize scattering models
    //
-   if(m_picSpecies->scatter()) {
-
+   if(m_use_scattering) {
+      if(m_picSpecies->scatter()) {
+         m_picSpecies->binTheParticles(); // bin particles up for scattering call below
+         const bool setMoments = true;
+         const LevelData<FArrayBox>& numberDensity = m_picSpecies->getNumberDensity(setMoments);
+         const LevelData<FArrayBox>& energyDensity = m_picSpecies->getEnergyDensity(setMoments);
+         m_scattering->initialize( *m_mesh, numberDensity, energyDensity );
+      }
    }
 
 }
@@ -554,8 +560,10 @@ Real System::stableDt( const int a_step_number )
 Real System::scatterDt( const int a_step_number )
 {
    Real scatterDt = DBL_MAX;
-   if(m_use_scattering) scatterDt = m_scattering->scatterDt();
-   if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
+   if(m_use_scattering) {
+      scatterDt = m_scattering->scatterDt();
+      if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
+   }
    return scatterDt;
 }
 
@@ -563,8 +571,10 @@ Real System::scatterDt( const int a_step_number )
 Real System::specialOpsDt( const int a_step_number )
 {
    Real specialOpsDt = DBL_MAX;
-   if(m_use_specialOps) specialOpsDt = m_specialOps->specialOpsDt();
-   if(!procID()) cout << "special operator dt = " << specialOpsDt << endl;
+   if(m_use_specialOps) {
+      specialOpsDt = m_specialOps->specialOpsDt();
+      if(!procID()) cout << "special operator time step = " << specialOpsDt << endl;
+   }
    return specialOpsDt;
 }
 
