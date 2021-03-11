@@ -44,6 +44,10 @@ System::System( ParmParse& a_pp )
    createMeshInterp();
 
    createState( a_pp );
+   
+   createScattering();
+
+   createSpecialOperators();
 
 }
 
@@ -289,18 +293,8 @@ void System::createState( ParmParse&  a_pp )
    //PICspeciesPtrVect pic_species;
    createPICspecies();
    
-   createScattering();
-
-   // create special operators
-   //
-   createSpecialOperators();
-
-   /*
-
-   FieldPtrVect fields;
-   createFields( fields );
-
-   */
+   //FieldPtrVect fields;
+   //createFields( fields );
 
 }
 
@@ -413,6 +407,7 @@ void System::createSpecialOperators()
       if(ppspop.contains("model")) {
          m_use_specialOps = true;
          m_specialOps = specialOpFactory.create( ppspop, 1 );
+         m_specialOps->updateOp(*m_mesh,0.0); // should make an initializeOp() function
       } 
       else {
          more_ops = false;
@@ -562,6 +557,15 @@ Real System::scatterDt( const int a_step_number )
    if(m_use_scattering) scatterDt = m_scattering->scatterDt();
    if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
    return scatterDt;
+}
+
+
+Real System::specialOpsDt( const int a_step_number )
+{
+   Real specialOpsDt = DBL_MAX;
+   if(m_use_specialOps) specialOpsDt = m_specialOps->specialOpsDt();
+   if(!procID()) cout << "special operator dt = " << specialOpsDt << endl;
+   return specialOpsDt;
 }
 
 

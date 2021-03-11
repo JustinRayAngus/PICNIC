@@ -27,6 +27,7 @@ src_dirs += ../src/utils
 src_dirs += ../src/particle_tools
 src_dirs += ../src/state_variables/species/pic
 src_dirs += ../src/special_operators
+src_dirs += ../src/scattering
 
 # input file for 'run' target
 INPUT = inputs

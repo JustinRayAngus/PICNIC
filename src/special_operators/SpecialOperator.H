@@ -34,6 +34,8 @@ class SpecialOperator
       //
       virtual void updateOp( const DomainGrid&  a_mesh,
                              const Real&        a_time ) = 0;
+      
+      virtual Real specialOpsDt() const = 0;
 
       // Print object parameters.
       //

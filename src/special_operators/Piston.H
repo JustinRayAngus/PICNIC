@@ -32,8 +32,9 @@ class Piston : public SpecialOperator
          if (procID()==0) {
             std::cout << "Piston special operator parameters:" << std::endl;
             std::cout << " initial piston position: "  << m_piston_position  << std::endl;
-            std::cout << " piston direction: "  << m_piston_dir  << std::endl;
-            std::cout << " piston velocity: "  << m_piston_velocity  << std::endl << std::endl;
+            std::cout << " piston direction: " << m_piston_dir  << std::endl;
+            std::cout << " piston velocity:  " << m_piston_velocity  << std::endl;
+            std::cout << " piston dtFrac:    " << m_dtFrac  << std::endl << std::endl;
          }
       }
       
@@ -121,6 +122,8 @@ class Piston : public SpecialOperator
          CH_assert(Pdata.isClosed());
 
       }
+      
+      virtual Real specialOpsDt() const { return m_piston_dt; }
  
       virtual void updateOp( const DomainGrid&  a_mesh,
                              const Real&        a_dt )
@@ -136,6 +139,10 @@ class Piston : public SpecialOperator
             if(!procID()) cout << "piston too close to boundary !!! " << endl;
             exit(EXIT_FAILURE);
          }
+
+         // set the time step for piston special op
+         m_piston_dt = m_dtFrac*dX[m_piston_dir]/abs(m_piston_velocity);
+
       }
 
 
@@ -150,9 +157,10 @@ class Piston : public SpecialOperator
        */
       void parseParameters( ParmParse& a_pp )
       {
-         a_pp.query( "position", m_piston_position );
-         a_pp.query( "velocity", m_piston_velocity );
-         a_pp.query( "direction", m_piston_dir );
+         a_pp.get( "position", m_piston_position );
+         a_pp.get( "velocity", m_piston_velocity );
+         a_pp.get( "direction", m_piston_dir );
+         a_pp.query( "dtFrac", m_dtFrac );
          
          if (m_verbosity) {
             printParameters();
@@ -162,6 +170,8 @@ class Piston : public SpecialOperator
       Real m_piston_position;
       Real m_piston_velocity;
       int m_piston_dir;
+      Real m_dtFrac=0.5;
+      Real m_piston_dt=DBL_MAX;
 
 };
 
