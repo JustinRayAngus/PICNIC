@@ -61,15 +61,12 @@ System::~System()
       m_meshInterp = NULL;
    }
    delete m_picSpecies;
- 
 }
 
 void System::initialize( const int     a_cur_step,
                          const double  a_cur_time )
 {
    CH_TIME("System::initialize()");
-   
-   //DomainGrid* mesh = DomainGrid::mesh;
    
    // initialize the state_variable data members (ICs) and the operators
    // Will eventually loop over all state_variables objects
@@ -294,8 +291,6 @@ void System::createState( ParmParse&  a_pp )
 {
    CH_TIME("System::createState()");
    
-   // create kinetic species
-   //
    //PICspeciesPtrVect pic_species;
    createPICspecies();
    
@@ -316,7 +311,6 @@ void System::createPICspecies()
    if(!procID()) {
       cout << "Adding PIC species..." << endl;
    }
-   //DomainGrid* mesh = DomainGrid::mesh;
 
    bool more_vars(true);
    string name0;
@@ -397,7 +391,6 @@ void System::createSpecialOperators()
    if(!procID()) {
       cout << "Adding special operators..." << endl;
    }
-   //DomainGrid* mesh = DomainGrid::mesh;
 
    bool more_ops(true);
    string name0;
@@ -443,30 +436,7 @@ void System::writePlotFile( const int     a_cur_step,
    //m_picSpecies->setNumberDensity(); 
    const bool setDensity = true;
    const LevelData<FArrayBox>& density = m_picSpecies->getNumberDensity(setDensity);
-   /*
-   const DisjointBoxLayout& grids = density.disjointBoxLayout();
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      const Box gridBox = grids.get(dit);
-      BoxIterator gbit(gridBox); 
-      for(gbit.begin(); gbit.ok(); ++gbit) {
-         if(!procID()) {
-            const IntVect ig = gbit();
-            const Real thisDen = density[dit].get(ig,0); 
-            cout << "JRA: ig = " << ig << endl;
-            cout << "JRA: thisDen = " << thisDen << endl;
-         } 
-      }
-   }
-   */
-   /*
-   const DisjointBoxLayout& grids = density.disjointBoxLayout();
-   LevelData<FArrayBox> rho;
-   rho.define(grids,density.nComp(),density.ghostVect());
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      rho[dit].copy(density[dit]);
-   }
-   rho.exchange();
-   */
+   
    const bool setMomentum = true;
    const LevelData<FArrayBox>& momentum = m_picSpecies->getMomentumDensity(setMomentum);
    
@@ -513,8 +483,6 @@ void System::advance( Real&  a_cur_time,
 {  
    CH_TIME("System::advance()");
    
-   //m_integrator->setTimeStepSize( a_dt ); // pass time step to integrator
-  
    // advance particle positions
    //
    if(m_picSpecies->motion()) {

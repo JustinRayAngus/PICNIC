@@ -34,7 +34,7 @@ class Piston : public SpecialOperator
             std::cout << " initial piston position: "  << m_piston_position  << std::endl;
             std::cout << " piston direction: " << m_piston_dir  << std::endl;
             std::cout << " piston velocity:  " << m_piston_velocity  << std::endl;
-            std::cout << " piston dtFrac:    " << m_dtFrac  << std::endl << std::endl;
+            std::cout << " piston dtFrac:    " << m_dtFrac  << std::endl;
          }
       }
       

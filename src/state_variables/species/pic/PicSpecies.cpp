@@ -370,6 +370,10 @@ void PicSpecies::initialize()
 {
    // initilize the particle position and velocities
    //
+   if(!procID()) {
+      cout << "Initializing pic species " << m_name  << "..." << endl;
+   }
+   int verbosity=0; // using this as a verbosity flag
 
    // set ICs for this species 
    // 
@@ -394,7 +398,7 @@ void PicSpecies::initialize()
    //
    const std::string spcdenIC("IC." + m_name + ".density");
    ParmParse ppdenIC( spcdenIC.c_str() );
-   RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppdenIC,1);
+   RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppdenIC,verbosity);
    gridFunction->assign( m_density, m_mesh, this_time );
 
    // set temperature profiles from ICs
@@ -405,7 +409,7 @@ void PicSpecies::initialize()
 
    const std::string spctemp0IC("IC." + m_name + ".temperature_0");
    ParmParse pptemp0IC( spctemp0IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionTemp0 = gridFactory.create(pptemp0IC,1);
+   RefCountedPtr<GridFunction> gridFunctionTemp0 = gridFactory.create(pptemp0IC,verbosity);
    gridFunctionTemp0->assign( tempProfile, m_mesh, this_time );
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       m_temperature[dit].copy(tempProfile[dit],0,0,1);
@@ -413,7 +417,7 @@ void PicSpecies::initialize()
    
    const std::string spctemp1IC("IC." + m_name + ".temperature_1");
    ParmParse pptemp1IC( spctemp1IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionTemp1 = gridFactory.create(pptemp1IC,1);
+   RefCountedPtr<GridFunction> gridFunctionTemp1 = gridFactory.create(pptemp1IC,verbosity);
    gridFunctionTemp1->assign( tempProfile, m_mesh, this_time );
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       m_temperature[dit].copy(tempProfile[dit],0,1,1);
@@ -421,7 +425,7 @@ void PicSpecies::initialize()
    
    const std::string spctemp2IC("IC." + m_name + ".temperature_2");
    ParmParse pptemp2IC( spctemp2IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionTemp2 = gridFactory.create(pptemp2IC,1);
+   RefCountedPtr<GridFunction> gridFunctionTemp2 = gridFactory.create(pptemp2IC,verbosity);
    gridFunctionTemp2->assign( tempProfile, m_mesh, this_time );
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       m_temperature[dit].copy(tempProfile[dit],0,2,1);
@@ -431,7 +435,7 @@ void PicSpecies::initialize()
    //
    const std::string spcvel0IC("IC." + m_name + ".velocity_0");
    ParmParse ppvel0IC( spcvel0IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionVel0 = gridFactory.create(ppvel0IC,1);
+   RefCountedPtr<GridFunction> gridFunctionVel0 = gridFactory.create(ppvel0IC,verbosity);
    gridFunctionVel0->assign( tempProfile, m_mesh, this_time );
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       m_velocity[dit].copy(tempProfile[dit],0,0,1);
@@ -439,7 +443,7 @@ void PicSpecies::initialize()
    
    const std::string spcvel1IC("IC." + m_name + ".velocity_1");
    ParmParse ppvel1IC( spcvel1IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionVel1 = gridFactory.create(ppvel1IC,1);
+   RefCountedPtr<GridFunction> gridFunctionVel1 = gridFactory.create(ppvel1IC,verbosity);
    gridFunctionVel1->assign( tempProfile, m_mesh, this_time );
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       m_velocity[dit].copy(tempProfile[dit],0,1,1);
@@ -447,14 +451,10 @@ void PicSpecies::initialize()
    
    const std::string spcvel2IC("IC." + m_name + ".velocity_2");
    ParmParse ppvel2IC( spcvel2IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionVel2 = gridFactory.create(ppvel2IC,1);
+   RefCountedPtr<GridFunction> gridFunctionVel2 = gridFactory.create(ppvel2IC,verbosity);
    gridFunctionVel2->assign( tempProfile, m_mesh, this_time );
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       m_velocity[dit].copy(tempProfile[dit],0,2,1);
-   }
-
-   if(!procID()) {
-      cout << "Initializing pic species " << m_name  << endl;
    }
 
    ////////////////////////////////////////////////////////////////////////////////////////

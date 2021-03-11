@@ -167,6 +167,10 @@ void Simulation::advance()
 
    preTimeStep();
    if (m_verbosity >= 1) {
+      if(!procID() && m_cur_step==0) {
+         cout << endl;
+         cout << "====================================================================" << endl;
+      }
       pout() << endl << "Step " << m_cur_step << endl;
       if (procID()==0) {
          cout << endl << "Step " << m_cur_step+1 
