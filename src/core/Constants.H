@@ -10,10 +10,13 @@
    and conversion factors.
  */
 namespace Constants {
+   
+   // Mathematical constants
+   const double PI    = M_PI;
+   const double TWOPI = 2.0 * M_PI;
+   const double E     = exp( 1.0 );
 
-   /**
-     Fundamental Physical Constants
-   */
+   // Fundamental Physical Constants
    const double CVAC   = 2.99792458e+08;  // speed of light [m/s]
    const double MU0    = 1.25663706e-12;  // vacuum permeability [H/m]
    const double EP0    = 8.85418782e-12;  // vacuum permittivity [C^2/N-m^2]
@@ -24,17 +27,12 @@ namespace Constants {
    const double QE     = 1.60217663e-19;  // elementary charge [C]
    const double KB     = 1.38064852e-23;  // Boltzmann constant [J/K]
    const double H      = 6.62607015e-34;  // Planck's constant [J-s]
+   
+   // Derived fundamental constants
+   const double HBAR   = H/TWOPI;                            // reduced Planck's constant [J-s]
+   const double ABOHR  = 2.0*TWOPI*EP0*HBAR*HBAR/(ME*QE*QE); // Bohr radius [m] 
 
-   /**
-     Mathematical constants
-   */
-   const double PI    = M_PI;
-   const double TWOPI = 2.0 * M_PI;
-   const double E     = exp( 1.0 );
-
-   /**
-     Conversion Factors
-   */
+   // Conversion Factors
    const double JOULE_PER_EV      = QE;
    const double EV_PER_JOULE      = 1.0 / JOULE_PER_EV;
    const double K_PER_EV          = QE/KB;
