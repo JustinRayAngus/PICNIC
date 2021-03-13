@@ -40,6 +40,7 @@ class dataFileIO
                                   const LevelData<FArrayBox>&    a_momentum, 
                                   const LevelData<FArrayBox>&    a_energy, 
                                   const Real                     a_mass, 
+                                  const int                      a_species, 
                                   const int                      a_cur_step, 
                                   const double                   a_cur_time );
       

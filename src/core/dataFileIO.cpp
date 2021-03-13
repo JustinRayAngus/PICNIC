@@ -195,6 +195,7 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
                                         const LevelData<FArrayBox>&    a_momentum, 
                                         const LevelData<FArrayBox>&    a_energy, 
                                         const Real                     a_mass, 
+                                        const int                      a_species,
                                         const int                      a_cur_step,
                                         const double                   a_cur_time )
 {
@@ -214,7 +215,10 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
    //   write the particles
    //
    //std::string plotFileNameParts = "parts.h5";
-   std::string prefix = "particle";
+   stringstream s;
+   s << "species" << a_species; 
+   std::string prefix = s.str();
+   //std::string prefix = "particle";
    std::string plotFileNameParts( plotFileName( prefix,
                                                 "parts",
                                                 a_cur_step ) );
