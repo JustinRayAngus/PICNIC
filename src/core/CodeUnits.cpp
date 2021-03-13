@@ -34,9 +34,9 @@ void CodeUnits::printParameters( const int a_procID) const
 {
    if(!a_procID) {
       cout << "====================== Fundamental Code Units ======================" << endl;
-      cout << "  TEMPERATURE  [eV]: " << m_scale[TEMPERATURE] << endl;
-      cout << "  LENGTH        [m]: " << m_scale[LENGTH] << endl;
-      cout << "  TIME          [s]: " << m_scale[TIME] << endl;
+      cout << "  TEMPERATURE  [eV]: " << m_scale[TEMPERATURE] << " (NOT USED YET)" << endl;
+      cout << "  LENGTH        [m]: " << m_scale[LENGTH]      << " (NOT USED YET)" << endl;
+      cout << "  TIME          [s]: " << m_scale[TIME]        << " (NOT USED YET)" << endl;
       cout << "====================================================================" << endl;
       cout << endl;
    }

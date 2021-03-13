@@ -4,6 +4,7 @@
 #include "ParmParse.H"
 #include "Scattering.H"
 
+#include "HardSphere.H"
 #include "VariableHardSphere.H"
 //#include "TakizukaAbe.H"
 
@@ -51,7 +52,10 @@ RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&  a_pp,
    //std::string name( "foo" );
 
    RefCountedPtr<Scattering> result(NULL);
-   if (model == "vhs" || model=="VHS") {
+   if (model == "hs" || model=="HS") {
+      result = RefCountedPtr<Scattering>( new HardSphere( a_pp, a_verbosity ) );
+   }
+   else if (model == "vhs" || model=="VHS") {
       result = RefCountedPtr<Scattering>( new VariableHardSphere( a_pp, a_verbosity ) );
    }
    else if (model == "ta" || model=="TA") {

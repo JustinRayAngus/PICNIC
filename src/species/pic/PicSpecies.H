@@ -45,8 +45,8 @@ public:
   void initialize();
 
   virtual Real mass() const { return m_mass; }
+  virtual int charge() const { return m_charge; }
   virtual Real Uint() const { return m_Uint; }
-  virtual Real charge() const { return m_charge; }
   virtual Real stableDt() const { return m_stable_dt; }
 
   virtual const std::string& name() const { return m_name; }
@@ -126,9 +126,9 @@ public:
   
 private:
   
-  Real m_mass;     // species mass [9.1094e-31 kg] 
+  Real m_mass;     // species mass / electron mass
+  int  m_charge;   // species charge / electron charge
   Real m_Uint;     // species internal energy [eV]
-  Real m_charge;   // species charge [1.6022e-13 muC]
  
   //Real rpiston = 1.0;
   //Real vpiston = -1.0; 

@@ -96,7 +96,7 @@ void System::initialize( const int     a_cur_step,
          }
       }
       
-      if(!procID()) cout << "Initializing scattering objects..." << endl;
+      if(!procID()) cout << "Initializing scattering objects..." << endl << endl;
       for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
          ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
          this_scattering->initialize(*m_mesh, m_pic_species_ptr_vect);
@@ -331,16 +331,18 @@ void System::createPICspecies()
    //
    
    if(!procID()) {
-      cout << "Creating PIC species..." << endl;
+      cout << "Creating PIC species..." << endl << endl;
    }
 
    bool more_vars(true);
+   int species;
    while(more_vars) { // look for pic species...
  
-      //species = species + 1;
+      species = m_pic_species_ptr_vect.size() + 1;
 
       stringstream s;
-      s << "pic_species." << m_pic_species_ptr_vect.size() + 1; 
+      s << "pic_species." << species; 
+      //s << "pic_species." << m_pic_species_ptr_vect.size() + 1; 
 
       ParmParse ppspc( s.str().c_str() );
      
@@ -491,7 +493,8 @@ void System::writePlotFile( const int     a_cur_step,
 
       //this_picSpecies->inspectBinFab();
 
-      m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy, this_picSpecies->mass(),
+      m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy, this_picSpecies->mass(), 
+                                         this_picSpecies->charge(), this_picSpecies->Uint(),
                                          s+1, a_cur_step, a_cur_time );
    
       //m_dataFile->writeBinFabDataFile( Pdata_binfab, a_cur_step, a_cur_time );

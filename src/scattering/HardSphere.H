@@ -1,5 +1,5 @@
-#ifndef _VARIABLEHARDSPHERE_H_
-#define _VARIALBEHARDSPHERE_H_
+#ifndef _HARDSPHERE_H_
+#define _HARDSPHERE_H_
 
 #include "Scattering.H"
 #include "Constants.H"
@@ -12,19 +12,20 @@
 #include "NamespaceHeader.H"
 
 /**
- * variable hard sphere scattering class for elastic neutral-neutral binary scattering
- * See Viscosity of Gases by marcia L. Huber for temp dependent viscosity of common gases
- * See Nanbu 2000 pg 982 and Hong Xiao 2014 for VHS model
+ * standard hard sphere scattering class for elastic neutral-neutral binary scattering
+ * for species1 with radius r1 and species 2 with radius r2. r1 and r2 can be specified
+ * from the input file or by default is given as r=(A)^(1/3)*a_Bohr with A the mass of 
+ * the species in units of atomic mass unit and a_Bohr = 5.2918e-11 m the Bohr radius.
  *
- * total cross section [m^2]: sigmaT = 4*pi*Aconst*g^(-4/alpha), g is relative speed [m/s]
+ * total cross section [m^2]: sigmaT = pi*(r1 + r2)^2
 */
-class VariableHardSphere : public Scattering
+class HardSphere : public Scattering
 {
    public:
 
       // Constructor
       //
-      VariableHardSphere( ParmParse&  a_pp, 
+      HardSphere( ParmParse&  a_pp, 
                     const int&        a_verbosity )
          : Scattering(a_verbosity)
       {
@@ -34,7 +35,7 @@ class VariableHardSphere : public Scattering
 
       // Destructor
       //
-      virtual ~VariableHardSphere() {;}
+      virtual ~HardSphere() {;}
       
       // return integer identifier of species 1
       virtual int species1() const { return m_sp1; }
@@ -59,13 +60,12 @@ class VariableHardSphere : public Scattering
       //
       virtual void printParameters()  const {
          if (procID()==0) {
-            std::cout << "VariableHardSphere scattering parameters:" << std::endl;
-            std::cout << "  species 1 name:              " << m_species1_name << std::endl;
-            std::cout << "  species 2 name:              " << m_species2_name << std::endl;
-            std::cout << "  reference temperature [K]  : " << m_T0 << std::endl;
-            std::cout << "  reference viscosity [Pa-s] : " << m_mu0 << std::endl;
-            std::cout << "  mu=mu0*(T/T0)^eta with eta : " << m_eta << std::endl;
-            std::cout << "  Aconst :                     " << m_Aconst << std::endl << std::endl;
+            std::cout << "HardSphere scattering parameters:" << std::endl;
+            std::cout << "  species 1 name:          " << m_species1_name << std::endl;
+            std::cout << "  species 2 name:          " << m_species2_name << std::endl;
+            std::cout << "  species 1 radius [m]:    " << m_r1 << std::endl;
+            std::cout << "  species 2 radius [m]:    " << m_r2 << std::endl;
+            std::cout << "  sigmaT = pi(r1+r2)^2:    " << m_sigmaT << std::endl << std::endl;
          }
       }
       
@@ -78,33 +78,29 @@ class VariableHardSphere : public Scattering
    private:
 
       // prohibit copying
-      //VariableHardSphere( const Constant& );
-      //VariableHardSphere& operator=( const Constant& );
+      //HardSphere( const Constant& );
+      //HardSphere& operator=( const Constant& );
 
-      /// Parse the input database for parameters.
-      /**
-       */
+      // Parse the input database for parameters.
       void parseParameters( ParmParse&  a_pp ) 
       {
          a_pp.get( "species1", m_sp1 ); m_sp1 = m_sp1-1; 
          a_pp.get( "species2", m_sp2 ); m_sp2 = m_sp2-1;
-         a_pp.get( "reference_temperature", m_T0 );
-         a_pp.get( "reference_viscosity", m_mu0 );
-         a_pp.get( "eta", m_eta );
+         a_pp.query( "radius1", m_r1 );
+         a_pp.query( "radius2", m_r2 );
       }
 
       std::string m_species1_name;
       std::string m_species2_name;
       mutable Real m_scatter_dt; // (mean free time)
-      int m_sp1;    // species 1 identifier
-      int m_sp2;    // species 2 identifier
-      Real m_T0;     // reference temperature [K]
-      Real m_mu0;    // reference viscosity [Pa-s]
-      Real m_eta;    // mu = mu0*(T/T0)^eta
-      Real m_alpha;  // alpha = 4/(2*eta-1)
-      Real m_mass1;  // neutral mass / electron mass
-      Real m_mass2;  // neutral mass / electron mass
-      Real m_Aconst; // sigmaT = 4*pi*Aconst*g^(-4/alpha), g is relative speed [m/s]
+      int m_sp1;     // species 1 identifier
+      int m_sp2;     // species 2 identifier
+      Real m_mass1;  // species 1 mass / electron mass
+      Real m_mass2;  // species 1 mass / electron mass
+      Real m_mu;     // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
+      Real m_r1=-1;  // species 1 radius [m]
+      Real m_r2=-1;  // species 2 radius [m]
+      Real m_sigmaT; // total cross section [m^2] = pi*(r1+r2)^2
 
 };
 

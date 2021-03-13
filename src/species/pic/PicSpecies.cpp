@@ -17,9 +17,9 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
                         const MeshInterp&  a_meshInterp,
                         //MeshInterp*  a_meshInterp,
                         const DomainGrid&  a_mesh )
-   : m_mass(1.0),
+   : m_mass(),
+     m_charge(),
      m_Uint(0.0),
-     m_charge(1.0),
      m_motion(true),
      m_forces(true),
      m_scatter(false),
@@ -32,19 +32,21 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
  
    //createMeshInterp();
  
-   a_ppspc.query( "mass", m_mass );
-   a_ppspc.query( "charge", m_charge );
+   a_ppspc.get( "mass", m_mass );
+   a_ppspc.get( "charge", m_charge );
+   a_ppspc.query( "Uint", m_Uint );
    a_ppspc.query( "motion", m_motion );
    a_ppspc.query( "forces", m_forces );
    a_ppspc.query( "scatter", m_scatter );
 
    if ( procID() == 0 ) {
       cout << "  name = " << m_name << endl;
-      cout << "  mass = " << m_mass << endl;
-      cout << "  charge = " << m_charge << endl;
+      cout << "  mass/me   = " << m_mass << endl;
+      cout << "  charge/qe = " << m_charge << endl;
+      cout << "  Uint [eV] = " << m_Uint << endl;
       cout << "  motion = " << m_motion << endl;
       cout << "  forces = " << m_forces << endl;
-      cout << "  scatter = " << m_scatter << endl;
+      cout << "  scatter = " << m_scatter << endl << endl;
    }
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
