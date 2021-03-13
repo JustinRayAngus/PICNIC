@@ -37,15 +37,13 @@ class ScatteringFactory
        * routine is responsible for de-allocating the memory.
        */
       inline RefCountedPtr<Scattering> create( ParmParse&   a_pp,
-                                         const PicSpecies&  a_picSpecies,
                                          const int&         a_verbosity = 0 );
 };
 
 
 inline
-RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&   a_pp,
-                                               const PicSpecies&  a_picSpecies,
-                                               const int&         a_verbosity )
+RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&  a_pp,
+                                               const int&        a_verbosity )
 {
    std::string model( "unknown" );
    a_pp.get( "model", model );
@@ -54,10 +52,10 @@ RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&   a_pp,
 
    RefCountedPtr<Scattering> result(NULL);
    if (model == "vhs" || model=="VHS") {
-      result = RefCountedPtr<Scattering>( new VariableHardSphere( a_pp, a_picSpecies, a_verbosity ) );
+      result = RefCountedPtr<Scattering>( new VariableHardSphere( a_pp, a_verbosity ) );
    }
    else if (model == "ta" || model=="TA") {
-    //  result = RefCountedPtr<Scattering>( new TakizukaAbe( a_pp, a_picSpecies, a_verbosity ) );
+    //  result = RefCountedPtr<Scattering>( new TakizukaAbe( a_pp, a_verbosity ) );
    }
    else {
       cout << "model = " << model << endl;

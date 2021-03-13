@@ -76,8 +76,6 @@ class System
    
       void createPICspecies();
       
-      //void createPICspecies( PICspeciesPtrVect& pic_species );
-      
       void createScattering();
       
       void createSpecialOperators();
@@ -86,11 +84,13 @@ class System
       CodeUnits*  m_units;
       dataFileIO* m_dataFile;
       MeshInterp* m_meshInterp;
-      PicSpecies* m_picSpecies;
-      //SpecialOperator* m_specialOps;
-      RefCountedPtr<Scattering> m_scattering;
+     
+      PicSpeciesPtrVect m_pic_species_ptr_vect;
+      
+      //RefCountedPtr<Scattering> m_scattering;
+      ScatteringPtrVect m_scattering_ptr_vect;
+     
       RefCountedPtr<SpecialOperator> m_specialOps;
-      //RefCountedPtr<PicSpecies> m_picSpecies;
       
       bool m_verbosity = true;
       bool m_use_scattering = false;

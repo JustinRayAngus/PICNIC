@@ -370,9 +370,7 @@ void PicSpecies::initialize()
 {
    // initilize the particle position and velocities
    //
-   if(!procID()) {
-      cout << "Initializing pic species " << m_name  << "..." << endl;
-   }
+   if(!procID()) cout << "Initializing pic species " << m_name  << "..." << endl;
    int verbosity=0; // using this as a verbosity flag
 
    // set ICs for this species 

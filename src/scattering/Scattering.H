@@ -5,6 +5,9 @@
 #include "PicSpecies.H"
 #include "LevelData.H"
 
+#include "Vector.H"
+#include "RefCountedPtr.H"
+
 #include "DomainGrid.H"
 
 #include "NamespaceHeader.H"
@@ -24,12 +27,22 @@ class Scattering
       // Destructor
       //
       virtual ~Scattering() {;}
+  
+      virtual int species1() const = 0;
+     
+      virtual int species2() const = 0;
+      
+      // set mean free time
+      //
+      virtual void setMeanFreeTime( const DomainGrid&            a_mesh,
+                                    const LevelData<FArrayBox>&  a_numberDensity,
+                                    const LevelData<FArrayBox>&  a_energyDensity )
+      {};
       
       // initialization
       //
-      virtual void initialize( const DomainGrid&            a_mesh,
-                               const LevelData<FArrayBox>&  a_numberDensity,
-                               const LevelData<FArrayBox>&  a_energyDensity ) 
+      virtual void initialize( const DomainGrid&         a_mesh,
+                               const PicSpeciesPtrVect&  a_picSpeciesPtrVect )
       {};
       
       virtual Real scatterDt() const = 0;
@@ -51,6 +64,9 @@ class Scattering
       bool m_verbosity;
   
 };
+
+typedef RefCountedPtr<Scattering> ScatteringPtr;
+typedef Vector<ScatteringPtr> ScatteringPtrVect;
 
 #include "NamespaceFooter.H"
 

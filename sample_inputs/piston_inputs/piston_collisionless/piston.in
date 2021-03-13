@@ -52,11 +52,6 @@ pic_species.1.motion = false # must be false to use piston operator
 pic_species.1.forces = false
 pic_species.1.scatter = false
 
-scattering.deuteriumAtom.model = "VHS"
-scattering.deuteriumAtom.reference_temperature = 300   # [K]
-scattering.deuteriumAtom.reference_viscosity = 1.26e-5 # [Pa-s]
-scattering.deuteriumAtom.eta = 0.69
-
 IC.deuteriumAtom.parts_per_cell = 2 4
 IC.deuteriumAtom.density.type = "constant"
 IC.deuteriumAtom.density.value = 1.0e21 # [number/m^3]
@@ -72,6 +67,19 @@ IC.deuteriumAtom.velocity_1.type = "constant"
 IC.deuteriumAtom.velocity_1.value = 0.0
 IC.deuteriumAtom.velocity_2.type = "constant"
 IC.deuteriumAtom.velocity_2.value = -1.0e3
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+#scattering.coulomb_model = "TA"
+
+scattering.1.model = "VHS"
+scattering.1.species1 = 1
+scattering.1.species2 = 1
+scattering.1.reference_temperature = 300   # [K]
+scattering.1.reference_viscosity = 1.26e-5 # [Pa-s]
+scattering.1.eta = 0.69
 
 #####################################################
 # Special Operator Definitions

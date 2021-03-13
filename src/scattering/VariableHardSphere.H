@@ -24,41 +24,35 @@ class VariableHardSphere : public Scattering
 
       // Constructor
       //
-      VariableHardSphere( ParmParse&   a_pp, 
-                    const PicSpecies&  a_picSpecies, 
-                    const int&         a_verbosity )
+      VariableHardSphere( ParmParse&  a_pp, 
+                    const int&        a_verbosity )
          : Scattering(a_verbosity)
       {
-         m_species_name = a_picSpecies.name();
          m_scatter_dt = DBL_MAX;
-
          parseParameters( a_pp );
-         
-         // define alpha and Aconst
-         //
-         m_alpha = 4./(2.*m_eta-1.);
-         m_mass = a_picSpecies.mass(); // normalized mass
-         const Real Mass_kg = m_mass*Constants::ME; // species mass [kg]
-         const Real VT0 = sqrt(Constants::KB*m_T0/Mass_kg);     // reference thermal speed [m/s]
-         const Real Gamma0 = tgamma(4.-2./m_alpha);
-         m_Aconst = 15./32./Gamma0/m_mu0*Mass_kg/sqrt(Constants::PI)*VT0*pow(4.*VT0*VT0,2./m_alpha);
-         
-         if (m_verbosity) {
-            printParameters();
-         }
       }
 
       // Destructor
       //
       virtual ~VariableHardSphere() {;}
       
+      // return integer identifier of species 1
+      virtual int species1() const { return m_sp1; }
+      
+      // return integer identifier of species 1
+      virtual int species2() const { return m_sp2; }
+      
+      // set mean free time
+      //
+      virtual void setMeanFreeTime( const DomainGrid&            a_mesh,
+                                    const LevelData<FArrayBox>&  a_numberDensity,
+                                    const LevelData<FArrayBox>&  a_energyDensity ) ;
+      
       // initialization
       //
-      virtual void initialize( const DomainGrid&            a_mesh,
-                               const LevelData<FArrayBox>&  a_numberDensity,
-                               const LevelData<FArrayBox>&  a_energyDensity ) ;
+      virtual void initialize( const DomainGrid&         a_mesh,
+                               const PicSpeciesPtrVect&  a_picSpeciesPtrVect ); 
 
-  
       virtual Real scatterDt() const { return m_scatter_dt; }
 
       // Print object parameters.
@@ -66,11 +60,12 @@ class VariableHardSphere : public Scattering
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "VariableHardSphere scattering parameters:" << std::endl;
-            std::cout << "  species name :               " << m_species_name << std::endl;
+            std::cout << "  species 1 name:              " << m_species1_name << std::endl;
+            std::cout << "  species 2 name:              " << m_species2_name << std::endl;
             std::cout << "  reference temperature [K]  : " << m_T0 << std::endl;
             std::cout << "  reference viscosity [Pa-s] : " << m_mu0 << std::endl;
             std::cout << "  mu=mu0*(T/T0)^eta with eta : " << m_eta << std::endl;
-            std::cout << "  Aconst :                     "  << m_Aconst << std::endl;
+            std::cout << "  Aconst :                     " << m_Aconst << std::endl;
          }
       }
       
@@ -91,18 +86,24 @@ class VariableHardSphere : public Scattering
        */
       void parseParameters( ParmParse&  a_pp ) 
       {
+         a_pp.get( "species1", m_sp1 ); m_sp1 = m_sp1-1; 
+         a_pp.get( "species2", m_sp2 ); m_sp2 = m_sp2-1;
          a_pp.get( "reference_temperature", m_T0 );
          a_pp.get( "reference_viscosity", m_mu0 );
          a_pp.get( "eta", m_eta );
       }
 
-      std::string m_species_name;
+      std::string m_species1_name;
+      std::string m_species2_name;
       mutable Real m_scatter_dt; // (mean free time)
+      Real m_sp1;    // species 1
+      Real m_sp2;    // species 2
       Real m_T0;     // reference temperature [K]
       Real m_mu0;    // reference viscosity [Pa-s]
       Real m_eta;    // mu = mu0*(T/T0)^eta
       Real m_alpha;  // alpha = 4/(2*eta-1)
-      Real m_mass;   // neutral mass / electron mass
+      Real m_mass1;  // neutral mass / electron mass
+      Real m_mass2;  // neutral mass / electron mass
       Real m_Aconst; // sigmaT = 4*pi*Aconst*g^(-4/alpha), g is relative speed [m/s]
 
 };

@@ -12,16 +12,50 @@
 #include "NamespaceHeader.H"
 
 
-void VariableHardSphere::initialize( const DomainGrid&            a_mesh,
-                                     const LevelData<FArrayBox>&  a_numberDensity,
-                                     const LevelData<FArrayBox>&  a_energyDensity )
+void VariableHardSphere::initialize( const DomainGrid&         a_mesh,
+                                     const PicSpeciesPtrVect&  a_picSpeciesPtrVect )
 {
    CH_TIME("VariableHardSphere::initialize()");
    
-   // 
-   // currently this function is just used to set the scattering time at t=0
-   //
+   if(m_sp1==m_sp2) { // self scattering
 
+      int this_sp = m_sp1;
+      CH_assert(m_sp1<a_picSpeciesPtrVect.size());
+      PicSpeciesPtr this_picSpecies(a_picSpeciesPtrVect[this_sp]);
+      CH_assert(this_picSpecies->scatter()); // assert that collisions are allowed for this species
+        
+      m_species1_name = this_picSpecies->name();
+      m_species2_name = this_picSpecies->name();
+      
+      m_mass1 = this_picSpecies->mass(); // normalized mass
+      m_mass2 = this_picSpecies->mass(); // normalized mass
+ 
+      // define alpha and Aconst
+      //
+      m_alpha = 4./(2.*m_eta-1.);
+      const Real Mass_kg = m_mass1*Constants::ME; // species mass [kg]
+      const Real VT0 = sqrt(Constants::KB*m_T0/Mass_kg);     // reference thermal speed [m/s]
+      const Real Gamma0 = tgamma(4.-2./m_alpha);
+      m_Aconst = 15./32./Gamma0/m_mu0*Mass_kg/sqrt(Constants::PI)*VT0*pow(4.*VT0*VT0,2./m_alpha);
+
+   } 
+   else { // inter-species scattering
+      cout << " inter-species VHS collisions not yet implemented !!!!!!!!!! " << endl;
+   }
+
+   if (m_verbosity)  printParameters();
+
+}
+
+
+void VariableHardSphere::setMeanFreeTime( const DomainGrid&            a_mesh,
+                                          const LevelData<FArrayBox>&  a_numberDensity,
+                                          const LevelData<FArrayBox>&  a_energyDensity )
+{
+   CH_TIME("VariableHardSphere::setMeanFreeTime()");
+   
+   Real mass = m_mass1;
+   
    // predefine some variables
    Real local_Teff, local_numberDensity, local_energyDensity, local_VTeff;
    Real local_sigmaTmax, local_nuMax;
@@ -50,7 +84,7 @@ void VariableHardSphere::initialize( const DomainGrid&            a_mesh,
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
          local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
-         local_VTeff = sqrt(local_Teff/m_mass); // thermal speed [m/s]
+         local_VTeff = sqrt(local_Teff/mass); // thermal speed [m/s]
 
          // compute local sigmaTmax = sigmaT(VTeff) local nuMax*dt
          local_sigmaTmax = fourPiA*pow(local_VTeff,-fourOverAlpha);
@@ -78,12 +112,13 @@ void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecie
  
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
-    
+ 
+   Real mass = m_mass1;
+   
    // define reference to a_picSpcies binfab container of pointers to particle data
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
 
    // predefine some variables
-   //const Real Mass = a_picSpecies.mass(); // species mass in units of electron mass
    Real local_Teff, local_numberDensity, local_energyDensity, local_gmax;
    Real local_sigmaTmax, local_nuMaxDt, local_Nmax, local_Nmax_remainder, local_Nmax_whole;
    int local_numCell;
@@ -128,7 +163,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecie
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
          local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
-         local_gmax = 5.0*sqrt(local_Teff/m_mass); // 5x thermal speed [m/s]
+         local_gmax = 5.0*sqrt(local_Teff/mass); // 5x thermal speed [m/s]
 
          // compute local sigmaTmax = sigmaT(gmax) local nuMax*dt
          local_sigmaTmax = fourPiA*pow(local_gmax,-fourOverAlpha);

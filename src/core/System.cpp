@@ -18,7 +18,6 @@ System::System( ParmParse& a_pp )
      m_units(NULL),
      m_dataFile(NULL),
      m_meshInterp(NULL),
-     m_picSpecies(NULL),
      m_verbosity(0)
 {
    ParmParse ppsys("system");
@@ -60,7 +59,6 @@ System::~System()
       delete m_meshInterp;
       m_meshInterp = NULL;
    }
-   delete m_picSpecies;
 }
 
 void System::initialize( const int     a_cur_step,
@@ -68,31 +66,57 @@ void System::initialize( const int     a_cur_step,
 {
    CH_TIME("System::initialize()");
    
-   // initialize the state_variable data members (ICs) and the operators
-   // Will eventually loop over all state_variables objects
-
-   //ParticleData<Particle>& m_Ptest = m_picSpecies->partData(); //ref, so can change
-   //const ParticleData<Particle>& m_Ptest = m_picSpecies->partData(); // const ref, so can't change
-   if(a_cur_step==0) {
-      m_picSpecies->initialize(); // set initial particle positions and velocities
-      //m_picSpecies->initialize( m_mesh ); // set initial particle positions and velocities
+   // initialize the pic species
+   //
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(a_cur_step==0) {
+         this_picSpecies->initialize(); // set initial particle positions and velocities
+      }
+      else { // restart
+         if(!procID()) cout << "System::initialize() called at step = " << a_cur_step << endl;
+         if(!procID()) cout << "restarting not currently an option !!! " << endl;
+         exit(EXIT_FAILURE);
+      }
    }
-   else { // restart
-      if(!procID()) cout << "System::initialize() called at step = " << a_cur_step << endl;
-      if(!procID()) cout << "restarting not currently an option !!! " << endl;
-      exit(EXIT_FAILURE);
-   }
-
-   // check for scattering and initialize scattering models
+   
+   // initialize the scattering operators
    //
    if(m_use_scattering) {
-      if(m_picSpecies->scatter()) {
-         m_picSpecies->binTheParticles(); // bin particles up for scattering call below
-         const bool setMoments = true;
-         const LevelData<FArrayBox>& numberDensity = m_picSpecies->getNumberDensity(setMoments);
-         const LevelData<FArrayBox>& energyDensity = m_picSpecies->getEnergyDensity(setMoments);
-         m_scattering->initialize( *m_mesh, numberDensity, energyDensity );
+      
+      // need to prepare scatting() species for initialization
+      // of mean free time at t=0
+      //
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->scatter()) { // prepare this species for scatter
+            this_picSpecies->binTheParticles();
+            this_picSpecies->setNumberDensity();
+            this_picSpecies->setEnergyDensity();
+         }
       }
+      
+      if(!procID()) cout << "Initializing scattering objects..." << endl;
+      for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
+         ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+         this_scattering->initialize(*m_mesh, m_pic_species_ptr_vect);
+      
+         // Could put all below inside initialize????
+ 
+         //ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+         const int this_species = this_scattering->species1();
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[this_species]);
+
+         const bool setMoments = false;
+         const LevelData<FArrayBox>& numberDensity = this_picSpecies->getNumberDensity(setMoments);
+         const LevelData<FArrayBox>& energyDensity = this_picSpecies->getEnergyDensity(setMoments);
+         this_scattering->setMeanFreeTime( *m_mesh, numberDensity, energyDensity );
+
+      }
+      if(!procID()) {
+         cout << "Finished initializing " << m_scattering_ptr_vect.size() << " scattering objects" << endl << endl;
+      }
+
    }
 
 }
@@ -291,11 +315,9 @@ void System::createState( ParmParse&  a_pp )
 {
    CH_TIME("System::createState()");
    
-   //PICspeciesPtrVect pic_species;
    createPICspecies();
    
-   //FieldPtrVect fields;
-   //createFields( fields );
+   //createFields();
 
 }
 
@@ -309,44 +331,42 @@ void System::createPICspecies()
    //
    
    if(!procID()) {
-      cout << "Adding PIC species..." << endl;
+      cout << "Creating PIC species..." << endl;
    }
 
    bool more_vars(true);
-   string name0;
-   int species = 0;
    while(more_vars) { // look for pic species...
  
-      species = species + 1;
+      //species = species + 1;
 
       stringstream s;
-      s << "pic_species." << species; 
+      s << "pic_species." << m_pic_species_ptr_vect.size() + 1; 
 
-      //ParmParse ppspc( "pic_species.1" );
       ParmParse ppspc( s.str().c_str() );
      
       string name;
       if(ppspc.contains("name")) {
          ppspc.get("name",name);
-         name0 = name;
       } 
       else {
          more_vars = false;
       }
    
       if(more_vars) {
-         //m_picSpecies = new PicSpecies( ppspc, name,  *mesh );
-         //m_picSpecies = new PicSpecies( ppspc, name, m_meshInterp, *mesh );
-         m_picSpecies = new PicSpecies( ppspc, name, *m_meshInterp, *m_mesh );
-         //m_picSpecies = RefCountedPtr<PicSpecies>(new PicSpecies( ppspc, name, *m_meshInterp, *m_mesh ));
-         //m_picSpecies = RefCountedPtr<PicSpecies>(new PicSpecies( ppspc, name, *m_mesh ));
-         //m_picSpecies = RefCountedPtr<PicSpecies>(new PicSpecies( ppspc, name, *m_mesh ));
+         //m_picSpecies = new PicSpecies( ppspc, name, *m_meshInterp, *m_mesh );
+      
+         // Create the pic species object
+         PicSpecies* picSpecies = new PicSpecies( ppspc, name, *m_meshInterp, *m_mesh );
+
+         // Add the new pic species object to the vector of pointers to PicSpecies
+         m_pic_species_ptr_vect.push_back(PicSpeciesPtr(picSpecies));
+
       }
 
    }
 
    if(!procID()) {
-      cout << "Done adding PIC species" << endl << endl;
+      cout << "Finished creating " << m_pic_species_ptr_vect.size() << " PIC species" << endl << endl;
    }
 
 }
@@ -354,28 +374,54 @@ void System::createPICspecies()
 
 void System::createScattering()
 {
-   if(m_picSpecies->scatter()) {  
+   
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // check all species for scattering flag
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      m_use_scattering = this_picSpecies->scatter();
+      if(m_use_scattering) break;
+   }
 
-      ScatteringFactory  scatteringFactory;
+   if(m_use_scattering) {
+
+      ScatteringFactory scatteringFactory;
    
       if(!procID()) {
-         cout << "Adding scattering operators... " << endl;
+         cout << "Creating scattering objects..." << endl;
       }
+
+      bool more_scattering_models(true);
+      while(more_scattering_models) { // look for scattering ops
       
-      int species_num = 1;
-      stringstream s;
-      s << "scattering." << m_picSpecies->name(); 
+         stringstream s;
+         s << "scattering." << m_scattering_ptr_vect.size() + 1; 
+         ParmParse pp_scatter( s.str().c_str() );
+     
+         string model;
+         if(pp_scatter.contains("model")) {
+         
+            // Create this scattering object
+            ScatteringPtr this_scattering = scatteringFactory.create( pp_scatter, 1 );
+            
+            // Add the new scattering object to the vector of pointers to scattering objects
+            //m_scattering_ptr_vect.push_back(ScatteringPtr(this_scattering));
+            m_scattering_ptr_vect.push_back(this_scattering);
+
+         } 
+         else {
+            more_scattering_models = false;
+         }
       
-      ParmParse pp_scatter( s.str().c_str() );
-      if(pp_scatter.contains("model")) {
-         m_use_scattering = true;
-         m_scattering = scatteringFactory.create( pp_scatter, *m_picSpecies, 1 );
       } 
       
       if(!procID()) {
-         cout << "Done adding scattering models" << endl << endl;
+         cout << "Finished creating " << m_scattering_ptr_vect.size() << " scattering objects" << endl << endl;
       }
-
+      
+   }
+   else {
+      if(!procID()) {
+         cout << "Scattering flag = false for all pic species" << endl << endl;
+      }
    }
 
 }
@@ -427,30 +473,31 @@ void System::writePlotFile( const int     a_cur_step,
 {
    CH_TIME("System::writePlotFile()");
 
-   // eventually will loop over species/vars here
-   //
-   //ParticleData<Particle>& Ptest = m_picSpecies->partData(); //ref, so can change
-   //const ParticleData<Particle>& Pdata = m_picSpecies->partData(); // const ref, so can't change
-   const ParticleData<JustinsParticle>& Pdata = m_picSpecies->partData(); // const ref, so can't change
-   //const LevelData<BinFab<JustinsParticle>>& Pdata_binfab = m_picSpecies->partData_binfab(); // const ref, so can't change
-   //m_picSpecies->setNumberDensity(); 
-   const bool setDensity = true;
-   const LevelData<FArrayBox>& density = m_picSpecies->getNumberDensity(setDensity);
-   
-   const bool setMomentum = true;
-   const LevelData<FArrayBox>& momentum = m_picSpecies->getMomentumDensity(setMomentum);
-   
-   const bool setEnergy = true;
-   const LevelData<FArrayBox>& energy = m_picSpecies->getEnergyDensity(setEnergy);
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
 
-   //m_picSpecies->inspectBinFab();
-
-   m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy, m_picSpecies->mass(),
-                                      a_cur_step, a_cur_time );
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+  
+      const ParticleData<JustinsParticle>& Pdata = this_picSpecies->partData(); // const ref, so can't change
+      //const LevelData<BinFab<JustinsParticle>>& Pdata_binfab = this_picSpecies->partData_binfab(); // const ref, so can't change
+      //this_picSpecies->setNumberDensity(); 
+      const bool setDensity = true;
+      const LevelData<FArrayBox>& density = this_picSpecies->getNumberDensity(setDensity);
    
-   //m_dataFile->writeBinFabDataFile( Pdata_binfab, a_cur_step, a_cur_time );
+      const bool setMomentum = true;
+      const LevelData<FArrayBox>& momentum = this_picSpecies->getMomentumDensity(setMomentum);
+   
+      const bool setEnergy = true;
+      const LevelData<FArrayBox>& energy = this_picSpecies->getEnergyDensity(setEnergy);
 
-   //m_dataFile->writeFieldDataFile();
+      //this_picSpecies->inspectBinFab();
+
+      m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy, this_picSpecies->mass(),
+                                         a_cur_step, a_cur_time );
+   
+      //m_dataFile->writeBinFabDataFile( Pdata_binfab, a_cur_step, a_cur_time );
+
+      //m_dataFile->writeFieldDataFile();
+   }
    
 }
 
@@ -485,28 +532,63 @@ void System::advance( Real&  a_cur_time,
    
    // advance particle positions
    //
-   if(m_picSpecies->motion()) {
-      //ParticleData<JustinsParticle>& Pdata = m_picSpecies->partData();
-      m_picSpecies->advancePositions(a_dt);
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->motion()) this_picSpecies->advancePositions(a_dt);
    }
    
    // scatter the particles
    //
    if(m_use_scattering) {
-      //m_picSpecies->testParticleShuffling(a_dt);
-      if(m_picSpecies->scatter()) {
-         m_picSpecies->binTheParticles(); // bin particles up for scattering call below
-         const bool setMoments = true;
-         const LevelData<FArrayBox>& numberDensity = m_picSpecies->getNumberDensity(setMoments);
-         const LevelData<FArrayBox>& energyDensity = m_picSpecies->getEnergyDensity(setMoments);
-         m_scattering->applySelfScattering( *m_picSpecies, *m_mesh, numberDensity, energyDensity, a_dt );
+      
+      // prepare all species to be scattered for scattering
+      //
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->scatter()) {
+            this_picSpecies->binTheParticles();
+            this_picSpecies->setNumberDensity();
+            this_picSpecies->setEnergyDensity();
+         }
       }
+
+      // Should shuffle the m_scattering_ptr_vect each time ?
+      //this_picSpecies->testParticleShuffling(a_dt);
+      for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) { // loop over scattering objects
+         
+         ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+         const int this_species1 = this_scattering->species1();
+         const int this_species2 = this_scattering->species2();
+         const bool setMoments = false; // prepared above
+         
+         PicSpeciesPtr this_picSpecies1(m_pic_species_ptr_vect[this_species1]);
+         const LevelData<FArrayBox>& numberDensity1 = this_picSpecies1->getNumberDensity(setMoments);
+         const LevelData<FArrayBox>& energyDensity1 = this_picSpecies1->getEnergyDensity(setMoments);
+
+         if(this_species1==this_species2) { // self-scattering
+            this_scattering->applySelfScattering( *this_picSpecies1, *m_mesh, numberDensity1, energyDensity1, a_dt );
+         }
+         else {
+            PicSpeciesPtr this_picSpecies2(m_pic_species_ptr_vect[this_species2]);
+            const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity(setMoments);
+            const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity(setMoments);
+            cout << "InterSpeciesScattering not yet implemented ..." << endl;
+            //this_scattering->applyInterScattering( *this_picSpecies1, numberDensity1, energyDensity1, 
+            //                                       *this_picSpecies2, numberDensity2, energyDensity2, *m_mesh, a_dt );
+ 
+         }
+
+      }
+
    }
    
    // apply special operators
    //
    if(m_use_specialOps) {
-      m_specialOps->applyOp(*m_picSpecies,*m_mesh,a_dt);
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         m_specialOps->applyOp(*this_picSpecies,*m_mesh,a_dt);
+      }
       m_specialOps->updateOp(*m_mesh,a_dt);
    }
 
@@ -518,10 +600,17 @@ void System::advance( Real&  a_cur_time,
 
 Real System::stableDt( const int a_step_number )
 {
-   m_picSpecies->setStableDt();
-   Real stableDt = m_picSpecies->stableDt();
+
+   Real stableDt = DBL_MAX;
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      this_picSpecies->setStableDt();
+      stableDt = min(stableDt,this_picSpecies->stableDt());
+   }
+   
    if(!procID()) cout << "stable particle time step = " << stableDt << endl;
    return stableDt;
+
 }
 
 
@@ -529,7 +618,10 @@ Real System::scatterDt( const int a_step_number )
 {
    Real scatterDt = DBL_MAX;
    if(m_use_scattering) {
-      scatterDt = m_scattering->scatterDt();
+      for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
+         ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+         scatterDt = min(scatterDt,this_scattering->scatterDt());
+      }
       if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
    }
    return scatterDt;

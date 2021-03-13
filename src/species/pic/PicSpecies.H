@@ -14,6 +14,8 @@
 #include "DomainGrid.H"
 #include "RealVect.H"
 #include "DisjointBoxLayout.H"
+#include "Vector.H"
+#include "RefCountedPtr.H"
 
 #include "BinFab.H"
 #include "ParticleData.H"
@@ -163,6 +165,9 @@ private:
   void inspectBinFab(const LevelData<BinFab<JustinsParticlePtr>>&  a_binfab_ptr);
 
 };
+
+typedef RefCountedPtr<PicSpecies> PicSpeciesPtr;
+typedef Vector<PicSpeciesPtr> PicSpeciesPtrVect;
 
 #include "NamespaceFooter.H"
 
