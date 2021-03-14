@@ -46,7 +46,7 @@ units.time           = 1.0e-9  # s
 # Species Definitions
 #####################################################
 pic_species.1.name   = "deuteriumAtom"
-pic_species.1.mass   = 3671
+pic_species.1.mass   = 3671.3
 pic_species.1.charge = 0
 pic_species.1.motion = false # must be false to use piston operator
 pic_species.1.forces = false

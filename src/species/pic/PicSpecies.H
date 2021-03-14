@@ -69,7 +69,7 @@ public:
   //
   virtual void numberDensity( LevelData<FArrayBox>& a_rho );
   
-  virtual const LevelData<FArrayBox>& getNumberDensity( const bool setData )
+  virtual const LevelData<FArrayBox>& getNumberDensity( const bool setData = false )
   { 
     if(setData) setNumberDensity();
     return m_density;
@@ -81,7 +81,7 @@ public:
   //
   virtual void momentumDensity( LevelData<FArrayBox>& a_mom );
   
-  virtual const LevelData<FArrayBox>& getMomentumDensity( const bool setData )
+  virtual const LevelData<FArrayBox>& getMomentumDensity( const bool setData = false )
   { 
     if(setData) setMomentumDensity();
     return m_momentum;
@@ -93,7 +93,7 @@ public:
   //
   virtual void energyDensity( LevelData<FArrayBox>& a_ene );
   
-  virtual const LevelData<FArrayBox>& getEnergyDensity( const bool setData )
+  virtual const LevelData<FArrayBox>& getEnergyDensity( const bool setData = false )
   { 
     if(setData) setEnergyDensity();
     return m_energy;

@@ -573,12 +573,7 @@ void System::advance( Real&  a_cur_time,
          }
          else {
             PicSpeciesPtr this_picSpecies2(m_pic_species_ptr_vect[this_species2]);
-            const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity(setMoments);
-            const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity(setMoments);
-            cout << "InterSpeciesScattering not yet implemented ..." << endl;
-            //this_scattering->applyInterScattering( *this_picSpecies1, numberDensity1, energyDensity1, 
-            //                                       *this_picSpecies2, numberDensity2, energyDensity2, *m_mesh, a_dt );
- 
+            this_scattering->applyInterScattering( *this_picSpecies1, *this_picSpecies2, *m_mesh, a_dt );
          }
 
       }

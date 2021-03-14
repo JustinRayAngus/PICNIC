@@ -245,7 +245,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecie
             // determine if the pair collide and then do the collision
             q12 = g12*local_sigmaT/(local_gmax*local_sigmaTmax);
             rand_num = MathUtils::rand();
-            if(rand_num<q12) { // this pair collides
+            if(rand_num<=q12) { // this pair collides
 
                numCollisions = numCollisions + 1;
                
@@ -291,6 +291,34 @@ void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecie
    m_scatter_dt = 5.0*a_dt/global_nuMaxDt; // mean free time 
   // if(!procID()) cout << "m_scatter_dt = " << m_scatter_dt << endl;
 
+}
+
+void VariableHardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
+                                               PicSpecies&  a_picSpecies2, 
+                                         const DomainGrid&  a_mesh,
+                                         const Real         a_dt ) const
+{
+   CH_TIME("VariableHardSphere::applyInterScattering()");
+
+   cout << "VariableHardSphere::applyInterScattering() NOT YET IMPLEMENTED" << endl;
+ 
+   JustinsParticle* this_part1_ptr = NULL;  
+   JustinsParticle* this_part2_ptr = NULL;  
+ 
+   // define references to picSpecies1
+   //
+   LevelData<BinFab<JustinsParticlePtr>>& data1_binfab_ptr = a_picSpecies1.partData_binfab();
+   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
+   const LevelData<FArrayBox>& numberDensity1 = a_picSpecies1.getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity1 = a_picSpecies1.getEnergyDensity(setMoments);
+   
+   // define references to picSpecies2
+   //
+   LevelData<BinFab<JustinsParticlePtr>>& data2_binfab_ptr = a_picSpecies2.partData_binfab();
+   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity2 = a_picSpecies2.getEnergyDensity(setMoments);
+
+  
 }
 
 #include "NamespaceFooter.H"

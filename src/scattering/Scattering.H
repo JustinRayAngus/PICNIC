@@ -47,13 +47,21 @@ class Scattering
       
       virtual Real scatterDt() const = 0;
 
-      // apply self scattering to passed pic species
+      // apply self scattering
       //
       virtual void applySelfScattering( PicSpecies&            a_picSpecies,
                                   const DomainGrid&            a_mesh,
                                   const LevelData<FArrayBox>&  a_numberDensity,
                                   const LevelData<FArrayBox>&  a_energyDensity,
                                   const Real                   a_dt ) const = 0;
+      
+      // apply scattering between unlike species
+      //
+      virtual void applyInterScattering( PicSpecies&  a_picSpecies1,
+                                         PicSpecies&  a_picSpecies2,
+                                   const DomainGrid&  a_mesh,
+                                   const Real         a_dt ) const = 0;
+ 
 
       // Print object parameters.
       //
