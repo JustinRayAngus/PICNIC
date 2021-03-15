@@ -103,11 +103,9 @@ void VariableHardSphere::setMeanFreeTime( const DomainGrid&            a_mesh,
 
 }
       
-void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecies, 
-                                        const DomainGrid&            a_mesh,
-                                        const LevelData<FArrayBox>&  a_numberDensity,
-                                        const LevelData<FArrayBox>&  a_energyDensity,
-                                        const Real                   a_dt ) const
+void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies, 
+                                        const DomainGrid&  a_mesh,
+                                        const Real         a_dt ) const
 {
    CH_TIME("VariableHardSphere::applySelfScattering()");
  
@@ -118,6 +116,9 @@ void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecie
    
    // define reference to a_picSpcies binfab container of pointers to particle data
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
+   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
+   const LevelData<FArrayBox>& numberDensity = a_picSpecies.getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity = a_picSpecies.getEnergyDensity(setMoments);
 
    // predefine some variables
    Real local_Teff, local_numberDensity, local_energyDensity, local_gmax;
@@ -139,8 +140,8 @@ void VariableHardSphere::applySelfScattering( PicSpecies&            a_picSpecie
    int verbosity=0; // using this as a verbosity flag
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
 
-      const FArrayBox& this_numberDensity = a_numberDensity[ditg];
-      const FArrayBox& this_energyDensity = a_energyDensity[ditg];
+      const FArrayBox& this_numberDensity = numberDensity[ditg];
+      const FArrayBox& this_energyDensity = energyDensity[ditg];
      
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = data_binfab_ptr[ditg];
    

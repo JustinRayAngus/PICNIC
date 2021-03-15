@@ -51,8 +51,6 @@ class Scattering
       //
       virtual void applySelfScattering( PicSpecies&            a_picSpecies,
                                   const DomainGrid&            a_mesh,
-                                  const LevelData<FArrayBox>&  a_numberDensity,
-                                  const LevelData<FArrayBox>&  a_energyDensity,
                                   const Real                   a_dt ) const = 0;
       
       // apply scattering between unlike species

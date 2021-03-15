@@ -99,11 +99,9 @@ void TakizukaAbe::setMeanFreeTime( const DomainGrid&            a_mesh,
 
 }
       
-void TakizukaAbe::applySelfScattering( PicSpecies&            a_picSpecies, 
-                                 const DomainGrid&            a_mesh,
-                                 const LevelData<FArrayBox>&  a_numberDensity,
-                                 const LevelData<FArrayBox>&  a_energyDensity,
-                                 const Real                   a_dt ) const
+void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies, 
+                                 const DomainGrid&  a_mesh,
+                                 const Real         a_dt ) const
 {
    CH_TIME("TakizukaAbe::applySelfScattering()");
  
@@ -113,11 +111,18 @@ void TakizukaAbe::applySelfScattering( PicSpecies&            a_picSpecies,
    Real mass = m_mass1;
    
    // define reference to a_picSpcies binfab container of pointers to particle data
+   //LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
+   
+   // define references to picSpecies
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
+   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
+   const LevelData<FArrayBox>& numberDensity = a_picSpecies.getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity = a_picSpecies.getEnergyDensity(setMoments);
+   
 
    // predefine some variables
    int numCell;
-   Real Teff_eV, numberDensity, energyDensity;
+   Real Teff_eV, numDen, eneDen;
    Real tau;
    Real Clog=10.0;
 
@@ -133,8 +138,8 @@ void TakizukaAbe::applySelfScattering( PicSpecies&            a_picSpecies,
    int verbosity=0; // using this as a verbosity flag
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
 
-      const FArrayBox& this_numberDensity = a_numberDensity[ditg];
-      const FArrayBox& this_energyDensity = a_energyDensity[ditg];
+      const FArrayBox& this_numberDensity = numberDensity[ditg];
+      const FArrayBox& this_energyDensity = energyDensity[ditg];
      
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = data_binfab_ptr[ditg];
    
@@ -151,16 +156,16 @@ void TakizukaAbe::applySelfScattering( PicSpecies&            a_picSpecies,
          //
           
          // get local density and temperature and compute local tau
-         numberDensity = this_numberDensity.get(ig,0);
-         if(numberDensity == 0.0) continue;
-         energyDensity = 0.0;
+         numDen = this_numberDensity.get(ig,0);
+         if(numDen == 0.0) continue;
+         eneDen = 0.0;
          for( int dir=0; dir<3; dir++) {
-            energyDensity = energyDensity + this_energyDensity.get(ig,dir);  
+            eneDen = eneDen + this_energyDensity.get(ig,dir);  
          }
-         Teff_eV = Constants::ME*2.0/3.0*energyDensity/numberDensity; // [Joules]
+         Teff_eV = Constants::ME*2.0/3.0*eneDen/numDen; // [Joules]
          Teff_eV = Constants::EV_PER_JOULE*Teff_eV; // local temperature [eV]
 
-         tau = 3.44e5*pow(Teff_eV,1.5)/(numberDensity*Constants::M3_PER_CM3)/Clog; // [s]
+         tau = 3.44e5*pow(Teff_eV,1.5)/(numDen*Constants::M3_PER_CM3)/Clog; // [s]
 
          if(m_charge1>0) tau = tau*sqrt(m_mass1/2.0);
 
@@ -171,7 +176,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&            a_picSpecies,
                cout << "WARNING: Teff_eV = " << Teff_eV << endl;
                cout << "WARNING: m_charge1 = " << m_charge1 << endl;
                cout << "WARNING: m_mass1 = " << m_mass1 << endl;
-               cout << "WARNING: numberDensity = " << numberDensity << endl;
+               cout << "WARNING: numDen= " << numDen << endl;
             }
          }
 
@@ -216,8 +221,8 @@ void TakizukaAbe::applySelfScattering( PicSpecies&            a_picSpecies,
 
             // compute deltaU
             computeDeltaU( deltaU,
-                           this_vp1, numberDensity,
-                           this_vp2, numberDensity,
+                           this_vp1, numDen,
+                           this_vp2, numDen,
                            Clog, a_dt );     
             //deltaU = {0,0,0};
             

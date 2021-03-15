@@ -556,22 +556,17 @@ void System::advance( Real&  a_cur_time,
       }
 
       // Should shuffle the m_scattering_ptr_vect each time ?
-      //this_picSpecies->testParticleShuffling(a_dt);
       for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) { // loop over scattering objects
          
          ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
          const int this_species1 = this_scattering->species1();
          const int this_species2 = this_scattering->species2();
-         const bool setMoments = false; // prepared above
          
          PicSpeciesPtr this_picSpecies1(m_pic_species_ptr_vect[this_species1]);
-         const LevelData<FArrayBox>& numberDensity1 = this_picSpecies1->getNumberDensity(setMoments);
-         const LevelData<FArrayBox>& energyDensity1 = this_picSpecies1->getEnergyDensity(setMoments);
-
-         if(this_species1==this_species2) { // self-scattering
-            this_scattering->applySelfScattering( *this_picSpecies1, *m_mesh, numberDensity1, energyDensity1, a_dt );
+         if(this_species1==this_species2) { // self-species scattering
+            this_scattering->applySelfScattering( *this_picSpecies1, *m_mesh, a_dt );
          }
-         else {
+         else { // inter-species scattering
             PicSpeciesPtr this_picSpecies2(m_pic_species_ptr_vect[this_species2]);
             this_scattering->applyInterScattering( *this_picSpecies1, *this_picSpecies2, *m_mesh, a_dt );
          }
