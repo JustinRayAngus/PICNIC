@@ -108,33 +108,22 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
  
-   Real mass = m_mass1;
-   
-   // define reference to a_picSpcies binfab container of pointers to particle data
-   //LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
-   
    // define references to picSpecies
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
    const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
    const LevelData<FArrayBox>& numberDensity = a_picSpecies.getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity = a_picSpecies.getEnergyDensity(setMoments);
-   
 
    // predefine some variables
    int numCell;
-   Real Teff_eV, numDen, eneDen;
-   Real tau;
+   Real Teff_eV, tau, numDen, eneDen;
    Real Clog=10.0;
-
+   Real box_nuMax=0.0;
    std::array<Real,3> deltaU;
-   Real theta; 
- 
-   Real box_nuMax=0.0; // for scattering time step calculation
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
    DataIterator ditg(grids);
-
    int verbosity=0; // using this as a verbosity flag
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
 
@@ -199,9 +188,8 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
          ListIterator<JustinsParticlePtr> lit(cell_pList);
          for (lit.begin(); lit.ok(); ++lit) vector_part_ptrs.push_back(lit());
          std::shuffle(vector_part_ptrs.begin(),vector_part_ptrs.end(),global_rand_gen); 
-         //for (auto it vector_part_ptrs.begin(); it != vector_parts.end(), ++it) {
-            //auto p = std::distance(vector_part_ptrs.begin(),it); // index
-         for (auto p=pstart; p<vector_part_ptrs.size(); p++) {
+         
+         for (auto p=pstart; p<vector_part_ptrs.size(); p++) { // loop over particle scattering pairs
             if(!procID() && verbosity) { 
                cout << "JRA: vector.size() = " << vector_part_ptrs.size() << endl;
                cout << "JRA: p0 = " << p << endl;
@@ -218,7 +206,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             JustinsParticlePtr& this_part2 = vector_part_ptrs[p];
             this_part2_ptr = this_part2.getPointer();
             std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
-
+   
             // compute deltaU
             computeDeltaU( deltaU,
                            this_vp1, numDen,
@@ -233,19 +221,53 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             }
 
          }
+         if(pstart==3) {
+            int p1, p2;
+            for (int p=0; p<pstart; p++) { // scatter particles 0,1, and 2
+               p1 = p % 2;
+               if(p==0) p2 = 1;
+               if(p==1) p2 = 2;
+               if(p==2) p2 = 2;
+  
+               // get particle data for first particle    
+               JustinsParticlePtr& this_part1 = vector_part_ptrs[p1];
+               this_part1_ptr = this_part1.getPointer();
+               std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+            
+               // get particle data for second particle    
+               JustinsParticlePtr& this_part2 = vector_part_ptrs[p2];
+               this_part2_ptr = this_part2.getPointer();
+               std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+
+               // compute deltaU
+               computeDeltaU( deltaU,
+                              this_vp1, numDen/2.0,
+                              this_vp2, numDen/2.0,
+                              Clog, a_dt );     
+               //deltaU = {0,0,0};
+            
+               // update particle velocities
+               for (int dir=0; dir<3; dir++) {
+                  this_vp1[dir] = this_vp1[dir] + m_mu/m_mass1*deltaU[dir];
+                  this_vp2[dir] = this_vp2[dir] - m_mu/m_mass2*deltaU[dir];
+               }
+
+            }
+         }
          verbosity=0;
 
       } // end loop over cells
 
    } // end loop over boxes
-   
+  
+ 
+   // don't forget to set pointers back to NULL and delete
    this_part1_ptr = NULL;
    this_part2_ptr = NULL;
    delete this_part1_ptr;
    delete this_part2_ptr;
    
    // While we are here, update the stable time step
-   //
    Real global_nuMax = box_nuMax;
 #ifdef CH_MPI
    MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
