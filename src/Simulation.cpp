@@ -96,6 +96,7 @@ void Simulation::printParameters()
    if(!procID()) {
       std::cout << "maximum step = " << m_max_step << endl;
       std::cout << "maximum time = " << m_max_time << endl;
+      if(!m_adapt_dt) std::cout << "fixed dt = " << m_fixed_dt << endl;
       if(m_plot_time_interval>0.0) {
          std::cout << "plot time interval = " << m_plot_time_interval << endl;
       }
@@ -156,6 +157,7 @@ void Simulation::initializeTimers()
 
 bool Simulation::notDone()
 {
+   CH_TIMERS("Simulation::notDone()");
    return ( (m_cur_step<m_max_step) && (m_cur_time<m_max_time) );
 }
 
@@ -341,7 +343,7 @@ void Simulation::preTimeStep()
    Real dt_stable = m_system->stableDt( m_cur_step )*m_cfl;
    Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
    Real dt_specialOps = m_system->specialOpsDt( m_cur_step );
-   CH_assert( dt_stable > 1.0e-16 );
+   CH_assert( dt_stable > 1.0e-30 );
 
    if ( m_adapt_dt ) { 
       dt_stable = std::min( dt_scatter, dt_stable );
@@ -352,7 +354,7 @@ void Simulation::preTimeStep()
    else {
       setFixedTimeStep( dt_stable );
    }
-   
+ 
    // If less than a time step from the final time, adjust time step
    // to end just over the final time.
    Real timeRemaining = m_max_time - m_cur_time;

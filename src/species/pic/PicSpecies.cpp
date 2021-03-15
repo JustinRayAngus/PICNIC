@@ -536,10 +536,12 @@ void PicSpecies::initialize()
             std::array<Real,3> Vpart = {0,0,0};
             Real thisRand, thisVT;
             for(int dir=0; dir<3; dir++) { 
-               thisRand = MathUtils::rand();
-               Vpart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
+               //thisRand = MathUtils::rand();
+               //Vpart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
+               //thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
+               //Vpart[dir] = Vpart[dir]*sqrt(2.0)*thisVT + local_velocity[dir];
                thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
-               Vpart[dir] = Vpart[dir]*sqrt(2.0)*thisVT + local_velocity[dir];
+               Vpart[dir] = thisVT*MathUtils::randn() + local_velocity[dir];
             } 
             
             // create this particle and append it to the list

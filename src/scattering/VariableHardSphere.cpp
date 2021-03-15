@@ -23,6 +23,7 @@ void VariableHardSphere::initialize( const DomainGrid&         a_mesh,
       CH_assert(m_sp1<a_picSpeciesPtrVect.size());
       PicSpeciesPtr this_picSpecies(a_picSpeciesPtrVect[this_sp]);
       CH_assert(this_picSpecies->scatter()); // assert that collisions are allowed for this species
+      CH_assert(this_picSpecies->charge()==0);      
         
       m_species1_name = this_picSpecies->name();
       m_species2_name = this_picSpecies->name();

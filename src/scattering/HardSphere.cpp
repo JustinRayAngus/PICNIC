@@ -21,11 +21,13 @@ void HardSphere::initialize( const DomainGrid&         a_mesh,
    CH_assert(m_sp1<a_picSpeciesPtrVect.size());
    PicSpeciesPtr this_picSpecies1(a_picSpeciesPtrVect[m_sp1]);
    CH_assert(this_picSpecies1->scatter()); // assert that collisions are allowed for this species
-      
+   CH_assert(this_picSpecies1->charge()==0);      
+
    // get pointer to species 2
    CH_assert(m_sp2<a_picSpeciesPtrVect.size());
    PicSpeciesPtr this_picSpecies2(a_picSpeciesPtrVect[m_sp2]);
    CH_assert(this_picSpecies2->scatter()); // assert that collisions are allowed for this species
+   CH_assert(this_picSpecies2->charge()==0);      
 
    // set the species names
    m_species1_name = this_picSpecies1->name();

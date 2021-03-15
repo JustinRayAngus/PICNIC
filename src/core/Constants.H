@@ -37,8 +37,12 @@ namespace Constants {
    const double EV_PER_JOULE      = 1.0 / JOULE_PER_EV;
    const double K_PER_EV          = QE/KB;
    const double EV_PER_K          = KB/QE;
+   const double CM_PER_M          = 1.0e+02;
+   const double CM2_PER_M2        = 1.0e+04;
    const double CM3_PER_M3        = 1.0e+06;
-   const double M3_PER_CM3        = 1.0e-06;
+   const double M_PER_CM          = 1.0/CM_PER_M;
+   const double M2_PER_CM2        = 1.0/CM2_PER_M2;
+   const double M3_PER_CM3        = 1.0/CM3_PER_M3;
    const double SECOND_PER_HOUR   = 3.6e+03;
    const double SECOND_PER_MINUTE = 6.0e+01;
 

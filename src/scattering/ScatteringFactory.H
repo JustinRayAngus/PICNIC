@@ -6,7 +6,7 @@
 
 #include "HardSphere.H"
 #include "VariableHardSphere.H"
-//#include "TakizukaAbe.H"
+#include "TakizukaAbe.H"
 
 #include "NamespaceHeader.H"
 
@@ -59,7 +59,7 @@ RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&  a_pp,
       result = RefCountedPtr<Scattering>( new VariableHardSphere( a_pp, a_verbosity ) );
    }
    else if (model == "ta" || model=="TA") {
-    //  result = RefCountedPtr<Scattering>( new TakizukaAbe( a_pp, a_verbosity ) );
+      result = RefCountedPtr<Scattering>( new TakizukaAbe( a_pp, a_verbosity ) );
    }
    else {
       cout << "model = " << model << endl;

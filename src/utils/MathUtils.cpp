@@ -54,11 +54,10 @@ double MathUtils::errorinv( const double&  a_x )
 
 double MathUtils::rand()
 {
+   CH_TIME("MathUtils::rand()");
    
-   static std::random_device rd;
-   static std::mt19937 gen(rd());
    static std::uniform_real_distribution<> dis(0,1);
-   double randNum = dis(gen);
+   double randNum = dis(global_rand_gen);
 
    return randNum;
 
@@ -66,6 +65,7 @@ double MathUtils::rand()
 
 int MathUtils::randInt(const int& A, const int& B)
 {
+   CH_TIME("MathUtils::randInt()");
    
    static std::random_device randDev;
    static std::mt19937 twister(randDev());
@@ -77,7 +77,14 @@ int MathUtils::randInt(const int& A, const int& B)
 
 }
 
+double MathUtils::randn()
+{
+   CH_TIME("MathUtils::randn()");
+   
+   static std::normal_distribution<Real> disNorm(0.0,1.0);
+   double randNum = disNorm(global_rand_gen);
 
+   return randNum;
 
-
+}
 
