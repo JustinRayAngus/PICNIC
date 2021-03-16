@@ -148,29 +148,19 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
                    CHF_CONST_REAL(a_weight) );
       break;
     case momentum:
-      for(int dir=0; dir<3; dir++) {
-         kernal = a_species_mass*a_velocity[dir];
-         FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, dir),
+      kernal0 = a_species_mass*a_velocity[0];
+      kernal1 = a_species_mass*a_velocity[1];
+      kernal2 = a_species_mass*a_velocity[2];
+      FORT_MOMENT3V_DEPOSIT( CHF_FRA(a_moment),
                       CHF_CONST_REALVECT(a_domainLeftEdge),
                       CHF_CONST_REALVECT(a_dx),
                       CHF_CONST_REALVECT(a_position),
-                      CHF_CONST_REAL(kernal),
+                      CHF_CONST_REAL(kernal0),
+                      CHF_CONST_REAL(kernal1),
+                      CHF_CONST_REAL(kernal2),
                       CHF_CONST_REAL(a_weight) );
-      }
       break;
-    case energyOld: // old inefficient energy moment calc
-      for(int dir=0; dir<3; dir++) {
-         kernal = a_velocity[dir]*a_velocity[dir];
-         kernal = a_species_mass*kernal/2.0;
-         FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, dir),
-                      CHF_CONST_REALVECT(a_domainLeftEdge),
-                      CHF_CONST_REALVECT(a_dx),
-                      CHF_CONST_REALVECT(a_position),
-                      CHF_CONST_REAL(kernal),
-                      CHF_CONST_REAL(a_weight) );
-      }
-      break;
-    case energy: // new efficient moment calculation for energy
+    case energy:
       kernal = a_species_mass/2.0;
       kernal0 = kernal*a_velocity[0]*a_velocity[0];
       kernal1 = kernal*a_velocity[1]*a_velocity[1];
