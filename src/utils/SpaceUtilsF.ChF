@@ -1623,6 +1623,8 @@ c     to avoid  "may be uninitialized warnings"
       return
       end
 
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
       subroutine copy(
      &     CHF_BOX[gridbox],
      &     CHF_FRA[dst],
@@ -1639,6 +1641,26 @@ c     local variables
            dst(CHF_IX[i;j;k;l;m;n],comp) = src(CHF_IX[i;j;k;l;m;n],comp)
 
          enddo
+
+      CHF_ENDDO
+
+      return
+      end
+
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine setval(
+     &     CHF_BOX[gridbox],
+     &     CHF_CONST_REAL[val],
+     &     CHF_FRA1[dst]
+     &     )
+
+c     local variables
+      integer CHF_DDECL[i;j;k;l;m;n]
+
+      CHF_MULTIDO[gridbox;i;j;k;l;m;n]
+
+         dst(CHF_IX[i;j;k;l;m;n]) = val
 
       CHF_ENDDO
 

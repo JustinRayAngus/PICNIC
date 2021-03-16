@@ -1254,6 +1254,21 @@ SpaceUtils::copyNodeToCell(  FArrayBox&  a_dst,
 }
 
 void
+SpaceUtils::setVal( FArrayBox&  a_dst,
+              const Real        a_val,
+              const int         a_comp )
+{
+  CH_TIME("SpaceUtils::setVal()");
+
+  CH_assert(a_comp<a_dst.nComp());
+
+  FORT_SETVAL( CHF_BOX(a_dst.box()), 
+               CHF_CONST_REAL(a_val),
+               CHF_FRA1(a_dst,a_comp) );
+
+}
+
+void
 SpaceUtils::localVectorNorm(  FArrayBox& a_dst,
                         const FArrayBox& a_src )
 { 

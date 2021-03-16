@@ -9,6 +9,7 @@
 #include "BinFabFactory.H"
 
 #include "MathUtils.H"
+#include "SpaceUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -671,9 +672,13 @@ void PicSpecies::setEnergyDensity()
    for(DataIterator dit(grids); dit.ok(); ++dit) {
 
       FArrayBox& box_ene = m_energy[dit];
-      box_ene.setVal(0.0);
+      //box_ene.setVal(0.0);
+      for (auto n=0; n<m_energy.nComp(); n++) {
+         SpaceUtils::setVal(box_ene,0.0,n);
+      }
       const ListBox<JustinsParticle>& box_list = m_data[dit];
       
+      //MomentType thisMoment = energyOld;
       MomentType thisMoment = energy;
       m_meshInterp.moment( box_ene,
                            box_list.listItems(),

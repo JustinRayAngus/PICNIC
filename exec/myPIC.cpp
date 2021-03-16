@@ -22,6 +22,7 @@
 
 #include "Simulation.H"
 //#include "DomainGrid.H"
+#include "MathUtils.H"
 
 #include "UsingNamespace.H"
 
@@ -45,10 +46,15 @@ inline int checkCommandLineArgs( int a_argc, char* a_argv[] )
 //
 //  I used static pointer to mesh in myMHD.. works great..doesn't work here?
 //
-//
+
+// set the mt19937 random generator as global variable 
+std::random_device rd;
+std::mt19937 global_rand_gen(rd());
+//global_rand_gen.seed(rd());
 
 int main(int a_argc, char* a_argv[])
 {
+
 #ifdef CH_MPI
   MPI_Init(&a_argc,&a_argv);
   setChomboMPIErrorHandler();

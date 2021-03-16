@@ -132,7 +132,10 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
                            const MomentType  a_momentType ) const // JRA const
 
 { 
+  //CH_TIME("MeshInterp::momentParticle()"); // timer here seems to affect time spent here...
+  
   Real kernal;
+  Real kernal0, kernal1, kernal2;
   switch (a_momentType)
     {
     case density:
@@ -155,7 +158,7 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
                       CHF_CONST_REAL(a_weight) );
       }
       break;
-    case energy:
+    case energyOld: // old inefficient energy moment calc
       for(int dir=0; dir<3; dir++) {
          kernal = a_velocity[dir]*a_velocity[dir];
          kernal = a_species_mass*kernal/2.0;
@@ -166,6 +169,20 @@ void MeshInterp::momentParticle( FArrayBox&  a_moment,
                       CHF_CONST_REAL(kernal),
                       CHF_CONST_REAL(a_weight) );
       }
+      break;
+    case energy: // new efficient moment calculation for energy
+      kernal = a_species_mass/2.0;
+      kernal0 = kernal*a_velocity[0]*a_velocity[0];
+      kernal1 = kernal*a_velocity[1]*a_velocity[1];
+      kernal2 = kernal*a_velocity[2]*a_velocity[2];
+      FORT_MOMENT3V_DEPOSIT( CHF_FRA(a_moment),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position),
+                   CHF_CONST_REAL(kernal0),
+                   CHF_CONST_REAL(kernal1),
+                   CHF_CONST_REAL(kernal2),
+                   CHF_CONST_REAL(a_weight) );
       break;
     case heatFlux:
       MayDay::Error("heatFlux type in MeshInterp::momentParticle not defined yet");

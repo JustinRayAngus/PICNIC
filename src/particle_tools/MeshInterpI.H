@@ -18,6 +18,7 @@ void MeshInterp::deposit(const List<P>& a_particleList,
                          FArrayBox& a_rho,
                          InterpType& a_interpType) const // JRA const
 {
+  CH_TIME("MeshInterp::deposit()");
   for (ListIterator<P> lit(a_particleList); lit; ++lit)
   {
     const P& this_particle = lit();
@@ -62,6 +63,7 @@ void MeshInterp::moment( FArrayBox&  a_moment,
                    const Real&       a_species_mass,
                    const MomentType  a_momentType ) const // JRA const
 {
+  //CH_TIME("MeshInterp::moment()");
 
   if(a_momentType==momentum) CH_assert(a_moment.nComp()==3);
   if(a_momentType==energy) CH_assert(a_moment.nComp()==3);

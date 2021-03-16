@@ -39,6 +39,39 @@ c     assign the particle weight X kernal to that cell
       end
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      
+      subroutine moment3v_deposit( CHF_FRA[energy],
+     &                   CHF_CONST_REALVECT[left_edge],
+     &                   CHF_CONST_REALVECT[dx],
+     &                   CHF_CONST_REALVECT[x],
+     &                   CHF_CONST_REAL[kernal0],
+     &                   CHF_CONST_REAL[kernal1],
+     &                   CHF_CONST_REAL[kernal2],
+     &                   CHF_CONST_REAL[w] ) 
+
+      integer index(0:CH_SPACEDIM - 1)
+      integer idir
+      REAL_T volume 
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2);*dx(3);*dx(4);*dx(5)]
+
+c     compute the index of the cell containing this particle
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((x(idir) - left_edge(idir)) / dx(idir))
+      enddo
+
+c     assign the particle weight X kernal to that cell
+      energy(CHF_IX[index(0); index(1); index(2); index(3); index(4); index(5)],0) = 
+     &   energy(CHF_IX[index(0); index(1); index(2); index(3); index(4); index(5)],0) + w*kernal0/volume
+      
+      energy(CHF_IX[index(0); index(1); index(2); index(3); index(4); index(5)],1) = 
+     &   energy(CHF_IX[index(0); index(1); index(2); index(3); index(4); index(5)],1) + w*kernal1/volume
+      
+      energy(CHF_IX[index(0); index(1); index(2); index(3); index(4); index(5)],2) = 
+     &   energy(CHF_IX[index(0); index(1); index(2); index(3); index(4); index(5)],2) + w*kernal2/volume
+
+      end
+
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 c     set the particle weights using grid profile for density
 c     

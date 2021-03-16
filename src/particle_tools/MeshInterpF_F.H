@@ -42,6 +42,46 @@ inline void FORTRAN_NAME(inlineMOMENT_DEPOSIT, inlineMOMENT_DEPOSIT)(
 }
 #endif  // GUARDMOMENT_DEPOSIT 
 
+#ifndef GUARDMOMENT3V_DEPOSIT 
+#define GUARDMOMENT3V_DEPOSIT 
+// Prototype for Fortran procedure moment3v_deposit ...
+//
+void FORTRAN_NAME( MOMENT3V_DEPOSIT ,moment3v_deposit )(
+      CHFp_FRA(energy)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(x)
+      ,CHFp_CONST_REAL(kernal0)
+      ,CHFp_CONST_REAL(kernal1)
+      ,CHFp_CONST_REAL(kernal2)
+      ,CHFp_CONST_REAL(w) );
+
+#define FORT_MOMENT3V_DEPOSIT FORTRAN_NAME( inlineMOMENT3V_DEPOSIT, inlineMOMENT3V_DEPOSIT)
+#define FORTNT_MOMENT3V_DEPOSIT FORTRAN_NAME( MOMENT3V_DEPOSIT, moment3v_deposit)
+
+inline void FORTRAN_NAME(inlineMOMENT3V_DEPOSIT, inlineMOMENT3V_DEPOSIT)(
+      CHFp_FRA(energy)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(x)
+      ,CHFp_CONST_REAL(kernal0)
+      ,CHFp_CONST_REAL(kernal1)
+      ,CHFp_CONST_REAL(kernal2)
+      ,CHFp_CONST_REAL(w) )
+{
+ CH_TIMELEAF("FORT_MOMENT3V_DEPOSIT");
+ FORTRAN_NAME( MOMENT3V_DEPOSIT ,moment3v_deposit )(
+      CHFt_FRA(energy)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(x)
+      ,CHFt_CONST_REAL(kernal0)
+      ,CHFt_CONST_REAL(kernal1)
+      ,CHFt_CONST_REAL(kernal2)
+      ,CHFt_CONST_REAL(w) );
+}
+#endif  // GUARDMOMENT3V_DEPOSIT 
+
 #ifndef GUARDSET_PARTICLE_WEIGHT 
 #define GUARDSET_PARTICLE_WEIGHT 
 // Prototype for Fortran procedure set_particle_weight ...

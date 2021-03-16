@@ -192,6 +192,11 @@ namespace SpaceUtils {
                  const FArrayBox&,
                  const Box&,
                  const int );
+  
+  void setVal( FArrayBox&  a_dst,
+	 const Real        a_val,
+	 const int         a_comp );
+
 
   void localVectorNorm( FArrayBox&,
                   const FArrayBox& );

@@ -858,6 +858,31 @@ inline void FORTRAN_NAME(inlineCOPY, inlineCOPY)(
 }
 #endif  // GUARDCOPY 
 
+#ifndef GUARDSETVAL 
+#define GUARDSETVAL 
+// Prototype for Fortran procedure setval ...
+//
+void FORTRAN_NAME( SETVAL ,setval )(
+      CHFp_BOX(gridbox)
+      ,CHFp_CONST_REAL(val)
+      ,CHFp_FRA1(dst) );
+
+#define FORT_SETVAL FORTRAN_NAME( inlineSETVAL, inlineSETVAL)
+#define FORTNT_SETVAL FORTRAN_NAME( SETVAL, setval)
+
+inline void FORTRAN_NAME(inlineSETVAL, inlineSETVAL)(
+      CHFp_BOX(gridbox)
+      ,CHFp_CONST_REAL(val)
+      ,CHFp_FRA1(dst) )
+{
+ CH_TIMELEAF("FORT_SETVAL");
+ FORTRAN_NAME( SETVAL ,setval )(
+      CHFt_BOX(gridbox)
+      ,CHFt_CONST_REAL(val)
+      ,CHFt_FRA1(dst) );
+}
+#endif  // GUARDSETVAL 
+
 #ifndef GUARDVECTOR_NORM 
 #define GUARDVECTOR_NORM 
 // Prototype for Fortran procedure vector_norm ...

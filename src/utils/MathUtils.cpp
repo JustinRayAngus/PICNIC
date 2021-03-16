@@ -67,13 +67,14 @@ int MathUtils::randInt(const int& A, const int& B)
 {
    CH_TIME("MathUtils::randInt()");
    
-   static std::random_device randDev;
-   static std::mt19937 twister(randDev());
+   //static std::random_device randDev;
+   //static std::mt19937 twister(randDev());
    static std::uniform_int_distribution<int> dist;
 
    dist.param(std::uniform_int_distribution<int>::param_type(A,B));
 
-   return dist(twister);
+   //return dist(twister);
+   return dist(global_rand_gen);
 
 }
 
