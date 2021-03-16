@@ -46,14 +46,13 @@ inline int checkCommandLineArgs( int a_argc, char* a_argv[] )
 //  I used static pointer to mesh in myMHD.. works great..doesn't work here?
 //
 //
+
 int main(int a_argc, char* a_argv[])
 {
 #ifdef CH_MPI
   MPI_Init(&a_argc,&a_argv);
   setChomboMPIErrorHandler();
 #endif
-
-   //
 
    int rank, num_procs;
 #ifdef CH_MPI

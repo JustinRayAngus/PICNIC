@@ -83,7 +83,7 @@ void TakizukaAbe::setMeanFreeTime( const DomainGrid&            a_mesh,
          Clog = 10.0;
          tau = 3.44e5*pow(Teff_eV,1.5)/(numberDensity*Constants::M3_PER_CM3)/Clog; // [s]
 
-         if(m_charge1>0) tau = tau*sqrt(m_mass1/2.0);
+         if(m_charge1*m_charge2>0) tau = tau*sqrt(m_mu);
 
          // compute nuMax [Hz]
          box_nuMax = Max(box_nuMax,1.0/tau);
@@ -105,10 +105,11 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
 {
    CH_TIME("TakizukaAbe::applySelfScattering()");
  
+   // predefine some pointers to be used below
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
  
-   // define references to picSpecies
+   // define references to a_picSpecies
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
    const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
    const LevelData<FArrayBox>& numberDensity = a_picSpecies.getNumberDensity(setMoments);
@@ -139,11 +140,6 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
          
          const IntVect ig = gbit(); // grid index
        
-         /////////////////////////////////////////////////////////////////
-         //
-         // compute the number of possible collisions for this cell
-         //
-          
          // get local density and temperature and compute local tau
          numDen = this_numberDensity.get(ig,0);
          if(numDen == 0.0) continue;
@@ -155,7 +151,6 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
          Teff_eV = Constants::EV_PER_JOULE*Teff_eV; // local temperature [eV]
 
          tau = 3.44e5*pow(Teff_eV,1.5)/(numDen*Constants::M3_PER_CM3)/Clog; // [s]
-
          if(m_charge1>0) tau = tau*sqrt(m_mass1/2.0);
 
          box_nuMax = Max(box_nuMax,1.0/tau);
@@ -169,7 +164,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             }
          }
 
-         // compute local maximum number of collsions: Nmax = 1/2*(N-1)*n*sigmaTmax*gmax*dt
+         // get the number of particles in this cell
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
          numCell = cell_pList.length();
          if(numCell < 2) continue;
@@ -190,19 +185,14 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
          std::shuffle(vector_part_ptrs.begin(),vector_part_ptrs.end(),global_rand_gen); 
          
          for (auto p=pstart; p<vector_part_ptrs.size(); p++) { // loop over particle scattering pairs
-            if(!procID() && verbosity) { 
-               cout << "JRA: vector.size() = " << vector_part_ptrs.size() << endl;
-               cout << "JRA: p0 = " << p << endl;
-               p++;
-               cout << "JRA: p1 = " << p << endl;
-            } 
+ 
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part_ptrs[p];
             this_part1_ptr = this_part1.getPointer();
             std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
-            p++;
+            p++; // advance the loop index by 1
             JustinsParticlePtr& this_part2 = vector_part_ptrs[p];
             this_part2_ptr = this_part2.getPointer();
             std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
@@ -289,6 +279,166 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
    // predefine some pointers to be used below
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
+   
+   // define references to a_picSpecies1
+   LevelData<BinFab<JustinsParticlePtr>>& data_binfab1_ptr = a_picSpecies1.partData_binfab();
+   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
+   const LevelData<FArrayBox>& numberDensity1 = a_picSpecies1.getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity1 = a_picSpecies1.getEnergyDensity(setMoments);
+   
+   // define references to a_picSpecies2
+   LevelData<BinFab<JustinsParticlePtr>>& data_binfab2_ptr = a_picSpecies2.partData_binfab();
+   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity2 = a_picSpecies2.getEnergyDensity(setMoments);
+   
+   // predefine some variables
+   int numCell1, numCell2, pMax, pMin;
+   Real Teff1_eV, tau1, numDen1, eneDen1;
+   Real Teff2_eV, tau2, numDen2, eneDen2;
+   Real Clog=10.0;
+   Real box_nuMax=0.0;
+   std::array<Real,3> deltaU;
+ 
+   // loop over lists in each cell and test shuffle
+   const DisjointBoxLayout& grids = data_binfab1_ptr.disjointBoxLayout();
+   DataIterator ditg(grids);
+   int verbosity=0; // using this as a verbosity flag
+   for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
+
+      const FArrayBox& this_numberDensity1 = numberDensity1[ditg];
+      const FArrayBox& this_energyDensity1 = energyDensity1[ditg];
+      
+      const FArrayBox& this_numberDensity2 = numberDensity2[ditg];
+      const FArrayBox& this_energyDensity2 = energyDensity2[ditg];
+     
+      BinFab<JustinsParticlePtr>& thisBinFab1_ptr = data_binfab1_ptr[ditg];
+      BinFab<JustinsParticlePtr>& thisBinFab2_ptr = data_binfab2_ptr[ditg];
+   
+      std::vector<JustinsParticlePtr> vector_part1_ptrs;
+      std::vector<JustinsParticlePtr> vector_part2_ptrs;
+      const Box gridBox = grids.get(ditg);
+      BoxIterator gbit(gridBox);
+      for (gbit.begin(); gbit.ok(); ++gbit) { // loop over cells
+         
+         const IntVect ig = gbit(); // grid index
+         
+         // get local density and temperature and compute local tau
+         numDen1 = this_numberDensity1.get(ig,0);
+         numDen2 = this_numberDensity2.get(ig,0);
+         if(numDen1*numDen2 == 0.0) continue;
+         eneDen1 = 0.0;
+         eneDen2 = 0.0;
+         for( int dir=0; dir<3; dir++) {
+            eneDen1 = eneDen1 + this_energyDensity1.get(ig,dir);  
+            eneDen2 = eneDen2 + this_energyDensity2.get(ig,dir);  
+         }
+         Teff1_eV = Constants::ME*2.0/3.0*eneDen1/numDen1; // [Joules]
+         Teff1_eV = Constants::EV_PER_JOULE*Teff1_eV; // local temperature [eV]
+         Teff2_eV = Constants::ME*2.0/3.0*eneDen2/numDen2; // [Joules]
+         Teff2_eV = Constants::EV_PER_JOULE*Teff2_eV; // local temperature [eV]
+
+         tau1 = 3.44e5*pow(Teff1_eV,1.5)/(numDen1*Constants::M3_PER_CM3)/Clog; // [s]
+         tau2 = 3.44e5*pow(Teff2_eV,1.5)/(numDen2*Constants::M3_PER_CM3)/Clog; // [s]
+         if(m_charge1*m_charge2>0) tau1 = tau1*sqrt(m_mu);
+         if(m_charge1*m_charge2>0) tau2 = tau2*sqrt(m_mu);
+
+         box_nuMax = Max(box_nuMax,1.0/tau1);
+         box_nuMax = Max(box_nuMax,1.0/tau2);
+         if(box_nuMax*a_dt>10.0) { 
+            if(procID()) {
+               cout << "WARNING: box_nuMaxDt = " << box_nuMax*a_dt << endl;
+               cout << "WARNING: Teff_eV = " << Teff1_eV << endl;
+               cout << "WARNING: m_charge1 = " << m_charge1 << endl;
+               cout << "WARNING: m_mass1 = " << m_mass1 << endl;
+               cout << "WARNING: numDen= " << numDen1 << endl;
+            }
+         }
+         
+         // get the number of particles in this cell
+         List<JustinsParticlePtr>& cell_pList1 = thisBinFab1_ptr(ig,0);
+         List<JustinsParticlePtr>& cell_pList2 = thisBinFab2_ptr(ig,0);
+         numCell1 = cell_pList1.length();
+         numCell2 = cell_pList2.length();
+         if(numCell1*numCell2 < 2) continue;
+         pMin = Min(numCell1,numCell2);
+         pMax = Max(numCell1,numCell2);
+          
+         // copy the iterators to a vector in order to shuffle
+         vector_part1_ptrs.clear();
+         vector_part1_ptrs.reserve(numCell1);
+         ListIterator<JustinsParticlePtr> lit1(cell_pList1);
+         for (lit1.begin(); lit1.ok(); ++lit1) vector_part1_ptrs.push_back(lit1());
+         std::shuffle(vector_part1_ptrs.begin(),vector_part1_ptrs.end(),global_rand_gen); 
+         
+         // do the same for species 2
+         vector_part2_ptrs.clear();
+         vector_part2_ptrs.reserve(numCell2);
+         ListIterator<JustinsParticlePtr> lit2(cell_pList2);
+         for (lit2.begin(); lit2.ok(); ++lit2) vector_part2_ptrs.push_back(lit2());
+         std::shuffle(vector_part2_ptrs.begin(),vector_part2_ptrs.end(),global_rand_gen); 
+         
+         unsigned int p1, p2;
+         for (auto p=0; p<pMax; p++) { // loop over particle scattering pairs
+     
+            if(pMin==numCell1) {
+               p1 = p % numCell1;
+               p2 = p;
+            } 
+            else {
+               p1 = p;
+               p2 = p % numCell2;
+            } 
+            if(procID() && verbosity) {
+               cout << "JRA: numCell1 = " << numCell1 << endl;
+               cout << "JRA: numCell2 = " << numCell2 << endl;
+               cout << "JRA: p = " << p << endl;
+               cout << "JRA: p1 = " << p1 << endl;
+               cout << "JRA: p2 = " << p2 << endl;
+            }
+
+            // get particle data for first particle    
+            JustinsParticlePtr& this_part1 = vector_part1_ptrs[p1];
+            this_part1_ptr = this_part1.getPointer();
+            std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+            
+            // get particle data for second particle    
+            JustinsParticlePtr& this_part2 = vector_part2_ptrs[p2];
+            this_part2_ptr = this_part2.getPointer();
+            std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+   
+            // compute deltaU
+            computeDeltaU( deltaU,
+                           this_vp1, numDen1,
+                           this_vp2, numDen2,
+                           Clog, a_dt );     
+            //deltaU = {0,0,0};
+            
+            // update particle velocities
+            for (int dir=0; dir<3; dir++) {
+               this_vp1[dir] = this_vp1[dir] + m_mu/m_mass1*deltaU[dir];
+               this_vp2[dir] = this_vp2[dir] - m_mu/m_mass2*deltaU[dir];
+            }
+
+         }
+         verbosity=0;
+
+      } // end loop over cells
+
+   } // end loop over boxes
+
+
+   // don't forget to set pointers back to NULL and delete
+   this_part1_ptr = NULL;
+   this_part2_ptr = NULL;
+   delete this_part1_ptr;
+   delete this_part2_ptr;
+   
+   // While we are here, update the stable time step
+   Real global_nuMax = box_nuMax;
+#ifdef CH_MPI
+   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+#endif
+   m_scatter_dt = 1.0/global_nuMax; // mean free time 
 
 }
 

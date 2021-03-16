@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #include "NamespaceHeader.H"
-      
+
 double MathUtils::errorfun( const double&  a_x )
 {
    // errorfun(x) = 2/sqrt(pi)*int_0^x(exp(-x^2))dx

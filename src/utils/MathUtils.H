@@ -17,11 +17,18 @@
 
 #include "NamespaceHeader.H"
    
-static std::random_device rd;
-static std::mt19937 global_rand_gen(rd());
+//extern std::random_device global_rd;
+//extern std::mt19937 global_rand_gen(global_rd());
+   
+// this is not best way to do this. This means
+// that each file that has the MathUtils.H header file
+// will have its own local static random number engine.
+// But I can't figure out how to do it better yet.
+static std::random_device global_rd;
+static std::mt19937 global_rand_gen(global_rd());
 
 namespace MathUtils {
-  
+
    double errorfun( const double&  a_x );
    
    double errorinv( const double&  a_x );
