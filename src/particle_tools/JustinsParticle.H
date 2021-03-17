@@ -20,7 +20,7 @@
 #include "NamespaceHeader.H"
 
 //  A basic particle class. 
-//  Includes weight, position, velocity, and acceleration.
+//  Includes weight, position, velocity, and fields.
 //  The position is separated into those corresonding to the 
 //  SpaceDim of the build and virtual components
 //
@@ -83,20 +83,19 @@ public:
   // retrieve vel. comp. in a given direction
   Real velocity(const int a_dir) const;
   
-  /// set acceleration field
-  void setAcceleration(const std::array<Real,3>& a_acceleration);
-  void setAcceleration(const Real& a_acceleration, const int a_dir);
+  /// set electric field
+  void setElectricField(const std::array<Real,3>& a_electric_field);
+  void setElectricField(const Real& a_electric_field, const int a_dir);
 
-  // retrieve reference acceleration field
-  std::array<Real,3>& acceleration();
+  // retrieve reference electric field
+  std::array<Real,3>& electric_field();
 
-  // retrieve const. reference acceleration field
-  const std::array<Real,3>& acceleration() const;
+  // retrieve const. reference electric field
+  const std::array<Real,3>& electric_field() const;
 
-  // retrieve acc. comp. in a given direction
-  Real acceleration(const int a_dir) const;
+  // retrieve electric field comp. in a given direction
+  Real electric_field(const int a_dir) const;
 
-  //    
   //  define functions for virtual position (for 1D/2D sim)
   //
   
@@ -130,6 +129,9 @@ public:
 
   // return size, in number of bytes, of a comp of the internal data
   //virtual size_t sizeOfComp(const int a_comp) const;
+  
+  int sizeOutput() const; // JRA
+  void linearOutOutput(void* buf) const; // JRA
 
   ///
   /** Write a linear binary representation of the internal data. Assumes that
@@ -152,8 +154,15 @@ protected:
   //Real     m_ID;
   Real     m_weight;
   std::array<Real,3> m_velocity;
-  std::array<Real,3> m_acceleration;
+  std::array<Real,3> m_electric_field;
+  //std::array<Real,3> m_magnetic_field;
   std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
+ 
+  //RealVect  m_position_old;
+  //RealVect  m_position_avg;
+  //std::array<Real,3> m_velocity_old;
+  //std::array<Real,3> m_velocity_avg;
+
 };
 
 std::ostream & operator<<(std::ostream& ostr, const JustinsParticle& p);

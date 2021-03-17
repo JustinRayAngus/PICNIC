@@ -190,18 +190,21 @@ std::string plotFileName( const std::string& a_prefix,
    return filename;
 }
 
-void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_Pdata,
-                                        const LevelData<FArrayBox>&    a_density, 
-                                        const LevelData<FArrayBox>&    a_momentum, 
-                                        const LevelData<FArrayBox>&    a_energy, 
-                                        const Real                     a_mass, 
-                                        const int                      a_charge, 
-                                        const Real                     a_Uint, 
-                                        const int                      a_species,
-                                        const int                      a_cur_step,
-                                        const double                   a_cur_time )
+void dataFileIO::writeParticleDataFile( const PicSpecies&  a_picSpecies,
+                                        const int          a_species,
+                                        const int          a_cur_step,
+                                        const double       a_cur_time )
 {
    CH_TIME("dataFileIO::writeParticleDataFile()");
+   
+   // get references to particle data   
+   const ParticleData<JustinsParticle>& a_Pdata = a_picSpecies.partData();
+   
+   // It is the job of the caller to maker sure the moments are set
+   const LevelData<FArrayBox>& a_density  = a_picSpecies.getNumberDensity();
+   const LevelData<FArrayBox>& a_momentum = a_picSpecies.getMomentumDensity();
+   const LevelData<FArrayBox>& a_energy   = a_picSpecies.getEnergyDensity();
+   
    if(!procID()) {
       cout << "writing particle data file" << endl;
       cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
@@ -239,9 +242,9 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
    char field_name[50];
    char comp_name[50];
    char coords[3];
-   coords[0] = 'x';
-   coords[1] = 'y';
-   coords[2] = 'z';
+   coords[0] = '0';
+   coords[1] = '1';
+   coords[2] = '2';
 
    // first write header for mesh data
    //
@@ -255,7 +258,6 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
       sprintf(field_name, "energyDensity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   
    for(int i=0; i<numMeshComps; i++) {
       sprintf(comp_name,"component_%d", i);
       headerParts.m_string[comp_name] = vectNames[i];
@@ -266,13 +268,14 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
    // now write header for particles
    //
    vectNames.clear();
+   vectNames.push_back("particle_weight");
    for (int dir=0; dir<SpaceDim; dir++) {
       sprintf(field_name, "particle_position_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
    if(SpaceDim<3) {
      for(int i=0; i<3-SpaceDim; i++) {
-        sprintf(field_name, "virtual_particle_position_%c", i);
+        sprintf(field_name, "virtual_particle_position_%c", coords[i]);
         vectNames.push_back(field_name);
      }
    }
@@ -280,11 +283,12 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
       sprintf(field_name, "particle_velocity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   for (int dir=0; dir<3; dir++) {
-      sprintf(field_name, "particle_acceleration_%c", coords[dir]);
-      vectNames.push_back(field_name);
+   if(a_picSpecies.writeAll()) {
+      for (int dir=0; dir<3; dir++) {
+         sprintf(field_name, "particle_electric_field_%c", coords[dir]);
+         vectNames.push_back(field_name);
+      }
    }
-   vectNames.push_back("particle_weight");
    vectNames.push_back("particle_ID");
 
    int numComps = vectNames.size();
@@ -292,6 +296,7 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
       sprintf(comp_name, "particle_component_%d", i);
       headerParts.m_string[comp_name] = vectNames[i];
    }
+   headerParts.m_int["numPartComps"] = numComps;
  
    headerParts.writeToFile(handleParts);
 
@@ -309,9 +314,9 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
 
    int totalParticleCount = a_Pdata.numParticles();
    headerParts.m_int["num_particles"] = totalParticleCount;
-   headerParts.m_real["mass"] = a_mass;
-   headerParts.m_int["charge"] = a_charge;
-   headerParts.m_real["Uint"] = a_Uint;
+   headerParts.m_real["mass"] = a_picSpecies.mass();
+   headerParts.m_int["charge"] = a_picSpecies.charge();
+   headerParts.m_real["Uint"] = a_picSpecies.Uint();
    headerParts.m_int["step_number"] = a_cur_step;
    headerParts.m_real["time"] = a_cur_time;
    headerParts.m_box["prob_domain"] = domain.domainBox();
@@ -321,7 +326,7 @@ void dataFileIO::writeParticleDataFile( const ParticleData<JustinsParticle>&  a_
  
    // write the particles
    write(handleParts, grids);
-   writeParticlesToHDF(handleParts, a_Pdata, "particles");
+   writeParticlesToHDF(handleParts, a_Pdata, "particles", a_picSpecies.writeAll() );
 
 
    // write the moment data

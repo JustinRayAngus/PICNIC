@@ -324,7 +324,6 @@ void System::createState( ParmParse&  a_pp )
 
 void System::createPICspecies()
 {
-   //
    // Create the vector of species model (pointers), and when a kinetic
    // species is created, add it to the kinetic species vector
    // number species.
@@ -405,7 +404,6 @@ void System::createScattering()
             ScatteringPtr this_scattering = scatteringFactory.create( pp_scatter, 1 );
             
             // Add the new scattering object to the vector of pointers to scattering objects
-            //m_scattering_ptr_vect.push_back(ScatteringPtr(this_scattering));
             m_scattering_ptr_vect.push_back(this_scattering);
 
          } 
@@ -479,26 +477,14 @@ void System::writePlotFile( const int     a_cur_step,
 
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
   
-      const ParticleData<JustinsParticle>& Pdata = this_picSpecies->partData(); // const ref, so can't change
-      //const LevelData<BinFab<JustinsParticle>>& Pdata_binfab = this_picSpecies->partData_binfab(); // const ref, so can't change
-      //this_picSpecies->setNumberDensity(); 
-      const bool setDensity = true;
-      const LevelData<FArrayBox>& density = this_picSpecies->getNumberDensity(setDensity);
-   
-      const bool setMomentum = true;
-      const LevelData<FArrayBox>& momentum = this_picSpecies->getMomentumDensity(setMomentum);
-   
-      const bool setEnergy = true;
-      const LevelData<FArrayBox>& energy = this_picSpecies->getEnergyDensity(setEnergy);
-
-      //this_picSpecies->inspectBinFab();
-
-      m_dataFile->writeParticleDataFile( Pdata, density, momentum, energy, this_picSpecies->mass(), 
-                                         this_picSpecies->charge(), this_picSpecies->Uint(),
+      const bool setMoments = true;
+      this_picSpecies->setNumberDensity();
+      this_picSpecies->setMomentumDensity();
+      this_picSpecies->setEnergyDensity();
+      
+      m_dataFile->writeParticleDataFile( *this_picSpecies, 
                                          s+1, a_cur_step, a_cur_time );
    
-      //m_dataFile->writeBinFabDataFile( Pdata_binfab, a_cur_step, a_cur_time );
-
       //m_dataFile->writeFieldDataFile();
    }
    
@@ -534,18 +520,15 @@ void System::advance( Real&  a_cur_time,
    CH_TIME("System::advance()");
    
    // advance particle positions
-   //
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
       if(this_picSpecies->motion()) this_picSpecies->advancePositions(a_dt);
    }
    
    // scatter the particles
-   //
    if(m_use_scattering) {
       
       // prepare all species to be scattered for scattering
-      //
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
          if(this_picSpecies->scatter()) {
@@ -576,7 +559,6 @@ void System::advance( Real&  a_cur_time,
    }
    
    // apply special operators
-   //
    if(m_use_specialOps) {
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
@@ -585,6 +567,7 @@ void System::advance( Real&  a_cur_time,
       m_specialOps->updateOp(*m_mesh,a_dt);
    }
 
+   // update current time and step number
    a_cur_time = a_cur_time + a_dt;
    a_step_number = a_step_number + 1;
 

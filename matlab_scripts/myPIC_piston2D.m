@@ -3,20 +3,23 @@
 %%%   2D piston module using myPIC
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-clear all;
-%addpath('~angus1/Programs/COGENT_matlabTools/');
-%addpath('../matlabScripts/');
+%clear all;
+
+% addpath('~angus1/Programs/COGENT_matlabTools/');
+% addpath('../matlabScripts/');
 
 me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
-rootPath = '../myPIC/piston_collisionless/'; vpiston = 100;
-rootPath = '../myPIC/piston_collisional/'; vpiston = 100;
-rootPath = '../myPIC/piston_vp1e2/'; vpiston = 1e2;
-rootPath = '../myPIC/piston_vp1e3/'; vpiston = 1e3;
-rootPath = '../myPIC/piston_vp1e4/'; vpiston = 1e4;
-%rootPath = '../myPIC/piston_testing/'; vpiston = 1e4;
+species = 1;
+rootPath = '../myPIC/pistonSave/piston_collisionless/'; vpiston = 100;
+rootPath = '../myPIC/pistonSave/piston_collisional/'; vpiston = 100;
+%rootPath = '../myPIC/pistonSave/piston_vp1e2/'; vpiston = 1e2;
+%rootPath = '../myPIC/pistonSave/piston_vp1e3/'; vpiston = 1e3;
+%rootPath = '../myPIC/pistonSave/piston_vp1e4/'; vpiston = 1e4;
+%rootPath = '../myPIC/piston_2species/'; vpiston = 1e3;
+
 
 set(0,'defaultaxesfontsize',18);
 set(0,'defaulttextfontsize',18);
@@ -49,9 +52,8 @@ Zce = squeeze(data.block(1).Fce(:,:,1));
 
 %%%  loop over files and create movie
 %
-
 close(figure(1));
-f1=figure(1); set(f1,'position',[570 450 900 420]);
+f1=figure(1); set(f1,'position',[888 570 900 450]);
 set(gcf,'color','white');
 
 images = cell(1,1);
@@ -60,7 +62,8 @@ v.FrameRate = 1;
 open(v);
 
 
-fileList = dir([rootPath,'particle_data/part*']);
+%fileList = dir([rootPath,'particle_data/part*']);
+fileList = dir([rootPath,'species',num2str(species),'_data/part*']);
 ListLength = length(fileList);
 
 step = zeros(size(fileList));
@@ -84,31 +87,36 @@ energyDenZ = zeros(nX,nZ,iLmax);
 
 for iL=1:iLmax
 
-
-    partsFile = [rootPath,'particle_data/',fileList(index(iL)).name];
-    %fileinfo = hdf5info(partsFile);
+    %partsFile = [rootPath,'particle_data/',fileList(index(iL)).name];
+    partsFile = [rootPath,'species',num2str(species),'_data/',fileList(index(iL)).name];
+    fileinfo = hdf5info(partsFile);
+    fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
     partData = hdf5read(partsFile,'/level_0/particles:data');
     SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
     numParts = h5readatt(partsFile,'/level_0','num_particles');
     time(iL) = h5readatt(partsFile,'/level_0','time');
+    %h5readatt(partsFile,'/level_0','particle_component_5');
     if(iL==1)
         Mass = h5readatt(partsFile,'/level_0','mass');
+        Charge = double(h5readatt(partsFile,'/level_0','charge'));
+        Uint = h5readatt(partsFile,'/level_0','Uint'); % [eV]
+        numPartComps = h5readatt(partsFile,'/level_0','numPartComps');
     end
-    partData = reshape(partData,2+3*SpaceDim+3,numParts);
+    partData = reshape(partData,numPartComps,numParts);
     partData = partData';
     totalParts(iL) = numParts;
     if(SpaceDim==2)
-       particle.x    = partData(:,1);
-       particle.y    = partData(:,2);
-       particle.z    = partData(:,3); % virtual dimesion
-       particle.vx   = partData(:,4);
-       particle.vy   = partData(:,5);
-       particle.vz   = partData(:,6); % virtual dimension
-       particle.ax   = partData(:,7);
-       particle.ay   = partData(:,8);
-       particle.az   = partData(:,9); % virtual dimension
-       particle.weight = partData(:,10);
-       particle.ID   = partData(:,11);
+       particle.weight = partData(:,1);
+       particle.x    = partData(:,2);
+       particle.y    = partData(:,3);
+       particle.z    = partData(:,4); 
+       particle.vx   = partData(:,5);
+       particle.vy   = partData(:,6);
+       particle.vz   = partData(:,7);
+     %  particle.ax   = partData(:,8);
+     %  particle.ay   = partData(:,9);
+     %  particle.az   = partData(:,10);
+       particle.ID   = partData(:,numPartComps);
     end
 
     %%%   reading density from part file
@@ -133,8 +141,11 @@ for iL=1:iLmax
     %
     subplot(1,2,1); %hold on;
     p1=plot(particle.x,particle.vx/vpiston,'*'); box on;
-    title('particle x-vx phase space'); axis([0 1 -10 10]);
-    set(gca,'xtick',0:0.2:1); set(gca,'ytick',-10:4:10);
+    title('particle x-vx phase space'); axis([0 1 -10 10]); %axis([0 1 -10 10]);
+    set(gca,'xtick',0:0.2:1); %set(gca,'ytick',-10:4:10);
+        xpiston = 1-vpiston*time(iL);
+    hold on; l1=line([xpiston xpiston],[-10 10],'linestyle','--','color','black');
+    hold off;
     xlabel('x/R'); ylabel('vx/vp'); axis('square');
     %
     if(iL==1) 
@@ -142,7 +153,8 @@ for iL=1:iLmax
     end
     subplot(1,2,2); %hold on; 
     p2=plot(Xcc(:,1),rhoAvg/rho0); box on;
-    hold on; l1=line([1/3 1/3],[0 10],'linestyle','--','color','black');
+    %hold on; l1=line([1/3 1/3],[0 10],'linestyle','--','color','black');
+    hold on; l2=line([xpiston xpiston],[0 10],'linestyle','--','color','black');
     hold off;
     title('plasma density'); axis([0 1 0 10]);
     set(gca,'xtick',0:0.2:1); set(gca,'ytick',0:2:10);
@@ -156,9 +168,8 @@ for iL=1:iLmax
     writeVideo(v,frame);
 
     if(iL~=iLmax)
-        delete(p1);
-        delete(l1);
-        delete(p2);
+        delete(p1); delete(l1);
+        delete(p2); delete(l2);
     end
 
 end
@@ -292,8 +303,8 @@ tempYavg = squeeze(mean(tempY,2)); tempYavg0 = squeeze(mean(tempYavg,1));
 tempZavg = squeeze(mean(tempZ,2)); tempZavg0 = squeeze(mean(tempZavg,1));
 
 
-close(figure(9)); 
-f9=figure(9); set(f9,'position',[316 424 1050 405]);
+close(figure(99)); 
+f9=figure(99); set(f9,'position',[316 424 1050 405]);
 
 subplot(1,2,1);
 plot(time,velXavg0,'displayName','x-velocity'); hold on;

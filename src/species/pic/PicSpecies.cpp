@@ -24,6 +24,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
      m_motion(true),
      m_forces(true),
      m_scatter(false),
+     m_write_all_part_comps(false),
      m_mesh(a_mesh),
      //m_meshInterp(NULL)
      m_meshInterp(a_meshInterp)
@@ -39,6 +40,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    a_ppspc.query( "motion", m_motion );
    a_ppspc.query( "forces", m_forces );
    a_ppspc.query( "scatter", m_scatter );
+   a_ppspc.query( "write_all_comps", m_write_all_part_comps );
 
    if ( procID() == 0 ) {
       cout << "  name = " << m_name << endl;
@@ -243,14 +245,14 @@ void PicSpecies::binTheParticles()
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
    for (dit.begin(); dit.ok(); ++dit) { // loop over boxes
-      //m_data_binfab_ptr[dit].reBin(); 
-      const Box gridBox = BL.get(dit);
-      BoxIterator gbit(gridBox);
-      List<JustinsParticle>& pList = m_data[dit].listItems();
       
+      //m_data_binfab_ptr[dit].reBin(); 
+      List<JustinsParticle>& pList = m_data[dit].listItems();
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = m_data_binfab_ptr[dit];
       
       // clear the binfab_ptr container
+      const Box gridBox = BL.get(dit);
+      BoxIterator gbit(gridBox);
       for (gbit.begin(); gbit.ok(); ++gbit) { // loop over grid indices
          const IntVect ig = gbit();
          List<JustinsParticlePtr>& cell_pList_ptr = thisBinFab_ptr(ig,0);
@@ -262,9 +264,9 @@ void PicSpecies::binTheParticles()
       CH_XD::List<JustinsParticlePtr> pListPtr;
       for(li.begin(); li.ok(); ++li) {
          JustinsParticlePtr particlePtr(li());
-         pListPtr.append(particlePtr); // JRA PTR
+         pListPtr.append(particlePtr);
       }
-      thisBinFab_ptr.addItems(pListPtr); // JRA testing binfab_ptr
+      thisBinFab_ptr.addItems(pListPtr);
    }
 }
 

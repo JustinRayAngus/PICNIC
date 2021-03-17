@@ -11,6 +11,7 @@
 #include "Particle.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
+#include "PicSpecies.H"
 #include "BinFab.H"
 #include "LevelData.H"
 #include "FArrayBox.H"
@@ -35,13 +36,14 @@ class dataFileIO
                   const DomainGrid&  mesh );
       ~dataFileIO() {;}
       
-      void writeParticleDataFile( const ParticleData<JustinsParticle>&  a_Pdata,
-                                  const LevelData<FArrayBox>&    a_density, 
-                                  const LevelData<FArrayBox>&    a_momentum, 
-                                  const LevelData<FArrayBox>&    a_energy, 
-                                  const Real                     a_mass, 
-                                  const int                      a_charge, 
-                                  const Real                     a_Uint, 
+      void writeParticleDataFile( const PicSpecies&  a_picSpecies,
+                                  //const ParticleData<JustinsParticle>&  a_Pdata,
+                                  //const LevelData<FArrayBox>&    a_density, 
+                                  //const LevelData<FArrayBox>&    a_momentum, 
+                                  //const LevelData<FArrayBox>&    a_energy, 
+                                  //const Real                     a_mass, 
+                                  //const int                      a_charge, 
+                                  //const Real                     a_Uint, 
                                   const int                      a_species, 
                                   const int                      a_cur_step, 
                                   const double                   a_cur_time );

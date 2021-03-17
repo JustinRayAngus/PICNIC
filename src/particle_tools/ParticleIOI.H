@@ -90,9 +90,10 @@ void read_vect_from_header(HDF5Handle&        a_handle,
 
 // write whole hierarchy of particle data
 template<class P> void
-writeParticlesToHDF(HDF5Handle&            a_handle,
-                    const ParticleData<P>& a_particles,
-                    const std::string&     a_dataType)
+writeParticlesToHDF( HDF5Handle&             a_handle,
+                     const ParticleData<P>&  a_particles,
+                     const std::string&      a_dataType,
+                     const bool&             a_writeAllParticleComps )
 {
   // timer
   CH_TIMERS("writeParticlesToHDF");
@@ -136,7 +137,13 @@ writeParticlesToHDF(HDF5Handle&            a_handle,
   write_hdf_part_header(a_handle, grids, particlesPerBox, a_dataType);
 
   // size of individual objects
-  size_t objSize = P().size();
+  size_t objSize;
+  if(a_writeAllParticleComps) {
+     objSize = P().size();
+  }
+  else {
+     objSize = P().sizeOutput();
+  }
 
   // the number of components per particle
   size_t numComps = objSize / sizeof(Real);
@@ -204,7 +211,12 @@ writeParticlesToHDF(HDF5Handle&            a_handle,
 
           for (ListIterator<P> li(pList); li.ok(); ++li)
             {
-              pList[li].linearOut((void*)chunk);
+              if(a_writeAllParticleComps) {
+                 pList[li].linearOut((void*)chunk);
+              }
+              else { // JRA write reduced particle components
+                 pList[li].linearOutOutput((void*)chunk);
+              }
               chunk += objSize;
 
               if (++ip % _CHUNK == 0)

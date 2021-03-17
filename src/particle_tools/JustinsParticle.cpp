@@ -27,8 +27,8 @@ JustinsParticle::JustinsParticle( const Real       a_weight,
   m_weight(a_weight),
   m_velocity(a_velocity)
 {
-  std::array<Real,3> thisAcceleration = {0,0,0};
-  setAcceleration(thisAcceleration);
+  std::array<Real,3> thisElectricField = {0,0,0};
+  setElectricField(thisElectricField);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      for(int i=0; i<3-SpaceDim; i++) {
@@ -47,8 +47,8 @@ void JustinsParticle::define( const Real       a_weight,
   setWeight(a_weight);
   setPosition(a_position);
   setVelocity(a_velocity);
-  std::array<Real,3> thisAcceleration = {0,0,0};
-  setAcceleration(thisAcceleration);
+  std::array<Real,3> thisElectricField = {0,0,0};
+  setElectricField(thisElectricField);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      for(int i=0; i<3-SpaceDim; i++) {
@@ -123,32 +123,32 @@ Real JustinsParticle::velocity(const int a_dir) const
   return m_velocity[a_dir];
 }
 
-// acceleration functions
-void JustinsParticle::setAcceleration(const std::array<Real,3>& a_acceleration)
+// electric_field functions
+void JustinsParticle::setElectricField( const std::array<Real,3>&  a_electric_field )
 {
-  m_acceleration = a_acceleration;
+  m_electric_field = a_electric_field;
 }
 
-void JustinsParticle::setAcceleration(const Real& a_acceleration,
-                            const int   a_dir)
+void JustinsParticle::setElectricField( const Real&  a_electric_field,
+                                        const int    a_dir )
 {
-  m_acceleration[a_dir] = a_acceleration;
+  m_electric_field[a_dir] = a_electric_field;
 }
 
 
-std::array<Real,3>& JustinsParticle::acceleration()
+std::array<Real,3>& JustinsParticle::electric_field()
 {
-  return m_acceleration;
+  return m_electric_field;
 }
 
-const std::array<Real,3>& JustinsParticle::acceleration() const
+const std::array<Real,3>& JustinsParticle::electric_field() const
 {
-  return m_acceleration;
+  return m_electric_field;
 }
 
-Real JustinsParticle::acceleration(const int a_dir) const
+Real JustinsParticle::electric_field(const int a_dir) const
 {
-  return m_acceleration[a_dir];
+  return m_electric_field[a_dir];
 }
 
 //
@@ -190,7 +190,7 @@ bool JustinsParticle::operator == (const JustinsParticle& a_p) const
            m_weight    == a_p.m_weight   &&
            m_position  == a_p.m_position &&
            m_velocity  == a_p.m_velocity &&
-           m_acceleration  == a_p.m_acceleration &&
+           m_electric_field  == a_p.m_electric_field &&
            m_pos_virt  == a_p.m_pos_virt );
 }
 
@@ -208,7 +208,14 @@ int JustinsParticle::size() const
 {
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
                            + sizeof(m_pos_virt)
-                           + sizeof(m_velocity) + sizeof(m_acceleration) );
+                           + sizeof(m_velocity) + sizeof(m_electric_field) );
+}
+
+int JustinsParticle::sizeOutput() const
+{ // don't include fields in output
+  return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
+                           + sizeof(m_pos_virt)
+                           + sizeof(m_velocity) );
 }
 
 // Write a linear (binary) representation of the internal data.
@@ -217,6 +224,9 @@ int JustinsParticle::size() const
 void JustinsParticle::linearOut(void* buf) const
 {
    Real* buffer = (Real*)buf;
+
+   *buffer++ = m_weight;
+
    D_TERM6( *buffer++ = m_position[0];,
             *buffer++ = m_position[1];,
             *buffer++ = m_position[2];,
@@ -233,20 +243,47 @@ void JustinsParticle::linearOut(void* buf) const
    }
 
    for(int i=0; i<3; i++) {
-      *buffer++ = m_acceleration[i];
+      *buffer++ = m_electric_field[i];
    }
 
-   *buffer++ = m_weight;
    *buffer = m_ID;
 
 }
 
+// allocated by the caller.
+void JustinsParticle::linearOutOutput(void* buf) const
+{
+   Real* buffer = (Real*)buf;
+   
+   *buffer++ = m_weight;
+
+   D_TERM6( *buffer++ = m_position[0];,
+            *buffer++ = m_position[1];,
+            *buffer++ = m_position[2];,
+            *buffer++ = m_position[3];,
+            *buffer++ = m_position[4];,
+            *buffer++ = m_position[5];);
+   
+   for(int i=0; i<3-SpaceDim; i++) {
+      *buffer++ = m_pos_virt[i];
+   }
+   
+   for(int i=0; i<3; i++) {
+      *buffer++ = m_velocity[i];
+   }
+   
+   *buffer = m_ID;
+
+}
 
 // Read a linear (binary) representation of the internal data.
 // Assumes the buffer contains the correct data.
 void JustinsParticle::linearIn(void* buf)
 {
    Real* buffer = (Real*)buf;
+   
+   m_weight = *buffer++;
+   
    D_TERM6( m_position[0] = *buffer++;,
             m_position[1] = *buffer++;,
             m_position[2] = *buffer++;,
@@ -263,10 +300,9 @@ void JustinsParticle::linearIn(void* buf)
    }
 
    for(int i=0; i<3; i++) {
-      m_acceleration[i] = *buffer++;
+      m_electric_field[i] = *buffer++;
    }
-
-   m_weight = *buffer++;
+   
    m_ID = *buffer;
 
 }
@@ -282,8 +318,8 @@ std::ostream & operator<<(std::ostream& ostr, const JustinsParticle& p)
   ostr << std::endl << " velocity ( ";
   for ( int i=0; i<3; ++i ){ ostr << " " << p.velocity(i); }
   ostr << " ) ";
-  ostr << std::endl << " acceleration ( ";
-  for ( int i=0; i<3; ++i ){ ostr << " " << p.acceleration(i); }
+  ostr << std::endl << " electric_field ( ";
+  for ( int i=0; i<3; ++i ){ ostr << " " << p.electric_field(i); }
   ostr << " ) " << std::endl;
   return ostr;
 }

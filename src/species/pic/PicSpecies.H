@@ -54,6 +54,7 @@ public:
   virtual bool motion() const { return m_motion; }
   virtual bool forces() const { return m_forces; }
   virtual bool scatter() const { return m_scatter; }
+  virtual bool writeAll() const { return m_write_all_part_comps; }
   
   virtual bool isSpecies( const string& name ) const;
 
@@ -69,7 +70,8 @@ public:
   //
   virtual void numberDensity( LevelData<FArrayBox>& a_rho );
   
-  virtual const LevelData<FArrayBox>& getNumberDensity( const bool setData = false )
+  virtual const LevelData<FArrayBox>& getNumberDensity() const {return m_density;}
+  virtual const LevelData<FArrayBox>& getNumberDensity( const bool&  setData )
   { 
     if(setData) setNumberDensity();
     return m_density;
@@ -81,7 +83,8 @@ public:
   //
   virtual void momentumDensity( LevelData<FArrayBox>& a_mom );
   
-  virtual const LevelData<FArrayBox>& getMomentumDensity( const bool setData = false )
+  virtual const LevelData<FArrayBox>& getMomentumDensity() const {return m_momentum;}
+  virtual const LevelData<FArrayBox>& getMomentumDensity( const bool&  setData )
   { 
     if(setData) setMomentumDensity();
     return m_momentum;
@@ -93,6 +96,7 @@ public:
   //
   virtual void energyDensity( LevelData<FArrayBox>& a_ene );
   
+  virtual const LevelData<FArrayBox>& getEnergyDensity() const {return m_energy;}
   virtual const LevelData<FArrayBox>& getEnergyDensity( const bool setData = false )
   { 
     if(setData) setEnergyDensity();
@@ -139,6 +143,7 @@ private:
   bool m_motion;
   bool m_forces;
   bool m_scatter;
+  bool m_write_all_part_comps;
 
   const DomainGrid& m_mesh;
   const MeshInterp& m_meshInterp;

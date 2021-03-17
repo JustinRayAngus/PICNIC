@@ -1,118 +1,149 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
-%%%   testing ability to read files from myPIC test sim from Chombo
+%%%   2D thermalization test using myPIC
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all;
-addpath('~angus1/Programs/COGENT_matlabTools/');
-addpath('../matlabScripts/');
 
-%%%   set folder and file paths
+me   = 9.1093837015e-31;   % electron mass [kg]
+qe   = 1.602176634e-19;    % electron charge [C]
+cvac = 2.99792458e8;       % speed of light [m/s]
+
+rootPath = '../myPIC/thermalization_test0/';
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   read the mesh
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+meshFile = [rootPath,'mesh.h5'];
+%fileinfo = hdf5info(meshFile);
+group = 2; ghosts = 0;
+data = import2Ddata_singleFile(meshFile,group,ghosts);
+Xcc = squeeze(data.Fcc(:,:,1)); nX = length(Xcc(:,1)); dX = Xcc(2,1)-Xcc(1,1);
+Zcc = squeeze(data.Fcc(:,:,2)); nZ = length(Zcc(1,:)); dZ = Zcc(1,2)-Zcc(1,1);
+Xce = squeeze(data.block(1).Fce(:,:,1));
+Zce = squeeze(data.block(1).Fce(:,:,1));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   read the particles and density
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%  loop over files and create movie
 %
-dataPath = '../myPIC/testing/';
-thisFile = 'mesh.h5';
 
-%%%   read the data
-%
-thisFile = [dataPath,thisFile];
+close(figure(1));
+f1=figure(1); set(f1,'position',[570 450 900 420]);
+set(gcf,'color','white');
 
-
-fileinfo = hdf5info(thisFile);
-%time = h5readatt(thisFile,'/level_0','time');
-%numParts = h5readatt(thisFile,'/','num_particles');
-%  dx = h5readatt(thisFile,'/level_0','dx');
-%  dy = h5readatt(thisFile,'/level_0','dy');
-%  dz = h5readatt(thisFile,'/level_0','dz');
-% dt = h5readatt(thisFile,'/level_0','dt');
-prob_domain = h5readatt(thisFile,'/level_0','prob_domain');
-ghost = h5readatt(thisFile,'/level_0/data_attributes','ghost');
-numComps = h5readatt(thisFile,'/level_0/data_attributes','comps');
-outputGhost = h5readatt(thisFile,'/level_0/data_attributes','outputGhost');
-nx = double(prob_domain.hi_i-prob_domain.lo_i+1);
-ny = double(prob_domain.hi_j-prob_domain.lo_j+1);
-procs = hdf5read(thisFile,'/level_0/Processors');
-numProcs = length(procs);
-%Lx = nx*dx;
+images = cell(1,1);
+v=VideoWriter('./pistonCar.mp4', 'MPEG-4');
+v.FrameRate = 1;
+open(v);
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
-%%%   try to figure out how data is layed down in file
-%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fileList = dir([rootPath,'particle_data/part*']);
+ListLength = length(fileList);
 
-
-vecData = hdf5read(thisFile,'/level_1/data:datatype=0');
-L = length(vecData)
-%close(figure(1));
-f1=figure(11); 
-plot(vecData);
-numCells = nx*ny;
-%hold on; line([1*numCells 1*numCells],[-2 2],'color','r');
-%hold on; line([2*numCells 2*numCells],[-2 2],'color','r');
-%xlim([1 2*numCells]);
-
-group = 2;
-ghosts = 1;
-data = import2Ddata_singleFile(thisFile,group,ghosts);
-% fileinfo.GroupHierarchy.Attributes(2).Value.Data;
-% fileinfo.GroupHierarchy.Attributes(3).Value.Data;
-Xcc = squeeze(data.Fcc(:,:,1));
-Ycc = squeeze(data.Fcc(:,:,2));
-
-
-f1=figure(1); 
-plot(Xcc(:,1),'*'); hold on;
-plot(Ycc(1,:),'o'); hold off;
-title('mesh')
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%
-%%%   read the particles
-%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%thisFileParts = '../testingAMRPIC2/plt000000.3d.hdf5';
-thisFileParts = '../myPIC/testing/particle_data/parts90001.h5';
-%thisFileParts = '../myPIC/testingWithDen/particle_data/parts0000.h5';
-fileinfo = hdf5info(thisFileParts);
-partData = hdf5read(thisFileParts,'/level_0/particles:data');
-SpaceDim = h5readatt(thisFileParts,'/Chombo_global','SpaceDim');
-numParts = h5readatt(thisFileParts,'/level_0','num_particles');
-partData = reshape(partData,1+3*SpaceDim,numParts);
-partData = partData';
-
-if(SpaceDim==2)
-   particle.x    = partData(:,1);
-   particle.z    = partData(:,2);
-   particle.vx   = partData(:,3);
-   particle.vz   = partData(:,4);
-   particle.ax   = partData(:,5);
-   particle.az   = partData(:,6);
-   particle.weight = partData(:,7);
+step = zeros(size(fileList));
+for n=1:ListLength
+    thisFile = fileList(n).name;
+    step(n) = str2num(thisFile(6:end-3));
 end
+[step,index] = sort(step);
 
-close(figure(2));
-figure(2); hold on;
-plot(particle.x,particle.vx,'*');
-title('particle x-z phase space');
-xlabel('x'); ylabel('vx');
+iLmax = ListLength;
+time = zeros(1,iLmax);
+totalParts = zeros(1,iLmax);
+numberDen = zeros(nX,nZ,iLmax);
+momentumDenX = zeros(nX,nZ,iLmax);
+momentumDenY = zeros(nX,nZ,iLmax);
+momentumDenZ = zeros(nX,nZ,iLmax);
+energyDenX = zeros(nX,nZ,iLmax);
+energyDenY = zeros(nX,nZ,iLmax);
+energyDenZ = zeros(nX,nZ,iLmax);
+
+for iL=1:iLmax
 
 
-%%%   reading density from part file
-%
-% vecData = hdf5read(thisFileParts,'/level_0/data:datatype=0');
-% figure(12); plot(vecData);
-% title('density');
+    partsFile = [rootPath,'particle_data/',fileList(index(iL)).name];
+    %fileinfo = hdf5info(partsFile);
+    partData = hdf5read(partsFile,'/level_0/particles:data');
+    SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
+    numParts = h5readatt(partsFile,'/level_0','num_particles');
+    time(iL) = h5readatt(partsFile,'/level_0','time');
+    if(iL==1)
+        Mass = h5readatt(partsFile,'/level_0','mass');
+    end
+    partData = reshape(partData,2+3*SpaceDim+3,numParts);
+    partData = partData';
+    totalParts(iL) = numParts;
+    if(SpaceDim==2)
+       particle.x    = partData(:,1);
+       particle.y    = partData(:,2);
+       particle.z    = partData(:,3);
+       particle.vx   = partData(:,4);
+       particle.vy   = partData(:,5);
+       particle.vz   = partData(:,6);
+       particle.ax   = partData(:,7);
+       particle.ay   = partData(:,8);
+       particle.az   = partData(:,9);
+       particle.weight = partData(:,10);
+       particle.ID   = partData(:,11);
+    end
+
+    %%%   reading moments from part file
+    %
+    group = 2; ghosts = 0;
+    data = import2Ddata_singleFile(partsFile,group,ghosts);
+    numberDen(:,:,iL) = squeeze(data.Fcc(:,:,1));
+    momentumDenX(:,:,iL) = squeeze(data.Fcc(:,:,2));
+    momentumDenY(:,:,iL) = squeeze(data.Fcc(:,:,3));
+    momentumDenZ(:,:,iL) = squeeze(data.Fcc(:,:,4));
+    energyDenX(:,:,iL) = squeeze(data.Fcc(:,:,5));
+    energyDenY(:,:,iL) = squeeze(data.Fcc(:,:,6));
+    energyDenZ(:,:,iL) = squeeze(data.Fcc(:,:,7));
+    %
+    rhoAvg = sum(numberDen(:,:,iL),2)/length(Zcc(1,:));
+    momAvgX = sum(momentumDenX(:,:,iL),2)/length(Zcc(1,:));
+    momAvgY = sum(momentumDenY(:,:,iL),2)/length(Zcc(1,:));
+    momAvgZ = sum(momentumDenZ(:,:,iL),2)/length(Zcc(1,:));
+    eneAvgX = sum(energyDenX(:,:,iL),2)/length(Zcc(1,:));
+    eneAvgY = sum(energyDenY(:,:,iL),2)/length(Zcc(1,:));
+    eneAvgZ = sum(energyDenZ(:,:,iL),2)/length(Zcc(1,:));
+    %
+    subplot(1,2,1); %hold on;
+    p1=plot(particle.x,particle.vx,'*'); box on;
+    title('particle x-vx phase space'); %axis([0 1 -10 10]);
+    %set(gca,'xtick',0:0.2:1); set(gca,'ytick',-10:4:10);
+    xlabel('x/R'); ylabel('vx/vp'); axis('square');
+    %
+    if(iL==1) 
+        rho0 = sum(rhoAvg)/length(rhoAvg);
+    end
+    subplot(1,2,2); %hold on; 
+    p2=plot(Xcc(:,1),rhoAvg/rho0); box on;
+    title('plasma density'); axis([0 1 0 2]);
+    %set(gca,'xtick',0:0.2:1); set(gca,'ytick',0:2:10);
+    xlabel('x/R'); ylabel('\rho/\rho_0'); axis('square');
 
 
-group = 2;
-ghosts = 0;
-data = import2Ddata_singleFile(thisFileParts,group,ghosts);
-density = data.Fcc;
+    NameString = 'pistonCar';
+    print(NameString,'-dpng','-r200');
+    images = imread(sprintf([NameString,'.png']));
+    frame = im2frame(images);
+    writeVideo(v,frame);
 
-figure(122);
-hold on; plot(Xcc(3:end-2,1),density(:,4));
-xlabel('x/a');
+    if(iL~=iLmax)
+        delete(p1);
+        delete(p2);
+    end
+
+end
+close(v);
+
 

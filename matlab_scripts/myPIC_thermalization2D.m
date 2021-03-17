@@ -10,8 +10,12 @@ clear all;
 me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
+amu  = 1.660539066e-27;    % atomic mass unit [kg]
 
+species = 2;
 rootPath = '../myPIC/thermalization_test0/';
+rootPath = '../myPIC/thermalization_test1/';
+rootPath = '../myPIC/thermalization_test2/';
 
 set(0,'defaultaxesfontsize',18);
 set(0,'defaulttextfontsize',18);
@@ -46,7 +50,7 @@ Zce = squeeze(data.block(1).Fce(:,:,1));
 %
 
 close(figure(1));
-f1=figure(1); set(f1,'position',[570 450 900 420]);
+f1=figure(1); set(f1,'position',[570 450 900 450]);
 set(gcf,'color','white');
 
 images = cell(1,1);
@@ -54,8 +58,7 @@ v=VideoWriter('./pistonCar.mp4', 'MPEG-4');
 v.FrameRate = 1;
 open(v);
 
-
-fileList = dir([rootPath,'particle_data/part*']);
+fileList = dir([rootPath,'species',num2str(species),'_data/part*']);
 ListLength = length(fileList)
 
 step = zeros(size(fileList));
@@ -80,34 +83,37 @@ energyDenZ = zeros(nX,nZ,iLmax);
 
 for iL=1:iLmax
 
-
-    partsFile = [rootPath,'particle_data/',fileList(index(iL)).name];
+    partsFile = [rootPath,'species',num2str(species),'_data/',fileList(index(iL)).name];
     %fileinfo = hdf5info(partsFile);
     partData = hdf5read(partsFile,'/level_0/particles:data');
     SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
     numParts = h5readatt(partsFile,'/level_0','num_particles');
     time(iL) = h5readatt(partsFile,'/level_0','time');
+    %h5readatt(partsFile,'/level_0','particle_component_5');
     if(iL==1)
         Mass = h5readatt(partsFile,'/level_0','mass');
+        Charge = double(h5readatt(partsFile,'/level_0','charge'));
+        Uint = h5readatt(partsFile,'/level_0','Uint'); % [eV]
+        numPartComps = h5readatt(partsFile,'/level_0','numPartComps');
     end
-    partData = reshape(partData,2+3*SpaceDim+3,numParts);
+    partData = reshape(partData,numPartComps,numParts);
     partData = partData';
     totalParts(iL) = numParts;
     if(SpaceDim==2)
-       particle.x    = partData(:,1);
-       particle.y    = partData(:,2);
-       particle.z    = partData(:,3); % virtual dimesion
-       particle.vx   = partData(:,4);
-       particle.vy   = partData(:,5);
-       particle.vz   = partData(:,6); % virtual dimension
-       particle.ax   = partData(:,7);
-       particle.ay   = partData(:,8);
-       particle.az   = partData(:,9); % virtual dimension
-       particle.weight = partData(:,10);
-       particle.ID   = partData(:,11);
+       particle.weight = partData(:,1);
+       particle.x    = partData(:,2);
+       particle.y    = partData(:,3);
+       particle.z    = partData(:,4); 
+       particle.vx   = partData(:,5);
+       particle.vy   = partData(:,6);
+       particle.vz   = partData(:,7);
+     %  particle.ax   = partData(:,8);
+     %  particle.ay   = partData(:,9);
+     %  particle.az   = partData(:,10);
+       particle.ID   = partData(:,numPartComps);
     end
 
-    %%%   reading density from part file
+    %%%   reading moments from part file
     %
     group = 2; ghosts = 0;
     data = import2Ddata_singleFile(partsFile,group,ghosts);
@@ -138,7 +144,8 @@ for iL=1:iLmax
     end
     subplot(1,2,2); %hold on; 
     p2=plot(Xcc(:,1),rhoAvg/rho0); box on;
-    title('plasma density'); axis([0 1 0 2]);
+    title('plasma density'); axis('tight');
+    ylim([0 2]);
     %set(gca,'xtick',0:0.2:1); set(gca,'ytick',0:2:10);
     xlabel('x/R'); ylabel('\rho/\rho_0'); axis('square');
 
@@ -203,9 +210,9 @@ end
 normC = sum(dfn)*dVy;
 dfn = dfn/normC;
 
-close(figure(44)); f4=figure(44); 
+close(figure(4)); f4=figure(4); 
 
-T1 = 25.9e-3;
+T1 = 2*25.9e-3;
 VT1 = 4.19e5*sqrt(T1/Mass);
 plot(Vgrid,exp(-(Vgrid/sqrt(2)/VT1).^2)/sqrt(2*pi)/VT1); hold on;
 plot(Vgrid,dfn); 
@@ -244,8 +251,8 @@ tempTotX = energyTotX - momentumTotX.^2./numberTot/Mass/2.0;
 tempTotY = energyTotY - momentumTotY.^2./numberTot/Mass/2.0;
 tempTotZ = energyTotZ - momentumTotZ.^2./numberTot/Mass/2.0;
 
-close(figure(8)); 
-f8=figure(8); set(f8,'position',[316 424 1450 405]);
+close(figure(88)); 
+f8=figure(88); set(f8,'position',[316 424 1450 405]);
 
 subplot(1,3,1);
 plot(time,numberTot/numberTot(1),'displayName','Mass/Mass(t=0)');
@@ -260,9 +267,7 @@ xlabel('time [s]'); title('total momentum');
 legend('show','location','best');
 
 subplot(1,3,3);
-% plot(time,tempTotX,'displayName','Temperature-X'); hold on;
-% plot(time,tempTotY,'displayName','Temperature-Y'); hold on;
-% plot(time,tempTotZ,'displayName','Temperature-Z'); hold off;
+energyTot = me*(energyTotX+energyTotY+energyTotZ);
 plot(time,me*energyTotX,'displayName','x-energy'); hold on;
 plot(time,me*energyTotY,'displayName','y-energy'); hold on;
 plot(time,me*energyTotZ,'displayName','z-energy'); hold off;
@@ -285,8 +290,8 @@ tempYavg = squeeze(mean(tempY,1)); tempYavg = squeeze(mean(tempYavg,1));
 tempZavg = squeeze(mean(tempZ,1)); tempZavg = squeeze(mean(tempZavg,1));
 
 
-close(figure(9)); 
-f9=figure(9); set(f9,'position',[316 424 1050 405]);
+close(figure(99)); 
+f9=figure(99); set(f9,'position',[316 424 1050 405]);
 
 subplot(1,2,1);
 plot(time,velXavg,'displayName','x-velocity'); hold on;
