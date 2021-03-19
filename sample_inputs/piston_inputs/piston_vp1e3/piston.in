@@ -72,8 +72,6 @@ IC.deuteriumAtom.velocity_2.value = 0.0
 # Scattering Definitions
 #####################################################
 
-#scattering.coulomb_model = "TA"
-
 scattering.1.model = "VHS"
 scattering.1.species1 = 1
 scattering.1.species2 = 1
@@ -90,4 +88,6 @@ special_operator.1.direction = 0
 special_operator.1.position = 1.0
 special_operator.1.velocity = -1000.0 # [m/s]
 special_operator.1.dtFrac = 0.2
+
+#####################################################
 

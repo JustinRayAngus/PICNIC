@@ -8,12 +8,12 @@ simulation.verbosity = 10
 #####################################################
 #simulation.max_step            = 10
 simulation.max_step            = 100000
-simulation.max_time            = 9.0e-3
+simulation.max_time            = 3.0e-4
 simulation.cfl_number          = 0.7
-simulation.cfl_scatter         = 0.2
+simulation.cfl_scatter         = 0.002
 #simulation.fixed_dt            = 1.0e-5
 #simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 5.0e-4
+simulation.plot_time_interval  = 1.5e-5
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
@@ -22,7 +22,7 @@ simulation.history_interval    = 10
 # Computational Grid Definitions
 #####################################################
 grid.num_cells     = 64 16 
-grid.is_periodic   = 0  1
+grid.is_periodic   = 1  1
 grid.config_decomp = 8  2
 grid.fixedBoxSize  = 8
 grid.geometry      = "cartesian"
@@ -48,25 +48,25 @@ units.time           = 1.0e-9  # s
 pic_species.1.name   = "deuteriumAtom"
 pic_species.1.mass   = 3671.3
 pic_species.1.charge = 0
-pic_species.1.motion = false # must be false to use piston operator
+pic_species.1.motion = true # must be false to use piston operator
 pic_species.1.forces = false
 pic_species.1.scatter = true
 
 IC.deuteriumAtom.parts_per_cell = 4 8
 IC.deuteriumAtom.density.type = "constant"
-IC.deuteriumAtom.density.value = 1.0e21 # [number/m^3]
+IC.deuteriumAtom.density.value = 1.0e20 # [number/m^3]
 IC.deuteriumAtom.temperature_0.type = "constant"
-IC.deuteriumAtom.temperature_0.value = 25.9e-3 # [eV]
+IC.deuteriumAtom.temperature_0.value = 51.8e-3 # [eV]
 IC.deuteriumAtom.temperature_1.type = "constant"
 IC.deuteriumAtom.temperature_1.value = 25.9e-3 # [eV]
 IC.deuteriumAtom.temperature_2.type = "constant"
-IC.deuteriumAtom.temperature_2.value = 25.9e-3 # [eV]
+IC.deuteriumAtom.temperature_2.value = 12.95e-3 # [eV]
 IC.deuteriumAtom.velocity_0.type = "constant"
 IC.deuteriumAtom.velocity_0.value = 0.0
 IC.deuteriumAtom.velocity_1.type = "constant"
-IC.deuteriumAtom.velocity_1.value = 0.0
+IC.deuteriumAtom.velocity_1.value = 2.0e3
 IC.deuteriumAtom.velocity_2.type = "constant"
-IC.deuteriumAtom.velocity_2.value = 0.0
+IC.deuteriumAtom.velocity_2.value = -1.0e3
 
 #####################################################
 # Scattering Definitions
@@ -78,16 +78,6 @@ scattering.1.species2 = 1
 scattering.1.reference_temperature = 300   # [K]
 scattering.1.reference_viscosity = 1.26e-5 # [Pa-s]
 scattering.1.eta = 0.69
-
-#####################################################
-# Special Operator Definitions
-#####################################################
-
-special_operator.1.model = "piston"
-special_operator.1.direction = 0
-special_operator.1.position = 1.0
-special_operator.1.velocity = -1.0e2 # [m/s]
-special_operator.1.dtFrac = 0.2
 
 #####################################################
 
