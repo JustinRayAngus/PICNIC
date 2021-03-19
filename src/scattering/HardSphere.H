@@ -45,10 +45,14 @@ class HardSphere : public Scattering
       
       // set mean free time
       //
-      virtual void setMeanFreeTime( const DomainGrid&            a_mesh,
-                                    const LevelData<FArrayBox>&  a_numberDensity,
-                                    const LevelData<FArrayBox>&  a_energyDensity ) ;
+      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
+                                    const LevelData<FArrayBox>&  a_energyDensity ) const; 
       
+      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
+                                    const LevelData<FArrayBox>&  a_energyDensity1,
+                                    const LevelData<FArrayBox>&  a_numberDensity2,
+                                    const LevelData<FArrayBox>&  a_energyDensity2 ) const;
+    
       // initialization
       //
       virtual void initialize( const DomainGrid&         a_mesh,

@@ -44,9 +44,8 @@ class VariableHardSphere : public Scattering
       
       // set mean free time
       //
-      virtual void setMeanFreeTime( const DomainGrid&            a_mesh,
-                                    const LevelData<FArrayBox>&  a_numberDensity,
-                                    const LevelData<FArrayBox>&  a_energyDensity ) ;
+      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
+                                    const LevelData<FArrayBox>&  a_energyDensity ) const;
       
       // initialization
       //

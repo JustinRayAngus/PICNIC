@@ -31,6 +31,9 @@ namespace MathUtils {
    double errorfun( const double&  a_x );
    
    double errorinv( const double&  a_x );
+   
+   double gammainc( const Real  a_x, 
+                    const Real  a_a );
 
    double rand();
    

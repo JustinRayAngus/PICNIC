@@ -52,6 +52,40 @@ double MathUtils::errorinv( const double&  a_x )
 
 }
 
+double MathUtils::gammainc( const Real  a_x,
+                            const Real  a_a )
+{
+   // incomplete gamma function:  int_0^x(t^(a-1)*exp(-t^2))dt
+   //
+   
+   // right now this is a Taylor expansion method assuming a=3/2
+   // Make more general later
+   //
+   CH_assert(a_a==3./2.);
+
+   Real soln = tgamma(a_a);
+   if(a_x<10.0) {
+
+      const int pmax = 41;
+      Real coef;
+      Real sign = -1.0;
+      Real factorial = 1;
+
+      soln = 0.0;
+      for (auto p=1; p<pmax; p++) {
+         coef = 0.5 + p;
+         if(p>1) factorial = factorial*(p-1);
+         sign = -sign;
+       
+         soln = soln + sign*pow(a_x,coef)/coef/factorial;
+      }
+
+   }
+
+   return soln;
+
+}
+
 double MathUtils::rand()
 {
    CH_TIME("MathUtils::rand()");

@@ -28,7 +28,7 @@ class TakizukaAbe : public Scattering
          : Scattering(a_verbosity)
       {
          m_scatter_dt = DBL_MAX;
-          m_b90_codeToPhys = Constants::QE*Constants::QE/(4.0*Constants::PI*Constants::EP0*Constants::ME); 
+         m_b90_codeToPhys = Constants::QE*Constants::QE/(4.0*Constants::PI*Constants::EP0*Constants::ME); 
          parseParameters( a_pp );
       }
 
@@ -44,10 +44,14 @@ class TakizukaAbe : public Scattering
       
       // set mean free time
       //
-      virtual void setMeanFreeTime( const DomainGrid&            a_mesh,
-                                    const LevelData<FArrayBox>&  a_numberDensity,
-                                    const LevelData<FArrayBox>&  a_energyDensity ) ;
-      
+      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
+                                    const LevelData<FArrayBox>&  a_energyDensity ) const;
+
+      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
+                                    const LevelData<FArrayBox>&  a_energyDensity1,
+                                    const LevelData<FArrayBox>&  a_numberDensity2,
+                                    const LevelData<FArrayBox>&  a_energyDensity2 ) const;
+    
       // initialization
       //
       virtual void initialize( const DomainGrid&         a_mesh,

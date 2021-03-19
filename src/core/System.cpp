@@ -67,7 +67,6 @@ void System::initialize( const int     a_cur_step,
    CH_TIME("System::initialize()");
    
    // initialize the pic species
-   //
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
       if(a_cur_step==0) {
@@ -81,12 +80,9 @@ void System::initialize( const int     a_cur_step,
    }
    
    // initialize the scattering operators
-   //
    if(m_use_scattering) {
       
-      // need to prepare scatting() species for initialization
-      // of mean free time at t=0
-      //
+      // set moments for initial mean free path calculation
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
          if(this_picSpecies->scatter()) { // prepare this species for scatter
@@ -100,18 +96,6 @@ void System::initialize( const int     a_cur_step,
       for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
          ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
          this_scattering->initialize(*m_mesh, m_pic_species_ptr_vect);
-      
-         // Could put all below inside initialize????
- 
-         //ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-         const int this_species = this_scattering->species1();
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[this_species]);
-
-         const bool setMoments = false;
-         const LevelData<FArrayBox>& numberDensity = this_picSpecies->getNumberDensity(setMoments);
-         const LevelData<FArrayBox>& energyDensity = this_picSpecies->getEnergyDensity(setMoments);
-         this_scattering->setMeanFreeTime( *m_mesh, numberDensity, energyDensity );
-
       }
       if(!procID()) {
          cout << "Finished initializing " << m_scattering_ptr_vect.size() << " scattering objects" << endl << endl;
@@ -133,14 +117,12 @@ void System::createProblemDomain()
    if ( m_geom_type == "cylindrical" || m_geom_type == "cartesian") {
      
       // Set the grid size
-      //
       m_num_cells.resize( DIM );
       for (int i=0; i<DIM; ++i) m_num_cells[i] = 0;
       ppgrid.getarr( "num_cells", m_num_cells, 0, DIM );
       for (int i=0; i<DIM; ++i) CH_assert( m_num_cells[i]>0 );
 
       // Determine which spatial directions are periodic
-      //
       m_is_periodic.resize(DIM);
       vector<int> isPeriodic( DIM ); // why should I have to do this?
       ppgrid.getarr( "is_periodic", isPeriodic, 0, DIM );
@@ -149,7 +131,6 @@ void System::createProblemDomain()
       }
 
       // Get the domain box decomposition parameters
-      //
       if (ppgrid.contains("config_decomp")) {
          m_config_decomp.resize( DIM );
          for (int i=0; i<DIM; ++i) m_config_decomp[i] = 0;
@@ -289,7 +270,6 @@ void System::createMeshInterp()
    CH_TIME("System::createMeshInterp()");
 
    // get some mesh information
-   //
    const ProblemDomain& domain(m_mesh->getDomain()); 
    const RealVect& meshSpacing(m_mesh->getdX());
    const RealVect& meshOrigin(m_mesh->getXmin());
@@ -324,10 +304,7 @@ void System::createState( ParmParse&  a_pp )
 
 void System::createPICspecies()
 {
-   // Create the vector of species model (pointers), and when a kinetic
-   // species is created, add it to the kinetic species vector
-   // number species.
-   //
+   // Create all pick species
    
    if(!procID()) {
       cout << "Creating PIC species..." << endl << endl;
@@ -375,6 +352,7 @@ void System::createPICspecies()
 
 void System::createScattering()
 {
+   // Create all scattering objects
    
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // check all species for scattering flag
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
@@ -428,9 +406,7 @@ void System::createScattering()
 
 void System::createSpecialOperators()
 {
-   //
    // Create the vector of special operator (pointers)
-   //
    
    SpecialOperatorFactory  specialOpFactory;
    
@@ -538,7 +514,7 @@ void System::advance( Real&  a_cur_time,
          }
       }
 
-      // Should shuffle the m_scattering_ptr_vect each time ?
+      // Should we shuffle the m_scattering_ptr_vect each time ?
       for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) { // loop over scattering objects
          
          ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
