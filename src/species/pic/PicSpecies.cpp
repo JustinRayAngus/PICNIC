@@ -69,6 +69,12 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    m_density.define(grids,1,ghostVect);
    m_momentum.define(grids,3,ghostVect);
    m_energy.define(grids,3,ghostVect); // direction-depenent energy
+
+   m_currentDensity.define(grids,SpaceDim,ghostVect);    // EdgeDataBox with SpaceDim comps
+   m_currentDensity_virtFor2D.define(grids,1,ghostVect); // NodeFArrayBox with 1 comp
+   m_currentDensity_virtFor1D.define(grids,2,ghostVect); // FluxBox with 2 comps
+   m_testDeposit.define(grids,1,ghostVect);
+
    m_temperature.define(grids,3,ghostVect);
    m_velocity.define(grids,3,ghostVect);
    for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -93,8 +99,35 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    //
    m_data.define(grids, domain, fixedBoxSize,
                  meshSpacing, meshOrigin);
+  
+   //
+   //
+   // create a BoxLayout that is same as the BoxLayout that m_data
+   // lives on, but grown to include ghost layers
+   //
+   /*
+   Vector<Box> grown_boxes;
+   Vector<int> box_ids;
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+      Box this_box = BL.get(dit); 
+      this_box.grow(ghostVect);
+      grown_boxes.push_back(this_box);
+      box_ids.push_back(procID());
+   }
+   BoxLayout grownBL(grown_boxes,box_ids); 
    
-   
+   DataIterator dit2(grownBL);
+   for(dit2.begin(); dit2.ok(); ++dit2) {
+      const Box& this_box = grownBL.get(dit2); 
+      cout << "JRA: procID() = " << procID() << " this_box = " << this_box <<endl;
+   }
+   m_testBLD.define(grownBL,1);
+   */
+   //
+   //
+
    // In order to initialize a LevelData<BinFab<T>>, first need to define a
    // BinFabFactory. The factor has a "create" function to define "new" pointers
    // to the BinFab that lives at the box level... Not sure if I need to use this
@@ -390,6 +423,23 @@ void PicSpecies::initialize()
       partsPerCell[dir] = partsPerCellstd[dir];
       CH_assert( partsPerCell[dir]>0 );
    }
+   
+   // parse the spatial range for the initial profile
+   RealVect sXmin = m_mesh.getXmin();
+   RealVect sXmax = m_mesh.getXmax();
+   
+   ppspcIC.query("X_min", sXmin[0]);
+   ppspcIC.query("X_max", sXmax[0]);
+   if(SpaceDim==2) {
+      ppspcIC.get("Z_min", sXmin[1]);
+      ppspcIC.get("Z_max", sXmax[1]);
+   }
+   if(SpaceDim==3) {
+      ppspcIC.get("Y_min", sXmin[1]);
+      ppspcIC.get("Y_max", sXmax[1]);
+      ppspcIC.get("Z_min", sXmin[2]);
+      ppspcIC.get("Z_max", sXmax[2]);
+   }
 
    // parse the initial profiles of moments to construct
    // initial particle positions and velocities
@@ -533,6 +583,15 @@ void PicSpecies::initialize()
                Xpart[dir] += (ipg[dir] + 0.5)*dXpart[dir];
             }
 
+            // check to see if this particle position is inside specified region
+            if(Xpart[0]<sXmin[0] || Xpart[0]>sXmax[0]) continue;
+            if(SpaceDim==2) {
+               if(Xpart[1]<sXmin[1] || Xpart[1]>sXmax[1]) continue;
+            }
+            if(SpaceDim==3) {
+               if(Xpart[2]<sXmin[2] || Xpart[2]>sXmax[2]) continue;
+            }
+
             // initialize particle velocities by randomly sampling 
             // a maxwellian
             //
@@ -619,16 +678,6 @@ void PicSpecies::setNumberDensity()
       //const List<JustinsParticle>& pList = box_list.listItems();
       //if(procID()==0 || procID()==8) cout << "JRA: pList.length() = " << pList.length() << endl;
      
-      /*
-      int interpFlag = 0;
-      InterpType interpMethod = (InterpType)interpFlag;
-      //m_meshInterp->deposit( box_list.listItems(),
-      m_meshInterp.deposit( box_list.listItems(),
-                            box_rho,
-                            interpMethod ); 
-      // NOTE that for m_meshInterp being const ref, I have to remove const
-      // qualifiers in 4 places in MeshInterp files. !!!!!!!!!!!!!!!!!!!
-      */
       MomentType thisMoment = density;
       m_meshInterp.moment( box_rho,
                            box_list.listItems(),
@@ -672,15 +721,14 @@ void PicSpecies::setEnergyDensity()
     
    const DisjointBoxLayout& grids = m_energy.disjointBoxLayout();
    for(DataIterator dit(grids); dit.ok(); ++dit) {
-
+      
       FArrayBox& box_ene = m_energy[dit];
-      //box_ene.setVal(0.0);
+      box_ene.setVal(0.0);
       for (auto n=0; n<m_energy.nComp(); n++) {
          SpaceUtils::setVal(box_ene,0.0,n);
       }
       const ListBox<JustinsParticle>& box_list = m_data[dit];
       
-      //MomentType thisMoment = energyOld;
       MomentType thisMoment = energy;
       m_meshInterp.moment( box_ene,
                            box_list.listItems(),
@@ -690,6 +738,35 @@ void PicSpecies::setEnergyDensity()
    }
    m_energy.exchange(); 
      
+}
+
+void PicSpecies::setCurrentDensity()
+{
+   CH_TIME("PicParticle::setCurentDensity()");
+    
+   CH_assert(m_data.isClosed());
+  
+   const DisjointBoxLayout& grids = m_testDeposit.getBoxes();
+   DataIterator dit = grids.dataIterator();
+   for(dit.begin(); dit.ok(); ++dit) {
+      
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
+      const List<JustinsParticle>& pList = box_list.listItems();
+      
+      FArrayBox& this_J = m_testDeposit[dit];
+      this_J.setVal(0.0);
+      
+      InterpType thisInterp = CIC;
+      m_meshInterp.deposit( box_list.listItems(), 
+                            this_J,
+                            thisInterp ); 
+
+   }
+   
+   // add ghost cells to valid cells
+   LDaddOp<FArrayBox> addOp;
+   m_testDeposit.exchange(m_testDeposit.interval(), m_mesh.reverseCopier(), addOp);
+  
 }
 
 void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )

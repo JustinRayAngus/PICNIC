@@ -1281,6 +1281,58 @@ SpaceUtils::localVectorNorm(  FArrayBox& a_dst,
 }
 
 void
+SpaceUtils::exchangeFluxBox( LevelData<FluxBox>& a_Face )
+{
+   CH_TIME("SpaceUtils::exchangeFluxBox()");
+   
+   const DisjointBoxLayout& grids( a_Face.getBoxes() );
+   DataIterator dit = grids.dataIterator();
+
+   // copy to a temporary
+   //
+   LevelData<FluxBox> tmp_Face(grids, a_Face.nComp());
+   for (dit.begin(); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; ++dir) { 
+         const FArrayBox& Face_on_dir     = a_Face[dit][dir]; 
+               FArrayBox& tmp_Face_on_dir = tmp_Face[dit][dir]; 
+         copy(tmp_Face_on_dir,Face_on_dir);
+      }
+   }
+
+   // call exchange on passed FluxBox
+   //
+   //const IntVect ghostVect = a_Face.ghostVect();
+   //if(ghostVect!=IntVect::Zero) a_Face.exchange();
+   a_Face.exchange();
+
+   // now use the original data stored in temp to modify
+   // the exchanged Face data. In this example, I'm copying data
+   // on the low-side grid edge from temp->Face, which has the
+   // effect of declaring the high-side value on the shared edge
+   // to be the "correct" value
+
+   for (dit.begin(); dit.ok(); ++dit) {
+
+      const Box& gridBox = grids[dit];
+      FluxBox& thisTemp = tmp_Face[dit];
+      FluxBox& thisFace = a_Face[dit];
+
+      for (int dir=0; dir<SpaceDim; dir++) {
+        
+         // define a face-centered box on the low-side of this
+         // grid box
+         Box loFaceBox=thisTemp[dir].box();
+         loFaceBox.setBig(dir,loFaceBox.smallEnd(dir));
+
+         copy(thisFace[dir],thisTemp[dir],loFaceBox);
+
+      } // end loop over directions
+
+   } // end loop over grids on this level
+
+}
+
+void
 SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
 {
    CH_TIME("SpaceUtils::exchangeEdgeDataBox()");
@@ -1304,7 +1356,7 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
    a_Edge.exchange();
 
    // now use the original data stored in temp to modify
-   // the exchanged Edge data. In this example, I'm copying data on
+   // the exchanged Edge data. In this example, I'm copying data
    // on the low-side grid edge from temp->Edge, which has the
    // effect of declaring the high-side value on the shared edge
    // to be the "correct" value
@@ -1314,25 +1366,23 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
       EdgeDataBox& thisTemp = tmp_Edge[dit];
       EdgeDataBox& thisEdge = a_Edge[dit];
 
-      //cout << "gridBox = " << gridBox << endl;
-      //cout << "bdryLo0 = " << bdryLo(gridBox,0,1) << endl;
-      //cout << "bdryLo1 = " << bdryLo(gridBox,1,1) << endl;
-      //cout << "adjCellLo0 = " << adjCellLo(gridBox,0,1) << endl;
-      //cout << "adjCellLo1 = " << adjCellLo(gridBox,1,1) << endl;
-
       for (int dir=0; dir<SpaceDim; dir++) {
          // define a edge-centered box on the low-side of this
          // grid box
-         Box loEdgeBox;
-         if(dir==0) loEdgeBox = bdryLo(gridBox, 1, 1); 
-         if(dir==1) loEdgeBox = bdryLo(gridBox, 0, 1); 
-  
-         // now copy from temp->Edge on the low edge.
-         // we can be a bit cavalier about this, because
-         // on the edges which are not shared between grids,
-         // exchange shouldn't have changed anything anyway
-         //thisEdge[dir].copy(thisTemp[dir],loEdgeBox);
-         copy(thisEdge[dir],thisTemp[dir],loEdgeBox);
+         for (int dir0=0; dir0<SpaceDim; dir0++) {
+             if(dir0!=dir) {
+                Box loEdgeBox=thisTemp[dir].box();
+                loEdgeBox.setBig(dir0,loEdgeBox.smallEnd(dir0));
+ 
+                // now copy from temp->Edge on the low edge.
+                // we can be a bit cavalier about this, because
+                // on the edges which are not shared between grids,
+                // exchange shouldn't have changed anything anyway
+                //thisEdge[dir].copy(thisTemp[dir],loEdgeBox);
+                copy(thisEdge[dir],thisTemp[dir],loEdgeBox);
+             }
+         }
+
       } // end loop over directions
 
    } // end loop over grids on this level

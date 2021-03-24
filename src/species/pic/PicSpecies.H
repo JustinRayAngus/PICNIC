@@ -10,6 +10,8 @@
 #include "ParmParse.H"
 #include "FArrayBox.H"
 #include "FluxBox.H"
+#include "EdgeDataBox.H"
+#include "NodeFArrayBox.H"
 #include "LevelData.H"
 #include "DomainGrid.H"
 #include "RealVect.H"
@@ -104,6 +106,20 @@ public:
   }
   
   void setEnergyDensity();
+  
+  // ways to get/set current density member
+  //
+  void currentDensity( LevelData<FArrayBox>&  a_currentDensity );
+  
+  const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
+  const LevelData<EdgeDataBox>& getCurrentDensity( const bool&  setData )
+  { 
+    if(setData) setCurrentDensity();
+    return m_currentDensity;
+  }
+  
+  void setCurrentDensity();
+  const LevelData<FArrayBox>& getTestDeposit() const {return m_testDeposit;}
  
   // advance particle positions
   //
@@ -159,6 +175,13 @@ private:
   mutable LevelData<FArrayBox> m_momentum;    // mean momentum density at cell center
   mutable LevelData<FArrayBox> m_energy;      // mean energy density at cell center
   
+  // define containers for current density
+  mutable LevelData<EdgeDataBox> m_currentDensity;          
+  mutable LevelData<FluxBox> m_currentDensity_virtFor1D;        // needed for 1D simulations
+  mutable LevelData<NodeFArrayBox> m_currentDensity_virtFor2D;  // needed for 2D simulations
+  //mutable BoxLayoutData<FArrayBox> m_testBLD;          
+  mutable LevelData<FArrayBox> m_testDeposit;          
+
   // physical quantities
   //
   mutable LevelData<FArrayBox> m_temperature; // temperature at cell center

@@ -10,6 +10,7 @@
 #include "ParmParse.H"
 #include "FArrayBox.H"
 #include "FluxBox.H"
+#include "EdgeDataBox.H"
 #include "LevelData.H"
 #include "ProblemDomain.H"
 #include "RealVect.H"
@@ -48,6 +49,10 @@ public:
  
   virtual const int ghosts() const { return m_ghosts; }
   
+  const Copier forwardCopier() const { return m_forwardCopier; }
+  
+  const Copier reverseCopier() const { return m_reverseCopier; }
+  
   virtual const double getMappedCellVolume() const { return m_mapped_cell_volume; }
   
   virtual const RealVect& getMappedFaceArea() const { return m_mapped_face_area; }
@@ -55,12 +60,17 @@ public:
   virtual const LevelData<FArrayBox>& getXcc() const {return m_Xcc;}
   
   virtual const LevelData<FluxBox>& getXfc() const {return m_Xfc;}
+  
+  virtual const LevelData<EdgeDataBox>& getXec() const {return m_Xec;}
 
 private:
   
   bool m_axisymmetric;
   int m_ghosts;
-  
+ 
+  Copier m_forwardCopier; 
+  Copier m_reverseCopier; 
+ 
   RealVect m_Xmin, m_Xmax, m_dX;
   double m_mapped_cell_volume;
   RealVect m_mapped_face_area;  
@@ -68,9 +78,9 @@ private:
   ProblemDomain m_domain;
   DisjointBoxLayout m_grids;
   
-  LevelData<FArrayBox> m_Xcc; // coords at cell center
-  LevelData<FluxBox> m_Xfc;
-  //LevelData<EdgeDataBox> m_edge_centered_real_coords;
+  LevelData<FArrayBox> m_Xcc;    // coords at cell center
+  LevelData<FluxBox> m_Xfc;      // coords on cell faces
+  LevelData<EdgeDataBox> m_Xec;  // coords on cell edges
 
   void setRealCoords();
 

@@ -19,6 +19,15 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
    m_grids  = a_grids;
    m_domain = a_domain;
    IntVect dimensions = a_domain.size(); 
+  
+   // standard ghost exchange copier
+   m_forwardCopier.define( m_grids, m_grids, 
+                           m_domain, m_ghosts*IntVect::Unit, true );
+
+   // a reversed version of the above
+   m_reverseCopier.define( m_grids, m_grids, 
+                           m_domain, m_ghosts*IntVect::Unit, true );
+   m_reverseCopier.reverse();
 
    a_ppgrid.get("X_min", m_Xmin[0]);
    a_ppgrid.get("X_max", m_Xmax[0]);
@@ -88,6 +97,7 @@ void DomainGrid::setRealCoords()
    IntVect ghostVect = m_ghosts*IntVect::Unit;
    m_Xcc.define(m_grids,SpaceDim,ghostVect);
    m_Xfc.define(m_grids,SpaceDim,ghostVect);
+   m_Xec.define(m_grids,SpaceDim,ghostVect);
 
    for(DataIterator dit(m_grids); dit.ok(); ++dit) {
       
@@ -107,6 +117,17 @@ void DomainGrid::setRealCoords()
       
          for (int tdir=0; tdir<SpaceDim; ++tdir) {
             m_Xfc[dit][dir].plus(m_Xmin[tdir],tdir,1);
+         }
+      }
+       
+      for (int dir=0; dir<SpaceDim; ++dir) {
+         FORT_GET_EC_MAPPED_COORDS( CHF_BOX(m_Xec[dit][dir].box()),
+                                    CHF_CONST_INT(dir),
+                                    CHF_CONST_REALVECT(m_dX),
+                                    CHF_FRA(m_Xec[dit][dir]) );
+      
+         for (int tdir=0; tdir<SpaceDim; ++tdir) {
+            m_Xec[dit][dir].plus(m_Xmin[tdir],tdir,1);
          }
       }
 

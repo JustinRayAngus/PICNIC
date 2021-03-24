@@ -30,20 +30,22 @@ dataFileIO::dataFileIO( ParmParse&   a_pp,
 
 void dataFileIO::writeMeshDataFile()
 {
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
 
    if(!procID()) cout << "writing mesh data file ..." << endl << endl;
+   const ProblemDomain& domain(m_mesh.getDomain());
 
 #ifdef CH_USE_HDF5
 
-   //char iter_str[100];
    const std::string plotFileName = "mesh.h5";
    HDF5Handle handle( plotFileName.c_str(), HDF5Handle::CREATE );
   
    handle.setGroup("/");
 
-   // write the header stuff
    //
-
+   // write the default header
+   //
+  
    // set the component names
    HDF5HeaderData header;
 
@@ -72,61 +74,76 @@ void dataFileIO::writeMeshDataFile()
    header.m_int["num_components"] = numMeshComps;
 
    header.writeToFile(handle);
-   //handle.close();
 
-   // now write the data
    //
+   // write the cell centered grid data
+   //
+   
+   const LevelData<FArrayBox>& gridOnCells(m_mesh.getXcc());
+   
+   const std::string group1Name= std::string("cell_centered_grid");
+   handle.setGroup(group1Name);
 
-   // setup the level string
-   char levelStr[20];
-   const int this_level = 0;
-   sprintf(levelStr,"%d",this_level);
-   const std::string label = std::string("level_") + levelStr;
-  
-   handle.setGroup(label);
-   //header.m_real["dx"] = m_dX[1]; 
-
-   const ProblemDomain& domain(m_mesh.getDomain());
+   header.clear();
+   header.m_int["num_components"] = gridOnCells.nComp();
    header.m_box["prob_domain"] = domain.domainBox(); 
    header.writeToFile(handle);
 
-   // write the grid data
-   //
-   //DomainGrid* mesh = DomainGrid::mesh;
-   //DisjointBoxLayout& grids = mesh->m_grids;
-   //const DisjointBoxLayout& grids(m_mesh.getDBL());
-   const LevelData<FArrayBox>& outputData(m_mesh.getXcc());
    
-   //LevelData<FArrayBox> outputData;
-   //outputData.define(grids, SpaceDim, IntVect::Zero);   
-   //m_DomainGrid.getXphys(outputData);
-   //m_fieldNew.copyTo(Interval(0, SpaceDim - 1), outputData, Interval(0, SpaceDim - 1));
+   write(handle, gridOnCells.boxLayout());
+   write(handle, gridOnCells, "data", gridOnCells.ghostVect());
+   
+   //
+   // write the face centered grid data
+   //
+   
+   const LevelData<FluxBox>& gridOnFaces(m_mesh.getXfc());
 
-   write(handle, outputData.boxLayout());
-   write(handle, outputData, "data", outputData.ghostVect());
+   const std::string group2Name = std::string("face_centered_grid");
+   handle.setGroup(group2Name);
    
-   // now write some more data
+   header.clear();
+   header.m_int["is_fluxbox"] = 1;
+   header.m_int["num_components"] = gridOnFaces.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(handle);
+   
+   write(handle, gridOnFaces.boxLayout());
+   write(handle, gridOnFaces, "data", gridOnFaces.ghostVect());
+   
    //
+   // write the edge centered grid data
+   //
+   // Some issue with with writing edge data box...
+   //
+ 
    /*
-   const LevelData<FluxBox>& outputData2(m_mesh.getXfc());
-   const std::string label1 = std::string("level_1");
-   handle.setGroup(label1);
-   header.m_int["num_components"] = outputData2.nComp();
+   const LevelData<EdgeDataBox>& gridOnEdges(m_mesh.getXec());
+   
+   //const DisjointBoxLayout& grids = gridOnEdges.getBoxes();
+   //if(!procID()) cout << "gridOnEdges.nComp() = " << gridOnEdges.nComp() << endl;
+   //for(DataIterator dit(grids); dit.ok(); ++dit) {
+   //   cout << "procID() = " << procID() << endl;
+   //   cout << "box() " << grids.get(dit) << endl;
+   //   for(int dir=0; dir<SpaceDim; dir++) {
+   //      cout << "dir =  " << dir << " box = " << gridOnEdges[dit][dir].box() << endl;
+   //   }
+   //}
+   
+   const std::string group3Name = std::string("edge_centered_grid");
+   handle.setGroup(group3Name);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = gridOnEdges.nComp();
    header.m_box["prob_domain"] = domain.domainBox(); 
    header.writeToFile(handle);
-   */
-   //LevelData<FArrayBox> outputData2comp1;
-   //outputData2comp1.define(grids,1,IntVect::Unit);
-   //for(DataIterator dit(grids); dit.ok(); ++dit) {
-   //   outputData2comp1[dit].copy(outputData2[dit][0],0,0,1); 
-   //}
-   //write(handle, outputData2comp1.boxLayout());
-   //write(handle, outputData2comp1, "data",IntVect::Unit);
-   //write(handle, outputData2.boxLayout());
-   //write(handle, outputData2,"data",outputData2.ghostVect());
    
+   write(handle, gridOnEdges.boxLayout());
+   write(handle, gridOnEdges, "data", gridOnEdges.ghostVect());
+   */
+ 
    // close the handle
-   //
    handle.close();
    
 #else
@@ -197,13 +214,16 @@ void dataFileIO::writeParticleDataFile( const PicSpecies&  a_picSpecies,
 {
    CH_TIME("dataFileIO::writeParticleDataFile()");
    
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+   
    // get references to particle data   
    const ParticleData<JustinsParticle>& a_Pdata = a_picSpecies.partData();
    
    // It is the job of the caller to maker sure the moments are set
-   const LevelData<FArrayBox>& a_density  = a_picSpecies.getNumberDensity();
-   const LevelData<FArrayBox>& a_momentum = a_picSpecies.getMomentumDensity();
-   const LevelData<FArrayBox>& a_energy   = a_picSpecies.getEnergyDensity();
+   const LevelData<FArrayBox>& density  = a_picSpecies.getNumberDensity();
+   const LevelData<FArrayBox>& momentum = a_picSpecies.getMomentumDensity();
+   const LevelData<FArrayBox>& energy   = a_picSpecies.getEnergyDensity();
+   const LevelData<FArrayBox>& current  = a_picSpecies.getTestDeposit();
    
    if(!procID()) {
       cout << "writing particle data file" << endl;
@@ -248,14 +268,19 @@ void dataFileIO::writeParticleDataFile( const PicSpecies&  a_picSpecies,
 
    // first write header for mesh data
    //
-   int numMeshComps = a_density.nComp() + a_momentum.nComp() + a_energy.nComp();
+   int numMeshComps = density.nComp() + momentum.nComp() + energy.nComp();
+   numMeshComps = numMeshComps + current.nComp();
    vectNames.push_back("density");
-   for (int dir=0; dir<a_momentum.nComp(); dir++) {
+   for (int dir=0; dir<momentum.nComp(); dir++) {
       sprintf(field_name, "momentumDensity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   for (int dir=0; dir<a_energy.nComp(); dir++) {
+   for (int dir=0; dir<energy.nComp(); dir++) {
       sprintf(field_name, "energyDensity_%c", coords[dir]);
+      vectNames.push_back(field_name);
+   }
+   for (int dir=0; dir<current.nComp(); dir++) {
+      sprintf(field_name, "currentDensity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
    for(int i=0; i<numMeshComps; i++) {
@@ -331,22 +356,26 @@ void dataFileIO::writeParticleDataFile( const PicSpecies&  a_picSpecies,
 
    // write the moment data
    LevelData<FArrayBox> momentData;
-   momentData.define(grids,numMeshComps,a_density.ghostVect());
+   momentData.define(grids,numMeshComps,density.ghostVect());
    int compData = 0;
    for(DataIterator dit(grids); dit.ok(); ++dit) {
-      momentData[dit].copy(a_density[dit],0,compData,1);
+      momentData[dit].copy(density[dit],0,compData,1);
       compData = compData + 1;
-      for (int dir=0; dir<a_momentum.nComp(); dir++) { 
-         momentData[dit].copy(a_momentum[dit],dir,compData,1);
+      for (int dir=0; dir<momentum.nComp(); dir++) { 
+         momentData[dit].copy(momentum[dit],dir,compData,1);
          compData = compData + 1;
       } 
-      for (int dir=0; dir<a_energy.nComp(); dir++) { 
-         momentData[dit].copy(a_energy[dit],dir,compData,1);
+      for (int dir=0; dir<energy.nComp(); dir++) { 
+         momentData[dit].copy(energy[dit],dir,compData,1);
+         compData = compData + 1;
+      } 
+      for (int dir=0; dir<current.nComp(); dir++) { 
+         momentData[dit].copy(current[dit],dir,compData,1);
          compData = compData + 1;
       } 
    }
    write(handleParts, momentData.boxLayout());
-   write(handleParts, momentData, "data", a_density.ghostVect());
+   write(handleParts, momentData, "data", density.ghostVect());
 
    handleParts.close();
    

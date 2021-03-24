@@ -103,10 +103,11 @@ private:
   /// a wrapper function that deposits a single particle using the 
   /// interpolating functions defined in MeshInterpF.ChF
   void depositParticle(FArrayBox& a_rho,
-                       const RealVect& a_domainLeftEdge,
-                       const RealVect&     a_dx,
-                       const RealVect& a_position,
-                       const Real&     a_strength,
+                       const RealVect&  a_domainLeftEdge,
+                       const RealVect&  a_dx,
+                       const RealVect&  a_position,
+                       const Real&      a_strength,
+                       const IntVect&   a_stag,
                        const InterpType a_interpType) const; // JRA const;
   
   /// a wrapper function that interpolates the field to a single

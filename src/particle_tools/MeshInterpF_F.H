@@ -187,6 +187,7 @@ void FORTRAN_NAME( CIC_DEPOSIT ,cic_deposit )(
       ,CHFp_CONST_REALVECT(left_edge)
       ,CHFp_CONST_REALVECT(dx)
       ,CHFp_CONST_REALVECT(x)
+      ,CHFp_CONST_INTVECT(stag)
       ,CHFp_CONST_REAL(q) );
 
 #define FORT_CIC_DEPOSIT FORTRAN_NAME( inlineCIC_DEPOSIT, inlineCIC_DEPOSIT)
@@ -197,6 +198,7 @@ inline void FORTRAN_NAME(inlineCIC_DEPOSIT, inlineCIC_DEPOSIT)(
       ,CHFp_CONST_REALVECT(left_edge)
       ,CHFp_CONST_REALVECT(dx)
       ,CHFp_CONST_REALVECT(x)
+      ,CHFp_CONST_INTVECT(stag)
       ,CHFp_CONST_REAL(q) )
 {
  CH_TIMELEAF("FORT_CIC_DEPOSIT");
@@ -205,6 +207,7 @@ inline void FORTRAN_NAME(inlineCIC_DEPOSIT, inlineCIC_DEPOSIT)(
       ,CHFt_CONST_REALVECT(left_edge)
       ,CHFt_CONST_REALVECT(dx)
       ,CHFt_CONST_REALVECT(x)
+      ,CHFt_CONST_INTVECT(stag)
       ,CHFt_CONST_REAL(q) );
 }
 #endif  // GUARDCIC_DEPOSIT 

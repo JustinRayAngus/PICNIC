@@ -453,11 +453,12 @@ void System::writePlotFile( const int     a_cur_step,
 
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
   
-      const bool setMoments = true;
       this_picSpecies->setNumberDensity();
       this_picSpecies->setMomentumDensity();
       this_picSpecies->setEnergyDensity();
-      
+
+      this_picSpecies->setCurrentDensity();      
+
       m_dataFile->writeParticleDataFile( *this_picSpecies, 
                                          s+1, a_cur_step, a_cur_time );
    

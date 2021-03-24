@@ -14,11 +14,16 @@
 #include "NamespaceHeader.H"
 
 template <class P>
-void MeshInterp::deposit(const List<P>& a_particleList,
-                         FArrayBox& a_rho,
-                         InterpType& a_interpType) const // JRA const
+void MeshInterp::deposit( const List<P>&  a_particleList,
+                          FArrayBox&      a_rho,
+                          InterpType&     a_interpType ) const // JRA const
 {
   CH_TIME("MeshInterp::deposit()");
+ 
+  const IntVect stag = a_rho.box().type();
+  //for (int dir=0; dir<SpaceDim; dir++) {
+     //cout << "JRA a_rho.box().type() = " << stag0[dir] << endl;
+  //}
   for (ListIterator<P> lit(a_particleList); lit; ++lit)
   {
     const P& this_particle = lit();
@@ -28,7 +33,8 @@ void MeshInterp::deposit(const List<P>& a_particleList,
                     m_domainLeftEdge, 
                     m_dx, 
                     this_x, 
-                    this_w, 
+                    this_w,
+                    stag, 
                     a_interpType);
   }
 }
