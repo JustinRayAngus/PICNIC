@@ -186,8 +186,9 @@ c
      &                       CHF_FRA1[rho],
      &                       CHF_CONST_REALVECT[left_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[x],
+     &                       CHF_CONST_REALVECT[xp],
      &                       CHF_CONST_INTVECT[stag],
+     &                       CHF_CONST_REAL[kernal], 
      &                       CHF_CONST_REAL[q]) 
 
       integer index(0:CH_SPACEDIM - 1)
@@ -204,19 +205,19 @@ c     compute the cell volume and particle density on the grid
 c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
       do idir = 0, CH_SPACEDIM - 1
-c        index(idir) = floor((x(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index(idir) = floor((x(idir) - left_edge(idir) - 0.5d0*dX(idir)*(1.0-stag(idir))) / dx(idir))
+c        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dX(idir)*(1.0-stag(idir))) / dx(idir))
       enddo
 
 c     loop over all the cells containing this particle cloud,
 c     computing weight and assigning mass
       CHF_DTERM[
       do ii = index(0), index(0) + 1
-        l0 = ii*dx(0) + 0.5d0*dx(0) - x(0) + left_edge(0);
+        l0 = ii*dx(0) + 0.5d0*dx(0)*(1.0-stag(0)) - xp(0) + left_edge(0);
         do jj = index(1), index(1) + 1
-          l1 = jj*dx(1) + 0.5d0*dx(1) - x(1) + left_edge(1);
+          l1 = jj*dx(1) + 0.5d0*dx(1)*(1.0-stag(1)) - xp(1) + left_edge(1);
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2) - x(2) + left_edge(2)]
+            l2 = kk*dx(2) + 0.5d0*dx(2)*(1.0-stag(2)) - xp(2) + left_edge(2)]
 
             CHF_DTERM[ 
             w0 = 1.d0 - abs(l0 / dx(0));
@@ -226,7 +227,7 @@ c     computing weight and assigning mass
             weight = CHF_DTERM[w0; *w1; *w2]
 
             rho(CHF_IX[ii; jj; kk]) = 
-     &      rho(CHF_IX[ii; jj; kk]) + particle_rho * weight
+     &      rho(CHF_IX[ii; jj; kk]) + kernal * particle_rho * weight
 
       CHF_DTERM[
           enddo;

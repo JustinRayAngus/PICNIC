@@ -457,13 +457,21 @@ void System::writePlotFile( const int     a_cur_step,
       this_picSpecies->setMomentumDensity();
       this_picSpecies->setEnergyDensity();
 
-      this_picSpecies->setCurrentDensity();      
+      if(this_picSpecies->charge() == 0) {
+         m_dataFile->writeNeutralSpeciesDataFile( *this_picSpecies, 
+                                                  s+1, a_cur_step, a_cur_time );
+      }
+      else {
+         this_picSpecies->setChargeDensity();      
+         this_picSpecies->setChargeDensityOnFaces();      
+         this_picSpecies->setCurrentDensity();      
+         m_dataFile->writeChargedSpeciesDataFile( *this_picSpecies, 
+                                                  s+1, a_cur_step, a_cur_time );
+      }
 
-      m_dataFile->writeParticleDataFile( *this_picSpecies, 
-                                         s+1, a_cur_step, a_cur_time );
-   
-      //m_dataFile->writeFieldDataFile();
    }
+   
+   //m_dataFile->writeFieldDataFile();
    
 }
 

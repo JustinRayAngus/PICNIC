@@ -11,6 +11,7 @@
 #include "FArrayBox.H"
 #include "FluxBox.H"
 #include "EdgeDataBox.H"
+#include "NodeFArrayBox.H"
 #include "LevelData.H"
 #include "ProblemDomain.H"
 #include "RealVect.H"
@@ -62,6 +63,8 @@ public:
   virtual const LevelData<FluxBox>& getXfc() const {return m_Xfc;}
   
   virtual const LevelData<EdgeDataBox>& getXec() const {return m_Xec;}
+  
+  virtual const LevelData<NodeFArrayBox>& getXnc() const {return m_Xnc;}
 
 private:
   
@@ -78,9 +81,10 @@ private:
   ProblemDomain m_domain;
   DisjointBoxLayout m_grids;
   
-  LevelData<FArrayBox> m_Xcc;    // coords at cell center
-  LevelData<FluxBox> m_Xfc;      // coords on cell faces
-  LevelData<EdgeDataBox> m_Xec;  // coords on cell edges
+  LevelData<FArrayBox> m_Xcc;     // coords at cell center
+  LevelData<FluxBox> m_Xfc;       // coords at cell faces
+  LevelData<EdgeDataBox> m_Xec;   // coords at cell edges
+  LevelData<NodeFArrayBox> m_Xnc; // coords at cell nodes
 
   void setRealCoords();
 

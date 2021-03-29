@@ -16,14 +16,15 @@
 template <class P>
 void MeshInterp::deposit( const List<P>&  a_particleList,
                           FArrayBox&      a_rho,
-                          InterpType&     a_interpType ) const // JRA const
+                          const InterpType&     a_interpType ) const // JRA const
 {
   CH_TIME("MeshInterp::deposit()");
- 
+
+  // user-specified way for interpolating particle density to 
+  // grid points in a FArrayBox
+
+  const Real this_kernal = 1.0; 
   const IntVect stag = a_rho.box().type();
-  //for (int dir=0; dir<SpaceDim; dir++) {
-     //cout << "JRA a_rho.box().type() = " << stag0[dir] << endl;
-  //}
   for (ListIterator<P> lit(a_particleList); lit; ++lit)
   {
     const P& this_particle = lit();
@@ -34,9 +35,45 @@ void MeshInterp::deposit( const List<P>&  a_particleList,
                     m_dx, 
                     this_x, 
                     this_w,
+                    this_kernal,
                     stag, 
                     a_interpType);
   }
+
+}
+
+template <class P>
+void MeshInterp::depositVelocity( FArrayBox&   a_rhoV,
+                            const int          a_dir,
+                            const List<P>&     a_particleList,
+                            const InterpType&  a_interpType,
+                            const int          a_comp ) const
+{
+  CH_TIME("MeshInterp::depositVelocity()");
+
+  CH_assert(a_dir<3);
+  
+  // user-specified way for interpolating particle velocity density to 
+  // grid points in a FArrayBox (used for current density calc)
+
+  const IntVect stag = a_rhoV.box().type();
+  for (ListIterator<P> lit(a_particleList); lit; ++lit)
+  {
+    const P& this_particle = lit();
+    const RealVect& this_x = this_particle.position();
+    const Real& this_kernal = this_particle.velocity(a_dir); 
+    const Real& this_w = this_particle.weight();
+    depositParticle(a_rhoV, 
+                    m_domainLeftEdge, 
+                    m_dx, 
+                    this_x, 
+                    this_w,
+                    this_kernal,
+                    stag, 
+                    a_interpType,
+                    a_comp);
+  }
+
 }
 
 template <class P>

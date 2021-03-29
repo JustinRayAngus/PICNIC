@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include "BoxIterator.H"
+#include "SpaceUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -98,9 +99,11 @@ void DomainGrid::setRealCoords()
    m_Xcc.define(m_grids,SpaceDim,ghostVect);
    m_Xfc.define(m_grids,SpaceDim,ghostVect);
    m_Xec.define(m_grids,SpaceDim,ghostVect);
+   m_Xnc.define(m_grids,SpaceDim,ghostVect);
 
    for(DataIterator dit(m_grids); dit.ok(); ++dit) {
       
+      // set the coords at cell center
       FORT_GET_CC_MAPPED_COORDS( CHF_BOX(m_Xcc[dit].box()),
                                  CHF_CONST_REALVECT(m_dX),
                                  CHF_FRA(m_Xcc[dit]) );
@@ -109,6 +112,7 @@ void DomainGrid::setRealCoords()
          m_Xcc[dit].plus(m_Xmin[dir],dir,1);
       }
    
+      // set the coords at cell faces
       for (int dir=0; dir<SpaceDim; ++dir) {
          FORT_GET_FC_MAPPED_COORDS( CHF_BOX(m_Xfc[dit][dir].box()),
                                     CHF_CONST_INT(dir),
@@ -120,6 +124,7 @@ void DomainGrid::setRealCoords()
          }
       }
        
+      // set the coords at cell edges
       for (int dir=0; dir<SpaceDim; ++dir) {
          FORT_GET_EC_MAPPED_COORDS( CHF_BOX(m_Xec[dit][dir].box()),
                                     CHF_CONST_INT(dir),
@@ -130,9 +135,19 @@ void DomainGrid::setRealCoords()
             m_Xec[dit][dir].plus(m_Xmin[tdir],tdir,1);
          }
       }
+      //if(!procID()) cout << "JRA: m_Xcc.box() = " << m_Xcc[dit].box() << endl;      
+      //if(!procID()) cout << "JRA: m_Xnc.box() = " << m_Xnc[dit].box() << endl;      
+      // set the coords at cell nodes
+      FORT_GET_NC_MAPPED_COORDS( CHF_BOX(surroundingNodes(m_Xnc[dit].box())),
+                                 CHF_CONST_REALVECT(m_dX),
+                                 CHF_FRA(m_Xnc[dit]) );
+      
+      for (int dir=0; dir<SpaceDim; ++dir) {
+         m_Xnc[dit].plus(m_Xmin[dir],dir,1);
+      }
 
    }
- 
+   
 }
 
 

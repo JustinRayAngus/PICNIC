@@ -47,9 +47,16 @@ public:
   /// Deposit the particles in a_particleList onto a_rho.
   /// The type of interpolation to perform is passed in as an argument.
   template <class P>
-  void deposit(const List<P>& a_particleList,
-               FArrayBox& a_rho,
-               InterpType& a_interpType) const; // JRA const
+  void deposit(const List<P>&  a_particleList,
+               FArrayBox&      a_rho,
+               const InterpType&  a_interpType) const; // JRA const
+  
+  template <class P>
+  void depositVelocity( FArrayBox&   a_rhoV,
+                  const int          a_dir,
+                  const List<P>&     a_particleList,
+                  const InterpType&  a_interpType,
+                  const int          a_comp=0 ) const;
   
   /// Interpolate the field given by a_field onto the particles in a_particleList.
   /// a_field must have SpaceDim components. The type of interpolation to perform
@@ -83,14 +90,14 @@ private:
   /// a wrapper function that deposits the contribution of a single 
   //  particle to the specified moment using the 
   /// interpolating functions defined in MeshInterpF.ChF
-  void momentParticle( FArrayBox&  a_moment,
-                 const RealVect&   a_domainLeftEdge,
-                 const RealVect&   a_dx,
-                 const RealVect&   a_position,
+  void momentParticle( FArrayBox&   a_moment,
+                 const RealVect&    a_domainLeftEdge,
+                 const RealVect&    a_dx,
+                 const RealVect&    a_position,
                  const std::array<Real,3>&   a_velocity,
-                 const Real&       a_species_mass,
-                 const Real&       a_weight,
-                 const MomentType  a_momentType ) const; // JRA const;
+                 const Real&        a_species_mass,
+                 const Real&        a_weight,
+                 const MomentType&  a_momentType ) const; // JRA const;
 
   void setParticleWeight( Real&       a_weight,
                     const Real&       a_partsPerCell,
@@ -102,13 +109,15 @@ private:
 
   /// a wrapper function that deposits a single particle using the 
   /// interpolating functions defined in MeshInterpF.ChF
-  void depositParticle(FArrayBox& a_rho,
-                       const RealVect&  a_domainLeftEdge,
-                       const RealVect&  a_dx,
-                       const RealVect&  a_position,
-                       const Real&      a_strength,
-                       const IntVect&   a_stag,
-                       const InterpType a_interpType) const; // JRA const;
+  void depositParticle( FArrayBox&   a_rho,
+                  const RealVect&    a_domainLeftEdge,
+                  const RealVect&    a_dx,
+                  const RealVect&    a_position,
+                  const Real&        a_weight,
+                  const Real&        a_kernal,
+                  const IntVect&     a_stag,
+                  const InterpType&  a_interpType,
+                  const int          a_comp=0) const; // JRA const;
   
   /// a wrapper function that interpolates the field to a single
   /// particle position using the interpolating functions defined in

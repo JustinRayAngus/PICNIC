@@ -70,10 +70,12 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    m_momentum.define(grids,3,ghostVect);
    m_energy.define(grids,3,ghostVect); // direction-depenent energy
 
-   m_currentDensity.define(grids,SpaceDim,ghostVect);    // EdgeDataBox with SpaceDim comps
-   m_currentDensity_virtFor2D.define(grids,1,ghostVect); // NodeFArrayBox with 1 comp
-   m_currentDensity_virtFor1D.define(grids,2,ghostVect); // FluxBox with 2 comps
-   m_testDeposit.define(grids,1,ghostVect);
+   m_currentDensity.define(grids,1,ghostVect);           // EdgeDataBox with 1 comp
+   if(SpaceDim<3) {
+      m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
+   }
+   m_chargeDensity.define(grids,1,ghostVect);
+   m_chargeDensity_FB.define(grids,1,ghostVect);
 
    m_temperature.define(grids,3,ghostVect);
    m_velocity.define(grids,3,ghostVect);
@@ -740,33 +742,142 @@ void PicSpecies::setEnergyDensity()
      
 }
 
-void PicSpecies::setCurrentDensity()
+void PicSpecies::setChargeDensity()
 {
-   CH_TIME("PicParticle::setCurentDensity()");
+   CH_TIME("PicParticle::setChargeDensity()");
     
    CH_assert(m_data.isClosed());
-  
-   const DisjointBoxLayout& grids = m_testDeposit.getBoxes();
+   CH_assert(m_charge != 0);
+      
+   const InterpType thisInterp = CIC;
+ 
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
    DataIterator dit = grids.dataIterator();
+
    for(dit.begin(); dit.ok(); ++dit) {
       
       const ListBox<JustinsParticle>& box_list = m_data[dit];
       const List<JustinsParticle>& pList = box_list.listItems();
       
-      FArrayBox& this_J = m_testDeposit[dit];
-      this_J.setVal(0.0);
+      // deposit on cells 
+      FArrayBox& this_rho = m_chargeDensity[dit];
+      this_rho.setVal(0.0);
       
-      InterpType thisInterp = CIC;
       m_meshInterp.deposit( box_list.listItems(), 
-                            this_J,
+                            this_rho,
                             thisInterp ); 
-
+      this_rho.mult(m_charge); 
+    
    }
    
    // add ghost cells to valid cells
    LDaddOp<FArrayBox> addOp;
-   m_testDeposit.exchange(m_testDeposit.interval(), m_mesh.reverseCopier(), addOp);
-  
+   m_chargeDensity.exchange(m_chargeDensity.interval(), m_mesh.reverseCopier(), addOp);
+   
+}
+
+void PicSpecies::setChargeDensityOnFaces()
+{
+   CH_TIME("PicParticle::setChargeDensityOnFaces()");
+    
+   CH_assert(m_data.isClosed());
+   CH_assert(m_charge != 0);
+      
+   const InterpType thisInterp = CIC;
+ 
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   DataIterator dit = grids.dataIterator();
+
+   for(dit.begin(); dit.ok(); ++dit) {
+      
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
+      const List<JustinsParticle>& pList = box_list.listItems();
+      
+      //  deposit on faces 
+      for( int dir=0; dir<SpaceDim; dir++) {
+         FArrayBox& this_rho = m_chargeDensity_FB[dit][dir];
+         this_rho.setVal(0.0);
+      
+         m_meshInterp.deposit( box_list.listItems(), 
+                               this_rho,
+                               thisInterp ); 
+         this_rho.mult(m_charge); 
+      }
+      
+   }
+   
+   // add ghost cells to valid cells
+   LDaddFaceOp<FluxBox> addFaceOp;
+   m_chargeDensity_FB.exchange(m_chargeDensity_FB.interval(), m_mesh.reverseCopier(), addFaceOp);
+   
+
+}
+
+void PicSpecies::setCurrentDensity()
+{
+   CH_TIME("PicParticle::setCurrentDensity()");
+    
+   CH_assert(m_data.isClosed());
+   CH_assert(m_charge != 0);
+      
+   const InterpType thisInterp = CIC;
+ 
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   DataIterator dit = grids.dataIterator();
+
+   for(dit.begin(); dit.ok(); ++dit) {
+      
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
+      const List<JustinsParticle>& pList = box_list.listItems();
+      
+      //  deposit on edges 
+      for( int dir=0; dir<SpaceDim; dir++) {
+         FArrayBox& this_J = m_currentDensity[dit][dir];
+         this_J.setVal(0.0);
+      
+         m_meshInterp.depositVelocity( this_J,
+                                       dir,
+                                       pList,
+                                       thisInterp ); 
+         this_J.mult(m_charge);
+      }
+      
+   }
+   
+   // add ghost cells to valid cells
+   LDaddEdgeOp<EdgeDataBox> addEdgeOp;
+   m_currentDensity.exchange(m_currentDensity.interval(), m_mesh.reverseCopier(), addEdgeOp);
+   
+   // 
+   // compute virtual current density for 2D sims
+   //
+   if(SpaceDim<3) {
+      
+      for(dit.begin(); dit.ok(); ++dit) {
+         FArrayBox& this_JonNodes = m_currentDensity_virtual[dit].getFab();
+         this_JonNodes.setVal(0.0);
+     
+         const ListBox<JustinsParticle>& box_list = m_data[dit];
+         const List<JustinsParticle>& pList = box_list.listItems();
+    
+         for (auto n=0; n<m_currentDensity_virtual.nComp(); n++) { 
+    
+            const int this_virt_dir = SpaceDim + n; // virtual velocity direction
+            m_meshInterp.depositVelocity( this_JonNodes,
+                                          this_virt_dir,
+                                          pList,
+                                          thisInterp,
+                                          n ); 
+         }
+         this_JonNodes.mult(m_charge);
+      }
+   
+      // add current density deposited on ghost cells to valid cells
+      LDaddNodeOp<NodeFArrayBox> addNodeOp;
+      m_currentDensity_virtual.exchange(m_currentDensity_virtual.interval(), 
+                                          m_mesh.reverseCopier(), addNodeOp);
+   }
+   
 }
 
 void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )

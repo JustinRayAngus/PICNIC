@@ -111,6 +111,7 @@ public:
   //
   void currentDensity( LevelData<FArrayBox>&  a_currentDensity );
   
+  void setCurrentDensity();
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<EdgeDataBox>& getCurrentDensity( const bool&  setData )
   { 
@@ -118,8 +119,12 @@ public:
     return m_currentDensity;
   }
   
-  void setCurrentDensity();
-  const LevelData<FArrayBox>& getTestDeposit() const {return m_testDeposit;}
+  const LevelData<NodeFArrayBox>& getCurrentDensity_virtual() const {return m_currentDensity_virtual;}
+  
+  void setChargeDensity();
+  void setChargeDensityOnFaces();
+  const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
+  const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_FB;}
  
   // advance particle positions
   //
@@ -177,10 +182,10 @@ private:
   
   // define containers for current density
   mutable LevelData<EdgeDataBox> m_currentDensity;          
-  mutable LevelData<FluxBox> m_currentDensity_virtFor1D;        // needed for 1D simulations
-  mutable LevelData<NodeFArrayBox> m_currentDensity_virtFor2D;  // needed for 2D simulations
+  mutable LevelData<NodeFArrayBox> m_currentDensity_virtual;  // needed for 1D/2D simulations
   //mutable BoxLayoutData<FArrayBox> m_testBLD;          
-  mutable LevelData<FArrayBox> m_testDeposit;          
+  mutable LevelData<FArrayBox> m_chargeDensity;          
+  mutable LevelData<FluxBox> m_chargeDensity_FB;          
 
   // physical quantities
   //

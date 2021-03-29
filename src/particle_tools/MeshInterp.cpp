@@ -32,13 +32,15 @@ void MeshInterp::define(const Box&  a_domain,
   m_dx = a_dx;
 }
 
-void MeshInterp::depositParticle( FArrayBox&  a_rho,
-                            const RealVect&   a_domainLeftEdge,
-                            const RealVect&   a_dx,
-                            const RealVect&   a_position,
-                            const Real&       a_weight,
-                            const IntVect&    a_stag,
-                            const InterpType  a_interpType) const // JRA const
+void MeshInterp::depositParticle( FArrayBox&   a_rho,
+                            const RealVect&    a_domainLeftEdge,
+                            const RealVect&    a_dx,
+                            const RealVect&    a_position,
+                            const Real&        a_weight,
+                            const Real&        a_kernal,
+                            const IntVect&     a_stag,
+                            const InterpType&  a_interpType,
+                            const int          a_comp ) const // JRA const
 
 {
   switch (a_interpType)
@@ -51,11 +53,12 @@ void MeshInterp::depositParticle( FArrayBox&  a_rho,
                        CHF_CONST_REAL(a_weight));
       break;
     case CIC:
-      FORT_CIC_DEPOSIT(CHF_FRA1(a_rho, 0),
+      FORT_CIC_DEPOSIT(CHF_FRA1(a_rho, a_comp),
                        CHF_CONST_REALVECT(a_domainLeftEdge),
                        CHF_CONST_REALVECT(a_dx),
                        CHF_CONST_REALVECT(a_position),
                        CHF_CONST_INTVECT(a_stag),
+                       CHF_CONST_REAL(a_kernal),
                        CHF_CONST_REAL(a_weight));
       break;
     case TSC:
@@ -124,14 +127,14 @@ void MeshInterp::interpolateParticle(RealVect& a_particleField,
 //
 //
 
-void MeshInterp::momentParticle( FArrayBox&  a_moment,
-                           const RealVect&   a_domainLeftEdge,
-                           const RealVect&   a_dx,
-                           const RealVect&   a_position,
+void MeshInterp::momentParticle( FArrayBox&   a_moment,
+                           const RealVect&    a_domainLeftEdge,
+                           const RealVect&    a_dx,
+                           const RealVect&    a_position,
                            const std::array<Real,3>&   a_velocity,
-                           const Real&       a_weight, 
-                           const Real&       a_species_mass, 
-                           const MomentType  a_momentType ) const // JRA const
+                           const Real&        a_weight, 
+                           const Real&        a_species_mass, 
+                           const MomentType&  a_momentType ) const // JRA const
 
 { 
   //CH_TIME("MeshInterp::momentParticle()"); // timer here seems to affect time spent here...
