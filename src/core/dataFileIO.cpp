@@ -384,7 +384,9 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
 void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                               const int          a_species,
                                               const int          a_cur_step,
-                                              const double       a_cur_time )
+                                              const double       a_cur_time,
+                                              const bool         a_writeChargeDensity,
+                                              const bool         a_writeCurrentDensity )
 {
    CH_TIME("dataFileIO::writeChargedSpeciesDataFile()");
    
@@ -398,7 +400,7 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
    const LevelData<FArrayBox>& momentum = a_picSpecies.getMomentumDensity();
    const LevelData<FArrayBox>& energy   = a_picSpecies.getEnergyDensity();
    // 
-   const LevelData<FArrayBox>& chargeDensity  = a_picSpecies.getChargeDensity();
+   //const LevelData<FArrayBox>& chargeDensity  = a_picSpecies.getChargeDensity();
    
    if(!procID()) {
       cout << "writing charged species data file" << endl;
@@ -408,17 +410,16 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
    
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
-   //const RealVect& meshSpacing(m_mesh.getdX());
    
    ///////////// 
    //
    //   write the particles
    //
-   //std::string plotFileNameParts = "parts.h5";
+   /////////////
+
    stringstream s;
    s << "species" << a_species; 
    std::string prefix = s.str();
-   //std::string prefix = "particle";
    std::string plotFileNameParts( plotFileName( prefix,
                                                 "parts",
                                                 a_cur_step ) );
@@ -444,7 +445,7 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
    // first write header for mesh data
    //
    int numMeshComps = density.nComp() + momentum.nComp() + energy.nComp();
-   numMeshComps = numMeshComps + chargeDensity.nComp();
+   numMeshComps = numMeshComps; // + chargeDensity.nComp();
    vectNames.push_back("density");
    for (int dir=0; dir<momentum.nComp(); dir++) {
       sprintf(field_name, "momentumDensity_%c", coords[dir]);
@@ -454,7 +455,7 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
       sprintf(field_name, "energyDensity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   vectNames.push_back("chargeDensity");
+   //vectNames.push_back("chargeDensity");
    for(int i=0; i<numMeshComps; i++) {
       sprintf(comp_name,"component_%d", i);
       headerParts.m_string[comp_name] = vectNames[i];
@@ -541,66 +542,92 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
          momentData[dit].copy(energy[dit],dir,compData,1);
          compData = compData + 1;
       } 
-      for (int dir=0; dir<chargeDensity.nComp(); dir++) { 
-         momentData[dit].copy(chargeDensity[dit],dir,compData,1);
-         compData = compData + 1;
-      } 
+      //for (int n=0; n<chargeDensity.nComp(); n++) { 
+      //   momentData[dit].copy(chargeDensity[dit],n,compData,1);
+      //   compData = compData + 1;
+      //} 
    }
    write(handleParts, momentData.boxLayout());
    write(handleParts, momentData, "data", density.ghostVect());
    
-   //
-   // write the face centered charge density
-   //
+   if(a_writeChargeDensity) {
+      
+      //
+      // write the cell centered charge density
+      //
    
-   const LevelData<FluxBox>& chargeDenOnFaces  = a_picSpecies.getChargeDensityOnFaces();
-
-   const std::string groupRhoFaces_Name = std::string("face_centered_charge_density");
-   handleParts.setGroup(groupRhoFaces_Name);
-   
-   headerParts.clear();
-   headerParts.m_int["is_fluxbox"] = 1;
-   headerParts.m_int["num_components"] = chargeDenOnFaces.nComp();
-   headerParts.m_box["prob_domain"] = domain.domainBox(); 
-   headerParts.writeToFile(handleParts);
-   
-   write(handleParts, chargeDenOnFaces.boxLayout());
-   write(handleParts, chargeDenOnFaces, "data", chargeDenOnFaces.ghostVect());
-   
-   //
-   // write the edge centered current density
-   //
-   
-   const LevelData<EdgeDataBox>& JonEdges  = a_picSpecies.getCurrentDensity();
-   const std::string groupJ_Name = std::string("current_density");
-   handleParts.setGroup(groupJ_Name);
-   
-   headerParts.clear();
-   headerParts.m_int["is_edgebox"] = 1;
-   headerParts.m_int["num_components"] = JonEdges.nComp();
-   headerParts.m_box["prob_domain"] = domain.domainBox(); 
-   headerParts.writeToFile(handleParts);
-   
-   write(handleParts, JonEdges.boxLayout());
-   write(handleParts, JonEdges, "data", JonEdges.ghostVect());
-
-   //
-   // write the node centered virtual current density for 1D/2D sims
-   //
-   
-   if(SpaceDim<3) {
-      const LevelData<NodeFArrayBox>& JvirtOnNodes  = a_picSpecies.getCurrentDensity_virtual();
-      const std::string groupJvirtOnNodes_Name = std::string("virtual_current_density");
-      handleParts.setGroup(groupJvirtOnNodes_Name);
+      const LevelData<FArrayBox>& chargeDensity  = a_picSpecies.getChargeDensity();
+      
+      const std::string groupRho_Name = std::string("cell_centered_charge_density");
+      handleParts.setGroup(groupRho_Name);
    
       headerParts.clear();
-      headerParts.m_int["is_nodebox"] = 1;
-      headerParts.m_int["num_components"] = JvirtOnNodes.nComp();
+      headerParts.m_int["is_cellbox"] = 1;
+      headerParts.m_int["num_components"] = chargeDensity.nComp();
       headerParts.m_box["prob_domain"] = domain.domainBox(); 
       headerParts.writeToFile(handleParts);
    
-      write(handleParts, JvirtOnNodes.boxLayout());
-      write(handleParts, JvirtOnNodes, "data", JvirtOnNodes.ghostVect());
+      write(handleParts, chargeDensity.boxLayout());
+      write(handleParts, chargeDensity, "data", chargeDensity.ghostVect());
+
+      //
+      // write the face centered charge density
+      //
+   
+      const LevelData<FluxBox>& chargeDenOnFaces  = a_picSpecies.getChargeDensityOnFaces();
+
+      const std::string groupRhoFaces_Name = std::string("face_centered_charge_density");
+      handleParts.setGroup(groupRhoFaces_Name);
+   
+      headerParts.clear();
+      headerParts.m_int["is_fluxbox"] = 1;
+      headerParts.m_int["num_components"] = chargeDenOnFaces.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, chargeDenOnFaces.boxLayout());
+      write(handleParts, chargeDenOnFaces, "data", chargeDenOnFaces.ghostVect());
+
+   }
+
+   if(a_writeCurrentDensity) {
+
+      //
+      // write the edge centered current density
+      //
+
+      const LevelData<EdgeDataBox>& JonEdges  = a_picSpecies.getCurrentDensity();
+      const std::string groupJ_Name = std::string("current_density");
+      handleParts.setGroup(groupJ_Name);
+   
+      headerParts.clear();
+      headerParts.m_int["is_edgebox"] = 1;
+      headerParts.m_int["num_components"] = JonEdges.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, JonEdges.boxLayout());
+      write(handleParts, JonEdges, "data", JonEdges.ghostVect());
+
+      //
+      // write the node centered virtual current density for 1D/2D sims
+      //
+   
+      if(SpaceDim<3) {
+         const LevelData<NodeFArrayBox>& JvirtOnNodes  = a_picSpecies.getCurrentDensity_virtual();
+         const std::string groupJvirtOnNodes_Name = std::string("virtual_current_density");
+         handleParts.setGroup(groupJvirtOnNodes_Name);
+   
+         headerParts.clear();
+         headerParts.m_int["is_nodebox"] = 1;
+         headerParts.m_int["num_components"] = JvirtOnNodes.nComp();
+         headerParts.m_box["prob_domain"] = domain.domainBox(); 
+         headerParts.writeToFile(handleParts);
+   
+         write(handleParts, JvirtOnNodes.boxLayout());
+         write(handleParts, JvirtOnNodes, "data", JvirtOnNodes.ghostVect());
+      }
+
    }
 
    //

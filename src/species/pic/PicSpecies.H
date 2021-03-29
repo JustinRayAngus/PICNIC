@@ -155,11 +155,10 @@ private:
   int  m_charge;   // species charge / electron charge
   Real m_Uint;     // species internal energy [eV]
  
-  //Real rpiston = 1.0;
-  //Real vpiston = -1.0; 
   Real m_stable_dt = DBL_MAX; 
 
-  std::string m_name;  // species name
+  std::string m_name;          // species name
+  InterpType m_interpToGrid;  // method to interpolate charge/current density to grid
 
   bool m_motion;
   bool m_forces;

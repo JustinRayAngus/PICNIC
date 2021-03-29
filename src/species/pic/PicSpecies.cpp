@@ -26,13 +26,19 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
      m_scatter(false),
      m_write_all_part_comps(false),
      m_mesh(a_mesh),
+     m_interpToGrid(CIC),
      //m_meshInterp(NULL)
      m_meshInterp(a_meshInterp)
 {
-   // maybe parse some stuff
    m_name = a_name;
- 
-   //createMeshInterp();
+   
+   string interp_type_parts;
+   a_ppspc.query( "interp_type_parts", interp_type_parts );
+   //a_ppspc.query( "interp_type_fields", interp_type_fields );
+   if(interp_type_parts=="CIC") {
+      m_interpToGrid = CIC;
+   }
+   CH_assert(m_interpToGrid==CIC);
  
    a_ppspc.get( "mass", m_mass );
    a_ppspc.get( "charge", m_charge );
@@ -47,6 +53,8 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       cout << "  mass/me   = " << m_mass << endl;
       cout << "  charge/qe = " << m_charge << endl;
       cout << "  Uint [eV] = " << m_Uint << endl;
+      cout << "  interp to grid type = " << interp_type_parts << endl;
+      cout << "  mass/me   = " << m_mass << endl;
       cout << "  motion = " << m_motion << endl;
       cout << "  forces = " << m_forces << endl;
       cout << "  scatter = " << m_scatter << endl << endl;
@@ -749,8 +757,6 @@ void PicSpecies::setChargeDensity()
    CH_assert(m_data.isClosed());
    CH_assert(m_charge != 0);
       
-   const InterpType thisInterp = CIC;
- 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    DataIterator dit = grids.dataIterator();
 
@@ -765,7 +771,7 @@ void PicSpecies::setChargeDensity()
       
       m_meshInterp.deposit( box_list.listItems(), 
                             this_rho,
-                            thisInterp ); 
+                            m_interpToGrid ); 
       this_rho.mult(m_charge); 
     
    }
@@ -783,8 +789,6 @@ void PicSpecies::setChargeDensityOnFaces()
    CH_assert(m_data.isClosed());
    CH_assert(m_charge != 0);
       
-   const InterpType thisInterp = CIC;
- 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    DataIterator dit = grids.dataIterator();
 
@@ -800,7 +804,7 @@ void PicSpecies::setChargeDensityOnFaces()
       
          m_meshInterp.deposit( box_list.listItems(), 
                                this_rho,
-                               thisInterp ); 
+                               m_interpToGrid ); 
          this_rho.mult(m_charge); 
       }
       
@@ -820,8 +824,6 @@ void PicSpecies::setCurrentDensity()
    CH_assert(m_data.isClosed());
    CH_assert(m_charge != 0);
       
-   const InterpType thisInterp = CIC;
- 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    DataIterator dit = grids.dataIterator();
 
@@ -838,7 +840,7 @@ void PicSpecies::setCurrentDensity()
          m_meshInterp.depositVelocity( this_J,
                                        dir,
                                        pList,
-                                       thisInterp ); 
+                                       m_interpToGrid ); 
          this_J.mult(m_charge);
       }
       
@@ -866,7 +868,7 @@ void PicSpecies::setCurrentDensity()
             m_meshInterp.depositVelocity( this_JonNodes,
                                           this_virt_dir,
                                           pList,
-                                          thisInterp,
+                                          m_interpToGrid,
                                           n ); 
          }
          this_JonNodes.mult(m_charge);

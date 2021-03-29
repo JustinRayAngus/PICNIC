@@ -44,7 +44,9 @@ class dataFileIO
       void writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                         const int          a_species, 
                                         const int          a_cur_step, 
-                                        const double       a_cur_time );
+                                        const double       a_cur_time,
+                                        const bool         a_writeChargeDensity,
+                                        const bool         a_writeCurrentDensity );
       
       
       void writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,

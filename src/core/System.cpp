@@ -21,6 +21,7 @@ System::System( ParmParse& a_pp )
      m_verbosity(0)
 {
    ParmParse ppsys("system");
+   parseParameters(ppsys);
 
    m_units = new CodeUnits( ppsys );
    if(!procID()) m_units->printParameters( procID() );
@@ -462,11 +463,15 @@ void System::writePlotFile( const int     a_cur_step,
                                                   s+1, a_cur_step, a_cur_time );
       }
       else {
-         this_picSpecies->setChargeDensity();      
-         this_picSpecies->setChargeDensityOnFaces();      
-         this_picSpecies->setCurrentDensity();      
+         if(m_writeSpeciesChargeDensity) {
+            this_picSpecies->setChargeDensity();      
+            this_picSpecies->setChargeDensityOnFaces(); 
+         }     
+         if(m_writeSpeciesCurrentDensity) this_picSpecies->setCurrentDensity();      
          m_dataFile->writeChargedSpeciesDataFile( *this_picSpecies, 
-                                                  s+1, a_cur_step, a_cur_time );
+                                                  s+1, a_cur_step, a_cur_time,
+                                                  m_writeSpeciesChargeDensity,
+                                                  m_writeSpeciesCurrentDensity );
       }
 
    }
@@ -496,6 +501,15 @@ void System::setupHistFile()
 
 void System::parseParameters( ParmParse&  a_ppsys )
 {
+   
+   a_ppsys.query("write_species_charge_density", m_writeSpeciesChargeDensity);
+   a_ppsys.query("write_species_current_density", m_writeSpeciesCurrentDensity);
+ 
+   if(!procID()) {
+      cout << "write species charge density  = " << m_writeSpeciesChargeDensity << endl;
+      cout << "write species current density = " << m_writeSpeciesCurrentDensity << endl << endl;
+   }
+ 
 }
 
 void System::advance( Real&  a_cur_time,

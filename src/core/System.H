@@ -91,7 +91,10 @@ class System
       ScatteringPtrVect m_scattering_ptr_vect;
      
       RefCountedPtr<SpecialOperator> m_specialOps;
-      
+
+      bool m_writeSpeciesChargeDensity = false;
+      bool m_writeSpeciesCurrentDensity = false;
+       
       bool m_verbosity = true;
       bool m_use_scattering = false;
       bool m_use_specialOps = false;
