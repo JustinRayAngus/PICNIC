@@ -1,0 +1,153 @@
+#include "REAL.H"
+#include "SPACE.H"
+#include "CONSTANTS.H"
+
+#include "CONSTANTS.H"
+      subroutine EDGETOCELL(
+     &           edgeData
+     &           ,iedgeDatalo0,iedgeDatalo1
+     &           ,iedgeDatahi0,iedgeDatahi1
+     &           ,cellData
+     &           ,icellDatalo0,icellDatalo1
+     &           ,icellDatahi0,icellDatahi1
+     &           ,icellBoxlo0,icellBoxlo1
+     &           ,icellBoxhi0,icellBoxhi1
+     &           ,dir
+     &           )
+
+      implicit none
+      integer*8 ch_flops
+      COMMON/ch_timer/ ch_flops
+      integer CHF_ID(0:5,0:5)
+      data CHF_ID/ 1,0,0,0,0,0 ,0,1,0,0,0,0 ,0,0,1,0,0,0 ,0,0,0,1,0,0 ,0,0,0,0,1,0 ,0,0,0,0,0,1 /
+
+
+      integer iedgeDatalo0,iedgeDatalo1
+      integer iedgeDatahi0,iedgeDatahi1
+      REAL_T edgeData(
+     &           iedgeDatalo0:iedgeDatahi0,
+     &           iedgeDatalo1:iedgeDatahi1)
+      integer icellDatalo0,icellDatalo1
+      integer icellDatahi0,icellDatahi1
+      REAL_T cellData(
+     &           icellDatalo0:icellDatahi0,
+     &           icellDatalo1:icellDatahi1)
+      integer icellBoxlo0,icellBoxlo1
+      integer icellBoxhi0,icellBoxhi1
+      integer dir
+      integer i,j
+      integer ii,jj
+      
+      do j = icellBoxlo1,icellBoxhi1
+      do i = icellBoxlo0,icellBoxhi0
+
+      
+      ii = i+CHF_ID(0,dir)
+      jj = j+CHF_ID(1,dir)
+      cellData(i,j) = half*(
+     &                    edgeData(i,j)
+     &                   +edgeData(ii,jj))
+      
+      enddo
+      enddo
+      return
+      end
+      subroutine EDGETOINCREMENTCELL(
+     &           edgeData
+     &           ,iedgeDatalo0,iedgeDatalo1
+     &           ,iedgeDatahi0,iedgeDatahi1
+     &           ,cellData
+     &           ,icellDatalo0,icellDatalo1
+     &           ,icellDatahi0,icellDatahi1
+     &           ,icellBoxlo0,icellBoxlo1
+     &           ,icellBoxhi0,icellBoxhi1
+     &           ,dir
+     &           )
+
+      implicit none
+      integer*8 ch_flops
+      COMMON/ch_timer/ ch_flops
+      integer CHF_ID(0:5,0:5)
+      data CHF_ID/ 1,0,0,0,0,0 ,0,1,0,0,0,0 ,0,0,1,0,0,0 ,0,0,0,1,0,0 ,0,0,0,0,1,0 ,0,0,0,0,0,1 /
+
+
+      integer iedgeDatalo0,iedgeDatalo1
+      integer iedgeDatahi0,iedgeDatahi1
+      REAL_T edgeData(
+     &           iedgeDatalo0:iedgeDatahi0,
+     &           iedgeDatalo1:iedgeDatahi1)
+      integer icellDatalo0,icellDatalo1
+      integer icellDatahi0,icellDatahi1
+      REAL_T cellData(
+     &           icellDatalo0:icellDatahi0,
+     &           icellDatalo1:icellDatahi1)
+      integer icellBoxlo0,icellBoxlo1
+      integer icellBoxhi0,icellBoxhi1
+      integer dir
+      integer i0,i1
+      integer ii0,ii1
+      
+      ii0=CHF_ID(0, dir)
+
+      ii1=CHF_ID(1, dir)
+
+      
+      do i1 = icellBoxlo1,icellBoxhi1
+      do i0 = icellBoxlo0,icellBoxhi0
+
+         cellData(i0,i1) = cellData(i0,i1) + half*(
+     &      edgeData(i0,i1) + edgeData(i0+ii0,i1+ii1))
+      
+      enddo
+      enddo
+      return
+      end
+      subroutine EDGETOCELLMAX(
+     &           edgeData
+     &           ,iedgeDatalo0,iedgeDatalo1
+     &           ,iedgeDatahi0,iedgeDatahi1
+     &           ,cellData
+     &           ,icellDatalo0,icellDatalo1
+     &           ,icellDatahi0,icellDatahi1
+     &           ,icellBoxlo0,icellBoxlo1
+     &           ,icellBoxhi0,icellBoxhi1
+     &           ,dir
+     &           )
+
+      implicit none
+      integer*8 ch_flops
+      COMMON/ch_timer/ ch_flops
+      integer CHF_ID(0:5,0:5)
+      data CHF_ID/ 1,0,0,0,0,0 ,0,1,0,0,0,0 ,0,0,1,0,0,0 ,0,0,0,1,0,0 ,0,0,0,0,1,0 ,0,0,0,0,0,1 /
+
+
+      integer iedgeDatalo0,iedgeDatalo1
+      integer iedgeDatahi0,iedgeDatahi1
+      REAL_T edgeData(
+     &           iedgeDatalo0:iedgeDatahi0,
+     &           iedgeDatalo1:iedgeDatahi1)
+      integer icellDatalo0,icellDatalo1
+      integer icellDatahi0,icellDatahi1
+      REAL_T cellData(
+     &           icellDatalo0:icellDatahi0,
+     &           icellDatalo1:icellDatahi1)
+      integer icellBoxlo0,icellBoxlo1
+      integer icellBoxhi0,icellBoxhi1
+      integer dir
+      integer i,j
+      integer ii,jj
+      
+      do j = icellBoxlo1,icellBoxhi1
+      do i = icellBoxlo0,icellBoxhi0
+
+      
+      ii = i+CHF_ID(0,dir)
+      jj = j+CHF_ID(1,dir)
+      cellData(i,j) = max(
+     &                    edgeData(i,j),
+     &                    edgeData(ii,jj))
+      
+      enddo
+      enddo
+      return
+      end
