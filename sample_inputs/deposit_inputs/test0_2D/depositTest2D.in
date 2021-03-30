@@ -1,0 +1,79 @@
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+system.write_species_charge_density = true
+system.write_species_current_density = true
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 10
+simulation.max_step            = 100000
+simulation.max_time            = 1.0
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 1.0e-2
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 1.0e-1
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 8  8 
+grid.is_periodic   = 1  1
+grid.config_decomp = 2  2
+grid.fixedBoxSize  = 4
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 1
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.Z_min = 2.0
+grid.Z_max = 3.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+#units.number_density = 1.0e23   # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Species Definitions
+#####################################################
+pic_species.1.name   = "deuteriumIon"
+pic_species.1.mass   = 3671.3
+pic_species.1.charge = 1 
+pic_species.1.interp_type_parts = "CIC"
+pic_species.1.motion = true # must be false to use piston operator
+pic_species.1.forces = false
+pic_species.1.scatter = false
+
+IC.deuteriumIon.X_min = 0.25
+IC.deuteriumIon.X_max = 0.375
+IC.deuteriumIon.Z_min = 2.25
+IC.deuteriumIon.Z_max = 2.375
+IC.deuteriumIon.parts_per_cell = 1 1
+IC.deuteriumIon.density.type = "constant"
+IC.deuteriumIon.density.value = 1.0e21 # [number/m^3]
+IC.deuteriumIon.temperature_0.type = "constant"
+IC.deuteriumIon.temperature_0.value = 0.0 # [eV]
+IC.deuteriumIon.temperature_1.type = "constant"
+IC.deuteriumIon.temperature_1.value = 0.0e-3 # [eV]
+IC.deuteriumIon.temperature_2.type = "constant"
+IC.deuteriumIon.temperature_2.value = 0.0e-3 # [eV]
+IC.deuteriumIon.velocity_0.type = "constant"
+IC.deuteriumIon.velocity_0.value = 1.0
+IC.deuteriumIon.velocity_1.type = "constant"
+IC.deuteriumIon.velocity_1.value = -1.0
+IC.deuteriumIon.velocity_2.type = "constant"
+IC.deuteriumIon.velocity_2.value = 2.0
+
+#####################################################
+

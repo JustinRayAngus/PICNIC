@@ -52,6 +52,10 @@ pic_species.1.motion = true # must be false to use piston operator
 pic_species.1.forces = false
 pic_species.1.scatter = true
 
+IC.deuteriumAtom.X_min = 0.0
+IC.deuteriumAtom.X_max = 1.0
+IC.deuteriumAtom.Z_min = -1.0
+IC.deuteriumAtom.Z_max = 1.0
 IC.deuteriumAtom.parts_per_cell = 4 8
 IC.deuteriumAtom.density.type = "constant"
 IC.deuteriumAtom.density.value = 1.0e20 # [number/m^3]

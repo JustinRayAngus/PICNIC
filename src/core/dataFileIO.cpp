@@ -328,11 +328,8 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    ///////////////////////////////////// 
 
 
-   char levelStr[20];
-   const int this_level = 0;
-   sprintf(levelStr,"%d",this_level);
-   const std::string label = std::string("level_") + levelStr;
-   handleParts.setGroup(label);  
+   const std::string groupName = std::string("species_data");
+   handleParts.setGroup(groupName);  
 
 
    int totalParticleCount = a_Pdata.numParticles();
@@ -503,11 +500,8 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
    ///////////////////////////////////// 
 
 
-   char levelStr[20];
-   const int this_level = 0;
-   sprintf(levelStr,"%d",this_level);
-   const std::string label = std::string("level_") + levelStr;
-   handleParts.setGroup(label);  
+   const std::string groupName = std::string("species_data");
+   handleParts.setGroup(groupName);  
 
 
    int totalParticleCount = a_Pdata.numParticles();

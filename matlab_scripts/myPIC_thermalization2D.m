@@ -4,8 +4,6 @@
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all;
-%addpath('~angus1/Programs/COGENT_matlabTools/');
-%addpath('../matlabScripts/');
 
 me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
@@ -13,15 +11,10 @@ cvac = 2.99792458e8;       % speed of light [m/s]
 amu  = 1.660539066e-27;    % atomic mass unit [kg]
 
 species = 2;
-rootPath = '../myPIC/thermalization_test0/';
-rootPath = '../myPIC/thermalization_test1/';
-rootPath = '../myPIC/thermalization_test2/';
-
-set(0,'defaultaxesfontsize',18);
-set(0,'defaulttextfontsize',18);
-set(0,'defaultaxeslinewidth',1.5);
-set(0,'defaultlinelinewidth',2);
-set(0,'defaultaxesfontweight','bold');
+rootPath = '../myPIC/thermalizationTests/test0/';
+rootPath = '../myPIC/thermalizationTests/test1/';
+rootPath = '../myPIC/thermalizationTests/test2/';
+%rootPath = '../myPIC/thermalization_test2/';
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -31,13 +24,13 @@ set(0,'defaultaxesfontweight','bold');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 meshFile = [rootPath,'mesh.h5'];
-%fileinfo = hdf5info(meshFile);
-group = 2; ghosts = 0;
-data = import2Ddata_singleFile(meshFile,group,ghosts);
+fileinfo = hdf5info(meshFile);
+
+groupName = '/cell_centered_grid'; ghosts = 0;
+data = import2Ddata_singleFile(meshFile,groupName,ghosts);
 Xcc = squeeze(data.Fcc(:,:,1)); nX = length(Xcc(:,1)); dX = Xcc(2,1)-Xcc(1,1);
 Zcc = squeeze(data.Fcc(:,:,2)); nZ = length(Zcc(1,:)); dZ = Zcc(1,2)-Zcc(1,1);
-Xce = squeeze(data.block(1).Fce(:,:,1));
-Zce = squeeze(data.block(1).Fce(:,:,1));
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -45,9 +38,6 @@ Zce = squeeze(data.block(1).Fce(:,:,1));
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-%%%  loop over files and create movie
-%
 
 close(figure(1));
 f1=figure(1); set(f1,'position',[570 450 900 450]);
@@ -84,17 +74,17 @@ energyDenZ = zeros(nX,nZ,iLmax);
 for iL=1:iLmax
 
     partsFile = [rootPath,'species',num2str(species),'_data/',fileList(index(iL)).name];
-    %fileinfo = hdf5info(partsFile);
-    partData = hdf5read(partsFile,'/level_0/particles:data');
+    fileinfo = hdf5info(partsFile);
+    
     SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
-    numParts = h5readatt(partsFile,'/level_0','num_particles');
-    time(iL) = h5readatt(partsFile,'/level_0','time');
-    %h5readatt(partsFile,'/level_0','particle_component_5');
+    partData = hdf5read(partsFile,'/species_data/particles:data');
+    numParts = h5readatt(partsFile,'/species_data','num_particles');
+    time(iL) = h5readatt(partsFile,'/species_data','time');
     if(iL==1)
-        Mass = h5readatt(partsFile,'/level_0','mass');
-        Charge = double(h5readatt(partsFile,'/level_0','charge'));
-        Uint = h5readatt(partsFile,'/level_0','Uint'); % [eV]
-        numPartComps = h5readatt(partsFile,'/level_0','numPartComps');
+        Mass = h5readatt(partsFile,'/species_data','mass');
+        Charge = double(h5readatt(partsFile,'/species_data','charge'));
+        Uint = h5readatt(partsFile,'/species_data','Uint'); % [eV]
+        numPartComps = h5readatt(partsFile,'/species_data','numPartComps');
     end
     partData = reshape(partData,numPartComps,numParts);
     partData = partData';
@@ -115,8 +105,8 @@ for iL=1:iLmax
 
     %%%   reading moments from part file
     %
-    group = 2; ghosts = 0;
-    data = import2Ddata_singleFile(partsFile,group,ghosts);
+    groupName = '/species_data'; ghosts = 0;
+    data = import2Ddata_singleFile(partsFile,groupName,ghosts);
     numberDen(:,:,iL) = squeeze(data.Fcc(:,:,1));
     momentumDenX(:,:,iL) = squeeze(data.Fcc(:,:,2));
     momentumDenY(:,:,iL) = squeeze(data.Fcc(:,:,3));
