@@ -35,8 +35,6 @@ System::System( ParmParse& a_pp )
    //
    ParmParse ppgrid( "grid" );
    m_mesh = new DomainGrid( ppgrid, m_num_ghosts, m_domain, grids ); 
-   //DomainGrid domainGrid( ppgrid, m_num_ghosts, m_domain, grids ); 
-   //DomainGrid* mesh = DomainGrid::mesh;
 
    m_dataFile = new dataFileIO( a_pp, *m_mesh );
    //m_dataFile = RefCountedPtr<dataFileIO>(new dataFileIO( a_pp, *mesh));
@@ -102,6 +100,11 @@ void System::initialize( const int     a_cur_step,
          cout << "Finished initializing " << m_scattering_ptr_vect.size() << " scattering objects" << endl << endl;
       }
 
+   }
+   
+   // initialize the electromagnetic fields
+   if (!m_electromagneticFields.isNull()) {
+      m_electromagneticFields->initialize();
    }
 
 }
@@ -294,18 +297,40 @@ void System::createMeshInterp()
 
 void System::createState( ParmParse&  a_pp )
 {
-   CH_TIME("System::createState()");
    
    createPICspecies();
    
-   //createFields();
+   createEMfields();
+
+}
+
+void System::createEMfields()
+{
+   
+   if(!procID()) {
+      cout << "Creating Electromagnetic fields object..." << endl << endl;
+   }
+   
+   ParmParse ppflds( "em_fields" );
+   
+   bool use_fields = false;
+   ppflds.query("use",use_fields);
+   if(use_fields) {
+      bool verbose = true;
+      m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>(new ElectroMagneticFields(ppflds,*m_mesh,verbose)); 
+      if(!procID()) cout << "Finished creating Electromagnetic fields object" << endl << endl;
+   }
+   else {
+      m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>(NULL); // don't have to do this, but for clarity 
+      if(!procID()) cout << "Electromagnetic fields are not being used" << endl << endl;
+   }
 
 }
 
 
 void System::createPICspecies()
 {
-   // Create all pick species
+   // Create all PIC species
    
    if(!procID()) {
       cout << "Creating PIC species..." << endl << endl;
@@ -319,7 +344,6 @@ void System::createPICspecies()
 
       stringstream s;
       s << "pic_species." << species; 
-      //s << "pic_species." << m_pic_species_ptr_vect.size() + 1; 
 
       ParmParse ppspc( s.str().c_str() );
      
@@ -332,7 +356,6 @@ void System::createPICspecies()
       }
    
       if(more_vars) {
-         //m_picSpecies = new PicSpecies( ppspc, name, *m_meshInterp, *m_mesh );
       
          // Create the pic species object
          PicSpecies* picSpecies = new PicSpecies( ppspc, name, *m_meshInterp, *m_mesh );
@@ -449,6 +472,11 @@ void System::writePlotFile( const int     a_cur_step,
                             const double  a_cur_time )
 {
    CH_TIME("System::writePlotFile()");
+   
+   if (!m_electromagneticFields.isNull()) {
+      m_dataFile->writeElectroMagneticFieldsDataFile( *m_electromagneticFields,
+                                                      a_cur_step, a_cur_time ); 
+   }
 
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
 
@@ -518,6 +546,15 @@ void System::advance( Real&  a_cur_time,
 {  
    CH_TIME("System::advance()");
    
+
+   // advance the electromagnetic fields
+   if (!m_electromagneticFields.isNull()) {
+      if(m_electromagneticFields->advance()) {
+         m_electromagneticFields->advanceElectricField(a_dt);
+         m_electromagneticFields->advanceMagneticField(a_dt);
+      }
+   }
+   
    // advance particle positions
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
@@ -533,7 +570,7 @@ void System::advance( Real&  a_cur_time,
          if(this_picSpecies->scatter()) {
             this_picSpecies->binTheParticles();
             this_picSpecies->setNumberDensity();
-            this_picSpecies->setEnergyDensity();
+            this_picSpecies->setEnergyDensity(); // may want to do this after or before each scatter
          }
       }
 
@@ -572,8 +609,18 @@ void System::advance( Real&  a_cur_time,
 
 }
 
+Real System::fieldsDt( const int a_step_number )
+{
+   Real fldsDt = DBL_MAX;
+   if (!m_electromagneticFields.isNull()) {
+      fldsDt = m_electromagneticFields->stableDt();
+      if(!procID()) cout << "electromagnetic fields time step = " << fldsDt << endl;
+   }
+   return fldsDt;
+}
 
-Real System::stableDt( const int a_step_number )
+
+Real System::partsDt( const int a_step_number )
 {
 
    Real stableDt = DBL_MAX;
@@ -582,8 +629,10 @@ Real System::stableDt( const int a_step_number )
       this_picSpecies->setStableDt();
       stableDt = min(stableDt,this_picSpecies->stableDt());
    }
-   
-   if(!procID()) cout << "stable particle time step = " << stableDt << endl;
+  
+   if(m_pic_species_ptr_vect.size()>0) { 
+      if(!procID()) cout << "stable particle time step = " << stableDt << endl;
+   }
    return stableDt;
 
 }

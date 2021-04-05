@@ -17,6 +17,7 @@
 #include "FArrayBox.H"
 
 #include "DomainGrid.H"
+#include "ElectroMagneticFields.H"
 
 #ifdef CH_USE_TIMER
 #include "CH_Timer.H"
@@ -35,6 +36,10 @@ class dataFileIO
       dataFileIO( ParmParse&         pp,  
                   const DomainGrid&  mesh );
       ~dataFileIO() {;}
+      
+      void writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
+                                               const int                     a_cur_step, 
+                                               const double                  a_cur_time );
       
       void writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                         const int          a_species, 

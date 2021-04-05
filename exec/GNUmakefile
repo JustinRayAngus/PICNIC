@@ -30,6 +30,7 @@ src_dirs += ../src/particle_tools
 src_dirs += ../src/species/pic
 src_dirs += ../src/special_operators
 src_dirs += ../src/scattering
+src_dirs += ../src/fields
 src_dirs += ../src/chombo_local_v3p2/box_tools
 
 # input file for 'run' target

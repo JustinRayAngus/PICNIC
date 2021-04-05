@@ -20,6 +20,7 @@
 #include "DomainGrid.H"
 #include "CodeUnits.H"
 #include "SpecialOperator.H"
+#include "ElectroMagneticFields.H"
 #include "Scattering.H"
 
 #include "MeshInterp.H"
@@ -52,7 +53,9 @@ class System
       
       void writeHistFile(const int cur_step, const double cur_time, const bool startup_flag);
 
-      Real stableDt( const int a_step_number );
+      Real fieldsDt( const int a_step_number );
+      
+      Real partsDt( const int a_step_number );
       
       Real scatterDt( const int a_step_number );
       
@@ -76,6 +79,8 @@ class System
    
       void createPICspecies();
       
+      void createEMfields();
+      
       void createScattering();
       
       void createSpecialOperators();
@@ -87,9 +92,10 @@ class System
      
       PicSpeciesPtrVect m_pic_species_ptr_vect;
       
-      //RefCountedPtr<Scattering> m_scattering;
       ScatteringPtrVect m_scattering_ptr_vect;
      
+      RefCountedPtr<ElectroMagneticFields> m_electromagneticFields;
+      
       RefCountedPtr<SpecialOperator> m_specialOps;
 
       bool m_writeSpeciesChargeDensity = false;

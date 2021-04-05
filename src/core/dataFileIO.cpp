@@ -214,13 +214,166 @@ std::string plotFileName( const std::string& a_prefix,
    return filename;
 }
 
+      
+void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
+                                                     const int                     a_cur_step, 
+                                                     const double                  a_cur_time )
+{
+   CH_TIME("dataFileIO::writeElectroMagneticFieldsDataFile()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+
+   if(!procID()) cout << "writing EandM fields data file ..." << endl << endl;
+   
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   std::string prefix = "field";
+   std::string plotFileNameFields( plotFileName( prefix,
+                                                 "fields",
+                                                 a_cur_step ) );
+
+   HDF5Handle handle( plotFileNameFields.c_str(), HDF5Handle::CREATE );
+   
+   
+   //
+   // write the default header
+   //
+  
+   handle.setGroup("/");
+   HDF5HeaderData header;
+
+   Vector<string> vectNames;
+   char field_name[50];
+   char comp_name[50];
+   char coords[3];
+   coords[0] = '0';
+   coords[1] = '1';
+   coords[2] = '2';
+   
+   for (int dir=0; dir<SpaceDim; dir++)
+   {
+      sprintf(field_name, "magneticField_%c", coords[dir]);
+      vectNames.push_back(field_name);
+   }
+
+   for (int i = 0; i < vectNames.size(); ++i)
+   {
+     sprintf(comp_name, "component_%d", i);
+     header.m_string[comp_name] = vectNames[i];
+   }
+   header.m_int["num_components"] = 1;
+   
+   header.writeToFile(handle);
+  
+   //////////////////
+  
+   const std::string groupName = std::string("field_data");
+   handle.setGroup(groupName);  
+   
+   header.m_int["step_number"] = a_cur_step;
+   header.m_real["time"] = a_cur_time;
+   header.m_box["prob_domain"] = domain.domainBox();
+   
+   header.writeToFile(handle);
+
+   //
+   // write the magnetic field data
+   //
+   
+   const LevelData<FluxBox>& Bfield  = a_emfield.getMagneticField();
+
+   const std::string group2Name = std::string("magnetic_field");
+   handle.setGroup(group2Name);
+   
+   header.clear();
+   header.m_int["is_fluxbox"] = 1;
+   header.m_int["num_components"] = Bfield.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(handle);
+   
+   write(handle, Bfield.boxLayout());
+   write(handle, Bfield, "data", Bfield.ghostVect());
+   
+   //
+   // write the virtual magnetic field data
+   //
+
+   if(SpaceDim<3) {
+   
+      const LevelData<FArrayBox>& Bfield_virt  = a_emfield.getVirtualMagneticField();
+
+      const std::string group3Name = std::string("virtual_magnetic_field");
+      handle.setGroup(group3Name);
+   
+      header.clear();
+      header.m_int["is_cellbox"] = 1;
+      header.m_int["num_components"] = Bfield_virt.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(handle);
+   
+      write(handle, Bfield_virt.boxLayout());
+      write(handle, Bfield_virt, "data", Bfield_virt.ghostVect());
+
+   }
+   
+   //
+   // write the electric field data
+   //
+   
+   const LevelData<EdgeDataBox>& Efield  = a_emfield.getElectricField();
+
+   const std::string group4Name = std::string("electric_field");
+   handle.setGroup(group4Name);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = Efield.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(handle);
+   
+   write(handle, Bfield.boxLayout());
+   write(handle, Efield, "data", Efield.ghostVect());
+   
+   //
+   // write the virtual electric field data
+   //
+
+   if(SpaceDim<3) {
+   
+      const LevelData<NodeFArrayBox>& Efield_virt  = a_emfield.getVirtualElectricField();
+
+      const std::string group5Name = std::string("virtual_electric_field");
+      handle.setGroup(group5Name);
+   
+      header.clear();
+      header.m_int["is_nodebox"] = 1;
+      header.m_int["num_components"] = Efield_virt.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(handle);
+   
+      write(handle, Efield_virt.boxLayout());
+      write(handle, Efield_virt, "data", Efield_virt.ghostVect());
+
+   }
+   
+   //
+   // close the handle
+   //
+
+   handle.close();
+   
+   if(!procID()) cout << "finished writing field data file" << endl << endl;
+
+
+}      
+
+
 void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                               const int          a_species,
                                               const int          a_cur_step,
                                               const double       a_cur_time )
 {
    CH_TIME("dataFileIO::writeNeutralSpeciesDataFile()");
-   
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
    
    // get references to particle data   

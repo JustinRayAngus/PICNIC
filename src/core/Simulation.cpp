@@ -340,12 +340,14 @@ inline void Simulation::postTimeStep()
 void Simulation::preTimeStep()
 {
    //m_system->preTimeStep( m_cur_step, m_cur_time );
-   Real dt_stable = m_system->stableDt( m_cur_step )*m_cfl;
+   Real dt_stable = m_system->fieldsDt( m_cur_step )*m_cfl;
+   Real dt_parts = m_system->partsDt( m_cur_step )*m_cfl;
    Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
    Real dt_specialOps = m_system->specialOpsDt( m_cur_step );
    CH_assert( dt_stable > 1.0e-30 );
 
    if ( m_adapt_dt ) { 
+      dt_stable = std::min( dt_parts, dt_stable );
       dt_stable = std::min( dt_scatter, dt_stable );
       dt_stable = std::min( dt_specialOps, dt_stable );
       m_cur_dt = dt_stable;

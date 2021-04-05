@@ -4,6 +4,7 @@
 #include "ParmParse.H"
 #include "GridFunction.H"
 
+#include "Cosine.H"
 #include "Constant.H"
 
 #include "NamespaceHeader.H"
@@ -57,10 +58,11 @@ RefCountedPtr<GridFunction> GridFunctionFactory::create(
    std::string model( "unknown" );
    a_pp.get( "type", model );
 
-   //std::string name( "foo" );
-
    RefCountedPtr<GridFunction> result(NULL);
-   if (model == "constant") {
+   if (model == "cosine") {
+      result = RefCountedPtr<GridFunction>( new Cosine( a_pp, a_verbosity ) );
+   }
+   else if (model == "constant") {
       result = RefCountedPtr<GridFunction>( new Constant( a_pp, a_verbosity ) );
    }
    else if (model == "zero") {

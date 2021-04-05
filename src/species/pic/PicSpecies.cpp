@@ -161,7 +161,7 @@ PicSpecies::~PicSpecies()
 
 void PicSpecies::advancePositions( const Real& a_dt )
 {
-   CH_TIME("PicParticle::advancePositions()");
+   CH_TIME("PicSpecies::advancePositions()");
     
    // get some Grid info
    //
@@ -236,7 +236,7 @@ void PicSpecies::advancePositions( const Real& a_dt )
 
 void PicSpecies::setStableDt()
 {
-   CH_TIME("PicParticle::setStableDt()");
+   CH_TIME("PicSpecies::setStableDt()");
    
    // set the stable time step based on particles crossing a grid cell
    //
@@ -279,7 +279,7 @@ void PicSpecies::setStableDt()
 
 void PicSpecies::binTheParticles()
 {
-   CH_TIME("PicParticle::binTheParticles()");
+   CH_TIME("PicSpecies::binTheParticles()");
    
    ///////////////////////////////////////////////////////////
    //
@@ -315,7 +315,7 @@ void PicSpecies::binTheParticles()
 
 void PicSpecies::testParticleShuffling( const Real& a_dt )
 {
-   CH_TIME("PicParticle::testParticleShuffling()");
+   CH_TIME("PicSpecies::testParticleShuffling()");
   
     JustinsParticle* this_part_ptr = NULL;  
    
@@ -674,7 +674,7 @@ void PicSpecies::initialize()
 
 void PicSpecies::setNumberDensity()
 {
-   CH_TIME("PicParticle::setNumberDensity()");
+   CH_TIME("PicSpecies::setNumberDensity()");
     
    CH_assert(m_data.isClosed());
     
@@ -701,7 +701,7 @@ void PicSpecies::setNumberDensity()
 
 void PicSpecies::setMomentumDensity()
 {
-   CH_TIME("PicParticle::setMomentumDensity()");
+   CH_TIME("PicSpecies::setMomentumDensity()");
     
    CH_assert(m_data.isClosed());
     
@@ -725,7 +725,7 @@ void PicSpecies::setMomentumDensity()
 
 void PicSpecies::setEnergyDensity()
 {
-   CH_TIME("PicParticle::setEnergyDensity()");
+   CH_TIME("PicSpecies::setEnergyDensity()");
     
    CH_assert(m_data.isClosed());
     
@@ -752,7 +752,7 @@ void PicSpecies::setEnergyDensity()
 
 void PicSpecies::setChargeDensity()
 {
-   CH_TIME("PicParticle::setChargeDensity()");
+   CH_TIME("PicSpecies::setChargeDensity()");
     
    CH_assert(m_data.isClosed());
    CH_assert(m_charge != 0);
@@ -784,7 +784,7 @@ void PicSpecies::setChargeDensity()
 
 void PicSpecies::setChargeDensityOnFaces()
 {
-   CH_TIME("PicParticle::setChargeDensityOnFaces()");
+   CH_TIME("PicSpecies::setChargeDensityOnFaces()");
     
    CH_assert(m_data.isClosed());
    CH_assert(m_charge != 0);
@@ -819,7 +819,7 @@ void PicSpecies::setChargeDensityOnFaces()
 
 void PicSpecies::setCurrentDensity()
 {
-   CH_TIME("PicParticle::setCurrentDensity()");
+   CH_TIME("PicSpecies::setCurrentDensity()");
     
    CH_assert(m_data.isClosed());
    CH_assert(m_charge != 0);
@@ -851,7 +851,7 @@ void PicSpecies::setCurrentDensity()
    m_currentDensity.exchange(m_currentDensity.interval(), m_mesh.reverseCopier(), addEdgeOp);
    
    // 
-   // compute virtual current density for 2D sims
+   // compute virtual current density for 1D/2D sims
    //
    if(SpaceDim<3) {
       
@@ -884,7 +884,7 @@ void PicSpecies::setCurrentDensity()
 
 void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )
 {
-   CH_TIME("PicParticle::numberDensity()");
+   CH_TIME("PicSpecies::numberDensity()");
  
    setNumberDensity();
    const DisjointBoxLayout& grids = a_rho.disjointBoxLayout();
@@ -896,7 +896,7 @@ void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )
 
 void PicSpecies::momentumDensity( LevelData<FArrayBox>&  a_mom )
 {
-   CH_TIME("PicParticle::momentumDensity()");
+   CH_TIME("PicSpecies::momentumDensity()");
  
    setMomentumDensity();
    const DisjointBoxLayout& grids = a_mom.disjointBoxLayout();
@@ -908,7 +908,7 @@ void PicSpecies::momentumDensity( LevelData<FArrayBox>&  a_mom )
 
 void PicSpecies::energyDensity( LevelData<FArrayBox>&  a_ene )
 {
-   CH_TIME("PicParticle::energyDensity()");
+   CH_TIME("PicSpecies::energyDensity()");
  
    setEnergyDensity();
    const DisjointBoxLayout& grids = a_ene.disjointBoxLayout();
