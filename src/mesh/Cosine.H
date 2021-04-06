@@ -84,6 +84,7 @@ class Cosine : public GridFunction
                X0 = a_real_coords.get(ib,dir);
                L0 = Xmax[dir] - Xmin[dir];
                arg = Constants::TWOPI*m_mode[dir]*X0/L0 + m_phase[dir]*Constants::PI;
+               arg = std::fmod(arg,Constants::TWOPI); // cos(pi/2) != cos(3*pi/2) != cos(5*pi/2)...
                value = a_data.get(ib,0);
                value = value*cos(arg);
                a_data.set(ib,0,value);
