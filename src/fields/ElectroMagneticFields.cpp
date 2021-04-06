@@ -114,6 +114,7 @@ void ElectroMagneticFields::initialize()
       RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppBfieldIC,m_verbosity);
       gridFunction->assign( m_magneticField, dir, m_mesh, this_time );
    }
+   SpaceUtils::exchangeFluxBox(m_magneticField);
    
    // set initial virtual magnetic field profile from ICs
    if(SpaceDim<3) {
@@ -129,6 +130,7 @@ void ElectroMagneticFields::initialize()
             m_magneticField_virtual[dit].copy(temporaryProfile[dit],0,comp,1);
          }
       }
+      m_magneticField_virtual.exchange();
    }
    
    // set initial electric field profile from ICs
@@ -139,6 +141,7 @@ void ElectroMagneticFields::initialize()
       RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppEfieldIC,m_verbosity);
       gridFunction->assign( m_electricField, dir, m_mesh, this_time );
    }
+   SpaceUtils::exchangeEdgeDataBox(m_electricField);
    
    // set initial virtual electric field profile from ICs
    if(SpaceDim<3) {
@@ -229,7 +232,6 @@ void ElectroMagneticFields::advanceMagneticField( const Real& a_dt )
       }
    
    }
-   //m_magneticField.exchange();
    SpaceUtils::exchangeFluxBox(m_magneticField);
  
    if(SpaceDim<3) {
