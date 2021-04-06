@@ -8,7 +8,7 @@
 
 /**
  * Cosine function class.
- * f = C + A \cdot \prod_{i=1}^D \cos(2\pi mode_i x_i / L_i + phi_i)
+ * f = C + A \cdot \prod_{i=1}^D \cos(2\pi mode_i x_i / L_i + phi_i*pi)
 */
 class Cosine : public GridFunction
 {
@@ -25,7 +25,7 @@ class Cosine : public GridFunction
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "Cosine grid function parameters:" << std::endl;
-            std::cout << " f = C + A cdot prod_{i=1}^D cos(2pi mode_i x_i / L_i + phi_i)" << std::endl;
+            std::cout << " f = C + A cdot prod_{i=1}^D cos(2pi mode_i x_i / L_i + phi_i*pi)" << std::endl;
             std::cout << " C   = " << m_constant << std::endl;
             std::cout << " A   = " << m_amplitude << std::endl;
             std::cout << " k   = " << m_mode << std::endl;
@@ -67,7 +67,7 @@ class Cosine : public GridFunction
                            const DomainGrid&  a_mesh,
                            const FArrayBox&  a_real_coords ) const
       {
-         // f = C + A \cdot \prod_{i=1}^D \cos(2\pi mode_i x_i / L_i + phi_i)
+         // f = C + A \cdot \prod_{i=1}^D \cos(2\pi mode_i x_i / L_i + phi_i*pi)
        
          const RealVect& Xmin = a_mesh.getXmin();  
          const RealVect& Xmax = a_mesh.getXmax();  
@@ -83,7 +83,7 @@ class Cosine : public GridFunction
             for (int dir=0; dir<SpaceDim; dir++) {
                X0 = a_real_coords.get(ib,dir);
                L0 = Xmax[dir] - Xmin[dir];
-               arg = Constants::TWOPI*m_mode[dir]*X0/L0 + m_phase[dir];
+               arg = Constants::TWOPI*m_mode[dir]*X0/L0 + m_phase[dir]*Constants::PI;
                value = a_data.get(ib,0);
                value = value*cos(arg);
                a_data.set(ib,0,value);

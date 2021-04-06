@@ -1,0 +1,55 @@
+
+c  ----------------------------------------------------------------------------
+
+      subroutine advance_electric_field_comp(
+     &     CHF_BOX[box],
+     &     CHF_CONST_REAL[dt],
+     &     CHF_CONST_FRA1[Eold],
+     &     CHF_CONST_FRA1[curlB],
+     &     CHF_FRA1[E]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k]
+      double precision Eold0, curlB0
+
+      CHF_MULTIDO[box;i;j;k]
+     
+         Eold0 = Eold(CHF_IX[i;j;k])
+         curlB0 = curlB(CHF_IX[i;j;k])
+         E(CHF_IX[i;j;k]) = Eold0 + dt*curlB0
+     
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+      
+      subroutine advance_magnetic_field_comp(
+     &     CHF_BOX[box],
+     &     CHF_CONST_REAL[dt],
+     &     CHF_CONST_FRA1[Bold],
+     &     CHF_CONST_FRA1[curlE],
+     &     CHF_FRA1[B]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k]
+      double precision Bold0, curlE0
+
+      CHF_MULTIDO[box;i;j;k]
+     
+         Bold0 = Bold(CHF_IX[i;j;k])
+         curlE0 = curlE(CHF_IX[i;j;k])
+         B(CHF_IX[i;j;k]) = Bold0 - dt*curlE0
+c         B(CHF_IX[i;j;k]) = Bold0
+     
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+      
+

@@ -47,6 +47,11 @@ public:
   void advanceMagneticField( const Real& a_dt );
   void advanceElectricField( const Real& a_dt );
   
+  void updateOldFieldValues();
+  
+  void setCurlB();
+  void setCurlE();
+  
 private:
   
   const DomainGrid& m_mesh;
@@ -57,10 +62,14 @@ private:
   // containers for magnetic field
   LevelData<FluxBox> m_magneticField;          
   LevelData<FArrayBox> m_magneticField_virtual;       // needed for 1D/2D simulations          
+  LevelData<FluxBox> m_magneticField_old;          
+  LevelData<FArrayBox> m_magneticField_virtual_old;       // needed for 1D/2D simulations          
   
   // containers for electric field
   LevelData<EdgeDataBox> m_electricField;          
   LevelData<NodeFArrayBox> m_electricField_virtual;   // needed for 1D/2D simulations
+  LevelData<EdgeDataBox> m_electricField_old;          
+  LevelData<NodeFArrayBox> m_electricField_virtual_old;   // needed for 1D/2D simulations
   
   // containers for current density
   LevelData<EdgeDataBox> m_currentDensity;          

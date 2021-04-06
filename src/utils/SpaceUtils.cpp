@@ -779,6 +779,43 @@ SpaceUtils::faceInterpolate(  const int         a_dir,
   return;
 }
 
+void 
+SpaceUtils::simpleStagGradComp( FArrayBox&  a_dst,
+                          const Box&        a_grid_box,
+                          const int         a_dst_comp,
+                          const FArrayBox&  a_src,
+                          const int         a_src_comp,
+                          const Real        a_dX,
+                          const int         a_dir_dX,
+                          const int         a_additive ) 
+{
+   CH_TIME("SpaceUtils::simpleDifference()");
+
+   // compute simple gradient in a_dir_dX direction for staggered
+   // variables - cell to node or node to cell
+
+   const IntVect dst_box_type = a_dst.box().type();
+   const IntVect src_box_type = a_src.box().type();
+   const int src_is_stag = src_box_type[a_dir_dX];
+   CH_assert(dst_box_type[a_dir_dX]!=src_is_stag);  
+   
+   // create the appropriate box
+   Box dst_box = a_grid_box;
+   for (int dir; dir<SpaceDim; dir++) {
+      if(dst_box_type[dir]) dst_box.surroundingNodes(dir);  // grow dir hi end by one
+   }
+
+   //const Box& dst_box = a_dst.box();
+   FORT_STAG_GRAD_COMPONENT( CHF_BOX(dst_box),
+                             CHF_CONST_INT(a_dir_dX),
+                             CHF_CONST_REAL(a_dX),
+                             CHF_CONST_FRA1(a_src, a_src_comp),
+                             CHF_CONST_INT(a_additive),
+                             CHF_CONST_INT(src_is_stag),
+                             CHF_FRA1(a_dst, a_dst_comp) );
+
+} 
+
 
 void
 SpaceUtils::cellCenteredGradientComponent(  const Box&        a_box,
@@ -1388,6 +1425,131 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
    } // end loop over grids on this level
 
 }
+
+void
+SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node,
+                             const DomainGrid&  a_mesh )
+{
+   CH_TIME("SpaceUtils::exchangeNodeFArrayBox()");
+  
+   CH_assert(SpaceDim<3); // not generalized for 3D
+
+   const DisjointBoxLayout& grids( a_Node.getBoxes() );
+   DataIterator dit = grids.dataIterator();
+
+   // copy to a temporary
+   LevelData<NodeFArrayBox> tmp_Node(grids, a_Node.nComp());
+   for (dit.begin(); dit.ok(); ++dit) {
+      const FArrayBox& this_Node = a_Node[dit].getFab(); 
+            FArrayBox& this_tmp_Node = tmp_Node[dit].getFab(); 
+       Box NodeBox = grids[dit];
+       NodeBox.surroundingNodes();
+       this_tmp_Node.copy(this_Node,NodeBox);
+   }
+
+   // call exchange on passed NodeFArrayBox
+   a_Node.exchange();
+
+   // now use the original data stored in temp to modify
+   // the exchanged Node data such that all shared values are identical
+
+   const ProblemDomain& domain(a_mesh.getDomain()); 
+   Box domainNodeBox = domain.domainBox();
+   domainNodeBox.surroundingNodes();
+   const IntVect domainNodeHi = domainNodeBox.bigEnd();
+   const IntVect domainNodeLo = domainNodeBox.smallEnd();
+
+   for (dit.begin(); dit.ok(); ++dit) {
+      const Box& gridBox = grids[dit];
+      FArrayBox& this_Temp = tmp_Node[dit].getFab();
+      FArrayBox& this_Node = a_Node[dit].getFab();
+
+      // first copy all non-corner shared cells on low ends
+      for(int dir=0; dir<SpaceDim; dir++) {
+         Box loNodeBox = gridBox;
+         loNodeBox.surroundingNodes();                  // convert to node type
+         loNodeBox.setBig(dir,loNodeBox.smallEnd(dir)); // collapse to dir small end
+         for(int dir0=0; dir0<SpaceDim; dir0++) {       // remove corners
+            if(dir0!=dir) loNodeBox.growHi(dir0,-1);
+            if(dir0!=dir) loNodeBox.growLo(dir0,-1);
+         }
+         copy(this_Node,this_Temp,loNodeBox);
+      }
+   
+      //
+      // now focus on the corners
+      //
+      
+      Box NodeBox = gridBox;
+      NodeBox.surroundingNodes();
+
+      // check if low-low corner touchs any physical
+      // boundaries. If not, then do copy
+      int copyCorner00 = 1;
+      for(int dir=0; dir<SpaceDim; dir++) {
+         const int thisBoxLo = NodeBox.smallEnd(dir);
+         if(thisBoxLo==domainNodeLo[dir]) {
+            copyCorner00 = copyCorner00*0;
+         }
+      }
+      if(copyCorner00) {
+         Box corner00Box = NodeBox;
+         for(int dir=0; dir<SpaceDim; dir++) {
+            corner00Box.setBig(dir,NodeBox.smallEnd(dir));
+         }
+         copy(this_Node,this_Temp,corner00Box);
+      }
+
+      if(SpaceDim==2) { // this would need to be generalized for SpaceDim>2
+      
+         // check if high end touchs a physical in dir0, but 
+         // does not touch low end in dir1
+         const int thisBoxHi0 = NodeBox.bigEnd(0);
+         const int thisBoxLo1 = NodeBox.smallEnd(1);
+         if(domainNodeHi[0]==thisBoxHi0 && domainNodeLo[1]!=thisBoxLo1) {
+            Box corner10Box = NodeBox;
+            corner10Box.setSmall(0,NodeBox.bigEnd(0));
+            corner10Box.setBig(1,NodeBox.smallEnd(1));
+            copy(this_Node,this_Temp,corner10Box);
+         }
+      
+         // check if high end touchs a physical in dir1, but 
+         // does not touch low end in dir0
+         const int thisBoxHi1 = NodeBox.bigEnd(1);
+         const int thisBoxLo0 = NodeBox.smallEnd(0);
+         if(domainNodeHi[1]==thisBoxHi1 && domainNodeLo[0]!=thisBoxLo0) {
+            Box corner01Box = NodeBox;
+            corner01Box.setSmall(1,NodeBox.bigEnd(1));
+            corner01Box.setBig(0,NodeBox.smallEnd(0));
+            copy(this_Node,this_Temp,corner01Box);
+         }
+
+      }
+
+      // copy over upper domain corner
+      int copyCorner11 = 1;
+      Box corner11Box = NodeBox;
+      for(int dir=0; dir<SpaceDim; dir++) {
+         const int thisBoxHi = NodeBox.bigEnd(dir);
+         if(domainNodeHi[dir]==thisBoxHi) {
+            corner11Box.setSmall(dir,NodeBox.bigEnd(dir));
+         }
+         else {
+            copyCorner11 = copyCorner11*0;
+         }
+      }
+      if(copyCorner11) {
+         copy(this_Node,this_Temp,corner11Box);
+      }
+
+   }
+   
+   // exchange again is for the purpose of actual ghost cells (not shared cells)
+   a_Node.exchange();
+
+   
+}
+
 #endif
 
 #include "NamespaceFooter.H"

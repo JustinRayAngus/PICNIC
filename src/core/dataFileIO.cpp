@@ -9,6 +9,8 @@
 #include "DomainGrid.H"
 #include "ParticleIO.H"
 
+#include "SpaceUtils.H"
+
 #include "NamespaceHeader.H"
 
 
@@ -146,6 +148,37 @@ void dataFileIO::writeMeshDataFile()
    
    write(handle, gridOnNodes.boxLayout());
    write(handle, gridOnNodes, "data", gridOnNodes.ghostVect());
+
+   //
+   // write node centered data test
+   //
+   //
+   bool nodeDataTest = true;
+   if(nodeDataTest) {
+
+      const DisjointBoxLayout& grids = gridOnNodes.disjointBoxLayout();
+      LevelData<NodeFArrayBox> nodeTestData(grids,1,gridOnNodes.ghostVect());
+   
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         FArrayBox& this_nodeData = nodeTestData[dit].getFab();
+         this_nodeData.setVal(procID());
+      }
+      //nodeTestData.exchange();   
+      SpaceUtils::exchangeNodeFArrayBox(nodeTestData,m_mesh);   
+
+      const std::string group5Name = std::string("node_centered_test");
+      handle.setGroup(group5Name);
+   
+      header.clear();
+      header.m_int["is_nodebox"] = 1;
+      header.m_int["num_components"] = nodeTestData.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(handle);
+   
+      write(handle, nodeTestData.boxLayout());
+      write(handle, nodeTestData, "data", nodeTestData.ghostVect());
+
+   }
 
    //
    // close the handle

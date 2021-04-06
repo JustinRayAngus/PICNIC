@@ -550,8 +550,11 @@ void System::advance( Real&  a_cur_time,
    // advance the electromagnetic fields
    if (!m_electromagneticFields.isNull()) {
       if(m_electromagneticFields->advance()) {
+         m_electromagneticFields->setCurlB();
          m_electromagneticFields->advanceElectricField(a_dt);
+         m_electromagneticFields->setCurlE();
          m_electromagneticFields->advanceMagneticField(a_dt);
+         m_electromagneticFields->updateOldFieldValues();
       }
    }
    

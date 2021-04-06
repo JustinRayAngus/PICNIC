@@ -737,6 +737,43 @@ inline void FORTRAN_NAME(inlineFACE_CENTERED_GRAD_COMPONENT, inlineFACE_CENTERED
 }
 #endif  // GUARDFACE_CENTERED_GRAD_COMPONENT 
 
+#ifndef GUARDSTAG_GRAD_COMPONENT 
+#define GUARDSTAG_GRAD_COMPONENT 
+// Prototype for Fortran procedure stag_grad_component ...
+//
+void FORTRAN_NAME( STAG_GRAD_COMPONENT ,stag_grad_component )(
+      CHFp_BOX(box)
+      ,CHFp_CONST_INT(dir)
+      ,CHFp_CONST_REAL(dX)
+      ,CHFp_CONST_FRA1(var)
+      ,CHFp_CONST_INT(additive)
+      ,CHFp_CONST_INT(src_stag)
+      ,CHFp_FRA1(grad) );
+
+#define FORT_STAG_GRAD_COMPONENT FORTRAN_NAME( inlineSTAG_GRAD_COMPONENT, inlineSTAG_GRAD_COMPONENT)
+#define FORTNT_STAG_GRAD_COMPONENT FORTRAN_NAME( STAG_GRAD_COMPONENT, stag_grad_component)
+
+inline void FORTRAN_NAME(inlineSTAG_GRAD_COMPONENT, inlineSTAG_GRAD_COMPONENT)(
+      CHFp_BOX(box)
+      ,CHFp_CONST_INT(dir)
+      ,CHFp_CONST_REAL(dX)
+      ,CHFp_CONST_FRA1(var)
+      ,CHFp_CONST_INT(additive)
+      ,CHFp_CONST_INT(src_stag)
+      ,CHFp_FRA1(grad) )
+{
+ CH_TIMELEAF("FORT_STAG_GRAD_COMPONENT");
+ FORTRAN_NAME( STAG_GRAD_COMPONENT ,stag_grad_component )(
+      CHFt_BOX(box)
+      ,CHFt_CONST_INT(dir)
+      ,CHFt_CONST_REAL(dX)
+      ,CHFt_CONST_FRA1(var)
+      ,CHFt_CONST_INT(additive)
+      ,CHFt_CONST_INT(src_stag)
+      ,CHFt_FRA1(grad) );
+}
+#endif  // GUARDSTAG_GRAD_COMPONENT 
+
 #ifndef GUARDCELL_CENTERED_GRAD_COMPONENT 
 #define GUARDCELL_CENTERED_GRAD_COMPONENT 
 // Prototype for Fortran procedure cell_centered_grad_component ...

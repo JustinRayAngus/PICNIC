@@ -11,6 +11,7 @@
 #include "FluxBox.H"
 #include "EdgeDataBox.H"
 #include "NodeFArrayBox.H"
+#include "DomainGrid.H"
 
 #include "NamespaceHeader.H"
 
@@ -126,6 +127,15 @@ namespace SpaceUtils {
                         const int,
                         const FArrayBox&,
                         FArrayBox& );
+  
+  void simpleStagGradComp( FArrayBox&  a_dst,
+                     const Box&        a_grid_box,
+                     const int         a_dst_comp,
+                     const FArrayBox&  a_src,
+                     const int         a_src_comp,
+                     const Real        a_dX,
+                     const int         a_dir_dX,
+                     const int         a_additive ); 
 
   void cellCenteredGradientComponent( const Box&,
                                       const int,
@@ -179,6 +189,9 @@ namespace SpaceUtils {
   void exchangeFluxBox( LevelData<FluxBox>& );
   
   void exchangeEdgeDataBox( LevelData<EdgeDataBox>& );
+  
+  void exchangeNodeFArrayBox( LevelData<NodeFArrayBox>&  a_Node,
+                        const DomainGrid&                a_mesh );
 
   void copyEdgeDataBox( EdgeDataBox&,
                   const EdgeDataBox& );
