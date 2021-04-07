@@ -180,7 +180,6 @@ void Simulation::advance()
       }
    }
    m_system->advance( m_cur_time, m_cur_dt, m_cur_step );
-   //postTimeStep();
 
    clock_t m_now = clock();
    double walltime, walltime_g;
@@ -220,6 +219,8 @@ void Simulation::advance()
    }
 
    //writeHistFile(false);
+   
+   postTimeStep();
 
 }
 
@@ -331,15 +332,17 @@ void Simulation::setFixedTimeStep( const Real& a_dt_stable )
 }
 
 
-inline void Simulation::postTimeStep()
+void Simulation::postTimeStep()
 {
-   if(!procID()) cout << "Simulation::postTimeStep()" << endl;
-   //m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
+   CH_TIMERS("Simulation::preTimeStep()");
+   m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
 }
 
 void Simulation::preTimeStep()
 {
-   //m_system->preTimeStep( m_cur_step, m_cur_time );
+   CH_TIMERS("Simulation::preTimeStep()");
+
+   // set the stable time step
    Real dt_stable = m_system->fieldsDt( m_cur_step )*m_cfl;
    Real dt_parts = m_system->partsDt( m_cur_step )*m_cfl;
    Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
@@ -363,6 +366,8 @@ void Simulation::preTimeStep()
    if ( m_cur_dt > timeRemaining ) {
       m_cur_dt = timeRemaining + m_max_time * s_DT_EPS;
    }
+   
+   m_system->preTimeStep( m_cur_time, m_cur_dt, m_cur_step );
 
 }
 

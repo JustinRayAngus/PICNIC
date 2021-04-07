@@ -61,7 +61,15 @@ class System
       
       Real specialOpsDt( const int a_step_number );
 
+      void preTimeStep( const Real&  a_cur_time, 
+                        const Real&  a_dt,
+                        const int&   a_step_number );
+      
       void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+      
+      void postTimeStep( const Real&  a_cur_time, 
+                         const Real&  a_dt,
+                         const int&   a_step_number );
       
    private:
 

@@ -68,7 +68,7 @@ class Simulation
       inline void writeHistFile(bool startup_flag);
       void setFixedTimeStep(const Real& a_dt_stable);
       void preTimeStep();
-      inline void postTimeStep();
+      void postTimeStep();
       
       void createProblemDomain( );
       void getDisjointBoxLayout( DisjointBoxLayout& grids );

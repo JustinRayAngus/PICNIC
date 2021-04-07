@@ -8,6 +8,7 @@
 #include "NodeFArrayBox.H"
 #include "LevelData.H"
 #include "DomainGrid.H"
+#include "CodeUnits.H"
 #include "RealVect.H"
 #include "DisjointBoxLayout.H"
 #include "Vector.H"
@@ -22,6 +23,7 @@ public:
 
   ElectroMagneticFields( ParmParse&   a_ppfields,
                    const DomainGrid&  a_mesh,
+                   const CodeUnits&   a_units,
                    const bool&        a_verbosity );
   
   virtual ~ElectroMagneticFields();
@@ -44,8 +46,9 @@ public:
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
   
-  void advanceMagneticField( const Real& a_dt );
-  void advanceElectricField( const Real& a_dt );
+  void advanceElectricField( const Real& a_cnormDt );
+  void advanceMagneticField( const Real& a_cnormDt );
+  void advanceMagneticField_2ndHalf();
   
   void updateOldFieldValues();
   

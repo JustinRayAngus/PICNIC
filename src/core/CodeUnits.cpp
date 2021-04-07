@@ -21,6 +21,9 @@ CodeUnits::CodeUnits( ParmParse& a_parm_parse )
    getPosDefUnit( m_scale[LENGTH],         "length",         ppunits );
    getPosDefUnit( m_scale[TIME],           "time",           ppunits );
 
+   
+   m_CVAC_NORM = Constants::CVAC*m_scale[TIME]/m_scale[LENGTH];
+
    // Universal Constants
    //Real pi = Constants::PI;
    //m_scale[CHARGE]       = Constants::ELEMENTARY_CHARGE;
@@ -28,15 +31,21 @@ CodeUnits::CodeUnits( ParmParse& a_parm_parse )
    //m_scale[PERMITTIVITY] = Constants::VACUUM_PERMITTIVITY;
    //m_scale[PERMEABILITY] = pi * 4.0e-7;
 
+   Real Escale = 1.0e5; // kV/cm
+   m_scale[ELECTRIC_FIELD] = 1.0e5; // 1 kV/cm = 1.0e5 V/m
+   m_scale[MAGNETIC_FIELD] = 1.0e5/Constants::CVAC; // 1 kV/cm/CVAC = 3.3356e-4 T
+
 }
 
 void CodeUnits::printParameters( const int a_procID) const
 {
    if(!a_procID) {
       cout << "====================== Fundamental Code Units ======================" << endl;
-      cout << "  TEMPERATURE  [eV]: " << m_scale[TEMPERATURE] << " (NOT USED YET)" << endl;
-      cout << "  LENGTH        [m]: " << m_scale[LENGTH]      << " (NOT USED YET)" << endl;
-      cout << "  TIME          [s]: " << m_scale[TIME]        << " (NOT USED YET)" << endl;
+      cout << "  TEMPERATURE     [eV]: " << m_scale[TEMPERATURE] << " (NOT USED YET)" << endl;
+      cout << "  LENGTH           [m]: " << m_scale[LENGTH]      << " (NOT USED YET)" << endl;
+      cout << "  TIME             [s]: " << m_scale[TIME]        << " (NOT USED YET)" << endl;
+      cout << "  ELECTRIC_FIELD [V/m]: " << m_scale[ELECTRIC_FIELD] << endl;
+      cout << "  MAGNETIC_FIELD   [T]: " << m_scale[MAGNETIC_FIELD] << endl;
       cout << "====================================================================" << endl;
       cout << endl;
    }

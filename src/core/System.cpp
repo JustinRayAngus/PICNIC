@@ -317,7 +317,7 @@ void System::createEMfields()
    ppflds.query("use",use_fields);
    if(use_fields) {
       bool verbose = true;
-      m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>(new ElectroMagneticFields(ppflds,*m_mesh,verbose)); 
+      m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>(new ElectroMagneticFields(ppflds,*m_mesh,*m_units,verbose)); 
       if(!procID()) cout << "Finished creating Electromagnetic fields object" << endl << endl;
    }
    else {
@@ -540,31 +540,79 @@ void System::parseParameters( ParmParse&  a_ppsys )
  
 }
 
+void System::preTimeStep( const Real&  a_cur_time,
+                          const Real&  a_dt,
+                          const int&   a_step_number )
+{  
+   CH_TIME("System::preTimeStep()");
+   
+   // initial advance of magnetic field by 1/2 time step
+   if (!m_electromagneticFields.isNull() && a_cur_time==0.0) {
+      if(m_electromagneticFields->advance()) {
+         m_electromagneticFields->setCurlE();
+         Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+         m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+         m_electromagneticFields->updateOldFieldValues();
+      }
+   }
+   
+}
+
 void System::advance( Real&  a_cur_time,
                       Real&  a_dt,
                       int&   a_step_number )
 {  
    CH_TIME("System::advance()");
    
+   //
+   // explicit leap-frog time advance. 
+   // B and vp are defined a half time step ahead of E and xp
+   //
 
-   // advance the electromagnetic fields
-   if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advance()) {
-         m_electromagneticFields->setCurlB();
-         m_electromagneticFields->advanceElectricField(a_dt);
-         m_electromagneticFields->setCurlE();
-         m_electromagneticFields->advanceMagneticField(a_dt);
-         m_electromagneticFields->updateOldFieldValues();
-      }
-   }
-   
-   // advance particle positions
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
+   // advance particle positions from t_{n} to t_{n+1} using vp_{n+1/2}
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
       if(this_picSpecies->motion()) this_picSpecies->advancePositions(a_dt);
    }
+
+   //
+   // compute current density at t_{n+1/2} using xp_{n+1/2} and vp_{n+1/2}
+   //
+
+   // advance the electric field from t_{n} to t_{n+1} using B_{n+1/2} and J_{n+1/2}
+   if (!m_electromagneticFields.isNull()) {
+      if(m_electromagneticFields->advance()) {
+         Real cnormDt = a_dt*m_units->CvacNorm();
+         m_electromagneticFields->setCurlB();
+         m_electromagneticFields->advanceElectricField(cnormDt);
+      }
+   }
    
+   // advance the magnetic field from t_{n+1/2} to t_{n+1} using E_{n+1}
+   if (!m_electromagneticFields.isNull()) {
+      if(m_electromagneticFields->advance()) {
+         Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+         m_electromagneticFields->setCurlE();
+         m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+      }
+   }
+   
+   //
+   // advance particle velocities from t_{n+1/2} to t_{n+3/2} using 
+   // xp_{n+1}, E_{n+1}, and B_{n+1}
+   //
+   
+   // advance the magnetic field from t_{n+1} to t_{n+3/2}
+   if (!m_electromagneticFields.isNull()) {
+      if(m_electromagneticFields->advance()) {
+         m_electromagneticFields->advanceMagneticField_2ndHalf();
+      }
+   }
+ 
+   //  
    // scatter the particles
+   //
+
    if(m_use_scattering) {
       
       // prepare all species to be scattered for scattering
@@ -610,6 +658,20 @@ void System::advance( Real&  a_cur_time,
    a_cur_time = a_cur_time + a_dt;
    a_step_number = a_step_number + 1;
 
+}
+
+void System::postTimeStep( const Real&  a_cur_time,
+                           const Real&  a_dt,
+                           const int&   a_step_number )
+{  
+   CH_TIME("System::postTimeStep()");
+   
+   if (!m_electromagneticFields.isNull()) {
+      if(m_electromagneticFields->advance()) {
+         m_electromagneticFields->updateOldFieldValues();
+      }
+   }
+   
 }
 
 Real System::fieldsDt( const int a_step_number )

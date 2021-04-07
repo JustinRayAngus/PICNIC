@@ -1432,7 +1432,10 @@ SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node,
 {
    CH_TIME("SpaceUtils::exchangeNodeFArrayBox()");
   
+   // only tested/verified for 2D with doubly-periodic BCs
+
    CH_assert(SpaceDim<3); // not generalized for 3D
+                          // not tested in 1D
 
    const DisjointBoxLayout& grids( a_Node.getBoxes() );
    DataIterator dit = grids.dataIterator();

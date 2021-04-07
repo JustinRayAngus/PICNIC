@@ -16,6 +16,7 @@
 
 ElectroMagneticFields::ElectroMagneticFields( ParmParse&   a_ppflds,
                                         const DomainGrid&  a_mesh,
+                                        const CodeUnits&   a_units,
                                         const bool&        a_verbosity )
    : m_verbosity(a_verbosity),
      m_mesh(a_mesh)
@@ -33,9 +34,9 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&   a_ppflds,
    const RealVect& meshOrigin(m_mesh.getXmin());
    const int ghosts(m_mesh.ghosts());
 
-   m_stable_dt = meshSpacing[0]/Constants::CVAC;
+   m_stable_dt = meshSpacing[0]/a_units.CvacNorm();
    for (int dir=1; dir<SpaceDim; dir++) {
-      m_stable_dt = Min(m_stable_dt,meshSpacing[dir]/Constants::CVAC);
+      m_stable_dt = Min(m_stable_dt,meshSpacing[dir]/a_units.CvacNorm());
    } 
 
    //
@@ -45,11 +46,11 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&   a_ppflds,
    const IntVect ghostVect = ghosts*IntVect::Unit; 
    
    // initialize the magnetic field containers
-   m_magneticField.define(grids,1,ghostVect);     // FluxBox with 1 comp
-   m_magneticField_old.define(grids,1,IntVect::Zero);     // FluxBox with 1 comp
+   m_magneticField.define(grids,1,ghostVect);       // FluxBox with 1 comp
+   m_magneticField_old.define(grids,1,ghostVect);   // FluxBox with 1 comp
    if(SpaceDim<3) {
-      m_magneticField_virtual.define(grids,3-SpaceDim,ghostVect); // FArrayBox
-      m_magneticField_virtual_old.define(grids,3-SpaceDim,IntVect::Zero); // FArrayBox
+      m_magneticField_virtual.define(grids,3-SpaceDim,ghostVect);      // FArrayBox
+      m_magneticField_virtual_old.define(grids,3-SpaceDim,ghostVect);  // FArrayBox
    }
 
    // initialize the electric field containers
@@ -171,6 +172,36 @@ void ElectroMagneticFields::initialize()
 
 }
 
+void ElectroMagneticFields::advanceMagneticField_2ndHalf()
+{
+   CH_TIME("ElectroMagneticFields::advanceMagneticField_2ndHalf()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         FArrayBox& Bdir_stag = m_magneticField[dit][dir];
+         const FArrayBox& Bdir_old = m_magneticField_old[dit][dir];
+         const Box& face_box = Bdir_stag.box();
+         Bdir_stag.mult(2.0);
+         Bdir_stag.minus(Bdir_old,face_box,0,0,1);
+      }
+   }
+   
+   if(SpaceDim<3) {
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+         FArrayBox& Bv_stag = m_magneticField_virtual[dit];
+         const FArrayBox& Bv_old = m_magneticField_virtual_old[dit];
+         const Box& cell_box = Bv_stag.box();
+         const int Ncomp = Bv_stag.nComp();
+         Bv_stag.mult(2.0);
+         Bv_stag.minus(Bv_old,cell_box,0,0,Ncomp);
+
+      }
+   }
+
+}
+
 void ElectroMagneticFields::updateOldFieldValues()
 {
    CH_TIME("ElectroMagneticFields::updateOldFieldValues()");
@@ -207,7 +238,7 @@ void ElectroMagneticFields::updateOldFieldValues()
 
 }
 
-void ElectroMagneticFields::advanceMagneticField( const Real& a_dt )
+void ElectroMagneticFields::advanceMagneticField( const Real& a_cnormDt )
 {
    CH_TIME("ElectroMagneticFields::advanceMagneticField()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -224,7 +255,7 @@ void ElectroMagneticFields::advanceMagneticField( const Real& a_dt )
          face_box.surroundingNodes(dir);
 
          FORT_ADVANCE_MAGNETIC_FIELD_COMP( CHF_BOX(face_box),
-                                           CHF_CONST_REAL(a_dt),
+                                           CHF_CONST_REAL(a_cnormDt),
                                            CHF_CONST_FRA1(Bdir_old,0), 
                                            CHF_CONST_FRA1(curlEdir,0), 
                                            CHF_FRA1(Bdir,0) );
@@ -248,7 +279,7 @@ void ElectroMagneticFields::advanceMagneticField( const Real& a_dt )
                   FArrayBox& Bvdir  = m_magneticField_virtual[dit];
 
             FORT_ADVANCE_MAGNETIC_FIELD_COMP( CHF_BOX(cell_box),
-                                              CHF_CONST_REAL(a_dt),
+                                              CHF_CONST_REAL(a_cnormDt),
                                               CHF_CONST_FRA1(Bv_old,comp), 
                                               CHF_CONST_FRA1(curlEv,comp), 
                                               CHF_FRA1(Bvdir,comp) );
@@ -261,12 +292,11 @@ void ElectroMagneticFields::advanceMagneticField( const Real& a_dt )
    
 }
 
-void ElectroMagneticFields::advanceElectricField( const Real& a_dt )
+void ElectroMagneticFields::advanceElectricField( const Real& a_cnormDt )
 {
    CH_TIME("ElectroMagneticFields::advanceElectricField()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    
-   const Real dtcvac2 = Constants::CVAC*Constants::CVAC*a_dt;
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       
       for (int dir=0; dir<SpaceDim; dir++) {
@@ -280,7 +310,7 @@ void ElectroMagneticFields::advanceElectricField( const Real& a_dt )
          edge_box.enclosedCells(dir);
 
          FORT_ADVANCE_ELECTRIC_FIELD_COMP( CHF_BOX(edge_box),
-                                           CHF_CONST_REAL(dtcvac2),
+                                           CHF_CONST_REAL(a_cnormDt),
                                            CHF_CONST_FRA1(Edir_old,0), 
                                            CHF_CONST_FRA1(curlBdir,0), 
                                            CHF_FRA1(Edir,0) );
@@ -304,7 +334,7 @@ void ElectroMagneticFields::advanceElectricField( const Real& a_dt )
                   FArrayBox& Evdir  = m_electricField_virtual[dit].getFab();
 
             FORT_ADVANCE_ELECTRIC_FIELD_COMP( CHF_BOX(node_box),
-                                              CHF_CONST_REAL(dtcvac2),
+                                              CHF_CONST_REAL(a_cnormDt),
                                               CHF_CONST_FRA1(Ev_old,comp), 
                                               CHF_CONST_FRA1(curlBv,comp), 
                                               CHF_FRA1(Evdir,comp) );
