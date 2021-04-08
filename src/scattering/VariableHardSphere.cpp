@@ -1,6 +1,7 @@
 
 #include "VariableHardSphere.H"
 #include "Constants.H"
+#include "CodeUnits.H"
 #include "MathUtils.H"
 #include "PicSpecies.H"
 #include "JustinsParticle.H"
@@ -82,6 +83,8 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
    Real fourOverAlpha = 4.0/m_alpha;   
    Real box_nuMax=0.0; // for scattering time step calculation
  
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
+
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = a_numberDensity.disjointBoxLayout();
    DataIterator ditg(grids);
@@ -102,7 +105,7 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
          for( int dir=0; dir<3; dir++) {
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
-         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
+         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity*cvacSq; // M/me*(V[m/s])^2
          local_VTeff = sqrt(local_Teff/mass); // thermal speed [m/s]
 
          // compute local sigmaTmax = sigmaT(VTeff) local nuMax*dt
@@ -113,11 +116,15 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
    
    }
    
+   // compute mean free time in physical units [s]
    Real global_nuMax = box_nuMax;
 #ifdef CH_MPI
    MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
 #endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
+   
+   //const Real tscale = a_units.getScale(a_units.TIME);
+   //m_scatter_dt = m_scatter_dt/tscale;
 
 }
 /*
@@ -179,7 +186,7 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
       
 void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies, 
                                         const DomainGrid&  a_mesh,
-                                        const Real         a_dt ) const
+                                        const Real         a_dt_sec ) const
 {
    CH_TIME("VariableHardSphere::applySelfScattering()");
  
@@ -187,6 +194,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    JustinsParticle* this_part2_ptr = NULL;  
  
    Real mass = m_mass1;
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
    
    // define reference to a_picSpcies binfab container of pointers to particle data
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
@@ -236,12 +244,12 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
          for( int dir=0; dir<3; dir++) {
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
-         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
+         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity*cvacSq; // M/me*(V[m/s])^2
          local_gmax = 5.0*sqrt(local_Teff/mass); // 5x thermal speed [m/s]
 
          // compute local sigmaTmax = sigmaT(gmax) local nuMax*dt
          local_sigmaTmax = fourPiA*pow(local_gmax,-fourOverAlpha);
-         local_nuMaxDt = local_numberDensity*local_sigmaTmax*local_gmax*a_dt;         
+         local_nuMaxDt = local_numberDensity*local_sigmaTmax*local_gmax*a_dt_sec;         
          if(local_nuMaxDt>10.0) 
             cout << "WARNING: local_nuMaxDt = " << local_nuMaxDt << endl;
 
@@ -295,25 +303,25 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
             this_part1_ptr = this_part1.getPointer();
             const uint64_t& this_ID1 = this_part1_ptr->ID();
             const RealVect& this_xp1 = this_part1_ptr->position();
-            std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+            std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part_ptrs[random_index2];
             this_part2_ptr = this_part2.getPointer();
             const uint64_t& this_ID2 = this_part2_ptr->ID();
             const RealVect& this_xp2 = this_part2_ptr->position();
-            std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+            std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
 
             // compute relative velocity magnitude
             g12 = 0.0;
             for (int dir=0; dir<3; dir++) {
-               g12 = g12 + pow(this_vp1[dir]-this_vp2[dir],2);
+               g12 = g12 + pow(this_betap1[dir]-this_betap2[dir],2);
             }
-            g12 = sqrt(g12); // relavive velocity [m/s]
+            g12 = sqrt(g12)*Constants::CVAC; // relavive velocity [m/s]
          
             // compute local sigmaT = sigmaT(g12) local nu*dt
             local_sigmaT = fourPiA*pow(g12,-fourOverAlpha);
-            local_nuDt = local_numberDensity*local_sigmaT*g12*a_dt;         
+            local_nuDt = local_numberDensity*local_sigmaT*g12*a_dt_sec;         
 
             // determine if the pair collide and then do the collision
             q12 = g12*local_sigmaT/(local_gmax*local_sigmaTmax);
@@ -324,13 +332,13 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
                
                //compute deltaU
                theta = Constants::TWOPI*MathUtils::rand();
-               ScatteringUtils::computeDeltaU(deltaU,this_vp1,this_vp2,theta);
+               ScatteringUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta);
                //deltaU = {0,0,0};
 
                // update particle velocities
                for (int dir=0; dir<3; dir++) {
-                  this_vp1[dir] = this_vp1[dir] + 0.5*deltaU[dir];
-                  this_vp2[dir] = this_vp2[dir] - 0.5*deltaU[dir];
+                  this_betap1[dir] = this_betap1[dir] + 0.5*deltaU[dir];
+                  this_betap2[dir] = this_betap2[dir] - 0.5*deltaU[dir];
                }
                if(procID()==0 && verbosity) {
                   cout << "JRA random_index1 = " << random_index1 << endl;
@@ -363,7 +371,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
 void VariableHardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
                                                PicSpecies&  a_picSpecies2, 
                                          const DomainGrid&  a_mesh,
-                                         const Real         a_dt ) const
+                                         const Real         a_dt_sec ) const
 {
    CH_TIME("VariableHardSphere::applyInterScattering()");
 

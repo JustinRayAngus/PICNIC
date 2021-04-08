@@ -159,9 +159,7 @@ protected:
   std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
  
   //RealVect  m_position_old;
-  //RealVect  m_position_avg;
   //std::array<Real,3> m_velocity_old;
-  //std::array<Real,3> m_velocity_avg;
 
 };
 

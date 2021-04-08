@@ -4,6 +4,7 @@
 #include "REAL.H"
 #include "PicSpecies.H"
 #include "LevelData.H"
+#include "CodeUnits.H"
 
 #include "DomainGrid.H"
 
@@ -33,6 +34,7 @@ class SpecialOperator
       // update the special operator
       //
       virtual void updateOp( const DomainGrid&  a_mesh,
+                             const CodeUnits&   a_units,
                              const Real&        a_time ) = 0;
       
       virtual Real specialOpsDt() const = 0;

@@ -17,11 +17,18 @@ CodeUnits::CodeUnits( ParmParse& a_parm_parse )
 {
    // Fundamental Characteristic Scales
    ParmParse ppunits( "units" );
+   getPosDefUnit( m_scale[NUMBER_DENSITY], "number_density", ppunits );
    getPosDefUnit( m_scale[TEMPERATURE],    "temperature",    ppunits );
    getPosDefUnit( m_scale[LENGTH],         "length",         ppunits );
    getPosDefUnit( m_scale[TIME],           "time",           ppunits );
 
+   m_scale[AREA] = m_scale[LENGTH]*m_scale[LENGTH];
+   m_scale[VOLUME] = m_scale[AREA]*m_scale[LENGTH];
    
+   CH_assert(m_scale[NUMBER_DENSITY]==1.0);
+   CH_assert(m_scale[TEMPERATURE]==1.0);
+   
+   m_NUM_DEN_NORM = m_scale[VOLUME]*m_scale[NUMBER_DENSITY];
    m_CVAC_NORM = Constants::CVAC*m_scale[TIME]/m_scale[LENGTH];
 
    // Universal Constants
@@ -41,11 +48,12 @@ void CodeUnits::printParameters( const int a_procID) const
 {
    if(!a_procID) {
       cout << "====================== Fundamental Code Units ======================" << endl;
-      cout << "  TEMPERATURE     [eV]: " << m_scale[TEMPERATURE] << " (NOT USED YET)" << endl;
-      cout << "  LENGTH           [m]: " << m_scale[LENGTH]      << " (NOT USED YET)" << endl;
-      cout << "  TIME             [s]: " << m_scale[TIME]        << " (NOT USED YET)" << endl;
-      cout << "  ELECTRIC_FIELD [V/m]: " << m_scale[ELECTRIC_FIELD] << endl;
-      cout << "  MAGNETIC_FIELD   [T]: " << m_scale[MAGNETIC_FIELD] << endl;
+      cout << "  NUMBER_DENISTY [1/m^3]: " << m_scale[NUMBER_DENSITY] << endl;
+      cout << "  TEMPERATURE       [eV]: " << m_scale[TEMPERATURE] << endl;
+      cout << "  LENGTH             [m]: " << m_scale[LENGTH]      << endl;
+      cout << "  TIME               [s]: " << m_scale[TIME]        << endl;
+      cout << "  ELECTRIC_FIELD   [V/m]: " << m_scale[ELECTRIC_FIELD] << endl;
+      cout << "  MAGNETIC_FIELD     [T]: " << m_scale[MAGNETIC_FIELD] << endl;
       cout << "====================================================================" << endl;
       cout << endl;
    }

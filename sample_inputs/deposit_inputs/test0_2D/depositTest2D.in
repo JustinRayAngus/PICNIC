@@ -39,10 +39,10 @@ grid.verbosity = 1
 #####################################################
 # Units Definitions
 #####################################################
-#units.number_density = 1.0e23   # num/m^3
-units.temperature    = 1.0     # eV
-units.length         = 1.0e-2  # m
-units.time           = 1.0e-9  # s
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 1.0  # m
+units.time           = 1.0  # s
 
 #####################################################
 # Species Definitions

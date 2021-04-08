@@ -22,8 +22,11 @@ class CodeUnits
       // Enumerated characteristic scales.
       enum CHAR_SCALE {
          TEMPERATURE,      // [eV]
-         LENGTH,           // user specified
-         TIME,             // user specified
+         NUMBER_DENSITY,   // [num/m^3]
+         LENGTH,           // [m]
+         AREA,             // [m^2]
+         VOLUME,           // [m^3]
+         TIME,             // [s]
          ELECTRIC_FIELD,   // [kV/cm]
          MAGNETIC_FIELD,   // [kV/cm/CVAC]
          COUNT};
@@ -40,12 +43,14 @@ class CodeUnits
       Real getScale( const CHAR_SCALE& type ) const { checkType( type ); return m_scale[type]; }
       
       Real CvacNorm() const { return m_CVAC_NORM; }
+      Real NumDenNorm() const { return m_NUM_DEN_NORM; }
 
    private:
 
       Real m_scale[COUNT];
       
       Real m_CVAC_NORM;
+      Real m_NUM_DEN_NORM;
 
       // Check that the input type is valid.
       void checkType( const CHAR_SCALE& type ) const

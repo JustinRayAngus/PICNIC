@@ -72,13 +72,13 @@ class TakizukaAbe : public Scattering
       // scatter like species
       virtual void applySelfScattering( PicSpecies&  a_picSpecies, 
                                   const DomainGrid&  a_mesh,
-                                  const Real         a_dt ) const;
+                                  const Real         a_dt_sec ) const;
       
       // scatter unlike species
       virtual void applyInterScattering( PicSpecies&  a_picSpecies1,
                                          PicSpecies&  a_picSpecies2,
                                    const DomainGrid&  a_mesh,
-                                   const Real         a_dt ) const;
+                                   const Real         a_dt_sec ) const;
  
  
    private:
@@ -90,7 +90,7 @@ class TakizukaAbe : public Scattering
                     const std::array<Real,3>&  a_vp2,
                     const Real                 a_den2,
                     const Real                 a_Clog,
-                    const Real                 a_dt ) const;
+                    const Real                 a_dt_sec ) const;
 
       // prohibit copying
       //TakizukaAbe( const Constant& );

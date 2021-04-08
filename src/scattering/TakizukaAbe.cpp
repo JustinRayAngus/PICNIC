@@ -73,6 +73,8 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
    Real Teff_eV, numberDensity, energyDensity, Clog;
    Real tau;
    Real box_nuMax=0.0; // for scattering time step calculation
+   
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
     
    const DisjointBoxLayout& grids = a_numberDensity.disjointBoxLayout();
    DataIterator ditg(grids);
@@ -94,7 +96,7 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
          for( int dir=0; dir<3; dir++) {
             energyDensity = energyDensity + this_energyDensity.get(ig,dir);  
          }
-         Teff_eV = Constants::ME*2.0/3.0*energyDensity/numberDensity; // [Joules]
+         Teff_eV = Constants::ME*2.0/3.0*energyDensity/numberDensity*cvacSq; // [Joules]
          Teff_eV = Constants::EV_PER_JOULE*Teff_eV; // local temperature [eV]
 
          Clog = 10.0;
@@ -139,6 +141,8 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
 
    Real tau, Clog;
    Real box_nuMax=0.0; // for scattering time step calculation
+   
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
  
    //bool verbosity = true;
    bool verbosity = false;
@@ -168,8 +172,8 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
             energyDensity1 = energyDensity1 + this_energyDensity1.get(ig,dir);  
             energyDensity2 = energyDensity2 + this_energyDensity2.get(ig,dir);  
          }
-         energy1 = Constants::ME*energyDensity1/numberDensity1; // [Joules]
-         energy2 = Constants::ME*energyDensity2/numberDensity2; // [Joules]
+         energy1 = Constants::ME*energyDensity1/numberDensity1*cvacSq; // [Joules]
+         energy2 = Constants::ME*energyDensity2/numberDensity2*cvacSq; // [Joules]
          Teff1_eV = Constants::EV_PER_JOULE*2.0/3.0*energy1; // local temperature [eV]
          Teff2_eV = Constants::EV_PER_JOULE*2.0/3.0*energy2; // local temperature [eV]
          VT1 = sqrt(Constants::QE*Teff1_eV/(Constants::ME*m_mass1)); // [m/s]
@@ -224,7 +228,7 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
       
 void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies, 
                                  const DomainGrid&  a_mesh,
-                                 const Real         a_dt ) const
+                                 const Real         a_dt_sec ) const
 {
    CH_TIME("TakizukaAbe::applySelfScattering()");
  
@@ -278,9 +282,9 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
          if(m_charge1>0) tau = tau*sqrt(m_mass1/2.0);
  
          box_nuMax = Max(box_nuMax,1.0/tau);
-         if(box_nuMax*a_dt>10.0) { 
+         if(box_nuMax*a_dt_sec>10.0) { 
             if(procID()) {
-               cout << "WARNING: box_nuMaxDt = " << box_nuMax*a_dt << endl;
+               cout << "WARNING: box_nuMaxDt = " << box_nuMax*a_dt_sec << endl;
                cout << "WARNING: Teff_eV = " << Teff_eV << endl;
                cout << "WARNING: m_charge1 = " << m_charge1 << endl;
                cout << "WARNING: m_mass1 = " << m_mass1 << endl;
@@ -314,25 +318,25 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part_ptrs[p];
             this_part1_ptr = this_part1.getPointer();
-            std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+            std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
             p++; // advance the loop index by 1
             JustinsParticlePtr& this_part2 = vector_part_ptrs[p];
             this_part2_ptr = this_part2.getPointer();
-            std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+            std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
    
             // compute deltaU
             computeDeltaU( deltaU,
-                           this_vp1, numDen,
-                           this_vp2, numDen,
-                           Clog, a_dt );     
+                           this_betap1, numDen,
+                           this_betap2, numDen,
+                           Clog, a_dt_sec );     
             //deltaU = {0,0,0};
             
             // update particle velocities
             for (int dir=0; dir<3; dir++) {
-               this_vp1[dir] = this_vp1[dir] + m_mu/m_mass1*deltaU[dir];
-               this_vp2[dir] = this_vp2[dir] - m_mu/m_mass2*deltaU[dir];
+               this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
+               this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
             }
 
          }
@@ -347,24 +351,24 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
                // get particle data for first particle    
                JustinsParticlePtr& this_part1 = vector_part_ptrs[p1];
                this_part1_ptr = this_part1.getPointer();
-               std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+               std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
             
                // get particle data for second particle    
                JustinsParticlePtr& this_part2 = vector_part_ptrs[p2];
                this_part2_ptr = this_part2.getPointer();
-               std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+               std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
 
                // compute deltaU
                computeDeltaU( deltaU,
-                              this_vp1, numDen/2.0,
-                              this_vp2, numDen/2.0,
-                              Clog, a_dt );     
+                              this_betap1, numDen/2.0,
+                              this_betap2, numDen/2.0,
+                              Clog, a_dt_sec );     
                //deltaU = {0,0,0};
             
                // update particle velocities
                for (int dir=0; dir<3; dir++) {
-                  this_vp1[dir] = this_vp1[dir] + m_mu/m_mass1*deltaU[dir];
-                  this_vp2[dir] = this_vp2[dir] - m_mu/m_mass2*deltaU[dir];
+                  this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
+                  this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
                }
 
             }
@@ -390,7 +394,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
 void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
                                         PicSpecies&  a_picSpecies2, 
                                   const DomainGrid&  a_mesh,
-                                  const Real         a_dt ) const
+                                  const Real         a_dt_sec ) const
 {
    CH_TIME("TakizukaAbe::applyInterScattering()");
    
@@ -506,24 +510,24 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part1_ptrs[p1];
             this_part1_ptr = this_part1.getPointer();
-            std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+            std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part2_ptrs[p2];
             this_part2_ptr = this_part2.getPointer();
-            std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+            std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
    
             // compute deltaU
             computeDeltaU( deltaU,
-                           this_vp1, numDen1,
-                           this_vp2, numDen2,
-                           Clog, a_dt );     
+                           this_betap1, numDen1,
+                           this_betap2, numDen2,
+                           Clog, a_dt_sec );     
             //deltaU = {0,0,0};
             
             // update particle velocities
             for (int dir=0; dir<3; dir++) {
-               this_vp1[dir] = this_vp1[dir] + m_mu/m_mass1*deltaU[dir];
-               this_vp2[dir] = this_vp2[dir] - m_mu/m_mass2*deltaU[dir];
+               this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
+               this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
             }
 
          }
@@ -551,7 +555,7 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
                            const std::array<Real,3>&  a_vp2,
                            const Real                 a_den2,
                            const Real                 a_Clog,
-                           const Real                 a_dt ) const
+                           const Real                 a_dt_sec ) const
 {
    CH_TIME("TakizukaAbe::computeDeltaU()");
    
@@ -561,10 +565,12 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    Real u = sqrt(ux*ux + uy*uy + uz*uz);
    Real uperp = sqrt(ux*ux + uy*uy);
 
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
+
    // compute deltasq_var
    Real den = Min(a_den1,a_den2); 
-   Real b90 = abs(m_charge1*m_charge2)/(m_mu*u*u)*m_b90_codeToPhys; // 90 degree impact param [m] 
-   Real deltasq_var = Constants::TWOPI*b90*b90*den*a_Clog*u*a_dt;
+   Real b90 = abs(m_charge1*m_charge2)/(m_mu*u*u*cvacSq)*m_b90_codeToPhys; // 90 degree impact param [m] 
+   Real deltasq_var = Constants::TWOPI*b90*b90*den*a_Clog*u*Constants::CVAC*a_dt_sec;
 
    // sample from gaussian distribution  
    Real delta = sqrt(deltasq_var)*MathUtils::randn();

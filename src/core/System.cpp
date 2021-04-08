@@ -69,7 +69,7 @@ void System::initialize( const int     a_cur_step,
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
       if(a_cur_step==0) {
-         this_picSpecies->initialize(); // set initial particle positions and velocities
+         this_picSpecies->initialize(*m_units); // set initial particle positions and velocities
       }
       else { // restart
          if(!procID()) cout << "System::initialize() called at step = " << a_cur_step << endl;
@@ -452,7 +452,7 @@ void System::createSpecialOperators()
       if(ppspop.contains("model")) {
          m_use_specialOps = true;
          m_specialOps = specialOpFactory.create( ppspop, 1 );
-         m_specialOps->updateOp(*m_mesh,0.0); // should make an initializeOp() function
+         m_specialOps->updateOp(*m_mesh,*m_units,0.0); // should make an initializeOp() function
       } 
       else {
          more_ops = false;
@@ -529,11 +529,15 @@ void System::setupHistFile()
 
 void System::parseParameters( ParmParse&  a_ppsys )
 {
+
+   //CH_assert(a_ppsys.contains("advance_method"));
+   //a_ppsys.get("advance_method", m_advance_method);
    
    a_ppsys.query("write_species_charge_density", m_writeSpeciesChargeDensity);
    a_ppsys.query("write_species_current_density", m_writeSpeciesCurrentDensity);
  
    if(!procID()) {
+      //cout << "advance method  = " << m_advance_method << endl;
       cout << "write species charge density  = " << m_writeSpeciesChargeDensity << endl;
       cout << "write species current density = " << m_writeSpeciesCurrentDensity << endl << endl;
    }
@@ -545,16 +549,29 @@ void System::preTimeStep( const Real&  a_cur_time,
                           const int&   a_step_number )
 {  
    CH_TIME("System::preTimeStep()");
-   
-   // initial advance of magnetic field by 1/2 time step
-   if (!m_electromagneticFields.isNull() && a_cur_time==0.0) {
-      if(m_electromagneticFields->advance()) {
+  
+   // Right now this is used to advance the variables that are stag in time
+   // to half a time step ahead and to update the old values
+   //
+   // This is done here because I want all quantities at the same instance in
+   // time at the end of advance() so that the values written to the output
+   // files are all at the same physical time
+ 
+   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+      if (a_cur_time==0.0) { // initial advance of magnetic field by 1/2 time step
          m_electromagneticFields->setCurlE();
          Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
          m_electromagneticFields->advanceMagneticField(cnormHalfDt);
-         m_electromagneticFields->updateOldFieldValues();
       }
+      else { // advance the magnetic field from t_{n+1} to t_{n+3/2}
+         m_electromagneticFields->advanceMagneticField_2ndHalf();
+      }
+      m_electromagneticFields->updateOldFieldValues();
    }
+   
+   //
+   // advance particle velocities from t_{n+1} to t_{n+3/2}
+   //
    
 }
 
@@ -563,95 +580,72 @@ void System::advance( Real&  a_cur_time,
                       int&   a_step_number )
 {  
    CH_TIME("System::advance()");
+
+   // direct-simulation monte-carlo advance
+   //advance_DSMC(a_cur_time, a_dt, a_step_number);
+   
+   // fully-explicit PIC-MC advance
+   advance_PICMC_FE(a_cur_time, a_dt, a_step_number);
+   
+   // semi-implicit PIC-MC advance
+   //advance_PICMC_SI(a_cur_time, a_dt, a_step_number);
+   
+   // fully-implicit PIC-MC advance
+   //advance_PICMC_FI(a_cur_time, a_dt, a_step_number);
+   
+}
+
+void System::advance_PICMC_FE( Real&  a_cur_time,
+                               Real&  a_dt,
+                               int&   a_step_number )
+{  
+   CH_TIME("System::advance_PICMC_FE()");
    
    //
    // explicit leap-frog time advance. 
    // B and vp are defined a half time step ahead of E and xp
    //
+    
+   Real cnormDt = a_dt*m_units->CvacNorm();
 
    // advance particle positions from t_{n} to t_{n+1} using vp_{n+1/2}
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) this_picSpecies->advancePositions(a_dt);
+      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormDt);
    }
 
    //
    // compute current density at t_{n+1/2} using xp_{n+1/2} and vp_{n+1/2}
    //
 
-   // advance the electric field from t_{n} to t_{n+1} using B_{n+1/2} and J_{n+1/2}
-   if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advance()) {
-         Real cnormDt = a_dt*m_units->CvacNorm();
-         m_electromagneticFields->setCurlB();
-         m_electromagneticFields->advanceElectricField(cnormDt);
-      }
-   }
+   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
    
-   // advance the magnetic field from t_{n+1/2} to t_{n+1} using E_{n+1}
-   if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advance()) {
-         Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
-         m_electromagneticFields->setCurlE();
-         m_electromagneticFields->advanceMagneticField(cnormHalfDt);
-      }
+      // advance the electric field from t_{n} to t_{n+1} using B_{n+1/2} and J_{n+1/2}
+      m_electromagneticFields->setCurlB();
+      m_electromagneticFields->advanceElectricField(cnormDt);
+   
+      // advance the magnetic field from t_{n+1/2} to t_{n+1} using E_{n+1}
+      Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+      m_electromagneticFields->setCurlE();
+      m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+   
    }
    
    //
-   // advance particle velocities from t_{n+1/2} to t_{n+3/2} using 
+   // advance particle velocities from t_{n+1/2} to t_{n+1} using 
    // xp_{n+1}, E_{n+1}, and B_{n+1}
    //
    
-   // advance the magnetic field from t_{n+1} to t_{n+3/2}
-   if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advance()) {
-         m_electromagneticFields->advanceMagneticField_2ndHalf();
-      }
-   }
- 
-   //  
-   // scatter the particles
-   //
-
-   if(m_use_scattering) {
-      
-      // prepare all species to be scattered for scattering
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->scatter()) {
-            this_picSpecies->binTheParticles();
-            this_picSpecies->setNumberDensity();
-            this_picSpecies->setEnergyDensity(); // may want to do this after or before each scatter
-         }
-      }
-
-      // Should we shuffle the m_scattering_ptr_vect each time ?
-      for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) { // loop over scattering objects
-         
-         ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-         const int this_species1 = this_scattering->species1();
-         const int this_species2 = this_scattering->species2();
-         
-         PicSpeciesPtr this_picSpecies1(m_pic_species_ptr_vect[this_species1]);
-         if(this_species1==this_species2) { // self-species scattering
-            this_scattering->applySelfScattering( *this_picSpecies1, *m_mesh, a_dt );
-         }
-         else { // inter-species scattering
-            PicSpeciesPtr this_picSpecies2(m_pic_species_ptr_vect[this_species2]);
-            this_scattering->applyInterScattering( *this_picSpecies1, *this_picSpecies2, *m_mesh, a_dt );
-         }
-
-      }
-
-   }
+   // scatter the particles: vp_{n+1} ==> vp'_{n+1}
+   if(m_use_scattering) scatterParticles( a_dt );
    
    // apply special operators
    if(m_use_specialOps) {
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         m_specialOps->applyOp(*this_picSpecies,*m_mesh,a_dt);
+         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
       }
-      m_specialOps->updateOp(*m_mesh,a_dt);
+      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
    }
 
    // update current time and step number
@@ -660,17 +654,84 @@ void System::advance( Real&  a_cur_time,
 
 }
 
+void System::advance_DSMC( Real&  a_cur_time,
+                           Real&  a_dt,
+                           int&   a_step_number )
+{  
+   CH_TIME("System::advance_DSMC()");
+   
+   //
+   // explicit advance of particle positions + velocity scatter
+   //
+    
+   Real cnormDt = a_dt*m_units->CvacNorm();
+
+   // advance particle positions from t_{n} to t_{n+1} using vp_{n}
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormDt);
+   }
+   
+   // scatter the particles: vp_{n+1} ==> vp'_{n+1}
+   if(m_use_scattering) scatterParticles( a_dt );
+   
+   // apply special operators
+   if(m_use_specialOps) {
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
+      }
+      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
+   }
+
+   // update current time and step number
+   a_cur_time = a_cur_time + a_dt;
+   a_step_number = a_step_number + 1;
+
+}
+
+void System::scatterParticles( const Real&  a_dt )
+{  
+   CH_TIME("System::scatterParticles()");
+
+   const Real tscale = m_units->getScale(m_units->TIME);
+   const Real dt_sec = a_dt*tscale;      
+
+   // prepare all species to be scattered for scattering
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->scatter()) {
+         this_picSpecies->binTheParticles();
+         this_picSpecies->setNumberDensity();
+         this_picSpecies->setEnergyDensity(); // may want to do this after or before each scatter
+      }
+   }
+
+   // Should we shuffle the m_scattering_ptr_vect each time ?
+   for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) { // loop over scattering objects
+         
+      ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+      const int this_species1 = this_scattering->species1();
+      const int this_species2 = this_scattering->species2();
+         
+      PicSpeciesPtr this_picSpecies1(m_pic_species_ptr_vect[this_species1]);
+      if(this_species1==this_species2) { // self-species scattering
+         this_scattering->applySelfScattering( *this_picSpecies1, *m_mesh, dt_sec );
+      }
+      else { // inter-species scattering
+         PicSpeciesPtr this_picSpecies2(m_pic_species_ptr_vect[this_species2]);
+         this_scattering->applyInterScattering( *this_picSpecies1, *this_picSpecies2, *m_mesh, dt_sec );
+      }
+
+   }
+
+}   
+
 void System::postTimeStep( const Real&  a_cur_time,
                            const Real&  a_dt,
                            const int&   a_step_number )
 {  
    CH_TIME("System::postTimeStep()");
-   
-   if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advance()) {
-         m_electromagneticFields->updateOldFieldValues();
-      }
-   }
    
 }
 
@@ -691,7 +752,7 @@ Real System::partsDt( const int a_step_number )
    Real stableDt = DBL_MAX;
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      this_picSpecies->setStableDt();
+      this_picSpecies->setStableDt(*m_units);
       stableDt = min(stableDt,this_picSpecies->stableDt());
    }
   
@@ -706,13 +767,17 @@ Real System::partsDt( const int a_step_number )
 Real System::scatterDt( const int a_step_number )
 {
    Real scatterDt = DBL_MAX;
+   const Real tscale = m_units->getScale(m_units->TIME);
+   
    if(m_use_scattering) {
       for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
          ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-         scatterDt = min(scatterDt,this_scattering->scatterDt());
+         scatterDt = min(scatterDt,this_scattering->scatterDt()); // [s]
+         scatterDt = scatterDt/tscale; // convert to code units
       }
-      if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
+      if(!procID()) cout << "mean free scattering time [code units] = " << scatterDt << endl;
    }
+   
    return scatterDt;
 }
 

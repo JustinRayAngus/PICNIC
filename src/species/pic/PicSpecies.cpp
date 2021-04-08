@@ -159,7 +159,7 @@ PicSpecies::~PicSpecies()
    */
 }
 
-void PicSpecies::advancePositions( const Real& a_dt )
+void PicSpecies::advancePositions( const Real& a_cnormDt )
 {
    CH_TIME("PicSpecies::advancePositions()");
     
@@ -190,12 +190,12 @@ void PicSpecies::advancePositions( const Real& a_dt )
       for(li.begin(); li.ok(); ++li) {
 
          RealVect&  x = li().position();
-         std::array<Real,3>&  v = li().velocity();
+         std::array<Real,3>&  v = li().velocity(); // actually beta
 
          // update particle position
-         //x += v*a_dt;
+         //x += v*a_cnormDt;
          for(int dir=0; dir<SpaceDim; dir++) {
-            x[dir] += v[dir]*a_dt;
+            x[dir] += v[dir]*a_cnormDt;
          }
 
          // set particle boundary conditions here for now
@@ -233,19 +233,16 @@ void PicSpecies::advancePositions( const Real& a_dt )
    
 }
 
-
-void PicSpecies::setStableDt()
+void PicSpecies::setStableDt( const CodeUnits&  a_units )
 {
    CH_TIME("PicSpecies::setStableDt()");
    
    // set the stable time step based on particles crossing a grid cell
-   //
    const RealVect& dX(m_mesh.getdX());
    Real maxDtinv = 0.0;
    Real thisDtinv;
 
    // Each proc loops over its own boxes
-   //
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
@@ -255,7 +252,7 @@ void PicSpecies::setStableDt()
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
-         std::array<Real,3>&  v = li().velocity();
+         std::array<Real,3>&  v = li().velocity(); // actually beta
          for(int dir=0; dir<SpaceDim; dir++) {
             thisDtinv = abs(v[dir])/dX[dir];
             maxDtinv = Max(thisDtinv,maxDtinv);
@@ -266,8 +263,7 @@ void PicSpecies::setStableDt()
    }
 
    // update stable time step
-   //
-   Real local_stable_dt = 1.0/maxDtinv;
+   Real local_stable_dt = 1.0/maxDtinv/a_units.CvacNorm();
    Real stable_dt = local_stable_dt;
 #ifdef CH_MPI
    MPI_Allreduce( &local_stable_dt, &stable_dt, 1, MPI_CH_REAL, MPI_MIN, MPI_COMM_WORLD ); 
@@ -414,7 +410,7 @@ void PicSpecies::testParticleShuffling( const Real& a_dt )
    
 }
 
-void PicSpecies::initialize()
+void PicSpecies::initialize( const CodeUnits&  a_units )
 {
    // initilize the particle position and velocities
    //
@@ -553,6 +549,7 @@ void PicSpecies::initialize()
    DataIterator dit(BL);
    uint64_t ID = procID()*512 + 1; // hack for testing purposes
    //Real ID = 0.;
+   const Real numDenNorm = a_units.NumDenNorm();
    for (dit.begin(); dit.ok(); ++dit) {
 
       CH_XD::List<JustinsParticle> thisList;
@@ -565,7 +562,7 @@ void PicSpecies::initialize()
 
          const IntVect ig = gbit(); // grid index
          Real local_density = m_density[dit].get(ig,0);
-         pWeight = local_density*cellVolume/(Real)totalPartsPerCell; 
+         pWeight = numDenNorm*local_density*cellVolume/(Real)totalPartsPerCell; 
         
          RealVect local_Xcc; 
          std::array<Real,3> local_temperature;
@@ -582,11 +579,9 @@ void PicSpecies::initialize()
          // placed in each grid cell    
          //
          Real V0 = sqrt(Constants::QE/Constants::ME); // ele thermal speed at 1eV [m/s]
-         //Real beta0 = V0/Constants::CVAC;
          for(pbit.begin(); pbit.ok(); ++pbit) {
             
             // set particle position uniformly on grid
-            //
             RealVect Xpart = local_Xcc - 0.5*dX;
             IntVect ipg = pbit();
             for(int dir=0; dir<SpaceDim; dir++) {
@@ -602,28 +597,24 @@ void PicSpecies::initialize()
                if(Xpart[2]<sXmin[2] || Xpart[2]>sXmax[2]) continue;
             }
 
-            // initialize particle velocities by randomly sampling 
-            // a maxwellian
-            //
-            std::array<Real,3> Vpart = {0,0,0};
+            // initialize particle velocities by randomly sampling a maxwellian
+            std::array<Real,3> BetaPart = {0,0,0};
             Real thisRand, thisVT;
             for(int dir=0; dir<3; dir++) { 
                //thisRand = MathUtils::rand();
-               //Vpart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
+               //BetaPart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
                //thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
-               //Vpart[dir] = Vpart[dir]*sqrt(2.0)*thisVT + local_velocity[dir];
+               //BetaPart[dir] = (BetaPart[dir]*sqrt(2.0)*thisVT + local_velocity[dir])/Constants::CVAC;
                thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
-               Vpart[dir] = thisVT*MathUtils::randn() + local_velocity[dir];
+               BetaPart[dir] = (thisVT*MathUtils::randn() + local_velocity[dir])/Constants::CVAC;
             } 
             
-            // create this particle and append it to the list
-            //
-            JustinsParticle particle(pWeight, Xpart, Vpart);
+            // create this particle
+            JustinsParticle particle(pWeight, Xpart, BetaPart);
             particle.setID(ID);
             ID = ID + 1;
  
             // append particle to the list
-            //
             thisList.append(particle);
             
          }

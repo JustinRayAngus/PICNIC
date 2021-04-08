@@ -71,13 +71,13 @@ class VariableHardSphere : public Scattering
       // scatter like species
       virtual void applySelfScattering( PicSpecies&  a_picSpecies, 
                                   const DomainGrid&  a_mesh,
-                                  const Real         a_dt ) const;
+                                  const Real         a_dt_sec ) const;
       
       // scatter unlike species
       virtual void applyInterScattering( PicSpecies&  a_picSpecies1,
                                          PicSpecies&  a_picSpecies2,
                                    const DomainGrid&  a_mesh,
-                                   const Real         a_dt ) const;
+                                   const Real         a_dt_sec ) const;
  
    private:
 

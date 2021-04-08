@@ -27,6 +27,7 @@
 #include "ListBox.H"
 #include "ListBoxFactory.H"
 #include "MeshInterp.H"
+#include "CodeUnits.H"
 
 #include "NamespaceHeader.H"
 
@@ -44,7 +45,7 @@ public:
   
   virtual ~PicSpecies();
 
-  void initialize();
+  void initialize( const CodeUnits&  a_units );
 
   virtual Real mass() const { return m_mass; }
   virtual int charge() const { return m_charge; }
@@ -128,11 +129,11 @@ public:
  
   // advance particle positions
   //
-  void advancePositions( const Real&  a_dt );
+  void advancePositions( const Real&  a_cnormDt );
   
   // compute stable time step based on particle CFL
   //
-  void setStableDt();
+  void setStableDt( const CodeUnits&  a_units );
   
   // bin the particle up for scattering
   //
@@ -188,8 +189,8 @@ private:
 
   // physical quantities
   //
-  mutable LevelData<FArrayBox> m_temperature; // temperature at cell center
-  mutable LevelData<FArrayBox> m_velocity;    // velocity at cell center
+  mutable LevelData<FArrayBox> m_temperature; // temperature [eV] at cell center
+  mutable LevelData<FArrayBox> m_velocity;    // velocity [m/s] at cell center
 
 
   void createMeshInterp();

@@ -153,7 +153,7 @@ void dataFileIO::writeMeshDataFile()
    // write node centered data test
    //
    //
-   bool nodeDataTest = true;
+   bool nodeDataTest = false;
    if(nodeDataTest) {
 
       const DisjointBoxLayout& grids = gridOnNodes.disjointBoxLayout();

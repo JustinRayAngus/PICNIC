@@ -81,6 +81,7 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
    CH_TIME("HardSphere::setMeanFreeTime()");
    
    Real mass = m_mass1;
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
    
    // predefine some variables
    Real local_Teff, local_numberDensity, local_energyDensity, local_VTeff;
@@ -107,7 +108,7 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
          for( int dir=0; dir<3; dir++) {
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
-         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
+         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity*cvacSq; // M/me*(V[m/s])^2
          local_VTeff = sqrt(local_Teff/mass); // thermal speed [m/s]
 
          // compute local local nuMax*dt
@@ -137,6 +138,8 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
    Real local_Teff2, local_numberDensity2, local_energyDensity2, local_VTeff2;
    Real local_nuMax1, local_nuMax2;
    Real box_nuMax=0.0;
+   
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = a_numberDensity1.disjointBoxLayout();
@@ -164,8 +167,8 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
             local_energyDensity1 = local_energyDensity1 + this_energyDensity1.get(ig,dir);  
             local_energyDensity2 = local_energyDensity2 + this_energyDensity2.get(ig,dir);  
          }
-         local_Teff1 = 2.0/3.0*local_energyDensity1/local_numberDensity1; // M1/me*(V1[m/s])^2
-         local_Teff2 = 2.0/3.0*local_energyDensity2/local_numberDensity2; // M2/me*(V2[m/s])^2
+         local_Teff1 = 2.0/3.0*local_energyDensity1/local_numberDensity1*cvacSq; // M1/me*(V1[m/s])^2
+         local_Teff2 = 2.0/3.0*local_energyDensity2/local_numberDensity2*cvacSq; // M2/me*(V2[m/s])^2
          local_VTeff1 = sqrt(local_Teff1/m_mass1); // thermal speed [m/s]
          local_VTeff2 = sqrt(local_Teff2/m_mass2); // thermal speed [m/s]
 
@@ -190,7 +193,7 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
       
 void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies, 
                                 const DomainGrid&  a_mesh,
-                                const Real         a_dt ) const
+                                const Real         a_dt_sec ) const
 {
    CH_TIME("HardSphere::applySelfScattering()");
  
@@ -198,7 +201,8 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    JustinsParticle* this_part2_ptr = NULL;  
  
    Real mass = m_mass1;
-   
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
+ 
    // define reference to a_picSpcies binfab container of pointers to particle data
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
    const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
@@ -245,11 +249,11 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
          for( int dir=0; dir<3; dir++) {
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
-         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity; // M/me*(V[m/s])^2
+         local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity*cvacSq; // M/me*(V[m/s])^2
          local_gmax = 5.0*sqrt(local_Teff/mass); // 5x thermal speed [m/s]
 
          // compute local nuMax*dt
-         local_nuMaxDt = local_numberDensity*m_sigmaT*local_gmax*a_dt;         
+         local_nuMaxDt = local_numberDensity*m_sigmaT*local_gmax*a_dt_sec;         
          if(local_nuMaxDt>10.0) 
             cout << "WARNING: local_nuMaxDt = " << local_nuMaxDt << endl;
 
@@ -289,19 +293,19 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part_ptrs[random_index1];
             this_part1_ptr = this_part1.getPointer();
-            std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+            std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part_ptrs[random_index2];
             this_part2_ptr = this_part2.getPointer();
-            std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+            std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
 
             // compute relative velocity magnitude
             g12 = 0.0;
             for (int dir=0; dir<3; dir++) {
-               g12 = g12 + pow(this_vp1[dir]-this_vp2[dir],2);
+               g12 = g12 + pow(this_betap1[dir]-this_betap2[dir],2);
             }
-            g12 = sqrt(g12); // relavive velocity [m/s]
+            g12 = sqrt(g12)*Constants::CVAC; // relavive velocity [m/s]
          
             // determine if the pair collide and then do the collision
             q12 = g12*m_sigmaT/(local_gmax*m_sigmaT);
@@ -312,13 +316,13 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
                
                //compute deltaU
                theta = Constants::TWOPI*MathUtils::rand();
-               ScatteringUtils::computeDeltaU(deltaU,this_vp1,this_vp2,theta);
+               ScatteringUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta);
                //deltaU = {0,0,0};
 
                // update particle velocities
                for (int dir=0; dir<3; dir++) {
-                  this_vp1[dir] = this_vp1[dir] + 0.5*deltaU[dir];
-                  this_vp2[dir] = this_vp2[dir] - 0.5*deltaU[dir];
+                  this_betap1[dir] = this_betap1[dir] + 0.5*deltaU[dir];
+                  this_betap2[dir] = this_betap2[dir] - 0.5*deltaU[dir];
                }
             }
 
@@ -343,7 +347,7 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
 void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
                                        PicSpecies&  a_picSpecies2, 
                                  const DomainGrid&  a_mesh,
-                                 const Real         a_dt ) const
+                                 const Real         a_dt_sec ) const
 {
    CH_TIME("HardSphere::applyInterScattering()");
    
@@ -380,6 +384,8 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
    Real theta; 
  
    Real local_nuMaxDt;
+   
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
 
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data1_binfab_ptr.disjointBoxLayout();
@@ -419,12 +425,12 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
             local_energyDensity1 = local_energyDensity1 + this_energyDensity1.get(ig,dir);  
             local_energyDensity2 = local_energyDensity2 + this_energyDensity2.get(ig,dir);  
          }
-         local_Teff1 = 2.0/3.0*local_energyDensity1/local_numberDensity1; // M1/me*(V1[m/s])^2
-         local_Teff2 = 2.0/3.0*local_energyDensity2/local_numberDensity2; // M2/me*(V2[m/s])^2
+         local_Teff1 = 2.0/3.0*local_energyDensity1/local_numberDensity1*cvacSq; // M1/me*(V1[m/s])^2
+         local_Teff2 = 2.0/3.0*local_energyDensity2/local_numberDensity2*cvacSq; // M2/me*(V2[m/s])^2
          local_gmax = 2.5*sqrt(2.0*max(local_Teff1,local_Teff2)/m_mu); // 5x thermal speed [m/s]
 
          // compute local nuMax*dt
-         local_nuMaxDt = Max(local_numberDensity1,local_numberDensity2)*m_sigmaT*local_gmax*a_dt;         
+         local_nuMaxDt = Max(local_numberDensity1,local_numberDensity2)*m_sigmaT*local_gmax*a_dt_sec;         
          if(local_nuMaxDt>10.0) 
             cout << "WARNING: local_nuMaxDt = " << local_nuMaxDt << endl;
 
@@ -442,7 +448,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
          Wmax = Max(W1,W2); 
          
          // compute the maximum collision number     
-         local_Nmax = Wmax*local_numCell1*local_numCell2/Vc*m_sigmaT*local_gmax*a_dt;
+         local_Nmax = Wmax*local_numCell1*local_numCell2/Vc*m_sigmaT*local_gmax*a_dt_sec;
 
          // separate Nmax into whole integer and remainder and set integer Nmax
          local_Nmax_remainder = modf(local_Nmax, &local_Nmax_whole);
@@ -476,17 +482,17 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part1_ptrs[random_index1];
             this_part1_ptr = this_part1.getPointer();
-            std::array<Real,3>& this_vp1 = this_part1_ptr->velocity();
+            std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part2_ptrs[random_index2];
             this_part2_ptr = this_part2.getPointer();
-            std::array<Real,3>& this_vp2 = this_part2_ptr->velocity();
+            std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
 
             // compute relative velocity magnitude
             g12 = 0.0;
-            for (int dir=0; dir<3; dir++) g12 = g12 + pow(this_vp1[dir]-this_vp2[dir],2);
-            g12 = sqrt(g12); // relative velocity [m/s]
+            for (int dir=0; dir<3; dir++) g12 = g12 + pow(this_betap1[dir]-this_betap2[dir],2);
+            g12 = sqrt(g12)*Constants::CVAC; // relative velocity [m/s]
          
             // determine if the pair collide and then do the collision
             q12 = g12*m_sigmaT/(local_gmax*m_sigmaT);
@@ -497,23 +503,23 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
                
                //compute deltaU
                theta = Constants::TWOPI*MathUtils::rand();
-               ScatteringUtils::computeDeltaU(deltaU,this_vp1,this_vp2,theta);
+               ScatteringUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta);
                //deltaU = {0,0,0};
 
                // update particle velocities
                if(W1<=Wmax) {
-                  for (int dir=0; dir<3; dir++) this_vp1[dir] = this_vp1[dir] + m_mu/m_mass1*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
                   rand_num = MathUtils::rand();
                   if(rand_num<=W1/Wmax) {
-                     for (int dir=0; dir<3; dir++) this_vp2[dir] = this_vp2[dir] - m_mu/m_mass2*deltaU[dir];
+                     for (int dir=0; dir<3; dir++) this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
                   }
                }
                else {
                   rand_num = MathUtils::rand();
                   if(rand_num<=W2/Wmax) {
-                     for (int dir=0; dir<3; dir++) this_vp1[dir] = this_vp1[dir] + m_mu/m_mass1*deltaU[dir];
+                     for (int dir=0; dir<3; dir++) this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
                   }
-                  for (int dir=0; dir<3; dir++) this_vp2[dir] = this_vp2[dir] - m_mu/m_mass2*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
                }
                
             }

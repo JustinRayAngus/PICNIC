@@ -66,6 +66,10 @@ class System
                         const int&   a_step_number );
       
       void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+      void advance_DSMC( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+      void advance_PICMC_FE( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+
+      void scatterParticles( const Real&  a_dt );
       
       void postTimeStep( const Real&  a_cur_time, 
                          const Real&  a_dt,
