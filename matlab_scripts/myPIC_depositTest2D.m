@@ -11,7 +11,8 @@ cvac = 2.99792458e8;       % speed of light [m/s]
 
 species = 1;
 rootPath = '../myPIC/depositTests/test0_2D/';
-%rootPath = '../myPIC/depositTests/test1_2D/';
+rootPath = '../myPIC/depositTests/test1_2D/';
+%rootPath = '../myPIC/depositTests/testing/';
 ghosts = 1; % must have ghosts in output for this test
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -97,15 +98,15 @@ for iL=1:iLmax
     partsFile = [rootPath,'species',num2str(species),'_data/',fileList(index(iL)).name];
     fileinfo = hdf5info(partsFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
-    partData = hdf5read(partsFile,'/level_0/particles:data');
+    partData = hdf5read(partsFile,'/species_data/particles:data');
     SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
-    numParts = h5readatt(partsFile,'/level_0','num_particles');
-    time(iL) = h5readatt(partsFile,'/level_0','time');
+    numParts = h5readatt(partsFile,'/species_data','num_particles');
+    time(iL) = h5readatt(partsFile,'/species_data','time');
     if(iL==1)
-        Mass = h5readatt(partsFile,'/level_0','mass');
-        Charge = double(h5readatt(partsFile,'/level_0','charge'));
-        Uint = h5readatt(partsFile,'/level_0','Uint'); % [eV]
-        numPartComps = h5readatt(partsFile,'/level_0','numPartComps');
+        Mass = h5readatt(partsFile,'/species_data','mass');
+        Charge = double(h5readatt(partsFile,'/species_data','charge'));
+        Uint = h5readatt(partsFile,'/species_data','Uint'); % [eV]
+        numPartComps = h5readatt(partsFile,'/species_data','numPartComps');
     end
     partData = reshape(partData,numPartComps,numParts);
     partData = partData';
@@ -126,7 +127,7 @@ for iL=1:iLmax
 
     %%%   reading current density from part file
     %
-    groupName = '/level_0';
+    groupName = '/species_data';
     data3 = import2Ddata_singleFile(partsFile,groupName,ghosts);
     numberDen(:,:,iL) = squeeze(data3.Fcc(:,:,1));
     

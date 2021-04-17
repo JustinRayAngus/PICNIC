@@ -11,13 +11,13 @@ cvac = 2.99792458e8;       % speed of light [m/s]
 
 species = 1;
 rootPath = '../myPIC/pistonTests/piston_collisionless/'; vpiston = 100;
-rootPath = '../myPIC/pistonTests/piston_collisional/'; vpiston = 100;
-rootPath = '../myPIC/pistonTests/piston_vp1e2/'; vpiston = 1e2;
+%rootPath = '../myPIC/pistonTests/piston_collisional/'; vpiston = 100;
+%rootPath = '../myPIC/pistonTests/piston_2species/'; vpiston = 1e3;
+%rootPath = '../myPIC/pistonTests/piston_vp1e2/'; vpiston = 1e2;
 %rootPath = '../myPIC/pistonTests/piston_vp1e3/'; vpiston = 1e3;
 %rootPath = '../myPIC/pistonTests/piston_vp1e4/'; vpiston = 1e4;
-%rootPath = '../myPIC/pistonTests/piston_2species/'; vpiston = 1e3;
 
-
+%rootPath = '../myPIC/pistonTests/testing/'; vpiston = 100;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -99,9 +99,9 @@ for iL=1:iLmax
        particle.x    = partData(:,2);
        particle.y    = partData(:,3);
        particle.z    = partData(:,4); 
-       particle.vx   = partData(:,5);
-       particle.vy   = partData(:,6);
-       particle.vz   = partData(:,7);
+       particle.vx   = partData(:,5)*cvac;
+       particle.vy   = partData(:,6)*cvac;
+       particle.vz   = partData(:,7)*cvac;
      %  particle.ax   = partData(:,8);
      %  particle.ay   = partData(:,9);
      %  particle.az   = partData(:,10);
@@ -113,12 +113,12 @@ for iL=1:iLmax
     groupName = '/species_data'; ghosts = 0;
     data = import2Ddata_singleFile(partsFile,groupName,ghosts);
     numberDen(:,:,iL) = squeeze(data.Fcc(:,:,1));
-    momentumDenX(:,:,iL) = squeeze(data.Fcc(:,:,2));
-    momentumDenY(:,:,iL) = squeeze(data.Fcc(:,:,3));
-    momentumDenZ(:,:,iL) = squeeze(data.Fcc(:,:,4));
-    energyDenX(:,:,iL) = squeeze(data.Fcc(:,:,5));
-    energyDenY(:,:,iL) = squeeze(data.Fcc(:,:,6));
-    energyDenZ(:,:,iL) = squeeze(data.Fcc(:,:,7));
+    momentumDenX(:,:,iL) = squeeze(data.Fcc(:,:,2))*cvac;
+    momentumDenY(:,:,iL) = squeeze(data.Fcc(:,:,3))*cvac;
+    momentumDenZ(:,:,iL) = squeeze(data.Fcc(:,:,4))*cvac;
+    energyDenX(:,:,iL) = squeeze(data.Fcc(:,:,5))*cvac^2;
+    energyDenY(:,:,iL) = squeeze(data.Fcc(:,:,6))*cvac^2;
+    energyDenZ(:,:,iL) = squeeze(data.Fcc(:,:,7))*cvac^2;
     %
     rhoAvg = sum(numberDen(:,:,iL),2)/length(Zcc(1,:));
     momAvgX = sum(momentumDenX(:,:,iL),2)/length(Zcc(1,:));
