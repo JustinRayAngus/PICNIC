@@ -155,7 +155,8 @@ private:
   Real m_mass;     // species mass / electron mass
   int  m_charge;   // species charge / electron charge
   Real m_Uint;     // species internal energy [eV]
- 
+
+  Real m_volume_scale; 
   Real m_stable_dt = DBL_MAX; 
 
   std::string m_name;          // species name

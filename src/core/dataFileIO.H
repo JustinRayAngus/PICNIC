@@ -17,6 +17,7 @@
 #include "FArrayBox.H"
 
 #include "DomainGrid.H"
+#include "CodeUnits.H"
 #include "ElectroMagneticFields.H"
 
 #ifdef CH_USE_TIMER
@@ -33,8 +34,9 @@ class dataFileIO
 {
    public:
 
-      dataFileIO( ParmParse&         pp,  
-                  const DomainGrid&  mesh );
+      dataFileIO( ParmParse&   a_pp,  
+            const DomainGrid&  a_mesh,
+            const CodeUnits&   a_units );
       ~dataFileIO() {;}
       
       void writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
@@ -62,8 +64,8 @@ class dataFileIO
 
       bool m_plot_particle_moments;
       const DomainGrid& m_mesh;
+      const CodeUnits& m_units;
       bool m_verbosity;
-      
       void writeMeshDataFile();
 
 };

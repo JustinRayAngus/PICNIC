@@ -22,8 +22,16 @@ CodeUnits::CodeUnits( ParmParse& a_parm_parse )
    getPosDefUnit( m_scale[LENGTH],         "length",         ppunits );
    getPosDefUnit( m_scale[TIME],           "time",           ppunits );
 
-   m_scale[AREA] = m_scale[LENGTH]*m_scale[LENGTH];
-   m_scale[VOLUME] = m_scale[AREA]*m_scale[LENGTH];
+   if(SpaceDim==1) {
+      m_scale[AREA] = m_scale[LENGTH];
+   }
+   else {
+      m_scale[AREA] = m_scale[LENGTH]*m_scale[LENGTH];
+   }
+
+   if(SpaceDim==1) m_scale[VOLUME] = m_scale[LENGTH];
+   if(SpaceDim==2) m_scale[VOLUME] = m_scale[AREA];
+   if(SpaceDim==3) m_scale[VOLUME] = m_scale[AREA]*m_scale[LENGTH];
    
    CH_assert(m_scale[NUMBER_DENSITY]==1.0);
    CH_assert(m_scale[TEMPERATURE]==1.0);

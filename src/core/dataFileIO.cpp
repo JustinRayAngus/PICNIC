@@ -15,10 +15,12 @@
 
 
 dataFileIO::dataFileIO( ParmParse&   a_pp,
-                  const DomainGrid&  a_mesh )
+                  const DomainGrid&  a_mesh,
+                  const CodeUnits&   a_units )
    :
      m_plot_particle_moments(false),
      m_mesh(a_mesh),
+     m_units(a_units),
      m_verbosity(0)
 {
 
@@ -74,6 +76,7 @@ void dataFileIO::writeMeshDataFile()
      header.m_string[comp_name] = vectNames[i];
    }
    header.m_int["num_components"] = numMeshComps;
+   header.m_real["length_scale_SI"] = m_units.getScale(m_units.LENGTH);
 
    header.writeToFile(handle);
 
@@ -305,6 +308,9 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    
    header.m_int["step_number"] = a_cur_step;
    header.m_real["time"] = a_cur_time;
+   header.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
+   header.m_real["electric_field_scale_SI"] = m_units.getScale(m_units.ELECTRIC_FIELD);
+   header.m_real["magnetic_field_scale_SI"] = m_units.getScale(m_units.MAGNETIC_FIELD);
    header.m_box["prob_domain"] = domain.domainBox();
    
    header.writeToFile(handle);
@@ -525,6 +531,8 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    headerParts.m_real["Uint"] = a_picSpecies.Uint();
    headerParts.m_int["step_number"] = a_cur_step;
    headerParts.m_real["time"] = a_cur_time;
+   headerParts.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
+   //headerParts.m_real["number_density_scale_SI"] = m_units.getScale(m_units.NUMBER_DENSITY);
    headerParts.m_box["prob_domain"] = domain.domainBox();
    
    // write the header 
@@ -697,6 +705,7 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
    headerParts.m_real["Uint"] = a_picSpecies.Uint();
    headerParts.m_int["step_number"] = a_cur_step;
    headerParts.m_real["time"] = a_cur_time;
+   headerParts.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
    headerParts.m_box["prob_domain"] = domain.domainBox();
    
    // write the header 

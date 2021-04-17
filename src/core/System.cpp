@@ -36,7 +36,7 @@ System::System( ParmParse& a_pp )
    ParmParse ppgrid( "grid" );
    m_mesh = new DomainGrid( ppgrid, m_num_ghosts, m_domain, grids ); 
 
-   m_dataFile = new dataFileIO( a_pp, *m_mesh );
+   m_dataFile = new dataFileIO( a_pp, *m_mesh, *m_units );
    //m_dataFile = RefCountedPtr<dataFileIO>(new dataFileIO( a_pp, *mesh));
      
    createMeshInterp();
@@ -775,6 +775,8 @@ Real System::scatterDt( const int a_step_number )
          scatterDt = min(scatterDt,this_scattering->scatterDt()); // [s]
          scatterDt = scatterDt/tscale; // convert to code units
       }
+      if(!procID()) cout << "mean free scattering time [s] = " << scatterDt*tscale << endl;
+      if(!procID()) cout << "time scale [s] = " << tscale << endl;
       if(!procID()) cout << "mean free scattering time [code units] = " << scatterDt << endl;
    }
    

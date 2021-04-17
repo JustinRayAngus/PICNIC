@@ -12,10 +12,8 @@
 #include "NamespaceHeader.H"
 
 /**
- * Takizuka and Abe scattering model for Coulomb collisions in a plasma amongtst
+ * Takizuka and Abe scattering model for Coulomb collisions in a plasma amongst
  * equally-weighted macro particles
- *
- * total cross section [m^2]: sigmaT = pi*(r1 + r2)^2
 */
 class TakizukaAbe : public Scattering
 {

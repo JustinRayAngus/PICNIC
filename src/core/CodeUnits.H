@@ -5,6 +5,7 @@
 
 #include "REAL.H"
 #include "ParmParse.H"
+#include "Box.H"
 
 #include "NamespaceHeader.H"
 

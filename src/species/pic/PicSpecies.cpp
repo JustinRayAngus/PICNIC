@@ -524,7 +524,8 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    const LevelData<FArrayBox>& Xcc(m_mesh.getXcc());
    
    int totalPartsPerCell = 1;
-   Real cellVolume = 1.0;
+   m_volume_scale = a_units.getScale(a_units.VOLUME);
+   Real cellVolume = m_volume_scale;
    for (int dir=0; dir<SpaceDim; dir++)
    {
       totalPartsPerCell *= partsPerCell[dir];
@@ -549,7 +550,7 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    DataIterator dit(BL);
    uint64_t ID = procID()*512 + 1; // hack for testing purposes
    //Real ID = 0.;
-   const Real numDenNorm = a_units.NumDenNorm();
+   Real numDen_scale = a_units.getScale(a_units.NUMBER_DENSITY); // multiply input by this to get density in SI
    for (dit.begin(); dit.ok(); ++dit) {
 
       CH_XD::List<JustinsParticle> thisList;
@@ -562,7 +563,7 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
 
          const IntVect ig = gbit(); // grid index
          Real local_density = m_density[dit].get(ig,0);
-         pWeight = numDenNorm*local_density*cellVolume/(Real)totalPartsPerCell; 
+         pWeight = numDen_scale*local_density*cellVolume/(Real)totalPartsPerCell; 
         
          RealVect local_Xcc; 
          std::array<Real,3> local_temperature;
@@ -676,14 +677,13 @@ void PicSpecies::setNumberDensity()
       box_rho.setVal(0.0);
       const ListBox<JustinsParticle>& box_list = m_data[dit];
       
-      //const List<JustinsParticle>& pList = box_list.listItems();
-      //if(procID()==0 || procID()==8) cout << "JRA: pList.length() = " << pList.length() << endl;
-     
       MomentType thisMoment = density;
       m_meshInterp.moment( box_rho,
                            box_list.listItems(),
                            m_mass,
-                           thisMoment ); 
+                           thisMoment );
+ 
+      box_rho.divide(m_volume_scale);
 
    }
    m_density.exchange(); // causes ERROR: corrupted double-linked list at code exit!!!!   
@@ -706,7 +706,7 @@ void PicSpecies::setMomentumDensity()
       MomentType thisMoment = momentum;
       m_meshInterp.moment( box_mom,
                            box_list.listItems(),
-                           m_mass,
+                           m_mass/m_volume_scale,
                            thisMoment ); 
 
    }
@@ -733,7 +733,7 @@ void PicSpecies::setEnergyDensity()
       MomentType thisMoment = energy;
       m_meshInterp.moment( box_ene,
                            box_list.listItems(),
-                           m_mass,
+                           m_mass/m_volume_scale,
                            thisMoment ); 
 
    }
