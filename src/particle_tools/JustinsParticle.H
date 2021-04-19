@@ -70,6 +70,23 @@ public:
   // retrieve const. reference weight field
   const Real& weight() const;
   
+
+  // set the old position
+  void setOldPosition(const RealVect& a_position_old);
+
+  // Change one component of the old position
+  void setOldPosition(const Real a_position_old, const int a_dimension);
+
+  // Return a reference to the old position
+  RealVect& position_old();
+
+  // Return a constant reference to the old position
+  const RealVect& position_old() const;
+
+  // Gets one component of the old position
+  Real position_old(const int a_dir) const;
+
+  
   /// set velocity field
   void setVelocity(const std::array<Real,3>& a_velocity);
   void setVelocity(const Real& a_velocity, const int a_dir);
@@ -158,7 +175,7 @@ protected:
   //std::array<Real,3> m_magnetic_field;
   std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
  
-  //RealVect  m_position_old;
+  RealVect  m_position_old;
   //std::array<Real,3> m_velocity_old;
 
 };

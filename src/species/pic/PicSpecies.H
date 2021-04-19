@@ -128,19 +128,16 @@ public:
   const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_FB;}
  
   // advance particle positions
-  //
   void advancePositions( const Real&  a_cnormDt );
+  void advancePositions_2ndHalf();
   
   // compute stable time step based on particle CFL
-  //
   void setStableDt( const CodeUnits&  a_units );
   
   // bin the particle up for scattering
-  //
   void binTheParticles();
   
   // test particle shuffling
-  //
   void testParticleShuffling( const Real&  a_dt );
 
   //const PicSpecies& operator=( const PicSpecies& a_species );

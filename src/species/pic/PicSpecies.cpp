@@ -189,13 +189,13 @@ void PicSpecies::advancePositions( const Real& a_cnormDt )
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
-         RealVect&  x = li().position();
-         std::array<Real,3>&  v = li().velocity(); // actually beta
+         RealVect& xp = li().position();
+         std::array<Real,3>& vp = li().velocity(); // actually beta
 
          // update particle position
-         //x += v*a_cnormDt;
+         //xp += vp*a_cnormDt;
          for(int dir=0; dir<SpaceDim; dir++) {
-            x[dir] += v[dir]*a_cnormDt;
+            xp[dir] += vp[dir]*a_cnormDt;
          }
 
          // set particle boundary conditions here for now
@@ -205,23 +205,84 @@ void PicSpecies::advancePositions( const Real& a_cnormDt )
          //
          for(int dir=0; dir<SpaceDim; dir++) {
             if( domain.isPeriodic(dir) ) {
-               if( x[dir]<Xmin[dir] ) x[dir] = x[dir] + Lbox[dir];
-               if( x[dir]>=Xmax[dir] ) x[dir] = x[dir] - Lbox[dir];
+               if( xp[dir]<Xmin[dir] ) xp[dir] = xp[dir] + Lbox[dir];
+               if( xp[dir]>=Xmax[dir] ) xp[dir] = xp[dir] - Lbox[dir];
             }
             else { // symmetry BCs
-               if(x[dir]<=Xmin[dir]) {
-                  x[dir] = 2.*Xmin[dir] - x[dir];
-                  v[dir] = -v[dir];
+               if(xp[dir]<=Xmin[dir]) {
+                  xp[dir] = 2.*Xmin[dir] - xp[dir];
+                  vp[dir] = -vp[dir];
                }
-               if(x[dir]>=Xmax[dir]) {
-                  x[dir] = 2.*Xmax[dir] - x[dir];
-                  v[dir] = -v[dir];
+               if(xp[dir]>=Xmax[dir]) {
+                  xp[dir] = 2.*Xmax[dir] - xp[dir];
+                  vp[dir] = -vp[dir];
                }
             }
          }
          //
          //
          //////////////////////////////////////////////////
+
+      } // end loop over particle list
+      
+   } // end loop over boxes
+
+   m_data.gatherOutcast();
+   m_data.remapOutcast();
+   CH_assert(m_data.isClosed());
+   
+}
+
+void PicSpecies::advancePositions_2ndHalf()
+{
+   CH_TIME("PicSpecies::advancePositions_2ndHalf()");
+    
+   // get some Grid info
+   const ProblemDomain& domain(m_mesh.getDomain());
+   const RealVect& dX(m_mesh.getdX());
+   
+   // compute domain extent and get total num parts and sim volume
+   const IntVect domainDimensions = domain.size();
+   const RealVect& Xmin(m_mesh.getXmin());
+   const RealVect& Xmax(m_mesh.getXmax());
+   const RealVect Lbox = Xmax - Xmin; 
+   
+   // Each proc loops over its own boxes
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      //ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListIterator<JustinsParticle> li(pList);
+      for(li.begin(); li.ok(); ++li) {
+
+         RealVect& xpold = li().position_old();
+         RealVect& xp = li().position();
+         std::array<Real,3>&  vp = li().velocity(); // actually beta
+
+         // update particle position
+         for(int dir=0; dir<SpaceDim; dir++) {
+            xp[dir] = 2.0*xp[dir] - xpold[dir];
+         }
+
+         // set particle boundary conditions here for now
+         for(int dir=0; dir<SpaceDim; dir++) {
+            if( domain.isPeriodic(dir) ) {
+               if( xp[dir]<Xmin[dir] ) xp[dir] = xp[dir] + Lbox[dir];
+               if( xp[dir]>=Xmax[dir] ) xp[dir] = xp[dir] - Lbox[dir];
+            }
+            else { // symmetry BCs
+               if(xp[dir]<=Xmin[dir]) {
+                  xp[dir] = 2.*Xmin[dir] - xp[dir];
+                  vp[dir] = -vp[dir];
+               }
+               if(xp[dir]>=Xmax[dir]) {
+                  xp[dir] = 2.*Xmax[dir] - xp[dir];
+                  vp[dir] = -vp[dir];
+               }
+            }
+         }
 
       } // end loop over particle list
       
@@ -763,7 +824,7 @@ void PicSpecies::setChargeDensity()
       m_meshInterp.deposit( box_list.listItems(), 
                             this_rho,
                             m_interpToGrid ); 
-      this_rho.mult(m_charge); 
+      this_rho.mult(m_charge/m_volume_scale); 
     
    }
    
@@ -796,7 +857,7 @@ void PicSpecies::setChargeDensityOnFaces()
          m_meshInterp.deposit( box_list.listItems(), 
                                this_rho,
                                m_interpToGrid ); 
-         this_rho.mult(m_charge); 
+         this_rho.mult(m_charge/m_volume_scale); 
       }
       
    }
@@ -832,7 +893,7 @@ void PicSpecies::setCurrentDensity()
                                        dir,
                                        pList,
                                        m_interpToGrid ); 
-         this_J.mult(m_charge);
+         this_J.mult(m_charge/m_volume_scale);
       }
       
    }
@@ -862,7 +923,7 @@ void PicSpecies::setCurrentDensity()
                                           m_interpToGrid,
                                           n ); 
          }
-         this_JonNodes.mult(m_charge);
+         this_JonNodes.mult(m_charge/m_volume_scale);
       }
    
       // add current density deposited on ghost cells to valid cells
