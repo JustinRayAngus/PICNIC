@@ -36,8 +36,8 @@ System::System( ParmParse& a_pp )
    ParmParse ppgrid( "grid" );
    m_mesh = new DomainGrid( ppgrid, m_num_ghosts, m_domain, grids ); 
 
-   m_dataFile = new dataFileIO( a_pp, *m_mesh, *m_units );
-   //m_dataFile = RefCountedPtr<dataFileIO>(new dataFileIO( a_pp, *mesh));
+   m_dataFile = new dataFileIO( ppsys, *m_mesh, *m_units );
+   //m_dataFile = RefCountedPtr<dataFileIO>(new dataFileIO( ppsys, *mesh));
      
    createMeshInterp();
 
@@ -319,6 +319,10 @@ void System::createEMfields()
    if(use_fields) {
       bool verbose = true;
       m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>(new ElectroMagneticFields(ppflds,*m_mesh,*m_units,verbose)); 
+      if(m_advance_method == DSMC ) {
+         if(!procID()) cout << "advance_method DSMC cannot be used with electromagnetic fields on" << endl;
+         exit(EXIT_FAILURE);
+      }
       if(!procID()) cout << "Finished creating Electromagnetic fields object" << endl << endl;
    }
    else {
@@ -532,13 +536,24 @@ void System::parseParameters( ParmParse&  a_ppsys )
 {
 
    //CH_assert(a_ppsys.contains("advance_method"));
-   //a_ppsys.get("advance_method", m_advance_method);
-   
+   std::string advance_method_string = "DSMC";
+   a_ppsys.query("advance_method", advance_method_string);
+   if(advance_method_string=="DSMC") {
+      m_advance_method = DSMC;
+   }
+   else if(advance_method_string=="PICMC_EXPLICIT") {
+      m_advance_method = PICMC_EXPLICIT;
+   }
+   else {
+      if(!procID()) cout << "advance method = " << advance_method_string << " is not defined " << endl;
+      exit(EXIT_FAILURE);
+   }
+
    a_ppsys.query("write_species_charge_density", m_writeSpeciesChargeDensity);
    a_ppsys.query("write_species_current_density", m_writeSpeciesCurrentDensity);
  
    if(!procID()) {
-      //cout << "advance method  = " << m_advance_method << endl;
+      cout << "advance method  = " << advance_method_string << endl;
       cout << "write species charge density  = " << m_writeSpeciesChargeDensity << endl;
       cout << "write species current density = " << m_writeSpeciesCurrentDensity << endl << endl;
    }
@@ -550,31 +565,46 @@ void System::preTimeStep( const Real&  a_cur_time,
                           const int&   a_step_number )
 {  
    CH_TIME("System::preTimeStep()");
-  
-   // Right now this is used to advance the variables that are stag in time
-   // to half a time step ahead and to update the old values
+
+   if(m_advance_method==PICMC_EXPLICIT) {  
+   
+   Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+   
    //
-   // This is done here because I want all quantities at the same instance in
-   // time at the end of advance() so that the values written to the output
-   // files are all at the same physical time
- 
+   // complete advance of E from t_{n} to t_{n+1/2}
+   //
+
    if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
-      if (a_cur_time==0.0) { // initial advance of magnetic field by 1/2 time step
-         m_electromagneticFields->setCurlE();
-         Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
-         m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+      if (a_cur_time==0.0) { // initial advance of electric field by 1/2 time step
+         m_electromagneticFields->setCurlB();
+         m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+         m_electromagneticFields->advanceElectricField(cnormHalfDt);
       }
-      else { // advance the magnetic field from t_{n+1} to t_{n+3/2}
-         m_electromagneticFields->advanceMagneticField_2ndHalf();
+      else {
+         m_electromagneticFields->advanceElectricField_2ndHalf();
       }
       m_electromagneticFields->updateOldElectricField();
-      m_electromagneticFields->updateOldMagneticField();
    }
-   
+  
    //
-   // advance particle velocities from t_{n+1} to t_{n+3/2}
+   // complete advance of xp from t_{n} to t_{n+1/2}
    //
-   
+
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->motion()) {
+         if (a_cur_time==0.0) { // initial advance of particle positions by 1/2 time step
+            this_picSpecies->advancePositions(cnormHalfDt);
+         }
+         else {
+            this_picSpecies->advancePositions_2ndHalf();
+         }
+         this_picSpecies->updateOldParticlePositions();
+      }
+   }
+
+   }
+
 }
 
 void System::advance( Real&  a_cur_time,
@@ -583,78 +613,23 @@ void System::advance( Real&  a_cur_time,
 {  
    CH_TIME("System::advance()");
 
-   // direct-simulation monte-carlo advance
-   //advance_DSMC(a_cur_time, a_dt, a_step_number);
-   
-   // fully-explicit PIC-MC advance
-   advance_PICMC_FE(a_cur_time, a_dt, a_step_number);
-   
+   switch(m_advance_method) {
+      case DSMC : 
+          advance_DSMC(a_cur_time, a_dt, a_step_number);
+          break;
+      case PICMC_EXPLICIT : 
+          advance_PICMC_EXPLICIT(a_cur_time, a_dt, a_step_number);
+          break;
+      default :
+          MayDay::Error("Invalid advance method");
+   }
+
    // semi-implicit PIC-MC advance
    //advance_PICMC_SI(a_cur_time, a_dt, a_step_number);
    
    // fully-implicit PIC-MC advance
    //advance_PICMC_FI(a_cur_time, a_dt, a_step_number);
    
-}
-
-void System::advance_PICMC_FE( Real&  a_cur_time,
-                               Real&  a_dt,
-                               int&   a_step_number )
-{  
-   CH_TIME("System::advance_PICMC_FE()");
-   
-   //
-   // explicit leap-frog time advance. 
-   // B and vp are defined a half time step ahead of E and xp
-   //
-    
-   Real cnormDt = a_dt*m_units->CvacNorm();
-
-   // advance particle positions from t_{n} to t_{n+1} using vp_{n+1/2}
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormDt);
-   }
-
-   //
-   // compute current density at t_{n+1/2} using xp_{n+1/2} and vp_{n+1/2}
-   //
-
-   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
-   
-      // advance the electric field from t_{n} to t_{n+1} using B_{n+1/2} and J_{n+1/2}
-      m_electromagneticFields->setCurlB();
-      m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
-      m_electromagneticFields->advanceElectricField(cnormDt);
-   
-      // advance the magnetic field from t_{n+1/2} to t_{n+1} using E_{n+1}
-      Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
-      m_electromagneticFields->setCurlE();
-      m_electromagneticFields->advanceMagneticField(cnormHalfDt);
-   
-   }
-   
-   //
-   // advance particle velocities from t_{n+1/2} to t_{n+1} using 
-   // xp_{n+1}, E_{n+1}, and B_{n+1}
-   //
-   
-   // scatter the particles: vp_{n+1} ==> vp'_{n+1}
-   if(m_use_scattering) scatterParticles( a_dt );
-   
-   // apply special operators
-   if(m_use_specialOps) {
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
-      }
-      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
-   }
-
-   // update current time and step number
-   a_cur_time = a_cur_time + a_dt;
-   a_step_number = a_step_number + 1;
-
 }
 
 void System::advance_DSMC( Real&  a_cur_time,
@@ -677,6 +652,71 @@ void System::advance_DSMC( Real&  a_cur_time,
    
    // scatter the particles: vp_{n+1} ==> vp'_{n+1}
    if(m_use_scattering) scatterParticles( a_dt );
+   
+   // apply special operators
+   if(m_use_specialOps) {
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
+      }
+      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
+   }
+
+   // update current time and step number
+   a_cur_time = a_cur_time + a_dt;
+   a_step_number = a_step_number + 1;
+
+}
+
+void System::advance_PICMC_EXPLICIT( Real&  a_cur_time,
+                                     Real&  a_dt,
+                                     int&   a_step_number )
+{  
+   CH_TIME("System::advance_PICMC_EXPLICIT()");
+   
+   //
+   // explicit leap-frog time advance. 
+   // B and vp are defined a whole time steps while E and xp are at half
+   //
+    
+   Real cnormDt = a_dt*m_units->CvacNorm();
+   Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+      
+   // Step 1: advance B from t_{n} to t_{n+1/2} using E_{n+1/2}
+   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+      m_electromagneticFields->setCurlE();
+      m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+   }
+   
+   //
+   // compute Ep and Bp at t_{n+1/2} and xp_{n+1/2}
+   //
+
+   //
+   // advance vp from t_{n} to t_{n+1} using Ep and Bp at t_{n+1/2}
+   //
+
+   // scatter the particles: vp_{n+1} ==> vp'_{n+1}
+   if(m_use_scattering) scatterParticles( a_dt );
+   
+
+   // advance particle positions from t_{n+1/2} to t_{n+1} using vp_{n+1}
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt);
+   }
+   
+   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+   
+      // complete advance of B from t_{n+1/2} to t_{n+1}
+      m_electromagneticFields->advanceMagneticField_2ndHalf();
+
+      // advance E from t_{n+1/2} to t_{n+1} using B_{n+1} and J_{n+1}
+      m_electromagneticFields->setCurlB();
+      m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+      m_electromagneticFields->advanceElectricField(cnormHalfDt);
+   
+   }
    
    // apply special operators
    if(m_use_specialOps) {
@@ -736,6 +776,19 @@ void System::postTimeStep( const Real&  a_cur_time,
 {  
    CH_TIME("System::postTimeStep()");
    
+   if(m_advance_method==PICMC_EXPLICIT) {  
+   
+      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+         m_electromagneticFields->updateOldMagneticField();
+      }
+   
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
+      }
+
+   }
+
 }
 
 Real System::fieldsDt( const int a_step_number )

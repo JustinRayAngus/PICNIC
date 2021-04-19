@@ -67,7 +67,7 @@ class System
       
       void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
       void advance_DSMC( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
-      void advance_PICMC_FE( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+      void advance_PICMC_EXPLICIT( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
 
       void scatterParticles( const Real&  a_dt );
       
@@ -96,6 +96,13 @@ class System
       void createScattering();
       
       void createSpecialOperators();
+      
+      enum ADVANCE_METHOD {
+         DSMC,
+         PICMC_EXPLICIT
+      };
+     
+      ADVANCE_METHOD m_advance_method;
 
       DomainGrid* m_mesh;
       CodeUnits*  m_units;

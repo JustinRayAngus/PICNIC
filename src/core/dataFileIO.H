@@ -34,7 +34,7 @@ class dataFileIO
 {
    public:
 
-      dataFileIO( ParmParse&   a_pp,  
+      dataFileIO( ParmParse&   a_ppsys,  
             const DomainGrid&  a_mesh,
             const CodeUnits&   a_units );
       ~dataFileIO() {;}
@@ -67,6 +67,8 @@ class dataFileIO
       const CodeUnits& m_units;
       bool m_verbosity;
       void writeMeshDataFile();
+
+      bool m_nodeDataTest;
 
 };
 

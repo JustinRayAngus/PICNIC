@@ -334,7 +334,7 @@ void Simulation::setFixedTimeStep( const Real& a_dt_stable )
 
 void Simulation::postTimeStep()
 {
-   CH_TIMERS("Simulation::preTimeStep()");
+   CH_TIMERS("Simulation::postTimeStep()");
    m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
 }
 

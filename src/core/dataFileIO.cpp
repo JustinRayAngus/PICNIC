@@ -14,7 +14,7 @@
 #include "NamespaceHeader.H"
 
 
-dataFileIO::dataFileIO( ParmParse&   a_pp,
+dataFileIO::dataFileIO( ParmParse&   a_ppsys,
                   const DomainGrid&  a_mesh,
                   const CodeUnits&   a_units )
    :
@@ -27,7 +27,11 @@ dataFileIO::dataFileIO( ParmParse&   a_pp,
    // parse stuff from input about output directory names
    // and different plotting options for different types of data
    //
-   
+  
+   m_nodeDataTest = false;
+   a_ppsys.query("node_data_test",m_nodeDataTest);
+   if(!procID()) cout << "node_data_test = " << m_nodeDataTest << endl; 
+
    writeMeshDataFile();
 
 }
@@ -156,8 +160,7 @@ void dataFileIO::writeMeshDataFile()
    // write node centered data test
    //
    //
-   bool nodeDataTest = false;
-   if(nodeDataTest) {
+   if(m_nodeDataTest) {
 
       const DisjointBoxLayout& grids = gridOnNodes.disjointBoxLayout();
       LevelData<NodeFArrayBox> nodeTestData(grids,1,gridOnNodes.ghostVect());
