@@ -257,7 +257,7 @@ void PicSpecies::advancePositions_2ndHalf()
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
-         RealVect& xpold = li().position_old();
+         const RealVect& xpold = li().position_old();
          RealVect& xp = li().position();
          std::array<Real,3>&  vp = li().velocity(); // actually beta
 
@@ -292,6 +292,59 @@ void PicSpecies::advancePositions_2ndHalf()
    m_data.remapOutcast();
    CH_assert(m_data.isClosed());
    
+}
+
+void PicSpecies::updateOldParticlePositions()
+{
+   CH_TIME("PicSpecies::updateOldParticlePositions()");
+    
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      //ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListIterator<JustinsParticle> li(pList);
+      for(li.begin(); li.ok(); ++li) {
+
+         RealVect& xpold = li().position_old();
+         const RealVect& xp = li().position();
+
+         for(int dir=0; dir<SpaceDim; dir++) {
+            xpold[dir] = xp[dir];
+         }
+
+      } // end loop over particle list
+      
+   } // end loop over boxes
+
+}
+
+void PicSpecies::updateOldParticleVelocities()
+{
+   CH_TIME("PicSpecies::updateOldParticleVelocities()");
+    
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      //ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListIterator<JustinsParticle> li(pList);
+      for(li.begin(); li.ok(); ++li) {
+
+         std::array<Real,3>& vpold = li().velocity_old(); // actually beta
+         const std::array<Real,3>& vp = li().velocity();  // actually beta
+         vpold = vp;
+
+         //for(int dir=0; dir<SpaceDim; dir++) {
+         //   vpold[dir] = vp[dir];
+         //}
+
+      } // end loop over particle list
+      
+   } // end loop over boxes
+
 }
 
 void PicSpecies::setStableDt( const CodeUnits&  a_units )

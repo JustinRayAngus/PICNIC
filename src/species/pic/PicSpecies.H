@@ -130,6 +130,9 @@ public:
   // advance particle positions
   void advancePositions( const Real&  a_cnormDt );
   void advancePositions_2ndHalf();
+
+  void updateOldParticlePositions();
+  void updateOldParticleVelocities();
   
   // compute stable time step based on particle CFL
   void setStableDt( const CodeUnits&  a_units );

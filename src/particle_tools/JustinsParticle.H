@@ -87,8 +87,10 @@ public:
   Real position_old(const int a_dir) const;
 
   
-  /// set velocity field
+  // set the velocity
   void setVelocity(const std::array<Real,3>& a_velocity);
+
+  // set a_dir component of velocity
   void setVelocity(const Real& a_velocity, const int a_dir);
 
   // retrieve reference virtual velocity field
@@ -97,9 +99,20 @@ public:
   // retrieve const. reference virtual velocity field
   const std::array<Real,3>& velocity() const;
 
-  // retrieve vel. comp. in a given direction
+  // retrieve a_dir component of velocity
   Real velocity(const int a_dir) const;
   
+
+  // set the old velocity
+  void setOldVelocity(const std::array<Real,3>& a_velocity_old);
+ 
+  // Return a reference to the old velocity
+  std::array<Real,3>& velocity_old();
+
+  // Return a constant reference to the old velocity
+  const std::array<Real,3>& velocity_old() const;
+  
+
   /// set electric field
   void setElectricField(const std::array<Real,3>& a_electric_field);
   void setElectricField(const Real& a_electric_field, const int a_dir);
@@ -176,7 +189,7 @@ protected:
   std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
  
   RealVect  m_position_old;
-  //std::array<Real,3> m_velocity_old;
+  std::array<Real,3> m_velocity_old;
 
 };
 

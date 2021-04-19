@@ -28,6 +28,7 @@ JustinsParticle::JustinsParticle( const Real       a_weight,
   m_velocity(a_velocity)
 {
   setOldPosition(a_position);
+  setOldVelocity(a_velocity);
   std::array<Real,3> thisElectricField = {0,0,0};
   setElectricField(thisElectricField);
   if(SpaceDim<3) {
@@ -49,6 +50,7 @@ void JustinsParticle::define( const Real       a_weight,
   setPosition(a_position);
   setOldPosition(a_position);
   setVelocity(a_velocity);
+  setOldVelocity(a_velocity);
   std::array<Real,3> thisElectricField = {0,0,0};
   setElectricField(thisElectricField);
   if(SpaceDim<3) {
@@ -157,6 +159,25 @@ Real JustinsParticle::velocity(const int a_dir) const
   return m_velocity[a_dir];
 }
 
+//
+// set/get the old velocity
+//
+
+void JustinsParticle::setOldVelocity(const std::array<Real,3>& a_velocity_old)
+{
+  m_velocity_old = a_velocity_old;
+}
+
+std::array<Real,3>& JustinsParticle::velocity_old()
+{
+  return m_velocity_old;
+}
+
+const std::array<Real,3>& JustinsParticle::velocity_old() const
+{
+  return m_velocity_old;
+}
+
 // electric_field functions
 void JustinsParticle::setElectricField( const std::array<Real,3>&  a_electric_field )
 {
@@ -225,6 +246,7 @@ bool JustinsParticle::operator == (const JustinsParticle& a_p) const
            m_position  == a_p.m_position &&
            m_position_old  == a_p.m_position_old &&
            m_velocity  == a_p.m_velocity &&
+           m_velocity_old  == a_p.m_velocity &&
            m_electric_field  == a_p.m_electric_field &&
            m_pos_virt  == a_p.m_pos_virt );
 }
@@ -243,7 +265,8 @@ int JustinsParticle::size() const
 {
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
                            + sizeof(m_position_old) + sizeof(m_pos_virt)
-                           + sizeof(m_velocity) + sizeof(m_electric_field) );
+                           + sizeof(m_velocity) + sizeof(m_velocity_old)
+                           + sizeof(m_electric_field) );
 }
 
 int JustinsParticle::sizeOutput() const
@@ -276,6 +299,10 @@ void JustinsParticle::linearOut(void* buf) const
    
    for(int i=0; i<3; i++) {
       *buffer++ = m_velocity[i];
+   }
+   
+   for(int i=0; i<3; i++) {
+      *buffer++ = m_velocity_old[i];
    }
 
    for(int i=0; i<3; i++) {
@@ -331,6 +358,10 @@ void JustinsParticle::linearIn(void* buf)
    
    for(int i=0; i<3; i++) {
       m_velocity[i] = *buffer++;
+   }
+   
+   for(int i=0; i<3; i++) {
+      m_velocity_old[i] = *buffer++;
    }
 
    for(int i=0; i<3; i++) {
