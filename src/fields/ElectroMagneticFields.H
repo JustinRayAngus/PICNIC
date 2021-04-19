@@ -14,6 +14,8 @@
 #include "Vector.H"
 #include "RefCountedPtr.H"
 
+#include "PicSpecies.H"
+
 #include "NamespaceHeader.H"
 
 class ElectroMagneticFields
@@ -46,14 +48,24 @@ public:
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
   
+  // advance the fields in time
   void advanceElectricField( const Real& a_cnormDt );
   void advanceMagneticField( const Real& a_cnormDt );
+  
+  // convert from half time advance to full advance
   void advanceMagneticField_2ndHalf();
+  void advanceElectricField_2ndHalf();
   
-  void updateOldFieldValues();
-  
+  // update the saved old field values
+  void updateOldElectricField();
+  void updateOldMagneticField();
+
+  // compute the curl of the fields 
   void setCurlB();
   void setCurlE();
+ 
+  // compute the current density for Ampere's law
+  void setCurrentDensity( const PicSpeciesPtrVect&  a_pic_species_ptr_vect );
   
 private:
   
@@ -61,6 +73,7 @@ private:
   const bool m_verbosity; 
   bool m_advance; 
   Real m_stable_dt;
+  Real m_Jnorm_factor; // mu0*qe*cvac*Xscale/Bscale
  
   // containers for magnetic field
   LevelData<FluxBox> m_magneticField;          

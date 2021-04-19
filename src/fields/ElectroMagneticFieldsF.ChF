@@ -6,18 +6,22 @@ c  ----------------------------------------------------------------------------
      &     CHF_CONST_REAL[cnormdt],
      &     CHF_CONST_FRA1[Eold],
      &     CHF_CONST_FRA1[curlB],
+     &     CHF_CONST_FRA1[Jcur],
+     &     CHF_CONST_REAL[JnormFact],
      &     CHF_FRA1[E]
      & )
 
 c     local variables
       integer CHF_DDECL[i;j;k]
-      double precision Eold0, curlB0
+      double precision Eold0, curlB0, Jcur0
 
       CHF_MULTIDO[box;i;j;k]
      
-         Eold0 = Eold(CHF_IX[i;j;k])
+         Eold0  = Eold(CHF_IX[i;j;k])
          curlB0 = curlB(CHF_IX[i;j;k])
-         E(CHF_IX[i;j;k]) = Eold0 + cnormdt*curlB0
+         Jcur0  = Jcur(CHF_IX[i;j;k])
+
+         E(CHF_IX[i;j;k]) = Eold0 + cnormdt*(curlB0 - JnormFact*Jcur0)
      
       CHF_ENDDO
 

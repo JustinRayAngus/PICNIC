@@ -24,25 +24,32 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&   a_ppflds,
    // parse input file
    a_ppflds.get( "advance", m_advance );
 
-   if ( procID() == 0 ) {
-      cout << " advance fields = " << m_advance << endl << endl;
-   }
-   
-   const DisjointBoxLayout& grids(m_mesh.getDBL());
-   const ProblemDomain& domain(m_mesh.getDomain());
+   // set the Courant time step associated with the speed of light
    const RealVect& meshSpacing(m_mesh.getdX());
-   const RealVect& meshOrigin(m_mesh.getXmin());
-   const int ghosts(m_mesh.ghosts());
-
    m_stable_dt = meshSpacing[0]/a_units.CvacNorm();
    for (int dir=1; dir<SpaceDim; dir++) {
       m_stable_dt = Min(m_stable_dt,meshSpacing[dir]/a_units.CvacNorm());
    } 
 
+   // set the normalization factor for J in Ampere's law
+   const Real mu0  = Constants::MU0;  // SI units
+   const Real qe   = Constants::QE;   // SI units
+   const Real cvac = Constants::CVAC; // SI units
+   const Real Xscale = a_units.getScale(a_units.LENGTH);
+   const Real Bscale = a_units.getScale(a_units.MAGNETIC_FIELD);
+   m_Jnorm_factor = mu0*qe*cvac*Xscale/Bscale;
+   
+   if(!procID()){
+      cout << " m_Jnorm_factor = " << m_Jnorm_factor << endl;
+      cout << " advance fields = " << m_advance << endl << endl;
+   }
+   
    //
    // initialize the member LevelDatas
    //
-   //
+  
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const int ghosts(m_mesh.ghosts());
    const IntVect ghostVect = ghosts*IntVect::Unit; 
    
    // initialize the magnetic field containers
@@ -166,9 +173,38 @@ void ElectroMagneticFields::initialize()
    }
  
    // initialize the old values via copy
-   updateOldFieldValues();
+   updateOldElectricField();
+   updateOldMagneticField();
 
    if(!procID()) cout << "Finished initializing electromagnetic fields " << endl << endl;
+
+}
+
+void ElectroMagneticFields::advanceElectricField_2ndHalf()
+{
+   CH_TIME("ElectroMagneticFields::advanceElectricField_2ndHalf()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      for (int dir=0; dir<SpaceDim; dir++) {
+         FArrayBox& Edir = m_electricField[dit][dir];
+         const FArrayBox& Edir_old = m_electricField_old[dit][dir];
+         const Box& edge_box = Edir.box();
+         Edir.mult(2.0);
+         Edir.minus(Edir_old,edge_box,0,0,1);
+      }
+   
+      if(SpaceDim<3) {
+         FArrayBox& Ev = m_electricField_virtual[dit].getFab();
+         const FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
+         const Box& node_box = Ev.box();
+         const int Ncomp = Ev.nComp();
+         Ev.mult(2.0);
+         Ev.minus(Ev_old,node_box,0,0,Ncomp);
+      }
+
+   }
 
 }
 
@@ -178,62 +214,68 @@ void ElectroMagneticFields::advanceMagneticField_2ndHalf()
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    
    for(DataIterator dit(grids); dit.ok(); ++dit) {
+
       for (int dir=0; dir<SpaceDim; dir++) {
-         FArrayBox& Bdir_stag = m_magneticField[dit][dir];
+         FArrayBox& Bdir = m_magneticField[dit][dir];
          const FArrayBox& Bdir_old = m_magneticField_old[dit][dir];
-         const Box& face_box = Bdir_stag.box();
-         Bdir_stag.mult(2.0);
-         Bdir_stag.minus(Bdir_old,face_box,0,0,1);
+         const Box& face_box = Bdir.box();
+         Bdir.mult(2.0);
+         Bdir.minus(Bdir_old,face_box,0,0,1);
       }
-   }
    
-   if(SpaceDim<3) {
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
-
-         FArrayBox& Bv_stag = m_magneticField_virtual[dit];
+      if(SpaceDim<3) {
+         FArrayBox& Bv = m_magneticField_virtual[dit];
          const FArrayBox& Bv_old = m_magneticField_virtual_old[dit];
-         const Box& cell_box = Bv_stag.box();
-         const int Ncomp = Bv_stag.nComp();
-         Bv_stag.mult(2.0);
-         Bv_stag.minus(Bv_old,cell_box,0,0,Ncomp);
-
+         const Box& cell_box = Bv.box();
+         const int Ncomp = Bv.nComp();
+         Bv.mult(2.0);
+         Bv.minus(Bv_old,cell_box,0,0,Ncomp);
       }
+
    }
 
 }
 
-void ElectroMagneticFields::updateOldFieldValues()
+void ElectroMagneticFields::updateOldElectricField()
 {
-   CH_TIME("ElectroMagneticFields::updateOldFieldValues()");
+   CH_TIME("ElectroMagneticFields::updateOldElectricField()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    
    for(DataIterator dit(grids); dit.ok(); ++dit) {
-      for (int dir=0; dir<SpaceDim; dir++) {
 
-         FArrayBox& Bdir_old = m_magneticField_old[dit][dir];
-         const Box& face_box = Bdir_old.box();
-         Bdir_old.copy(m_magneticField[dit][dir],face_box);
-         
+      for (int dir=0; dir<SpaceDim; dir++) {
          FArrayBox& Edir_old = m_electricField_old[dit][dir];
          const Box& edge_box = Edir_old.box();
          Edir_old.copy(m_electricField[dit][dir],edge_box);
-         
       }
+      
+      FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
+      const Box& node_box = Ev_old.box();
+      Ev_old.copy(m_electricField_virtual[dit].getFab(),node_box);
+
    }
 
-   if(SpaceDim<3) {
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+}
 
+void ElectroMagneticFields::updateOldMagneticField()
+{
+   CH_TIME("ElectroMagneticFields::updateOldMagneticField()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      for (int dir=0; dir<SpaceDim; dir++) {
+         FArrayBox& Bdir_old = m_magneticField_old[dit][dir];
+         const Box& face_box = Bdir_old.box();
+         Bdir_old.copy(m_magneticField[dit][dir],face_box);
+      }   
+      
+      if(SpaceDim<3) {
          FArrayBox& Bv_old = m_magneticField_virtual_old[dit];
          const Box& cell_box = Bv_old.box();
          Bv_old.copy(m_magneticField_virtual[dit],cell_box);
-
-         FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
-         Box node_box = Ev_old.box();
-         node_box.surroundingNodes();
-         Ev_old.copy(m_electricField_virtual[dit].getFab(),node_box);
-
       }
+
    }
 
 }
@@ -303,6 +345,7 @@ void ElectroMagneticFields::advanceElectricField( const Real& a_cnormDt )
 
          const FArrayBox& Edir_old = m_electricField_old[dit][dir];
          const FArrayBox& curlBdir = m_curlB[dit][dir];
+         const FArrayBox& Jdir     = m_currentDensity[dit][dir];
                FArrayBox& Edir     = m_electricField[dit][dir];
 
          Box edge_box = grids[dit];
@@ -313,6 +356,8 @@ void ElectroMagneticFields::advanceElectricField( const Real& a_cnormDt )
                                            CHF_CONST_REAL(a_cnormDt),
                                            CHF_CONST_FRA1(Edir_old,0), 
                                            CHF_CONST_FRA1(curlBdir,0), 
+                                           CHF_CONST_FRA1(Jdir,0), 
+                                           CHF_CONST_REAL(m_Jnorm_factor),
                                            CHF_FRA1(Edir,0) );
         
       }
@@ -331,12 +376,15 @@ void ElectroMagneticFields::advanceElectricField( const Real& a_cnormDt )
 
             const FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
             const FArrayBox& curlBv = m_curlB_virtual[dit].getFab();
+            const FArrayBox& Jv     = m_currentDensity_virtual[dit].getFab();
                   FArrayBox& Evdir  = m_electricField_virtual[dit].getFab();
 
             FORT_ADVANCE_ELECTRIC_FIELD_COMP( CHF_BOX(node_box),
                                               CHF_CONST_REAL(a_cnormDt),
                                               CHF_CONST_FRA1(Ev_old,comp), 
                                               CHF_CONST_FRA1(curlBv,comp), 
+                                              CHF_CONST_FRA1(Jv,comp), 
+                                              CHF_CONST_REAL(m_Jnorm_factor),
                                               CHF_FRA1(Evdir,comp) );
          }
 
@@ -586,6 +634,54 @@ void ElectroMagneticFields::setCurlE()
 
    }  
    
+}
+  
+void ElectroMagneticFields::setCurrentDensity( const PicSpeciesPtrVect&  a_pic_species_ptr_vect )
+{
+   CH_TIME("ElectroMagneticFields::setCurrentDensity()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+    
+   // set the current density member to zero
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         m_currentDensity[dit][dir].setVal(0.0);
+      }
+      if(SpaceDim<3) {
+         FArrayBox& this_Jv_nodes = m_currentDensity_virtual[dit].getFab();
+         this_Jv_nodes.setVal(0.0);
+      }
+   }
+
+   // loop over all pic species and add the current density 
+   for (int s=0; s<a_pic_species_ptr_vect.size(); ++s) {
+      PicSpeciesPtr this_picSpecies(a_pic_species_ptr_vect[s]);
+      int this_charge = this_picSpecies->charge();
+      if(this_charge != 0) {
+
+         this_picSpecies->setCurrentDensity(); // set J for this_picSpecies
+         const LevelData<EdgeDataBox>& species_J = this_picSpecies->getCurrentDensity();
+         for(DataIterator dit(grids); dit.ok(); ++dit) {
+            for (int dir=0; dir<SpaceDim; dir++) {
+               const FArrayBox& this_species_Jdir = species_J[dit][dir];
+               m_currentDensity[dit][dir].plus(this_species_Jdir,0,0,1);
+            }
+         }
+         if(SpaceDim<3) {
+            const LevelData<NodeFArrayBox>& species_Jv = this_picSpecies->getCurrentDensity_virtual();
+            for(DataIterator dit(grids); dit.ok(); ++dit) {
+               const FArrayBox& this_species_Jv = species_Jv[dit].getFab();
+               FArrayBox& this_Jv = m_currentDensity_virtual[dit].getFab();
+               this_Jv.plus(this_species_Jv,0,0,1);
+            }
+         }
+
+      }
+   }
+   
+   // call exchange
+   m_currentDensity.exchange();
+   if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(m_currentDensity_virtual,m_mesh);
+
 }
 
 

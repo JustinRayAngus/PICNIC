@@ -370,7 +370,7 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    header.m_box["prob_domain"] = domain.domainBox(); 
    header.writeToFile(handle);
    
-   write(handle, Bfield.boxLayout());
+   write(handle, Efield.boxLayout());
    write(handle, Efield, "data", Efield.ghostVect());
    
    //
@@ -392,6 +392,46 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    
       write(handle, Efield_virt.boxLayout());
       write(handle, Efield_virt, "data", Efield_virt.ghostVect());
+
+   }
+   
+   //
+   // write the current density data
+   //
+   
+   const LevelData<EdgeDataBox>& Jfield  = a_emfield.getCurrentDensity();
+
+   const std::string group6Name = std::string("current_density");
+   handle.setGroup(group6Name);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = Jfield.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(handle);
+   
+   write(handle, Jfield.boxLayout());
+   write(handle, Jfield, "data", Jfield.ghostVect());
+   
+   //
+   // write the virtual current density data
+   //
+
+   if(SpaceDim<3) {
+   
+      const LevelData<NodeFArrayBox>& Jfield_virt  = a_emfield.getVirtualCurrentDensity();
+
+      const std::string group7Name = std::string("virtual_current_density");
+      handle.setGroup(group7Name);
+   
+      header.clear();
+      header.m_int["is_nodebox"] = 1;
+      header.m_int["num_components"] = Jfield_virt.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(handle);
+   
+      write(handle, Jfield_virt.boxLayout());
+      write(handle, Jfield_virt, "data", Jfield_virt.ghostVect());
 
    }
    

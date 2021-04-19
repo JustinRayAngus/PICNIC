@@ -137,6 +137,7 @@ void DomainGrid::setRealCoords()
       }
       //if(!procID()) cout << "JRA: m_Xcc.box() = " << m_Xcc[dit].box() << endl;      
       //if(!procID()) cout << "JRA: m_Xnc.box() = " << m_Xnc[dit].box() << endl;      
+      //if(!procID()) cout << "JRA: m_Xnc.getFab().box() = " << m_Xnc[dit].getFab().box() << endl;      
       // set the coords at cell nodes
       FORT_GET_NC_MAPPED_COORDS( CHF_BOX(surroundingNodes(m_Xnc[dit].box())),
                                  CHF_CONST_REALVECT(m_dX),

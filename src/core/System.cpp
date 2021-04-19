@@ -105,6 +105,7 @@ void System::initialize( const int     a_cur_step,
    // initialize the electromagnetic fields
    if (!m_electromagneticFields.isNull()) {
       m_electromagneticFields->initialize();
+      m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
    }
 
 }
@@ -566,7 +567,8 @@ void System::preTimeStep( const Real&  a_cur_time,
       else { // advance the magnetic field from t_{n+1} to t_{n+3/2}
          m_electromagneticFields->advanceMagneticField_2ndHalf();
       }
-      m_electromagneticFields->updateOldFieldValues();
+      m_electromagneticFields->updateOldElectricField();
+      m_electromagneticFields->updateOldMagneticField();
    }
    
    //
@@ -622,6 +624,7 @@ void System::advance_PICMC_FE( Real&  a_cur_time,
    
       // advance the electric field from t_{n} to t_{n+1} using B_{n+1/2} and J_{n+1/2}
       m_electromagneticFields->setCurlB();
+      m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
       m_electromagneticFields->advanceElectricField(cnormDt);
    
       // advance the magnetic field from t_{n+1/2} to t_{n+1} using E_{n+1}
