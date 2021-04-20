@@ -831,8 +831,6 @@ Real System::scatterDt( const int a_step_number )
          scatterDt = min(scatterDt,this_scattering->scatterDt()); // [s]
          scatterDt = scatterDt/tscale; // convert to code units
       }
-      if(!procID()) cout << "mean free scattering time [s] = " << scatterDt*tscale << endl;
-      if(!procID()) cout << "time scale [s] = " << tscale << endl;
       if(!procID()) cout << "mean free scattering time [code units] = " << scatterDt << endl;
    }
    
