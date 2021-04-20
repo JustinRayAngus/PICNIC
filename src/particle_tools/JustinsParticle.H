@@ -113,7 +113,7 @@ public:
   const std::array<Real,3>& velocity_old() const;
   
 
-  /// set electric field
+  // set electric field
   void setElectricField(const std::array<Real,3>& a_electric_field);
   void setElectricField(const Real& a_electric_field, const int a_dir);
 
@@ -125,9 +125,23 @@ public:
 
   // retrieve electric field comp. in a given direction
   Real electric_field(const int a_dir) const;
+  
+
+  // set magnetic field
+  void setMagneticField(const std::array<Real,3>& a_magnetic_field);
+  void setMagneticField(const Real& a_magnetic_field, const int a_dir);
+
+  // retrieve reference magnetic field
+  std::array<Real,3>& magnetic_field();
+
+  // retrieve const. reference magnetic field
+  const std::array<Real,3>& magnetic_field() const;
+
+  // retrieve magnetic field comp. in a given direction
+  Real magnetic_field(const int a_dir) const;
+
 
   //  define functions for virtual position (for 1D/2D sim)
-  //
   
   /// set virtual position field
   void setPositionVirt(const std::array<Real,3-SpaceDim>& a_pos_virt);
@@ -185,7 +199,7 @@ protected:
   Real     m_weight;
   std::array<Real,3> m_velocity;
   std::array<Real,3> m_electric_field;
-  //std::array<Real,3> m_magnetic_field;
+  std::array<Real,3> m_magnetic_field;
   std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
  
   RealVect  m_position_old;

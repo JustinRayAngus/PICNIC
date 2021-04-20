@@ -29,8 +29,8 @@ JustinsParticle::JustinsParticle( const Real       a_weight,
 {
   setOldPosition(a_position);
   setOldVelocity(a_velocity);
-  std::array<Real,3> thisElectricField = {0,0,0};
-  setElectricField(thisElectricField);
+  //std::array<Real,3> thisElectricField = {0,0,0};
+  //setElectricField(thisElectricField);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      for(int i=0; i<3-SpaceDim; i++) {
@@ -51,8 +51,8 @@ void JustinsParticle::define( const Real       a_weight,
   setOldPosition(a_position);
   setVelocity(a_velocity);
   setOldVelocity(a_velocity);
-  std::array<Real,3> thisElectricField = {0,0,0};
-  setElectricField(thisElectricField);
+  //std::array<Real,3> thisElectricField = {0,0,0};
+  //setElectricField(thisElectricField);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      for(int i=0; i<3-SpaceDim; i++) {
@@ -178,7 +178,10 @@ const std::array<Real,3>& JustinsParticle::velocity_old() const
   return m_velocity_old;
 }
 
+//
 // electric_field functions
+//
+
 void JustinsParticle::setElectricField( const std::array<Real,3>&  a_electric_field )
 {
   m_electric_field = a_electric_field;
@@ -189,7 +192,6 @@ void JustinsParticle::setElectricField( const Real&  a_electric_field,
 {
   m_electric_field[a_dir] = a_electric_field;
 }
-
 
 std::array<Real,3>& JustinsParticle::electric_field()
 {
@@ -207,8 +209,39 @@ Real JustinsParticle::electric_field(const int a_dir) const
 }
 
 //
+// magnetic_field functions
+//
+
+void JustinsParticle::setMagneticField( const std::array<Real,3>&  a_magnetic_field )
+{
+  m_magnetic_field = a_magnetic_field;
+}
+
+void JustinsParticle::setMagneticField( const Real&  a_magnetic_field,
+                                        const int    a_dir )
+{
+  m_magnetic_field[a_dir] = a_magnetic_field;
+}
+
+std::array<Real,3>& JustinsParticle::magnetic_field()
+{
+  return m_magnetic_field;
+}
+
+const std::array<Real,3>& JustinsParticle::magnetic_field() const
+{
+  return m_magnetic_field;
+}
+
+Real JustinsParticle::magnetic_field(const int a_dir) const
+{
+  return m_magnetic_field[a_dir];
+}
+
+//
 // virtual position functions (for 1D/2D sims)
 //
+
 void JustinsParticle::setPositionVirt(const std::array<Real,3-SpaceDim>& a_pos_virt)
 {
   m_pos_virt = a_pos_virt;
@@ -248,6 +281,7 @@ bool JustinsParticle::operator == (const JustinsParticle& a_p) const
            m_velocity  == a_p.m_velocity &&
            m_velocity_old  == a_p.m_velocity &&
            m_electric_field  == a_p.m_electric_field &&
+           m_magnetic_field  == a_p.m_magnetic_field &&
            m_pos_virt  == a_p.m_pos_virt );
 }
 
@@ -265,8 +299,8 @@ int JustinsParticle::size() const
 {
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
                            + sizeof(m_position_old) + sizeof(m_pos_virt)
-                           + sizeof(m_velocity) + sizeof(m_velocity_old)
-                           + sizeof(m_electric_field) );
+                    //       + sizeof(m_electric_field) + sizeof(m_magnetic_field)
+                           + sizeof(m_velocity) + sizeof(m_velocity_old) );
 }
 
 int JustinsParticle::sizeOutput() const
@@ -305,9 +339,15 @@ void JustinsParticle::linearOut(void* buf) const
       *buffer++ = m_velocity_old[i];
    }
 
+   /*
    for(int i=0; i<3; i++) {
       *buffer++ = m_electric_field[i];
    }
+   
+   for(int i=0; i<3; i++) {
+      *buffer++ = m_magnetic_field[i];
+   }
+   */
 
    *buffer = m_ID;
 
@@ -364,9 +404,15 @@ void JustinsParticle::linearIn(void* buf)
       m_velocity_old[i] = *buffer++;
    }
 
+   /*
    for(int i=0; i<3; i++) {
       m_electric_field[i] = *buffer++;
    }
+   
+   for(int i=0; i<3; i++) {
+      m_magnetic_field[i] = *buffer++;
+   }
+   */
    
    m_ID = *buffer;
 
@@ -385,6 +431,8 @@ std::ostream & operator<<(std::ostream& ostr, const JustinsParticle& p)
   ostr << " ) ";
   ostr << std::endl << " electric_field ( ";
   for ( int i=0; i<3; ++i ){ ostr << " " << p.electric_field(i); }
+  ostr << std::endl << " magnetic_field ( ";
+  for ( int i=0; i<3; ++i ){ ostr << " " << p.magnetic_field(i); }
   ostr << " ) " << std::endl;
   return ostr;
 }
