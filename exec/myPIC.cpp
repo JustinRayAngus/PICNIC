@@ -30,7 +30,7 @@ inline int checkCommandLineArgs( int a_argc, char* a_argv[] )
 {  
    // Check for an input file
    if (a_argc<=1) {
-      pout() << "Usage:  cogent...ex <inputfile>" << endl;
+      pout() << "Usage:  myPIC...ex <inputfile>" << endl;
       pout() << "No input file specified" << endl;
       return -1;
    }

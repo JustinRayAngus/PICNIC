@@ -11,8 +11,8 @@ qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
 rootPath = '../myPIC/fieldTests/test0_2D/';
-%rootPath = '../myPIC/fieldTests/test1_2D/';
-%rootPath = '../myPIC/fieldTests/test2_2D/';
+rootPath = '../myPIC/fieldTests/test1_2D/';
+rootPath = '../myPIC/fieldTests/test2_2D/';
 
 ghosts = 0;
 
@@ -113,6 +113,9 @@ B_2 = zeros(nX,nZ,iLmax);
 E_0 = zeros(nX,nZ+1,iLmax);
 E_1 = zeros(nX+1,nZ,iLmax);
 E_2 = zeros(nX+1,nZ+1,iLmax);
+J_0 = zeros(nX,nZ+1,iLmax);
+J_1 = zeros(nX+1,nZ,iLmax);
+J_2 = zeros(nX+1,nZ+1,iLmax);
 
 %iLmax = 1;
 for iL=1:iLmax
@@ -148,6 +151,19 @@ for iL=1:iLmax
     groupName = '/virtual_electric_field';
     data = import2Ddata_singleFile(fieldFile,groupName,ghosts);
     E_2(:,:,iL) = squeeze(data.Fnc(:,:));
+
+    %%%   read current density from field file
+    %
+    groupName = '/current_density';
+    data = import2Ddata_singleFile(fieldFile,groupName,ghosts);
+    J_0(:,:,iL) = squeeze(data.Fec0(:,:));
+    J_1(:,:,iL) = squeeze(data.Fec1(:,:));
+    
+    %%%   read virtual current density from field file
+    %
+    groupName = '/virtual_current_density';
+    data = import2Ddata_singleFile(fieldFile,groupName,ghosts);
+    J_2(:,:,iL) = squeeze(data.Fnc(:,:));
     
     %
     %

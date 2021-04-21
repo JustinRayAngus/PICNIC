@@ -1,0 +1,79 @@
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+
+system.node_data_test = true
+system.write_species_charge_density = false
+system.write_species_current_density = false
+
+#system.advance_method = "DSMC"
+system.advance_method = "PICMC_EXPLICIT"
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 10
+simulation.max_step            = 1000000000
+simulation.max_time            = 1.0e-2
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 3.0e-4
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 5.0e-4
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 12 12 
+grid.is_periodic   = 1 1
+grid.config_decomp = 3 3
+grid.fixedBoxSize  = 9
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 1
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.Z_min = 2.0
+grid.Z_max = 3.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 1.0  # m
+units.time           = 1.0  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "cosine"
+IC.em_fields.magnetic.1.constant = 0.0
+IC.em_fields.magnetic.1.amplitude = 1.0
+IC.em_fields.magnetic.1.mode = 2 0 
+IC.em_fields.magnetic.1.phase = 0.5 0.0 # [Pi]
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+#
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "cosine"
+IC.em_fields.electric.2.constant = 0.0
+IC.em_fields.electric.2.amplitude = 1.0
+IC.em_fields.electric.2.mode = 2 0 
+IC.em_fields.electric.2.phase = 0.0 0.0 # [Pi]
+
+#####################################################
+

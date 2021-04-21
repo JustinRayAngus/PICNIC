@@ -43,7 +43,7 @@ end
 if(group==0)
     for n=1:numGroups
         thisGroupName = GH.Groups(n).Name;
-        display(thisGroupName);
+        %display(thisGroupName);
     end
     error(['groupName = ',groupName,' not found']);
 end

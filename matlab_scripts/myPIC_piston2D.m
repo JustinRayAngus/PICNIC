@@ -11,10 +11,10 @@ cvac = 2.99792458e8;       % speed of light [m/s]
 
 species = 1;
 rootPath = '../myPIC/pistonTests/piston_collisionless/'; vpiston = 100;
-%rootPath = '../myPIC/pistonTests/piston_collisional/'; vpiston = 100;
-%rootPath = '../myPIC/pistonTests/piston_2species/'; vpiston = 1e3;
-%rootPath = '../myPIC/pistonTests/piston_vp1e2/'; vpiston = 1e2;
-%rootPath = '../myPIC/pistonTests/piston_vp1e3/'; vpiston = 1e3;
+rootPath = '../myPIC/pistonTests/piston_collisional/'; vpiston = 100;
+rootPath = '../myPIC/pistonTests/piston_2species/'; vpiston = 1e3;
+rootPath = '../myPIC/pistonTests/piston_vp1e2/'; vpiston = 1e2;
+rootPath = '../myPIC/pistonTests/piston_vp1e3/'; vpiston = 1e3;
 %rootPath = '../myPIC/pistonTests/piston_vp1e4/'; vpiston = 1e4;
 
 %rootPath = '../myPIC/pistonTests/testing/'; vpiston = 100;
@@ -212,9 +212,10 @@ dfn = dfn/normC;
 
 close(figure(44)); f4=figure(44); 
 
-T1 = 25.9e-3;
-VT1 = 4.19e5*sqrt(T1/Mass);
-plot(Vgrid,exp(-(Vgrid/sqrt(2)/VT1).^2)/sqrt(2*pi)/VT1); hold on;
+TY0 = mean(mean(nonzeros(tempY(:,:,end))));
+UY0 = mean(mean(nonzeros(velY(:,:,end))));
+VTY = 4.19e5*sqrt(TY0/Mass);
+plot(Vgrid,exp(-((Vgrid-UY0)/sqrt(2)/VTY).^2)/sqrt(2*pi)/VTY); hold on;
 plot(Vgrid,dfn); 
 xlabel('y-velocity'); ylabel('dfn-vy');
 title('vy-distribution function');

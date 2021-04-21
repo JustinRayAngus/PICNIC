@@ -12,7 +12,6 @@ cvac = 2.99792458e8;       % speed of light [m/s]
 species = 1;
 rootPath = '../myPIC/depositTests/test0_2D/';
 rootPath = '../myPIC/depositTests/test1_2D/';
-%rootPath = '../myPIC/depositTests/testing/';
 ghosts = 1; % must have ghosts in output for this test
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

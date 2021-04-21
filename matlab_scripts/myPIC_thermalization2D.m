@@ -13,10 +13,9 @@ amu  = 1.660539066e-27;    % atomic mass unit [kg]
 species = 1;
 rootPath = '../myPIC/thermalizationTests/test0/';
 rootPath = '../myPIC/thermalizationTests/test1/';
-rootPath = '../myPIC/thermalizationTests/test2/';
-%rootPath = '../myPIC/thermalizationTests/test2_save/'; cvac = 1;
-%rootPath = '../myPIC/thermalization_test2/';
-
+%rootPath = '../myPIC/thermalizationTests/test2_oldNorm/';
+%rootPath = '../myPIC/thermalizationTests/test2_newNorm/';
+%rootPath = '../myPIC/thermalizationTests/test2_newAdvance/';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -31,7 +30,12 @@ groupName = '/cell_centered_grid'; ghosts = 0;
 data = import2Ddata_singleFile(meshFile,groupName,ghosts);
 Xcc = squeeze(data.Fcc(:,:,1)); nX = length(Xcc(:,1)); dX = Xcc(2,1)-Xcc(1,1);
 Zcc = squeeze(data.Fcc(:,:,2)); nZ = length(Zcc(1,:)); dZ = Zcc(1,2)-Zcc(1,1);
-
+%
+fileinfo = hdf5info(meshFile);
+length_scale = 1;
+try
+    length_scale = h5readatt(meshFile,'/','length_scale_SI');
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -40,8 +44,8 @@ Zcc = squeeze(data.Fcc(:,:,2)); nZ = length(Zcc(1,:)); dZ = Zcc(1,2)-Zcc(1,1);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-close(figure(1));
-f1=figure(1); set(f1,'position',[570 450 900 450]);
+close(figure(11));
+f1=figure(11); set(f1,'position',[570 450 900 450]);
 set(gcf,'color','white');
 
 images = cell(1,1);
@@ -82,6 +86,10 @@ for iL=1:iLmax
     numParts = h5readatt(partsFile,'/species_data','num_particles');
     time(iL) = h5readatt(partsFile,'/species_data','time');
     if(iL==1)
+        time_scale = 1;
+        try
+            time_scale = h5readatt(partsFile,'/species_data','time_scale_SI');
+        end
         Mass = h5readatt(partsFile,'/species_data','mass');
         Charge = double(h5readatt(partsFile,'/species_data','charge'));
         Uint = h5readatt(partsFile,'/species_data','Uint'); % [eV]
@@ -132,6 +140,7 @@ for iL=1:iLmax
     %
     if(iL==1) 
         rho0 = sum(rhoAvg)/length(rhoAvg);
+        display(rho0);
     end
     subplot(1,2,2); %hold on; 
     p2=plot(Xcc(:,1),rhoAvg/rho0); box on;
@@ -203,9 +212,10 @@ dfn = dfn/normC;
 
 close(figure(4)); f4=figure(4); 
 
-T1 = 2*25.9e-3;
-VT1 = 4.19e5*sqrt(T1/Mass);
-plot(Vgrid,exp(-(Vgrid/sqrt(2)/VT1).^2)/sqrt(2*pi)/VT1); hold on;
+TY0 = mean(mean(nonzeros(tempY(:,:,end))));
+UY0 = mean(mean(nonzeros(velY(:,:,end))));
+VTY = 4.19e5*sqrt(TY0/Mass);
+plot(Vgrid,exp(-((Vgrid-UY0)/sqrt(2)/VTY).^2)/sqrt(2*pi)/VTY); hold on;
 plot(Vgrid,dfn); 
 xlabel('y-velocity'); ylabel('dfn-vy');
 title('vy-distribution function');
@@ -229,14 +239,15 @@ momentumTotZ = zeros(1,iLmax);
 energyTotX = zeros(1,iLmax);
 energyTotY = zeros(1,iLmax);
 energyTotZ = zeros(1,iLmax);
+dV = dX*dZ*length_scale^2;
 for n=1:iLmax
-    numberTot(n) = sum(sum(numberDen(:,:,n)))*dX*dZ;
-    momentumTotX(n) = sum(sum(momentumDenX(:,:,n)))*dX*dZ;
-    momentumTotY(n) = sum(sum(momentumDenY(:,:,n)))*dX*dZ;    
-    momentumTotZ(n) = sum(sum(momentumDenZ(:,:,n)))*dX*dZ;
-    energyTotX(n) = sum(sum(energyDenX(:,:,n)))*dX*dZ;
-    energyTotY(n) = sum(sum(energyDenY(:,:,n)))*dX*dZ;
-    energyTotZ(n) = sum(sum(energyDenZ(:,:,n)))*dX*dZ;
+    numberTot(n) = sum(sum(numberDen(:,:,n)))*dV;
+    momentumTotX(n) = sum(sum(momentumDenX(:,:,n)))*dV;
+    momentumTotY(n) = sum(sum(momentumDenY(:,:,n)))*dV;    
+    momentumTotZ(n) = sum(sum(momentumDenZ(:,:,n)))*dV;
+    energyTotX(n) = sum(sum(energyDenX(:,:,n)))*dV;
+    energyTotY(n) = sum(sum(energyDenY(:,:,n)))*dV;
+    energyTotZ(n) = sum(sum(energyDenZ(:,:,n)))*dV;
 end
 tempTotX = energyTotX - momentumTotX.^2./numberTot/Mass/2.0;
 tempTotY = energyTotY - momentumTotY.^2./numberTot/Mass/2.0;
