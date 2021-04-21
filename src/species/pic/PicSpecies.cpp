@@ -10,6 +10,7 @@
 
 #include "MathUtils.H"
 #include "SpaceUtils.H"
+#include "ParticleUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -294,6 +295,38 @@ void PicSpecies::advancePositions_2ndHalf()
    
 }
 
+void PicSpecies::advanceVelocities( const Real& a_cnormDt )
+{
+   CH_TIME("PicSpecies::advanceVelocities()");
+    
+   //if(!procID()) cout << "JRA: m_fnorm_const = " << m_fnorm_const <<endl;
+   //if(!procID()) cout << "JRA: a_cnormDt = " << a_cnormDt << endl;
+
+   // Each proc loops over its own boxes
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      //ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListIterator<JustinsParticle> li(pList);
+      for(li.begin(); li.ok(); ++li) {
+
+         std::array<Real,3>& vp = li().velocity(); // actually beta
+         const std::array<Real,3>& vpold = li().velocity_old(); // actually beta
+         const std::array<Real,3>& Ep = li().electric_field();
+         const std::array<Real,3>& Bp = li().magnetic_field();
+         //const std::array<Real,3>& Ep = {0.0,0.0,0.0};
+         //const std::array<Real,3>& Bp = {0.0,0.0,0.0};
+    
+         ParticleUtils::borisPusher(vp,vpold,Ep,Bp,m_fnorm_const,a_cnormDt);
+      
+      } // end loop over particle list
+      
+   } // end loop over boxes
+
+}
+
 void PicSpecies::updateOldParticlePositions()
 {
    CH_TIME("PicSpecies::updateOldParticlePositions()");
@@ -335,11 +368,9 @@ void PicSpecies::updateOldParticleVelocities()
 
          std::array<Real,3>& vpold = li().velocity_old(); // actually beta
          const std::array<Real,3>& vp = li().velocity();  // actually beta
-         vpold = vp;
+         //vpold = vp;
 
-         //for(int dir=0; dir<SpaceDim; dir++) {
-         //   vpold[dir] = vp[dir];
-         //}
+         li().setOldVelocity(vp);
 
       } // end loop over particle list
       
@@ -366,7 +397,7 @@ void PicSpecies::setStableDt( const CodeUnits&  a_units )
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
-         std::array<Real,3>&  v = li().velocity(); // actually beta
+         const std::array<Real,3>&  v = li().velocity(); // actually beta
          for(int dir=0; dir<SpaceDim; dir++) {
             thisDtinv = abs(v[dir])/dX[dir];
             maxDtinv = Max(thisDtinv,maxDtinv);
@@ -631,6 +662,13 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    }
 
    ////////////////////////////////////////////////////////////////////////////////////////
+
+   // set the normalization constant for the equation of motion
+   const Real Escale = a_units.getScale(a_units.ELECTRIC_FIELD);
+   const Real Xscale = a_units.getScale(a_units.LENGTH);
+   const Real qom    = m_charge/m_mass*Constants::QE/Constants::ME;
+   const Real cvacSq = Constants::CVAC*Constants::CVAC;
+   m_fnorm_const = qom/cvacSq*Escale*Xscale;
 
    // get some mesh info
    //
@@ -985,6 +1023,118 @@ void PicSpecies::setCurrentDensity()
                                           m_mesh.reverseCopier(), addNodeOp);
    }
    
+}
+
+void PicSpecies::interpolateElectricFieldToParticles( const LevelData<EdgeDataBox>&  a_Efield )
+{
+   CH_TIME("PicSpecies::interpolateElectricFieldToParticles()");
+    
+   CH_assert(m_data.isClosed());
+    
+   const DisjointBoxLayout& grids = a_Efield.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      for (int dir = 0; dir<SpaceDim; ++dir) {
+         
+         const FArrayBox& Efield_dir = a_Efield[dit][dir];
+         ListBox<JustinsParticle>& box_list = m_data[dit];
+         List<JustinsParticle>& pList = box_list.listItems();
+         
+         m_meshInterp.interpolateEfieldToPart( pList,
+                                               dir,
+                                               Efield_dir,
+                                               m_interpToGrid,
+                                               0 ); 
+
+      }
+
+   }
+     
+}
+
+void PicSpecies::interpolateElectricFieldToParticles( const LevelData<NodeFArrayBox>&  a_Efield_virt )
+{
+   CH_TIME("PicSpecies::interpolateElectricFieldToParticles() (virtual)");
+    
+   CH_assert(m_data.isClosed());
+    
+   const DisjointBoxLayout& grids = a_Efield_virt.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      const FArrayBox& this_Efield_virt = a_Efield_virt[dit].getFab();
+      for (auto n=0; n<a_Efield_virt.nComp(); n++) { 
+    
+         const int virt_dir = SpaceDim + n; // virtual direction
+         
+         ListBox<JustinsParticle>& box_list = m_data[dit];
+         List<JustinsParticle>& pList = box_list.listItems();
+         
+         m_meshInterp.interpolateEfieldToPart( pList,
+                                               virt_dir,
+                                               this_Efield_virt,
+                                               m_interpToGrid,
+                                               n ); 
+
+      }
+
+   }
+     
+}
+
+void PicSpecies::interpolateMagneticFieldToParticles( const LevelData<FluxBox>&  a_Bfield )
+{
+   CH_TIME("PicSpecies::interpolateMagneticFieldToParticles()");
+    
+   CH_assert(m_data.isClosed());
+    
+   const DisjointBoxLayout& grids = a_Bfield.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      for (int dir = 0; dir<SpaceDim; ++dir) {
+         
+         const FArrayBox& Bfield_dir = a_Bfield[dit][dir];
+         ListBox<JustinsParticle>& box_list = m_data[dit];
+         List<JustinsParticle>& pList = box_list.listItems();
+         
+         m_meshInterp.interpolateBfieldToPart( pList,
+                                               dir,
+                                               Bfield_dir,
+                                               m_interpToGrid,
+                                               0 ); 
+
+      }
+
+   }
+     
+}
+
+void PicSpecies::interpolateMagneticFieldToParticles( const LevelData<FArrayBox>&  a_Bfield_virt )
+{
+   CH_TIME("PicSpecies::interpolateMagneticFieldToParticles() (virtual)");
+    
+   CH_assert(m_data.isClosed());
+    
+   const DisjointBoxLayout& grids = a_Bfield_virt.disjointBoxLayout();
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+
+      const FArrayBox& this_Bfield_virt = a_Bfield_virt[dit];
+      for (auto n=0; n<a_Bfield_virt.nComp(); n++) { 
+    
+         const int virt_dir = SpaceDim + n; // virtual direction
+         
+         ListBox<JustinsParticle>& box_list = m_data[dit];
+         List<JustinsParticle>& pList = box_list.listItems();
+         
+         m_meshInterp.interpolateBfieldToPart( pList,
+                                               virt_dir,
+                                               this_Bfield_virt,
+                                               m_interpToGrid,
+                                               n ); 
+
+      }
+
+   }
+     
 }
 
 void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )

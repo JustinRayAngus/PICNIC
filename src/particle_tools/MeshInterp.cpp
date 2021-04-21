@@ -123,6 +123,33 @@ void MeshInterp::interpolateParticle(RealVect& a_particleField,
     }
 }
 
+//void MeshInterp::interpolateToParticle( Real&        a_Fp_dir,
+Real MeshInterp::interpolateToParticle(
+                                  const FArrayBox&   a_field,
+                                  const RealVect&    a_domainLeftEdge,
+                                  const RealVect&    a_dx,
+                                  const RealVect&    a_position,
+                                  const IntVect&     a_stag,
+                                  const InterpType&  a_interpType,
+                                  const int          a_comp ) const
+{
+   Real a_Fp_dir = 0.0;
+   switch (a_interpType) {
+      case CIC:
+      FORT_CIC_INTERPOLATE_DIR( CHF_REAL(a_Fp_dir),
+                                CHF_CONST_FRA1(a_field, a_comp),
+                                CHF_CONST_REALVECT(a_domainLeftEdge),
+                                CHF_CONST_REALVECT(a_dx),
+                                CHF_CONST_REALVECT(a_position), 
+                                CHF_CONST_INTVECT(a_stag) );
+      break;
+      default:
+      MayDay::Error("Invalid interpolation type in MeshInterp::interpolateToParticle.");
+   }
+   return a_Fp_dir;
+
+}
+
 //
 //
 //

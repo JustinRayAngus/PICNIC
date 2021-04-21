@@ -205,7 +205,6 @@ c     compute the cell volume and particle density on the grid
 c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
       do idir = 0, CH_SPACEDIM - 1
-c        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dX(idir)*(1.0-stag(idir))) / dx(idir))
       enddo
 
@@ -249,7 +248,6 @@ c
       subroutine cic_interpolate(
      &                           CHF_REALVECT[particle_field],
      &                           CHF_CONST_FRA[field],
-c     &                           CHF_CONST_INTVECT[stag],
      &                           CHF_CONST_REALVECT[left_edge],
      &                           CHF_CONST_REALVECT[dx],
      &                           CHF_CONST_REALVECT[x])
@@ -264,7 +262,6 @@ c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
       do idir = 0, CH_SPACEDIM - 1
         index(idir) = floor((x(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-c        index(idir) = floor((x(idir) - left_edge(idir) - 0.5d0*dX(idir)*(1.0-stag(idir))) / dx(idir))
       enddo
 
 c     loop over all the cells containing this particle cloud,
@@ -309,6 +306,64 @@ c     computing weight and incrementing the force
       enddo]
 
       end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+c     Interpolates the field to the particle position using CIC interpolation.
+c     
+c     Arguments:
+c
+c         particle_field: the field interpolated to the particle position
+c         field:          the field data stored on the mesh
+c         left_edge:      the physical location of the left edge of the domain
+c         dx:             the mesh spacing
+c         x:              the position coordinate of the particle
+c
+      subroutine cic_interpolate_dir( CHF_REAL[particle_field],
+     &                                CHF_CONST_FRA1[field],
+     &                                CHF_CONST_REALVECT[left_edge],
+     &                                CHF_CONST_REALVECT[dx],
+     &                                CHF_CONST_REALVECT[xp],
+     &                                CHF_CONST_INTVECT[stag] )
+
+      integer index(0:CH_SPACEDIM - 1)
+      integer idir
+      REAL_T CHF_DDECL[l0;l1;l2]
+      REAL_T weight, CHF_DDECL[w0;w1;w2]
+      integer CHF_DDECL[ii;jj;kk]
+
+c     compute the index of the cell that contains the LEFT edge of
+c     this particle cloud.
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dX(idir)*(1.0-stag(idir))) / dx(idir))
+      enddo
+
+c     loop over all the cells containing this particle cloud,
+c     computing weight and incrementing the force
+      CHF_DTERM[
+      do ii = index(0), index(0) + 1
+        l0 = ii*dx(0) + 0.5d0*dx(0)*(1.0-stag(0)) - xp(0) + left_edge(0);
+        do jj = index(1), index(1) + 1
+          l1 = jj*dx(1) + 0.5d0*dx(1)*(1.0-stag(1)) - xp(1) + left_edge(1);
+          do kk = index(2), index(2) + 1
+            l2 = kk*dx(2) + 0.5d0*dx(2)*(1.0-stag(2)) - xp(2) + left_edge(2) ]
+
+            CHF_DTERM[ 
+            w0 = 1.d0 - abs(l0 / dx(0));
+            w1 = 1.d0 - abs(l1 / dx(1));
+            w2 = 1.d0 - abs(l2 / dx(2))]
+
+            weight = CHF_DTERM[w0; *w1; *w2]
+            particle_field = particle_field + weight*field(CHF_IX[ii; jj; kk])
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+      end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 c     Deposits a particle using triangle-shaped cloud interpolation
 c     

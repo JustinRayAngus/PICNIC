@@ -24,6 +24,13 @@ namespace ParticleUtils {
   
    void moment( FArrayBox&  a_momentum,
           const Particle&   a_Pdata );
+   
+   void borisPusher( std::array<Real,3>&  a_vp,
+               const std::array<Real,3>&  a_vpold,
+               const std::array<Real,3>&  a_Ep,
+               const std::array<Real,3>&  a_Bp,
+               const Real&                a_fnorm_const,
+               const Real&                a_cnormDt );
       
 }
 

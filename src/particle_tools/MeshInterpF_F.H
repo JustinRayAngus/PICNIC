@@ -246,6 +246,40 @@ inline void FORTRAN_NAME(inlineCIC_INTERPOLATE, inlineCIC_INTERPOLATE)(
 }
 #endif  // GUARDCIC_INTERPOLATE 
 
+#ifndef GUARDCIC_INTERPOLATE_DIR 
+#define GUARDCIC_INTERPOLATE_DIR 
+// Prototype for Fortran procedure cic_interpolate_dir ...
+//
+void FORTRAN_NAME( CIC_INTERPOLATE_DIR ,cic_interpolate_dir )(
+      CHFp_REAL(particle_field)
+      ,CHFp_CONST_FRA1(field)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp)
+      ,CHFp_CONST_INTVECT(stag) );
+
+#define FORT_CIC_INTERPOLATE_DIR FORTRAN_NAME( inlineCIC_INTERPOLATE_DIR, inlineCIC_INTERPOLATE_DIR)
+#define FORTNT_CIC_INTERPOLATE_DIR FORTRAN_NAME( CIC_INTERPOLATE_DIR, cic_interpolate_dir)
+
+inline void FORTRAN_NAME(inlineCIC_INTERPOLATE_DIR, inlineCIC_INTERPOLATE_DIR)(
+      CHFp_REAL(particle_field)
+      ,CHFp_CONST_FRA1(field)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp)
+      ,CHFp_CONST_INTVECT(stag) )
+{
+ CH_TIMELEAF("FORT_CIC_INTERPOLATE_DIR");
+ FORTRAN_NAME( CIC_INTERPOLATE_DIR ,cic_interpolate_dir )(
+      CHFt_REAL(particle_field)
+      ,CHFt_CONST_FRA1(field)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(xp)
+      ,CHFt_CONST_INTVECT(stag) );
+}
+#endif  // GUARDCIC_INTERPOLATE_DIR 
+
 #ifndef GUARDTSC_DEPOSIT 
 #define GUARDTSC_DEPOSIT 
 // Prototype for Fortran procedure tsc_deposit ...

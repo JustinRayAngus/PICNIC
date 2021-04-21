@@ -66,6 +66,22 @@ public:
                    const FArrayBox& a_field,
                    InterpType& a_interpType);
   
+  // Interpolate a_electric_field onto the particles in a_particleList.
+  template <class P>
+  void interpolateEfieldToPart( List<P>&     a_particleList,
+                          const int          a_dir,
+                          const FArrayBox&   a_field,
+                          const InterpType&  a_interpType,
+                          const int          a_comp=0) const;
+  
+  // Interpolate a_magnetic_field onto the particles in a_particleList.
+  template <class P>
+  void interpolateBfieldToPart( List<P>&     a_particleList,
+                          const int          a_dir,
+                          const FArrayBox&   a_field,
+                          const InterpType&  a_interpType,
+                          const int          a_comp=0 ) const;
+  
   //
   //
   //
@@ -128,6 +144,17 @@ private:
                            const RealVect& a_dx,
                            const RealVect& a_position,
                            const InterpType& a_interpType);
+  
+   // JRA
+   //void interpolateToParticle( Real&        a_Fp_dir,
+   Real interpolateToParticle(
+                         const FArrayBox&   a_field,
+                         const RealVect&    a_domainLeftEdge,
+                         const RealVect&    a_dx,
+                         const RealVect&    a_position,
+                         const IntVect&     a_stag,
+                         const InterpType&  a_interpType,
+                         const int          a_comp ) const;
   
   Box m_domain;
   RealVect m_dx;

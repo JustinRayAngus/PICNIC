@@ -47,7 +47,6 @@ c     local variables
          Bold0 = Bold(CHF_IX[i;j;k])
          curlE0 = curlE(CHF_IX[i;j;k])
          B(CHF_IX[i;j;k]) = Bold0 - cnormdt*curlE0
-c         B(CHF_IX[i;j;k]) = Bold0
      
       CHF_ENDDO
 

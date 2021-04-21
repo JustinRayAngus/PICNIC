@@ -26,10 +26,12 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&   a_ppflds,
 
    // set the Courant time step associated with the speed of light
    const RealVect& meshSpacing(m_mesh.getdX());
-   m_stable_dt = meshSpacing[0]/a_units.CvacNorm();
-   for (int dir=1; dir<SpaceDim; dir++) {
-      m_stable_dt = Min(m_stable_dt,meshSpacing[dir]/a_units.CvacNorm());
+   Real invDXsq = 0.0;
+   for (int dir=0; dir<SpaceDim; dir++) {
+      invDXsq = invDXsq + 1.0/meshSpacing[dir]/meshSpacing[dir];
    } 
+   Real DXeff = 1.0/pow(invDXsq,0.5);
+   m_stable_dt = DXeff/a_units.CvacNorm();
 
    // set the normalization factor for J in Ampere's law
    const Real mu0  = Constants::MU0;  // SI units
@@ -205,6 +207,8 @@ void ElectroMagneticFields::advanceElectricField_2ndHalf()
       }
 
    }
+   SpaceUtils::exchangeEdgeDataBox(m_electricField);
+   if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(m_electricField_virtual,m_mesh); // experimental
 
 }
 
@@ -233,6 +237,8 @@ void ElectroMagneticFields::advanceMagneticField_2ndHalf()
       }
 
    }
+   SpaceUtils::exchangeFluxBox(m_magneticField);
+   if(SpaceDim<3) m_magneticField_virtual.exchange();
 
 }
 
@@ -654,11 +660,11 @@ void ElectroMagneticFields::setCurrentDensity( const PicSpeciesPtrVect&  a_pic_s
 
    // loop over all pic species and add the current density 
    for (int s=0; s<a_pic_species_ptr_vect.size(); ++s) {
-      PicSpeciesPtr this_picSpecies(a_pic_species_ptr_vect[s]);
+      const PicSpeciesPtr this_picSpecies(a_pic_species_ptr_vect[s]);
       int this_charge = this_picSpecies->charge();
       if(this_charge != 0) {
 
-         this_picSpecies->setCurrentDensity(); // set J for this_picSpecies
+         //this_picSpecies->setCurrentDensity(); // set J for this_picSpecies prior to call here
          const LevelData<EdgeDataBox>& species_J = this_picSpecies->getCurrentDensity();
          for(DataIterator dit(grids); dit.ok(); ++dit) {
             for (int dir=0; dir<SpaceDim; dir++) {
@@ -671,16 +677,16 @@ void ElectroMagneticFields::setCurrentDensity( const PicSpeciesPtrVect&  a_pic_s
             for(DataIterator dit(grids); dit.ok(); ++dit) {
                const FArrayBox& this_species_Jv = species_Jv[dit].getFab();
                FArrayBox& this_Jv = m_currentDensity_virtual[dit].getFab();
-               this_Jv.plus(this_species_Jv,0,0,1);
+               this_Jv.plus(this_species_Jv,0,0,m_currentDensity_virtual.nComp());
             }
          }
 
       }
    }
-   
+
    // call exchange
-   m_currentDensity.exchange();
-   if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(m_currentDensity_virtual,m_mesh);
+   //SpaceUtils::exchangeEdgeDataBox(m_currentDensity);
+   //if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(m_currentDensity_virtual,m_mesh);
 
 }
 

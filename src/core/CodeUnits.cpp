@@ -42,13 +42,10 @@ CodeUnits::CodeUnits( ParmParse& a_parm_parse )
    // Universal Constants
    //Real pi = Constants::PI;
    //m_scale[CHARGE]       = Constants::ELEMENTARY_CHARGE;
-   //m_scale[BOLTZMANN]    = Constants::BOLTZMANN_CONSTANT;
-   //m_scale[PERMITTIVITY] = Constants::VACUUM_PERMITTIVITY;
-   //m_scale[PERMEABILITY] = pi * 4.0e-7;
 
    Real Escale = 1.0e5; // kV/cm
-   m_scale[ELECTRIC_FIELD] = 1.0e5; // 1 kV/cm = 1.0e5 V/m
-   m_scale[MAGNETIC_FIELD] = 1.0e5/Constants::CVAC; // 1 kV/cm/CVAC = 3.3356e-4 T
+   m_scale[ELECTRIC_FIELD] = Escale; // 1 kV/cm = 1.0e5 V/m
+   m_scale[MAGNETIC_FIELD] = m_scale[ELECTRIC_FIELD]/Constants::CVAC; // 1 kV/cm/CVAC = 3.3356e-4 T
 
 }
 

@@ -126,10 +126,19 @@ public:
   void setChargeDensityOnFaces();
   const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
   const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_FB;}
+
+  void interpolateElectricFieldToParticles( const LevelData<EdgeDataBox>&  a_Efield );
+  void interpolateElectricFieldToParticles( const LevelData<NodeFArrayBox>&  a_Efield_virt );
+  
+  void interpolateMagneticFieldToParticles( const LevelData<FluxBox>&  a_Bfield );
+  void interpolateMagneticFieldToParticles( const LevelData<FArrayBox>&  a_Bfield_virt );
  
   // advance particle positions
   void advancePositions( const Real&  a_cnormDt );
   void advancePositions_2ndHalf();
+
+  // Boris pusher
+  void advanceVelocities( const Real& a_cnormDt );
 
   void updateOldParticlePositions();
   void updateOldParticleVelocities();
@@ -158,6 +167,7 @@ private:
 
   Real m_volume_scale; 
   Real m_stable_dt = DBL_MAX; 
+  Real m_fnorm_const; // normalization constant for particle force
 
   std::string m_name;          // species name
   InterpType m_interpToGrid;  // method to interpolate charge/current density to grid

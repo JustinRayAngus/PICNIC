@@ -101,6 +101,60 @@ void MeshInterp::interpolate(List<P>& a_particleList,
 //
 
 template <class P>
+void MeshInterp::interpolateEfieldToPart( List<P>&     a_particleList,
+                                    const int          a_dir,
+                                    const FArrayBox&   a_electric_field,
+                                    const InterpType&  a_interpType,
+                                    const int          a_comp ) const
+{
+  
+  const IntVect stag = a_electric_field.box().type();
+  for (ListIterator<P> lit(a_particleList); lit; ++lit) {
+     Real this_Ep_dir = 0.0;
+     P& this_particle = lit();
+     RealVect& this_x = this_particle.position();
+     //interpolateToParticle( this_Ep_dir,
+     this_Ep_dir = interpolateToParticle(
+                            a_electric_field,
+                            m_domainLeftEdge,
+                            m_dx,
+                            this_x,
+                            stag, 
+                            a_interpType,
+                            a_comp);
+     this_particle.setElectricField(this_Ep_dir,a_dir);
+  }
+
+}
+
+template <class P>
+void MeshInterp::interpolateBfieldToPart( List<P>&     a_particleList,
+                                    const int          a_dir,
+                                    const FArrayBox&   a_magnetic_field,
+                                    const InterpType&  a_interpType,
+                                    const int          a_comp ) const
+{
+  
+  const IntVect stag = a_magnetic_field.box().type();
+  for (ListIterator<P> lit(a_particleList); lit; ++lit) {
+     Real this_Bp_dir = 0.0;
+     P& this_particle = lit();
+     RealVect& this_x = this_particle.position();
+     //interpolateToParticle( this_Bp_dir,
+     this_Bp_dir = interpolateToParticle(
+                            a_magnetic_field,
+                            m_domainLeftEdge,
+                            m_dx,
+                            this_x,
+                            stag, 
+                            a_interpType,
+                            a_comp);
+     this_particle.setMagneticField(this_Bp_dir,a_dir);
+  }
+
+}
+
+template <class P>
 void MeshInterp::moment( FArrayBox&  a_moment,
                    const List<P>&    a_particleList,
                    const Real&       a_species_mass,
