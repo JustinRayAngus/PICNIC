@@ -57,4 +57,31 @@ c     add another half acceleration
 
 c  ----------------------------------------------------------------------------
 
+      subroutine compute_deltau(
+     &     CHF_REAL[dup0],
+     &     CHF_REAL[dup1],
+     &     CHF_REAL[dup2],
+     &     CHF_CONST_REAL[u0],
+     &     CHF_CONST_REAL[u1],
+     &     CHF_CONST_REAL[u2],
+     &     CHF_CONST_REAL[costh],
+     &     CHF_CONST_REAL[sinth],
+     &     CHF_CONST_REAL[cosphi],
+     &     CHF_CONST_REAL[sinphi] )
+
+c     local variables
+      Real_T uabs, uperp
+
+      uabs = sqrt(u0*u0 + u1*u1 + u2*u2);
+      uperp = sqrt(u0*u0 + u1*u1);
+     
+      dup0 = u0*u2/uperp*sinth*cosphi - u1*uabs/uperp*sinth*sinphi - u0*(1.-costh);   
+      dup1 = u1*u2/uperp*sinth*cosphi + u0*uabs/uperp*sinth*sinphi - u1*(1.-costh);   
+      dup2 = -uperp*sinth*cosphi - u2*(1.-costh);   
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+
 

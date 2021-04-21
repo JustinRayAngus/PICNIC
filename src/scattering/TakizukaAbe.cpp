@@ -7,7 +7,7 @@
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
 #include "BinFab.H"
-#include "ScatteringUtils.H"
+#include "ParticleUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -563,7 +563,6 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    Real uy = a_vp1[1]-a_vp2[1];
    Real uz = a_vp1[2]-a_vp2[2];
    Real u = sqrt(ux*ux + uy*uy + uz*uz);
-   Real uperp = sqrt(ux*ux + uy*uy);
 
    Real cvacSq = Constants::CVAC*Constants::CVAC;
 
@@ -586,11 +585,8 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    Real sinphi = sin(phi);
 
    // define deltaU
-   a_deltaU[0] = ux*uz/uperp*sinth*cosphi - uy*u/uperp*sinth*sinphi - ux*(1.-costh);   
-   a_deltaU[1] = uy*uz/uperp*sinth*cosphi + ux*u/uperp*sinth*sinphi - uy*(1.-costh);   
-   a_deltaU[2] = -uperp*sinth*cosphi - uz*(1.-costh);   
-   
-
+   ParticleUtils::computeDeltaU(a_deltaU,ux,uy,uz,costh,sinth,cosphi,sinphi);
+               
 }
 
 #include "NamespaceFooter.H"

@@ -19,18 +19,34 @@
 
 namespace ParticleUtils {
   
-   void moment( LevelData<FArrayBox>&    a_momentum,
-          const ParticleData<Particle>&  a_Pdata );
-  
-   void moment( FArrayBox&  a_momentum,
-          const Particle&   a_Pdata );
-   
    void borisPusher( std::array<Real,3>&  a_vp,
                const std::array<Real,3>&  a_vpold,
                const std::array<Real,3>&  a_Ep,
                const std::array<Real,3>&  a_Bp,
                const Real&                a_fnorm_const,
                const Real&                a_cnormDt );
+
+   void computeDeltaU( std::array<Real,3>&  a_deltaU, 
+                 const std::array<Real,3>&  a_vp1,
+                 const std::array<Real,3>&  a_vp2,
+                 const Real&                a_theta,
+                 const Real&                a_phi );
+
+   void computeDeltaU( std::array<Real,3>&  a_deltaU,
+                 const Real&                ux, 
+                 const Real&                uy, 
+                 const Real&                uz, 
+                 const Real&                a_theta,
+                 const Real&                a_phi );
+
+   void computeDeltaU( std::array<Real,3>&  a_deltaU,
+                 const Real&                ux, 
+                 const Real&                uy, 
+                 const Real&                uz, 
+                 const Real&                costh,
+                 const Real&                sinth,
+                 const Real&                cosphi,
+                 const Real&                sinphi );
       
 }
 

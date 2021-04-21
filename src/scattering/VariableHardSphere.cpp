@@ -8,7 +8,7 @@
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
 #include "BinFab.H"
-#include "ScatteringUtils.H"
+#include "ParticleUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -211,7 +211,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    Real fourOverAlpha = 4.0/m_alpha;   
    
    std::array<Real,3> deltaU;
-   Real theta; 
+   Real theta, phi; 
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
@@ -332,7 +332,8 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
                
                //compute deltaU
                theta = Constants::TWOPI*MathUtils::rand();
-               ScatteringUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta);
+               phi = Constants::TWOPI*MathUtils::rand();
+               ParticleUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta,phi);
                //deltaU = {0,0,0};
 
                // update particle velocities

@@ -7,7 +7,7 @@
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
 #include "BinFab.H"
-#include "ScatteringUtils.H"
+#include "ParticleUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -216,7 +216,7 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    Real g12, q12;
    
    std::array<Real,3> deltaU;
-   Real theta; 
+   Real theta, phi; 
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
@@ -316,7 +316,8 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
                
                //compute deltaU
                theta = Constants::TWOPI*MathUtils::rand();
-               ScatteringUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta);
+               phi = Constants::TWOPI*MathUtils::rand();
+               ParticleUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta,phi);
                //deltaU = {0,0,0};
 
                // update particle velocities
@@ -381,7 +382,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
    Real g12, q12;
    
    std::array<Real,3> deltaU;
-   Real theta; 
+   Real theta, phi; 
  
    Real local_nuMaxDt;
    
@@ -503,7 +504,8 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
                
                //compute deltaU
                theta = Constants::TWOPI*MathUtils::rand();
-               ScatteringUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta);
+               phi = Constants::TWOPI*MathUtils::rand();
+               ParticleUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta,phi);
                //deltaU = {0,0,0};
 
                // update particle velocities
