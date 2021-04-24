@@ -113,7 +113,11 @@ class TakizukaAbe : public Scattering
       Real m_mu;     // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
    
       // precompute a conversion factor used for each scattering event
-      Real m_b90_codeToPhys; 
+      Real m_b90_codeToPhys, m_b90_cofactor; 
+
+      // preallocate some constants to avoid redeclaring many times
+      mutable Real m_delta, m_deltasq;
+      mutable Real m_costh, m_sinth, m_phi, m_cosphi, m_sinphi;
 
 };
 

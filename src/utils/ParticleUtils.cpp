@@ -12,7 +12,6 @@ void ParticleUtils::borisPusher( std::array<Real,3>&  a_vp,
 {
    CH_TIME("ParticleUtils::borisPusher()");
 
-   const Real zeroValue = 0.0;
    FORT_BORIS_PUSHER( CHF_REAL(a_vp[0]),
                       CHF_REAL(a_vp[1]),
                       CHF_REAL(a_vp[2]),

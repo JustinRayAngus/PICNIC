@@ -1,4 +1,3 @@
-
 #include "PicSpecies.H"
 #include <array>
 #include <cmath>
@@ -298,17 +297,21 @@ void PicSpecies::advancePositions_2ndHalf()
 void PicSpecies::advanceVelocities( const Real& a_cnormDt )
 {
    CH_TIME("PicSpecies::advanceVelocities()");
-    
-   //if(!procID()) cout << "JRA: m_fnorm_const = " << m_fnorm_const <<endl;
-   //if(!procID()) cout << "JRA: a_cnormDt = " << a_cnormDt << endl;
-
-   // Each proc loops over its own boxes
+   
+   // advance velocities using Boris algorithm
+ 
+   Real t0, t1, t2, denom, s0, s1, s2;
+   Real vm0, vm1, vm2, vpr0, vpr1, vpr2;
+   Real vpl0, vpl1, vpl2;
+   
+   Real alpha = m_fnorm_const*a_cnormDt/2.0;
+ 
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
 
-      //ListBox<JustinsParticle>& box_list = m_data[dit];
-      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
@@ -316,10 +319,36 @@ void PicSpecies::advanceVelocities( const Real& a_cnormDt )
          const std::array<Real,3>& vpold = li().velocity_old(); // actually beta
          const std::array<Real,3>& Ep = li().electric_field();
          const std::array<Real,3>& Bp = li().magnetic_field();
-         //const std::array<Real,3>& Ep = {0.0,0.0,0.0};
-         //const std::array<Real,3>& Bp = {0.0,0.0,0.0};
     
-         ParticleUtils::borisPusher(vp,vpold,Ep,Bp,m_fnorm_const,a_cnormDt);
+         //ParticleUtils::borisPusher(vp,vpold,Ep,Bp,m_fnorm_const,a_cnormDt);
+   
+         t0 = alpha*Bp[0];
+         t1 = alpha*Bp[1];
+         t2 = alpha*Bp[2];
+         denom = 1.0 + t0*t0 + t1*t1 + t2*t2;
+         s0 = 2.0*t0/denom;
+         s1 = 2.0*t1/denom;
+         s2 = 2.0*t2/denom;
+
+         // add half acceleration to old velocity
+         vm0 = vpold[0] + alpha*Ep[0];
+         vm1 = vpold[1] + alpha*Ep[1];
+         vm2 = vpold[2] + alpha*Ep[2];
+
+         // define vpr = vm + vm x t
+         vpr0 = vm0 + vm1*t2 - vm2*t1;
+         vpr1 = vm1 + vm2*t0 - vm0*t2;
+         vpr2 = vm2 + vm0*t1 - vm1*t0;
+
+         // rotate (define vplus = vminus + vprime x s)
+         vpl0 = vm0 + vpr1*s2 - vpr2*s1;
+         vpl1 = vm1 + vpr2*s0 - vpr0*s2;
+         vpl2 = vm2 + vpr0*s1 - vpr1*s0;
+
+         // add another half acceleration
+         vp[0] = vpl0 + alpha*Ep[0];
+         vp[1] = vpl1 + alpha*Ep[1];
+         vp[2] = vpl2 + alpha*Ep[2];
       
       } // end loop over particle list
       
@@ -606,7 +635,6 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    gridFunction->assign( m_density, m_mesh, this_time );
 
    // set temperature profiles from ICs
-   //
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    LevelData<FArrayBox> tempProfile;
    tempProfile.define(grids,1,m_temperature.ghostVect());
@@ -636,7 +664,6 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    }
    
    // set mean velocity profiles from ICs
-   //
    const std::string spcvel0IC("IC." + m_name + ".velocity_0");
    ParmParse ppvel0IC( spcvel0IC.c_str() );
    RefCountedPtr<GridFunction> gridFunctionVel0 = gridFactory.create(ppvel0IC,verbosity);

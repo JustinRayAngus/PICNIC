@@ -41,6 +41,9 @@ void TakizukaAbe::initialize( const DomainGrid&         a_mesh,
    m_mass1 = this_picSpecies1->mass();    // species 1 mass / me
    m_mass2 = this_picSpecies2->mass();    // species 2 mass / me
    m_mu = m_mass1*m_mass2/(m_mass1 + m_mass2); // reduced mass
+         
+   Real cvacSq = Constants::CVAC*Constants::CVAC;
+   m_b90_cofactor = abs(m_charge1*m_charge2)/(m_mu*cvacSq)*m_b90_codeToPhys; 
    
    //
    // set the mean free time
@@ -564,28 +567,29 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    Real uz = a_vp1[2]-a_vp2[2];
    Real u = sqrt(ux*ux + uy*uy + uz*uz);
 
-   Real cvacSq = Constants::CVAC*Constants::CVAC;
+   //Real cvacSq = Constants::CVAC*Constants::CVAC;
 
    // compute deltasq_var
    Real den = Min(a_den1,a_den2); 
-   Real b90 = abs(m_charge1*m_charge2)/(m_mu*u*u*cvacSq)*m_b90_codeToPhys; // 90 degree impact param [m] 
+   //Real b90 = abs(m_charge1*m_charge2)/(m_mu*u*u*cvacSq)*m_b90_codeToPhys; // 90 degree impact param [m] 
+   Real b90 = m_b90_cofactor/(u*u); // 90 degree impact parameter [m]
    Real deltasq_var = Constants::TWOPI*b90*b90*den*a_Clog*u*Constants::CVAC*a_dt_sec;
 
    // sample from gaussian distribution  
-   Real delta = sqrt(deltasq_var)*MathUtils::randn();
-   Real deltasq = delta*delta;
+   m_delta = sqrt(deltasq_var)*MathUtils::randn();
+   m_deltasq = m_delta*m_delta;
 
    // set the polar scattering angle
-   Real sinth = 2.0*delta/(1.0+deltasq); 
-   Real costh = 1.0 - 2.0*deltasq/(1.0+deltasq);
+   m_sinth = 2.0*m_delta/(1.0+m_deltasq); 
+   m_costh = 1.0 - 2.0*m_deltasq/(1.0+m_deltasq);
 
    // set random azimuthal angle
-   Real phi = Constants::TWOPI*MathUtils::rand();
-   Real cosphi = cos(phi);
-   Real sinphi = sin(phi);
+   m_phi = Constants::TWOPI*MathUtils::rand();
+   m_cosphi = cos(m_phi);
+   m_sinphi = sin(m_phi);
 
    // define deltaU
-   ParticleUtils::computeDeltaU(a_deltaU,ux,uy,uz,costh,sinth,cosphi,sinphi);
+   ParticleUtils::computeDeltaU(a_deltaU,ux,uy,uz,m_costh,m_sinth,m_cosphi,m_sinphi);
                
 }
 

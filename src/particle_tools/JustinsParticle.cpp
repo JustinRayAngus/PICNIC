@@ -299,7 +299,7 @@ int JustinsParticle::size() const
 {
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
                            + sizeof(m_position_old) + sizeof(m_pos_virt)
-                           + sizeof(m_electric_field) + sizeof(m_magnetic_field)
+                           //+ sizeof(m_electric_field) + sizeof(m_magnetic_field)
                            + sizeof(m_velocity) + sizeof(m_velocity_old) );
 }
 
@@ -338,7 +338,7 @@ void JustinsParticle::linearOut(void* buf) const
    for(int i=0; i<3; i++) {
       *buffer++ = m_velocity_old[i];
    }
-
+   /*
    for(int i=0; i<3; i++) {
       *buffer++ = m_electric_field[i];
    }
@@ -346,7 +346,7 @@ void JustinsParticle::linearOut(void* buf) const
    for(int i=0; i<3; i++) {
       *buffer++ = m_magnetic_field[i];
    }
-
+   */
    *buffer = m_ID;
 
 }
@@ -401,7 +401,7 @@ void JustinsParticle::linearIn(void* buf)
    for(int i=0; i<3; i++) {
       m_velocity_old[i] = *buffer++;
    }
-
+   /*
    for(int i=0; i<3; i++) {
       m_electric_field[i] = *buffer++;
    }
@@ -409,7 +409,7 @@ void JustinsParticle::linearIn(void* buf)
    for(int i=0; i<3; i++) {
       m_magnetic_field[i] = *buffer++;
    }
-   
+   */
    m_ID = *buffer;
 
 }

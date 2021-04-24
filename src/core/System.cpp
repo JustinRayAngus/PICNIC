@@ -685,13 +685,15 @@ void System::advance_PICMC_EXPLICIT( Real&  a_cur_time,
    Real cnormDt = a_dt*m_units->CvacNorm();
    Real cnormHalfDt = 0.5*cnormDt;
       
-   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+   if (!m_electromagneticFields.isNull()) {
    
       //
       // Step 1: advance B from t_{n} to t_{n+1/2} using E_{n+1/2}
       //
-      m_electromagneticFields->setCurlE();
-      m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+      if (m_electromagneticFields->advance()) {
+         m_electromagneticFields->setCurlE();
+         m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+      }
 
       //
       // Step 2: compute Ep and Bp at t_{n+1/2} and xp_{n+1/2} and advance vp from t_{n} to t_{n+1}
