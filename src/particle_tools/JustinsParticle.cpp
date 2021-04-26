@@ -19,8 +19,8 @@ JustinsParticle::JustinsParticle() :
 JustinsParticle::~JustinsParticle()
 {}
 
-JustinsParticle::JustinsParticle( const Real       a_weight,
-                                  const RealVect&  a_position,
+JustinsParticle::JustinsParticle( const Real                 a_weight,
+                                  const RealVect&            a_position,
                                   const std::array<Real,3>&  a_velocity )
   :
   BinItem(a_position),
@@ -29,8 +29,6 @@ JustinsParticle::JustinsParticle( const Real       a_weight,
 {
   setOldPosition(a_position);
   setOldVelocity(a_velocity);
-  //std::array<Real,3> thisElectricField = {0,0,0};
-  //setElectricField(thisElectricField);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      for(int i=0; i<3-SpaceDim; i++) {
@@ -41,8 +39,8 @@ JustinsParticle::JustinsParticle( const Real       a_weight,
   setID();
 }
 
-void JustinsParticle::define( const Real       a_weight,
-                              const RealVect&  a_position,
+void JustinsParticle::define( const Real                 a_weight,
+                              const RealVect&            a_position,
                               const std::array<Real,3>&  a_velocity )
 {
   setID();

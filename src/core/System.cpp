@@ -32,12 +32,10 @@ System::System( ParmParse& a_pp )
    getDisjointBoxLayout( grids );  // define the disjointBoxLayout
    
    // initialize the coordinates and grid
-   //
    ParmParse ppgrid( "grid" );
    m_mesh = new DomainGrid( ppgrid, m_num_ghosts, m_domain, grids ); 
 
    m_dataFile = new dataFileIO( ppsys, *m_mesh, *m_units );
-   //m_dataFile = RefCountedPtr<dataFileIO>(new dataFileIO( ppsys, *mesh));
      
    createMeshInterp();
 
@@ -204,7 +202,6 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
    
    // some AMR stuff and the mpi stuff for one of the particle handling methods
    // requires using boxes of a fixed length in each direction. Ensure that is the case
-   //
    IntVect boxSize;
    boxSize[0] = domain_box.size(0)/m_config_decomp[0];
    for (int dir=1; dir<SpaceDim; ++dir) {
@@ -216,7 +213,6 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
    // Chop up the configuration space domain box over the number of processors specified
    // for this block (single block here).  At this point, we insist that the box 
    // decomposes uniformly, or an error is thrown.
-   //
    IntVect n_loc = IntVect::Zero;
    for (int dir=0; dir<SpaceDim; ++dir) {
       int decomp_dir = m_config_decomp[dir];
@@ -287,25 +283,19 @@ void System::createMeshInterp()
    if(m_meshInterp!=NULL) {
       delete m_meshInterp;
    }
-   // create/set the meshInterp object pointer
-   //m_meshInterp = new MeshInterp( domain.domainBox(),
-   //                               meshSpacing,
-   //                               meshOrigin );
+   
    m_meshInterp = static_cast<MeshInterp*> (new MeshInterp( domain.domainBox(),
                                                             meshSpacing,
-                                                            meshOrigin  ));
-   //m_meshInterp = static_cast<RefCountedPtr<MeshInterp>> (new MeshInterp( domain.domainBox(),
-   //                                                                       meshSpacing,
-   //                                                                       meshOrigin  ));
+                                                            meshOrigin ));
 
 }
 
 
 void System::createState( ParmParse&  a_pp )
 {
-   
+
    createPICspecies();
-   
+
    createEMfields();
 
 }
@@ -618,31 +608,35 @@ void System::advance( Real&  a_cur_time,
 
    switch(m_advance_method) {
       case DSMC : 
-          advance_DSMC(a_cur_time, a_dt, a_step_number);
+          advance_DSMC( a_dt );
           break;
       case PICMC_EXPLICIT : 
-          advance_PICMC_EXPLICIT(a_cur_time, a_dt, a_step_number);
+          advance_PICMC_EXPLICIT( a_dt );
           break;
+      //case PICMC_SEMI_IMPLICIT : 
+      //    advance_PICMC_SEMI_IMPLICIT( a_dt );
+      //    break;
+      //case PICMC_FULLY_IMPLICIT : 
+      //    advance_PICMC_FULLY_IMPLICIT( a_dt );
+      //    break;
       default :
           MayDay::Error("Invalid advance method");
    }
+   
+   // update current time and step number
+   a_cur_time = a_cur_time + a_dt;
+   a_step_number = a_step_number + 1;
 
-   // semi-implicit PIC-MC advance
-   //advance_PICMC_SI(a_cur_time, a_dt, a_step_number);
-   
-   // fully-implicit PIC-MC advance
-   //advance_PICMC_FI(a_cur_time, a_dt, a_step_number);
-   
 }
 
-void System::advance_DSMC( Real&  a_cur_time,
-                           Real&  a_dt,
-                           int&   a_step_number )
+void System::advance_DSMC( Real&  a_dt )
 {  
    CH_TIME("System::advance_DSMC()");
    
    //
-   // explicit advance of particle positions + velocity scatter
+   // explicit advance of particle positions 
+   // + velocity scatter
+   // + special operators
    //
     
    Real cnormDt = a_dt*m_units->CvacNorm();
@@ -665,20 +659,14 @@ void System::advance_DSMC( Real&  a_cur_time,
       m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
    }
 
-   // update current time and step number
-   a_cur_time = a_cur_time + a_dt;
-   a_step_number = a_step_number + 1;
-
 }
 
-void System::advance_PICMC_EXPLICIT( Real&  a_cur_time,
-                                     Real&  a_dt,
-                                     int&   a_step_number )
+void System::advance_PICMC_EXPLICIT( Real&  a_dt )
 {  
    CH_TIME("System::advance_PICMC_EXPLICIT()");
    
    //
-   // explicit leap-frog time advance. 
+   // explicit leap-frog time advance of particles and fields
    // B and vp are defined a whole time steps while E and xp are at half
    //
     
@@ -749,10 +737,6 @@ void System::advance_PICMC_EXPLICIT( Real&  a_cur_time,
       }
       m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
    }
-
-   // update current time and step number
-   a_cur_time = a_cur_time + a_dt;
-   a_step_number = a_step_number + 1;
 
 }
 

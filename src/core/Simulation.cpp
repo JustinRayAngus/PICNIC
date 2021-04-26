@@ -204,22 +204,6 @@ void Simulation::advance()
    }
    CH_STOP(t_print_diagnostcs);
 
-   if ( m_plot_time_interval>0.0 ) {
-      if ( m_cur_time>=m_plot_time ) {
-         writePlotFile();
-         m_last_plot = m_cur_step;
-         m_plot_time = m_plot_time + m_plot_time_interval;
-      } 
-   } 
-   else {
-      if ( (m_cur_step % m_plot_interval)==0 ) {
-         writePlotFile();
-         m_last_plot = m_cur_step;
-      }
-   }
-
-   //writeHistFile(false);
-   
    postTimeStep();
 
 }
@@ -335,6 +319,22 @@ void Simulation::setFixedTimeStep( const Real& a_dt_stable )
 void Simulation::postTimeStep()
 {
    CH_TIMERS("Simulation::postTimeStep()");
+   
+   if ( m_plot_time_interval>0.0 ) {
+      if ( m_cur_time>=m_plot_time ) {
+         writePlotFile();
+         m_last_plot = m_cur_step;
+         m_plot_time = m_plot_time + m_plot_time_interval;
+      } 
+   } 
+   else {
+      if ( (m_cur_step % m_plot_interval)==0 ) {
+         writePlotFile();
+         m_last_plot = m_cur_step;
+      }
+   }
+   //writeHistFile(false);
+
    m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
 }
 

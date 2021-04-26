@@ -1,10 +1,6 @@
 #ifndef  _SYSTEM_H_
 #define  _SYSTEM_H_
 
-//#include "TimeIntegratorLibrary.H"
-//#include "GKOps.H"
-//#include "evalOpMatrix.H"
-
 #include <string>
 #include <vector>
 #include <time.h>
@@ -34,9 +30,8 @@
 /**
  * System class.
  *
- * A concrete implementation of the ODEInterface<Vector<SpeciesModel>>
- * interface, this class owns the simulation data and the Vlasov and Poisson
- * operator classes and orchestrates the time advancement.
+ * This class owns pretty much everything and orchestrates the 
+ * user specified time advancement.
  *
  */
 
@@ -66,8 +61,8 @@ class System
                         const int&   a_step_number );
       
       void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
-      void advance_DSMC( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
-      void advance_PICMC_EXPLICIT( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+      void advance_DSMC( Real&  a_dt );
+      void advance_PICMC_EXPLICIT( Real&  a_dt );
 
       void scatterParticles( const Real&  a_dt );
       

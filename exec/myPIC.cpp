@@ -69,8 +69,8 @@ int main(int a_argc, char* a_argv[])
    num_procs = 1;
 #endif
 
-   if (rank == 0) std::cout << "myPIC: number of procs = " << num_procs << endl;
-   if (rank == 0) std::cout << "myPIC: SpaceDim = " << SpaceDim << endl << endl;
+   if(rank==0) cout << "myPIC: number of procs = " << num_procs << endl;
+   if(rank==0) cout << "myPIC: SpaceDim = " << SpaceDim << endl << endl;
 
    // Check for an input file
    char* inFile = NULL;
@@ -81,17 +81,15 @@ int main(int a_argc, char* a_argv[])
    }
    else
    {
-      pout() << "Usage: <executable name> <inputfile>" << endl;
-      pout() << "No input file specified" << endl;
+      if(rank==0) cout << "Usage: <executable name> <inputfile>" << endl;
+      if(rank==0) cout << "No input file specified" << endl;
       return -1;
    }
 
    // Parse the command line and the input file (if any)
-   //
    ParmParse pp(a_argc-2,a_argv+2,NULL,inFile);
   
    // initialize/run/finalize simulation
-   //
    Simulation sim( pp ); // initialization done in constructor
    while ( sim.notDone() ) sim.advance();
    sim.finalize();

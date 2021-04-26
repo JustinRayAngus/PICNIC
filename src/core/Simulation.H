@@ -70,9 +70,6 @@ class Simulation
       void preTimeStep();
       void postTimeStep();
       
-      void createProblemDomain( );
-      void getDisjointBoxLayout( DisjointBoxLayout& grids );
-
       int m_verbosity;
 
       int m_cur_step;
@@ -99,14 +96,6 @@ class Simulation
       int         m_history_interval;
       int         m_last_history;
 
-      ProblemDomain m_domain;
-      std::string m_geom_type; 
-      int               m_num_ghosts;
-      std::vector<int>  m_num_cells;
-      std::vector<bool> m_is_periodic;
-      std::vector<int>  m_config_decomp;
-
-      //Units m_units;
       System* m_system;
 
 #ifdef CH_USE_TIMER
