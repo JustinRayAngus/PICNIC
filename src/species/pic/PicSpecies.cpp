@@ -190,12 +190,14 @@ void PicSpecies::advancePositions( const Real& a_cnormDt )
       for(li.begin(); li.ok(); ++li) {
 
          RealVect& xp = li().position();
+         const RealVect& xpold = li().position_old();
          std::array<Real,3>& vp = li().velocity(); // actually beta
 
          // update particle position
          //xp += vp*a_cnormDt;
          for(int dir=0; dir<SpaceDim; dir++) {
-            xp[dir] += vp[dir]*a_cnormDt;
+            //xp[dir] += vp[dir]*a_cnormDt;
+            xp[dir] = xpold[dir] + vp[dir]*a_cnormDt;
          }
 
          // set particle boundary conditions here for now
@@ -353,6 +355,34 @@ void PicSpecies::advanceVelocities( const Real& a_cnormDt )
       } // end loop over particle list
       
    } // end loop over boxes
+
+}
+
+void PicSpecies::advanceVelocities_2ndHalf()
+{
+   CH_TIME("PicSpecies::advanceVelocities_2ndHalf()");
+   
+   // convert velocities from t_{n+1/2} to t_{n+1}
+ 
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+      ListIterator<JustinsParticle> li(pList);
+      for(li.begin(); li.ok(); ++li) {
+
+         std::array<Real,3>& vp = li().velocity(); // actually beta
+         const std::array<Real,3>& vpold = li().velocity_old(); // actually beta
+
+         vp[0] = 2.0*vp[0] - vpold[0];
+         vp[1] = 2.0*vp[1] - vpold[1];
+         vp[2] = 2.0*vp[2] - vpold[2];
+      
+      }
+      
+   }
 
 }
 

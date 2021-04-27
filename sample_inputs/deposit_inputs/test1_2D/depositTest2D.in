@@ -26,7 +26,6 @@ simulation.history_interval    = 10
 grid.num_cells     = 8  8 
 grid.is_periodic   = 1  1
 grid.config_decomp = 2  2
-grid.fixedBoxSize  = 4
 grid.geometry      = "cartesian"
 grid.num_ghosts    = 1
 

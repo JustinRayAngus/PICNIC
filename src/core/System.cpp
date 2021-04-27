@@ -14,6 +14,7 @@
 
 System::System( ParmParse&  a_pp )
    :
+     m_iter_max(0),
      m_mesh(NULL),
      m_units(NULL),
      m_dataFile(NULL),
@@ -109,6 +110,15 @@ void System::initialize( const int     a_cur_step,
          if(this_charge != 0) this_picSpecies->setCurrentDensity();
       }
       m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+   }
+     
+   // assert that m_electromagneticFields is not NULL if using forces 
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->forces()) {
+         CH_assert(!m_electromagneticFields.isNull());
+         break;
+      }
    }
 
 }
@@ -536,6 +546,10 @@ void System::parseParameters( ParmParse&  a_ppsys )
    else if(advance_method_string=="PICMC_EXPLICIT") {
       m_advance_method = PICMC_EXPLICIT;
    }
+   else if(advance_method_string=="PICMC_SEMI_IMPLICIT") {
+      m_advance_method = PICMC_SEMI_IMPLICIT;
+      a_ppsys.get("iter_max",m_iter_max);
+   }
    else {
       if(!procID()) cout << "advance method = " << advance_method_string << " is not defined " << endl;
       exit(EXIT_FAILURE);
@@ -560,41 +574,63 @@ void System::preTimeStep( const Real&  a_cur_time,
 
    if(m_advance_method==PICMC_EXPLICIT) {  
    
-   Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
-   
-   //
-   // complete advance of E from t_{n} to t_{n+1/2}
-   //
+      Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
 
-   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
-      if (a_cur_time==0.0) { // initial advance of electric field by 1/2 time step
-         m_electromagneticFields->setCurlB();
-         //m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
-         m_electromagneticFields->advanceElectricField(cnormHalfDt);
-      }
-      else {
-         m_electromagneticFields->advanceElectricField_2ndHalf();
-      }
-      m_electromagneticFields->updateOldElectricField();
-   }
-  
-   //
-   // complete advance of xp from t_{n} to t_{n+1/2}
-   //
+      //
+      // complete advance of E from t_{n} to t_{n+1/2}
+      //
 
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) {
-         if (a_cur_time==0.0) { // initial advance of particle positions by 1/2 time step
-            this_picSpecies->advancePositions(cnormHalfDt);
+      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+         if (a_cur_time==0.0) { // initial advance of electric field by 1/2 time step
+            m_electromagneticFields->setCurlB();
+            //m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+            m_electromagneticFields->advanceElectricField(cnormHalfDt);
          }
          else {
-            this_picSpecies->advancePositions_2ndHalf();
+            m_electromagneticFields->advanceElectricField_2ndHalf();
          }
-         this_picSpecies->updateOldParticlePositions();
+         m_electromagneticFields->updateOldElectricField();
       }
-   }
+  
+      //
+      // complete advance of xp from t_{n} to t_{n+1/2}
+      //
 
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->motion()) {
+            if (a_cur_time==0.0) { // initial advance of particle positions by 1/2 time step
+               this_picSpecies->advancePositions(cnormHalfDt);
+            }
+            else {
+               this_picSpecies->advancePositions_2ndHalf();
+            }
+            this_picSpecies->updateOldParticlePositions();
+         }
+      }
+
+   }
+   
+   if(m_advance_method==PICMC_SEMI_IMPLICIT) {  
+   
+      Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+
+      //
+      // complete advance of B from t_{n} to t_{n+1/2}
+      //
+
+      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+         if (a_cur_time==0.0) { // initial advance of magnetic field by 1/2 time step
+            m_electromagneticFields->setCurlE();
+            m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+         }
+         else {
+            m_electromagneticFields->advanceMagneticField_2ndHalf();
+         }
+         m_electromagneticFields->updateOldMagneticField();
+         m_electromagneticFields->setCurlB(); // update curlB here
+      }
+  
    }
 
 }
@@ -612,9 +648,9 @@ void System::advance( Real&  a_cur_time,
       case PICMC_EXPLICIT : 
           advance_PICMC_EXPLICIT( a_dt );
           break;
-      //case PICMC_SEMI_IMPLICIT : 
-      //    advance_PICMC_SEMI_IMPLICIT( a_dt );
-      //    break;
+      case PICMC_SEMI_IMPLICIT : 
+          advance_PICMC_SEMI_IMPLICIT( a_dt );
+          break;
       //case PICMC_FULLY_IMPLICIT : 
       //    advance_PICMC_FULLY_IMPLICIT( a_dt );
       //    break;
@@ -744,6 +780,97 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
 
 }
 
+void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
+{  
+   CH_TIME("System::advance_PICMC_SEMI_IMPLICIT()");
+
+   //
+   // semi-implicit semi-energy-conservative scheme by Chen 2020
+   // B is defined at half time steps while all other quantities
+   // (E, xp, and vp) are defined at whole time steps
+   //
+    
+   Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+  
+   int iter = 0;
+   while(iter<m_iter_max) {
+ 
+      //
+      // Step 1: advance particle positions from t_{n} to t_{n+1/2} using vp_{n+1/2}
+      //
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt);
+      }
+      
+      //
+      // Step 2: compute Ep and Bp at t_{n+1/2} and xp_{n+1/2} and advance vp from t_{n} to t_{n+1/2}
+      //
+      if (!m_electromagneticFields.isNull()) {
+     
+         for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+            PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+            if(this_picSpecies->forces()) {
+               const LevelData<EdgeDataBox>& Efield = m_electromagneticFields->getElectricField();
+               const LevelData<FluxBox>& Bfield = m_electromagneticFields->getMagneticField();
+               this_picSpecies->interpolateElectricFieldToParticles( Efield );
+               this_picSpecies->interpolateMagneticFieldToParticles( Bfield );
+               if(SpaceDim<3) {
+                  const LevelData<NodeFArrayBox>& Efield_virt = m_electromagneticFields->getVirtualElectricField();
+                  const LevelData<FArrayBox>& Bfield_virt = m_electromagneticFields->getVirtualMagneticField();
+                  this_picSpecies->interpolateElectricFieldToParticles( Efield_virt );
+                  this_picSpecies->interpolateMagneticFieldToParticles( Bfield_virt );
+               }
+               this_picSpecies->advanceVelocities( cnormHalfDt );
+            }
+         }
+      
+         // 
+         // Step 3: compute current density at t_{n+1/2} and advance E from t_n to t_{n+1/2} 
+         //
+         if (m_electromagneticFields->advance()) {
+            for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+               PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+               int this_charge = this_picSpecies->charge();
+               if(this_charge != 0) this_picSpecies->setCurrentDensity();
+            }
+            m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+            //m_electromagneticFields->setCurlB(); // done in preTimeStep()
+            m_electromagneticFields->advanceElectricField(cnormHalfDt);
+         }
+ 
+      }
+      
+      iter = iter + 1;
+  
+   } // end iteration loop
+
+   //
+   // Step 4: 2nd half-advance of xp and vp from t_{n+1/2} to t_{n+1}
+   //
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->motion()) this_picSpecies->advancePositions_2ndHalf();
+      if(this_picSpecies->forces()) this_picSpecies->advanceVelocities_2ndHalf();
+   }
+
+   //
+   // Step 5: 2nd half-advance of E from t_{n+1/2} to t_{n+1} and 
+   //         1st half-advance of B from t_{n+1/2} to t_{n+1} using E_{n+1}
+   //
+   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+      m_electromagneticFields->advanceElectricField_2ndHalf();
+      m_electromagneticFields->setCurlE();
+      m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+   }
+
+   //   
+   // Step 6: scatter the particles: vp_{n+1} ==> vp'_{n+1}
+   //
+   if(m_use_scattering) scatterParticles( a_dt );
+
+}
+
 void System::scatterParticles( const Real&  a_dt )
 {  
    CH_TIME("System::scatterParticles()");
@@ -800,6 +927,21 @@ void System::postTimeStep( const Real&  a_cur_time,
       }
 
    }
+   
+   if(m_advance_method==PICMC_SEMI_IMPLICIT) {  
+   
+      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
+         m_electromagneticFields->updateOldElectricField();
+      }
+   
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->motion()) this_picSpecies->updateOldParticlePositions();
+         if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
+      }
+
+   }
+
 
 }
 
@@ -893,6 +1035,7 @@ Real System::specialOpsDt( const int a_step_number )
 void System::adaptDt( bool&  a_adapt_dt )
 {
    if(m_advance_method==PICMC_EXPLICIT) a_adapt_dt = false;
+   if(m_advance_method==PICMC_SEMI_IMPLICIT) a_adapt_dt = false;
 }
 
 
