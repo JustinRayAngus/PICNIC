@@ -341,7 +341,7 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    delete this_part2_ptr;
    
    // While we are here, update the mean free time
-   setMeanFreeTime(numberDensity,energyDensity);
+   //setMeanFreeTime(numberDensity,energyDensity);
    
 }
 
@@ -540,7 +540,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
    delete this_part2_ptr;
    
    // While we are here, update the mean free time
-   setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+   //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
 
 }
 

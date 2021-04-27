@@ -39,10 +39,10 @@ class System
 {
    public:
 
-      System( ParmParse&  pp );
+      System( ParmParse&  a_pp );
       virtual ~System();
 
-      virtual void initialize( const int cur_step, const double cur_time );
+      virtual void initialize( const int cur_step, const double cur_time, const bool adapt_dt );
       
       void writePlotFile(const int cur_step, const double cur_time);
       

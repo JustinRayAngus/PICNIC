@@ -13,7 +13,6 @@ Simulation::Simulation( ParmParse& a_pp )
        m_max_time(0.0),
        m_cur_dt(-1.0),
        m_fixed_dt(-1.0),
-       m_max_dt_grow(1.1),
        m_cfl(1.0),
        m_cfl_scatter(0.1),
        m_adapt_dt(true),
@@ -54,7 +53,7 @@ Simulation::Simulation( ParmParse& a_pp )
    // (domain, mesh, species, fields, operators, ibcs...)
    //
    m_system = new System( a_pp );
-   m_system->initialize(m_cur_step, m_cur_time);
+   m_system->initialize(m_cur_step, m_cur_time, m_adapt_dt);
 
    // write t=0 values to plot files
    //
@@ -96,8 +95,10 @@ void Simulation::printParameters()
    if(!procID()) {
       std::cout << "maximum step = " << m_max_step << endl;
       std::cout << "maximum time = " << m_max_time << endl;
+      std::cout << "s_DT_EPS = " << s_DT_EPS << endl;
       if(!m_adapt_dt) std::cout << "fixed dt = " << m_fixed_dt << endl;
       if(m_plot_time_interval>0.0) {
+         std::cout << "plot time = " << m_plot_time << endl;
          std::cout << "plot time interval = " << m_plot_time_interval << endl;
       }
       else {
@@ -158,7 +159,7 @@ void Simulation::initializeTimers()
 bool Simulation::notDone()
 {
    CH_TIMERS("Simulation::notDone()");
-   return ( (m_cur_step<m_max_step) && (m_cur_time<m_max_time) );
+   return ( (m_cur_step<m_max_step) && (m_cur_time<m_max_time-s_DT_EPS*1e8) );
 }
 
 
@@ -265,23 +266,16 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
    // If set, use as the fixed time step size
    if ( a_ppsim.query( "fixed_dt", m_fixed_dt ) ) {
       CH_assert( m_fixed_dt>0.0 );
+      setFixedTimeStep( m_fixed_dt );
       m_adapt_dt = false;
-   }
-
-   // Multiply by which to increase dt each step
-   if ( a_ppsim.query( "max_dt_grow", m_max_dt_grow ) ) {
-      CH_assert( m_max_dt_grow>1.0 );
-      if (!m_adapt_dt) {
-         MayDay::Error( "fixed_dt and max_dt_grow are mutually exclusive!" );
-      }
    }
 
    // set cfl number for the case of dynamic timestep selection
    if ( a_ppsim.query( "cfl_number", m_cfl ) ) {
       CH_assert( m_cfl>0.0 && m_cfl<=2.0 );
-      if (!m_adapt_dt) {
-         MayDay::Error( "fixed_dt and cfl are mutually exclusive!" );
-      }
+      //if (!m_adapt_dt) {
+      //   MayDay::Error( "fixed_dt and cfl are mutually exclusive!" );
+      //}
    }
    
    // set cfl number for scattering
@@ -315,13 +309,22 @@ void Simulation::setFixedTimeStep( const Real& a_dt_stable )
    m_cur_dt = m_fixed_dt; 
 }
 
+void Simulation::enforceTimeStep(const Real  a_local_dt)
+{
+   // ensure time step is the same on all processors to machine precision
+#ifdef CH_MPI
+   MPI_Allreduce( &a_local_dt, &m_cur_dt, 1, MPI_CH_REAL, MPI_MIN, MPI_COMM_WORLD ); 
+#endif
+
+}
+
 
 void Simulation::postTimeStep()
 {
    CH_TIMERS("Simulation::postTimeStep()");
    
    if ( m_plot_time_interval>0.0 ) {
-      if ( m_cur_time>=m_plot_time ) {
+      if ( m_cur_time >= m_plot_time-s_DT_EPS*1.0e8 ) {
          writePlotFile();
          m_last_plot = m_cur_step;
          m_plot_time = m_plot_time + m_plot_time_interval;
@@ -343,30 +346,30 @@ void Simulation::preTimeStep()
    CH_TIMERS("Simulation::preTimeStep()");
 
    // set the stable time step
-   Real dt_stable = m_system->fieldsDt( m_cur_step )*m_cfl;
-   Real dt_parts = m_system->partsDt( m_cur_step )*m_cfl;
-   Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
-   Real dt_specialOps = m_system->specialOpsDt( m_cur_step );
-   CH_assert( dt_stable > 1.0e-30 );
-
-   if ( m_adapt_dt ) { 
-      dt_stable = std::min( dt_parts, dt_stable );
-      dt_stable = std::min( dt_scatter, dt_stable );
-      dt_stable = std::min( dt_specialOps, dt_stable );
-      m_cur_dt = dt_stable;
-      //m_cur_dt = std::min( dt_stable, m_max_dt_grow * m_cur_dt );
-   } 
-   else {
-      setFixedTimeStep( dt_stable );
+   if(m_cur_time==0.0) {
+      Real dt_light = m_system->fieldsDt( m_cur_step )*m_cfl;
+      m_cur_dt = std::min( m_cur_dt, dt_light );
+      enforceTimeStep( m_cur_dt );
    }
- 
+   Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
+   if ( m_adapt_dt ) { 
+      Real dt_parts = m_system->partsDt( m_cur_step )*m_cfl;
+      Real dt_specialOps = m_system->specialOpsDt( m_cur_step );
+      m_cur_dt = std::min( m_cur_dt, dt_parts );
+      m_cur_dt = std::min( m_cur_dt, dt_scatter );
+      m_cur_dt = std::min( m_cur_dt, dt_specialOps );
+      enforceTimeStep( m_cur_dt );
+   } 
+   CH_assert( m_cur_dt > 1.0e-30 );
+   
    // If less than a time step from the final time, adjust time step
    // to end just over the final time.
    Real timeRemaining = m_max_time - m_cur_time;
-   if ( m_cur_dt > timeRemaining ) {
-      m_cur_dt = timeRemaining + m_max_time * s_DT_EPS;
+   if ( m_adapt_dt && m_cur_dt > timeRemaining ) {
+      //m_cur_dt = timeRemaining + m_max_time * s_DT_EPS;
+      m_cur_dt = timeRemaining;
    }
-   
+
    m_system->preTimeStep( m_cur_time, m_cur_dt, m_cur_step );
 
 }

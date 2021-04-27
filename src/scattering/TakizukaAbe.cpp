@@ -273,28 +273,6 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
          // get local density and temperature and compute local tau
          numDen = this_numberDensity.get(ig,0);
          if(numDen == 0.0) continue;
-         /*
-         eneDen = 0.0;
-         for( int dir=0; dir<3; dir++) {
-            eneDen = eneDen + this_energyDensity.get(ig,dir);  
-         }
-         Teff_eV = Constants::ME*2.0/3.0*eneDen/numDen; // [Joules]
-         Teff_eV = Constants::EV_PER_JOULE*Teff_eV; // local temperature [eV]
-
-         tau = 3.44e5*pow(Teff_eV,1.5)/(numDen*Constants::M3_PER_CM3)/Clog; // [s]
-         if(m_charge1>0) tau = tau*sqrt(m_mass1/2.0);
- 
-         box_nuMax = Max(box_nuMax,1.0/tau);
-         if(box_nuMax*a_dt_sec>10.0) { 
-            if(procID()) {
-               cout << "WARNING: box_nuMaxDt = " << box_nuMax*a_dt_sec << endl;
-               cout << "WARNING: Teff_eV = " << Teff_eV << endl;
-               cout << "WARNING: m_charge1 = " << m_charge1 << endl;
-               cout << "WARNING: m_mass1 = " << m_mass1 << endl;
-               cout << "WARNING: numDen= " << numDen << endl;
-            }
-         }
-         */
 
          // get the number of particles in this cell
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
@@ -389,8 +367,8 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
    delete this_part1_ptr;
    delete this_part2_ptr;
    
-   // While we are here, update the mean free time
-   setMeanFreeTime(numberDensity,energyDensity);
+   // While we are here, update the mean free time (assuming energyDensity1 has not changed much)
+   //setMeanFreeTime(numberDensity,energyDensity);
 
 }
 
@@ -455,18 +433,6 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
          numDen1 = this_numberDensity1.get(ig,0);
          numDen2 = this_numberDensity2.get(ig,0);
          if(numDen1*numDen2 == 0.0) continue;
-         /*
-         eneDen1 = 0.0;
-         eneDen2 = 0.0;
-         for( int dir=0; dir<3; dir++) {
-            eneDen1 = eneDen1 + this_energyDensity1.get(ig,dir);  
-            eneDen2 = eneDen2 + this_energyDensity2.get(ig,dir);  
-         }
-         Teff1_eV = Constants::ME*2.0/3.0*eneDen1/numDen1; // [Joules]
-         Teff1_eV = Constants::EV_PER_JOULE*Teff1_eV; // local temperature [eV]
-         Teff2_eV = Constants::ME*2.0/3.0*eneDen2/numDen2; // [Joules]
-         Teff2_eV = Constants::EV_PER_JOULE*Teff2_eV; // local temperature [eV]
-         */
 
          // get the number of particles in this cell
          List<JustinsParticlePtr>& cell_pList1 = thisBinFab1_ptr(ig,0);
@@ -547,8 +513,8 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
    delete this_part1_ptr;
    delete this_part2_ptr;
    
-   // While we are here, update the mean free time
-   setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+   // While we are here, update the mean free time (assuming energyDensity1 and 2 have not changed much)
+   //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
 
 }
 

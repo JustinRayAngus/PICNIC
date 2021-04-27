@@ -12,7 +12,7 @@
 #include "NamespaceHeader.H"
 
 
-System::System( ParmParse& a_pp )
+System::System( ParmParse&  a_pp )
    :
      m_mesh(NULL),
      m_units(NULL),
@@ -59,9 +59,12 @@ System::~System()
 }
 
 void System::initialize( const int     a_cur_step,
-                         const double  a_cur_time )
+                         const double  a_cur_time,
+                         const bool    a_adapt_dt )
 {
    CH_TIME("System::initialize()");
+   
+   if(m_advance_method==PICMC_EXPLICIT) CH_assert(!a_adapt_dt);
    
    // initialize the pic species
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
@@ -207,7 +210,6 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
    for (int dir=1; dir<SpaceDim; ++dir) {
       boxSize[dir] = domain_box.size(dir)/m_config_decomp[dir];
       CH_assert(boxSize[dir]==boxSize[0]);
-      //if(!procID()) cout << "JRA: boxSize[dir] = " << boxSize[dir] << endl;
    }
    
    // Chop up the configuration space domain box over the number of processors specified
@@ -713,8 +715,6 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
       if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt);
-      int this_charge = this_picSpecies->charge();
-      if(this_charge != 0) this_picSpecies->setCurrentDensity();
    }
    
    if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
@@ -722,9 +722,16 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
       // complete advance of B from t_{n+1/2} to t_{n+1}
       m_electromagneticFields->advanceMagneticField_2ndHalf();
 
+      // compute current density at t_{n+1} 
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         int this_charge = this_picSpecies->charge();
+         if(this_charge != 0) this_picSpecies->setCurrentDensity();
+      }
+      m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+      
       // advance E from t_{n+1/2} to t_{n+1} using B_{n+1} and J_{n+1}
       m_electromagneticFields->setCurlB();
-      m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
       m_electromagneticFields->advanceElectricField(cnormHalfDt);
    
    }
@@ -752,8 +759,7 @@ void System::scatterParticles( const Real&  a_dt )
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
       if(this_picSpecies->scatter()) {
          this_picSpecies->binTheParticles();
-         this_picSpecies->setNumberDensity();
-         this_picSpecies->setEnergyDensity(); // may want to do this after or before each scatter
+         this_picSpecies->setNumberDensity(); // only need to set this once as collisions don't change it
       }
    }
 
@@ -765,11 +771,13 @@ void System::scatterParticles( const Real&  a_dt )
       const int this_species2 = this_scattering->species2();
          
       PicSpeciesPtr this_picSpecies1(m_pic_species_ptr_vect[this_species1]);
+      this_picSpecies1->setEnergyDensity();
       if(this_species1==this_species2) { // self-species scattering
          this_scattering->applySelfScattering( *this_picSpecies1, *m_mesh, dt_sec );
       }
       else { // inter-species scattering
          PicSpeciesPtr this_picSpecies2(m_pic_species_ptr_vect[this_species2]);
+         this_picSpecies2->setEnergyDensity();
          this_scattering->applyInterScattering( *this_picSpecies1, *this_picSpecies2, *m_mesh, dt_sec );
       }
 
@@ -801,7 +809,7 @@ void System::postTimeStep( const Real&  a_cur_time,
 Real System::fieldsDt( const int a_step_number )
 {
    Real fldsDt = DBL_MAX;
-   if (!m_electromagneticFields.isNull()) {
+   if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
       fldsDt = m_electromagneticFields->stableDt();
       if(!procID()) cout << "electromagnetic fields time step = " << fldsDt << endl;
    }
@@ -833,12 +841,42 @@ Real System::scatterDt( const int a_step_number )
    const Real tscale = m_units->getScale(m_units->TIME);
    
    if(m_use_scattering) {
+  
+      // compute the density and energy moments for mean free time calculation
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->scatter()) {
+            this_picSpecies->setNumberDensity();
+            this_picSpecies->setEnergyDensity();
+         }
+      }
+
       for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
+
          ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+         int sp1 = this_scattering->species1();
+         PicSpeciesPtr this_picSpecies1 = m_pic_species_ptr_vect[sp1];
+         const LevelData<FArrayBox>& numberDensity1 = this_picSpecies1->getNumberDensity();
+         const LevelData<FArrayBox>& energyDensity1 = this_picSpecies1->getEnergyDensity();
+         
+         int sp2 = this_scattering->species2();
+         if(sp1==sp2) {
+            this_scattering->setMeanFreeTime(numberDensity1,energyDensity1);
+         }
+         else {
+            PicSpeciesPtr this_picSpecies2 = m_pic_species_ptr_vect[sp2];
+            const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity();
+            const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity();
+            this_scattering->setMeanFreeTime( numberDensity1, energyDensity1,
+                                              numberDensity2, energyDensity2 );
+         }
+
          scatterDt = min(scatterDt,this_scattering->scatterDt()); // [s]
          scatterDt = scatterDt/tscale; // convert to code units
+
       }
-      if(!procID()) cout << "mean free scattering time [code units] = " << scatterDt << endl;
+      if(!procID()) cout << "mean free scattering time = " << scatterDt << endl;
+   
    }
    
    return scatterDt;

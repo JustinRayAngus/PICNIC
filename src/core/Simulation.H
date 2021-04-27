@@ -67,6 +67,7 @@ class Simulation
       void writePlotFile();
       inline void writeHistFile(bool startup_flag);
       void setFixedTimeStep(const Real& a_dt_stable);
+      void enforceTimeStep(const Real  a_local_dt);
       void preTimeStep();
       void postTimeStep();
       
@@ -80,7 +81,6 @@ class Simulation
 
       Real m_cur_dt;
       Real m_fixed_dt;
-      Real m_max_dt_grow;
       Real m_cfl;
       Real m_cfl_scatter;
       bool m_adapt_dt;

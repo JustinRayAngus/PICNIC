@@ -365,7 +365,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    delete this_part2_ptr;
    
    // While we are here, update the mean free time
-   setMeanFreeTime(numberDensity,energyDensity);
+   //setMeanFreeTime(numberDensity,energyDensity);
    
 }
 

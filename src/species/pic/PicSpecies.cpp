@@ -96,11 +96,11 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    } 
    // each box has to be square with fixedBoxSize length to use ParticleData()
    // I need a better way to ensure this and get this parameter here!
-   //
    int fixedBoxSize;
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       Box thisbox( grids[dit] ); 
       fixedBoxSize = thisbox.size(0);
+      for (int dir=1; dir<SpaceDim; ++dir) CH_assert(thisbox.size(dir)==fixedBoxSize);
       break;
    } 
    
@@ -586,13 +586,10 @@ void PicSpecies::testParticleShuffling( const Real& a_dt )
 
 void PicSpecies::initialize( const CodeUnits&  a_units )
 {
-   // initilize the particle position and velocities
-   //
    if(!procID()) cout << "Initializing pic species " << m_name  << "..." << endl;
    int verbosity=0; // using this as a verbosity flag
 
    // set ICs for this species 
-   // 
    const std::string spcIC("IC." + m_name);
    ParmParse ppspcIC( spcIC.c_str() );
    std::vector<int> partsPerCellstd;
@@ -623,12 +620,10 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
 
    // parse the initial profiles of moments to construct
    // initial particle positions and velocities
-   //
    GridFunctionFactory  gridFactory;
    const Real this_time = 0.0;
    
    // set density profile from ICs
-   //
    const std::string spcdenIC("IC." + m_name + ".density");
    ParmParse ppdenIC( spcdenIC.c_str() );
    RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppdenIC,verbosity);
@@ -698,7 +693,6 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    m_fnorm_const = qom/cvacSq*Escale*Xscale;
 
    // get some mesh info
-   //
    const RealVect& dX(m_mesh.getdX());
    const LevelData<FArrayBox>& Xcc(m_mesh.getXcc());
    
@@ -713,7 +707,6 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    Real pWeight = 0.0; 
    
    // create sub-box and dX for particles
-   //
    const Box partSubBox(IntVect::Zero, partsPerCell-IntVect::Unit);
    BoxIterator pbit(partSubBox);
    
@@ -724,7 +717,6 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
 
    // loop over boxes and set the initial
    // particle values (pos., vel., weight)
-   //
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
    uint64_t ID = procID()*512 + 1; // hack for testing purposes
