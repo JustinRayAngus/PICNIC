@@ -42,7 +42,7 @@ class System
       System( ParmParse&  a_pp );
       virtual ~System();
 
-      virtual void initialize( const int cur_step, const double cur_time, const bool adapt_dt );
+      virtual void initialize( const int cur_step, const double cur_time );
       
       void writePlotFile(const int cur_step, const double cur_time);
       
@@ -55,6 +55,8 @@ class System
       Real scatterDt( const int a_step_number );
       
       Real specialOpsDt( const int a_step_number );
+      
+      void adaptDt( bool&  a_adapt_dt );
 
       void preTimeStep( const Real&  a_cur_time, 
                         const Real&  a_dt,

@@ -11,7 +11,7 @@ Simulation::Simulation( ParmParse& a_pp )
        m_max_step(0),
        m_cur_time(0.0),
        m_max_time(0.0),
-       m_cur_dt(-1.0),
+       m_cur_dt(DBL_MAX),
        m_fixed_dt(-1.0),
        m_cfl(1.0),
        m_cfl_scatter(0.1),
@@ -53,7 +53,7 @@ Simulation::Simulation( ParmParse& a_pp )
    // (domain, mesh, species, fields, operators, ibcs...)
    //
    m_system = new System( a_pp );
-   m_system->initialize(m_cur_step, m_cur_time, m_adapt_dt);
+   m_system->initialize(m_cur_step, m_cur_time);
 
    // write t=0 values to plot files
    //
@@ -273,17 +273,13 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
    // set cfl number for the case of dynamic timestep selection
    if ( a_ppsim.query( "cfl_number", m_cfl ) ) {
       CH_assert( m_cfl>0.0 && m_cfl<=2.0 );
-      //if (!m_adapt_dt) {
-      //   MayDay::Error( "fixed_dt and cfl are mutually exclusive!" );
-      //}
+      if (!m_adapt_dt) MayDay::Error( "fixed_dt and cfl are mutually exclusive!" );
    }
    
    // set cfl number for scattering
    if ( a_ppsim.query( "cfl_scatter", m_cfl_scatter ) ) {
       CH_assert( m_cfl_scatter>0.0 && m_cfl_scatter<=2.0 );
-      if (!m_adapt_dt) {
-         MayDay::Error( "fixed_dt and cfl_scatter are mutually exclusive!" );
-      }
+      if (!m_adapt_dt) MayDay::Error( "fixed_dt and cfl_scatter are mutually exclusive!" );
    }
  
    // Set up plot file writing
@@ -349,6 +345,7 @@ void Simulation::preTimeStep()
    if(m_cur_time==0.0) {
       Real dt_light = m_system->fieldsDt( m_cur_step )*m_cfl;
       m_cur_dt = std::min( m_cur_dt, dt_light );
+      m_system->adaptDt(m_adapt_dt);
       enforceTimeStep( m_cur_dt );
    }
    Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;

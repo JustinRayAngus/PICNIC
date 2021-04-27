@@ -59,12 +59,9 @@ System::~System()
 }
 
 void System::initialize( const int     a_cur_step,
-                         const double  a_cur_time,
-                         const bool    a_adapt_dt )
+                         const double  a_cur_time )
 {
    CH_TIME("System::initialize()");
-   
-   if(m_advance_method==PICMC_EXPLICIT) CH_assert(!a_adapt_dt);
    
    // initialize the pic species
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
@@ -891,6 +888,11 @@ Real System::specialOpsDt( const int a_step_number )
       if(!procID()) cout << "special operator time step = " << specialOpsDt << endl;
    }
    return specialOpsDt;
+}
+
+void System::adaptDt( bool&  a_adapt_dt )
+{
+   if(m_advance_method==PICMC_EXPLICIT) a_adapt_dt = false;
 }
 
 
