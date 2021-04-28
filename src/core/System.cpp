@@ -551,7 +551,7 @@ void System::parseParameters( ParmParse&  a_ppsys )
       a_ppsys.get("iter_max",m_iter_max);
    }
    else if(advance_method_string=="PICMC_FULLY_IMPLICIT") {
-      m_advance_method = PICMC_SEMI_IMPLICIT;
+      m_advance_method = PICMC_FULLY_IMPLICIT;
       a_ppsys.get("iter_max",m_iter_max);
    }
    else {
