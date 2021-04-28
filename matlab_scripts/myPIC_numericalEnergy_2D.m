@@ -12,10 +12,34 @@ amu  = 1.660539066e-27;    % atomic mass unit [kg]
 mu0 = 4*pi*1e-7;
 ep0 = 1/mu0/cvac^2;
 
-species = 1;
-rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOn_noCollisions/';
-rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOff_withCollisions/';
+species = 1; thisFig = 1;
+rootPath = '../myPIC/numericalEnergyTests_longTime/test2p0_fieldsOn_noCollisions/';
+%rootPath = '../myPIC/numericalEnergyTests_longTime/test2p0_fieldsOff_withCollisions/';
+%rootPath = '../myPIC/numericalEnergyTests_longTime/test2p0_fieldsOn_withCollisions/';
+
+
+%rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOn_noCollisions/'; thisFig = 1;
+%rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOff_withCollisions/';
 %rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOn_withCollisions/';
+
+
+rootPath = '../myPIC/semiImplicitTests/noCollisions/test2p0_iterMax2/'; thisFig = 2;
+rootPath = '../myPIC/semiImplicitTests/noCollisions/test2p0_iterMax5/'; thisFig = 6;
+rootPath = '../myPIC/semiImplicitTests/noCollisions/test2p0_iterMax10/'; thisFig = 10;
+%
+%rootPath = '../myPIC/semiImplicitTests/withCollisions/test2p0_iterMax2/'; thisFig = 22;
+%rootPath = '../myPIC/semiImplicitTests/withCollisions/test2p0_iterMax5/'; thisFig = 55;
+rootPath = '../myPIC/semiImplicitTests/withCollisions/test2p0_iterMax10/'; thisFig = 100;
+
+%rootPath = '../myPIC/fullyImplicitTests/noCollisions/test2p0_iterMax2/'; thisFig = 2;
+rootPath = '../myPIC/fullyImplicitTests/noCollisions/test2p0_iterMax6/'; thisFig = 5;
+%rootPath = '../myPIC/fullyImplicitTests/noCollisions/test2p0_iterMax12/'; thisFig = 10;
+%
+%rootPath = '../myPIC/fullyImplicitTests/withCollisions/test2p0_iterMax2/'; thisFig = 22;
+rootPath = '../myPIC/fullyImplicitTests/withCollisions/test2p0_iterMax6/'; thisFig = 55;
+%rootPath = '../myPIC/fullyImplicitTests/test2p0_withCollisions_iterMax12/'; thisFig = 100;
+
+%rootPath = '../myPIC/semiImplicitTests/noCollisions/testing_iterMax5_newChombo/'; thisFig = 100;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -243,11 +267,11 @@ Energy_Efield = zeros(size(time));
 Energy_Bfield = zeros(size(time));
 dV2D_SI = dX*dZ*length_scale^2;
 for iL=1:length(time)
-    Energy_Efield(iL) = (sum(sum(EX(:,:,iL).^2)) ...
-                      +  sum(sum(EY(:,:,iL).^2)) ...
-                      +  sum(sum(EZ(:,:,iL).^2)))*ep0/2*dV2D_SI; % [Joules]
-    Energy_Bfield(iL) = (sum(sum(BX(:,:,iL).^2)) ...
-                      +  sum(sum(BY(:,:,iL).^2)) ...
+    Energy_Efield(iL) = (sum(sum(EX(:,1:end-1,iL).^2)) ...
+                      +  sum(sum(EY(1:end-1,:,iL).^2)) ...
+                      +  sum(sum(EZ(1:end-1,1:end-1,iL).^2)))*ep0/2*dV2D_SI; % [Joules]
+    Energy_Bfield(iL) = (sum(sum(BX(1:end-1,:,iL).^2)) ...
+                      +  sum(sum(BY(:,1:end-1,iL).^2)) ...
                       +  sum(sum(BZ(:,:,iL).^2)))/mu0/2*dV2D_SI; % [Joules]
 end
 
@@ -315,11 +339,15 @@ Energy_parts = Energy_species1 + Energy_species2;
 Energy_fields = Energy_Efield + Energy_Bfield;
 Energy_total = Energy_parts + Energy_fields;
 
-close(figure(11)); f1=figure(11);
-plot(time,(Energy_total-Energy_total(1))/Energy_total(1),'displayName','total'); hold on;
-plot(time,(Energy_species1-Energy_species1(1))/Energy_total(1),'displayName','eles'); hold on;
-plot(time,(Energy_species2-Energy_species2(1))/Energy_total(1),'displayName','ions'); hold on;
-plot(time,(Energy_fields-Energy_fields(1))/Energy_total(1),'displayName','fields'); hold off;
+close(figure(thisFig)); f1=figure(thisFig);
+plot(time,(Energy_total-Energy_total(1))/Energy_total(1),'displayName', ...
+           '\Delta\epsilon_t_o_t/\epsilon_0'); hold on;
+plot(time,(Energy_species1-Energy_species1(1))/Energy_total(1),'displayName', ...
+           '\Delta\epsilon_e/\epsilon_0','color',[0.47 0.67 0.19]); hold on;
+plot(time,(Energy_species2-Energy_species2(1))/Energy_total(1),'displayName', ...
+           '\Delta\epsilon_i/\epsilon_0','color',[0.85 0.33 0.10]); hold on;
+plot(time,(Energy_fields-Energy_fields(1))/Energy_total(1),'displayName', ...
+           '\Delta\epsilon_E_M/\epsilon_0','color',[0.93 0.59 0.13]); hold off;
 xlabel('\omega_p_et'); title('relative energy change');
 legend('show','location','best');
 
@@ -389,18 +417,18 @@ set(l1,'color','black');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-it = 4;
-
-close(figure(12)); f12 = figure(12);
-set(f12,'position',[420 312 1310 700]);
-
-subplot(2,3,1); pcolor(JX_1(:,:,it)+JX_2(:,:,it)); shading flat; colorbar; axis('square');
-subplot(2,3,2); pcolor(JY_1(:,:,it)+JY_2(:,:,it)); shading flat; colorbar; axis('square');
-subplot(2,3,3); pcolor(JZ_1(:,:,it)+JZ_2(:,:,it)); shading flat; colorbar; axis('square');
-%
-subplot(2,3,4); pcolor(JX(:,:,it)); shading flat; colorbar; axis('square');
-subplot(2,3,5); pcolor(JY(:,:,it)); shading flat; colorbar; axis('square');
-subplot(2,3,6); pcolor(JZ(:,:,it)); shading flat; colorbar; axis('square');
-
-
+% it = 4;
+% 
+% close(figure(12)); f12 = figure(12);
+% set(f12,'position',[420 312 1310 700]);
+% 
+% subplot(2,3,1); pcolor(JX_1(:,:,it)+JX_2(:,:,it)); shading flat; colorbar; axis('square');
+% subplot(2,3,2); pcolor(JY_1(:,:,it)+JY_2(:,:,it)); shading flat; colorbar; axis('square');
+% subplot(2,3,3); pcolor(JZ_1(:,:,it)+JZ_2(:,:,it)); shading flat; colorbar; axis('square');
+% %
+% subplot(2,3,4); pcolor(JX(:,:,it)); shading flat; colorbar; axis('square');
+% subplot(2,3,5); pcolor(JY(:,:,it)); shading flat; colorbar; axis('square');
+% subplot(2,3,6); pcolor(JZ(:,:,it)); shading flat; colorbar; axis('square');
+% 
+% 
 
