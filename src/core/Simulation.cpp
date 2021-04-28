@@ -320,7 +320,8 @@ void Simulation::postTimeStep()
    CH_TIMERS("Simulation::postTimeStep()");
    
    if ( m_plot_time_interval>0.0 ) {
-      if ( m_cur_time >= m_plot_time-s_DT_EPS*1.0e8 ) {
+      //if ( m_cur_time >= m_plot_time-s_DT_EPS*1.0e8 ) {
+      if ( m_cur_time >= m_plot_time - m_cur_dt/1000.0 ) {
          writePlotFile();
          m_last_plot = m_cur_step;
          m_plot_time = m_plot_time + m_plot_time_interval;

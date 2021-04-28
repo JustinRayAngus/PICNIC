@@ -43,7 +43,8 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&   a_ppflds,
    
    if(!procID()){
       cout << " m_Jnorm_factor = " << m_Jnorm_factor << endl;
-      cout << " advance fields = " << m_advance << endl << endl;
+      cout << " advance fields = " << m_advance << endl;
+      cout << " stable dt = " << m_stable_dt << endl << endl;
    }
    
    //

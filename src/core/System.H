@@ -67,6 +67,7 @@ class System
       void advance_DSMC( Real&  a_dt );
       void advance_PICMC_EXPLICIT( Real&  a_dt );
       void advance_PICMC_SEMI_IMPLICIT( Real&  a_dt );
+      void advance_PICMC_FULLY_IMPLICIT( Real&  a_dt );
 
       void scatterParticles( const Real&  a_dt );
       
@@ -99,7 +100,8 @@ class System
       enum ADVANCE_METHOD {
          DSMC,
          PICMC_EXPLICIT,
-         PICMC_SEMI_IMPLICIT
+         PICMC_SEMI_IMPLICIT,
+         PICMC_FULLY_IMPLICIT
       };
       int m_iter_max;
      
