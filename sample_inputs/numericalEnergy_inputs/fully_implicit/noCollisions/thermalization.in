@@ -22,7 +22,7 @@ system.write_species_current_density = false
 #####################################################
 #simulation.max_step            = 1
 simulation.max_step            = 1000000
-simulation.max_time            = 200000.0
+simulation.max_time            = 20000.0
 #simulation.cfl_number          = 0.565
 #simulation.cfl_scatter         = 0.001
 simulation.fixed_dt            = 0.10
