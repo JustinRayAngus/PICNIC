@@ -794,7 +794,8 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
    // (E, xp, and vp) are defined at whole time steps
    //
     
-   Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+   Real cnormDt = a_dt*m_units->CvacNorm();
+   Real cnormHalfDt = 0.5*cnormDt;
   
    int iter = 0;
    while(iter<m_iter_max) {
@@ -825,7 +826,7 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
                   this_picSpecies->interpolateElectricFieldToParticles( Efield_virt );
                   this_picSpecies->interpolateMagneticFieldToParticles( Bfield_virt );
                }
-               this_picSpecies->advanceVelocities( cnormHalfDt );
+               this_picSpecies->advanceVelocities( cnormDt, true );
             }
          }
       
@@ -888,7 +889,8 @@ void System::advance_PICMC_FULLY_IMPLICIT( Real&  a_dt )
    // at whole time steps
    //
     
-   Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
+   Real cnormDt = a_dt*m_units->CvacNorm();
+   Real cnormHalfDt = 0.5*cnormDt;
   
    int iter = 0;
    while(iter<m_iter_max) {
@@ -920,7 +922,7 @@ void System::advance_PICMC_FULLY_IMPLICIT( Real&  a_dt )
                   this_picSpecies->interpolateElectricFieldToParticles( Efield_virt );
                   this_picSpecies->interpolateMagneticFieldToParticles( Bfield_virt );
                }
-               this_picSpecies->advanceVelocities( cnormHalfDt );
+               this_picSpecies->advanceVelocities( cnormDt, true );
             }
          }
       

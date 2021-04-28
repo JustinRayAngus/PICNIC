@@ -138,7 +138,8 @@ public:
   void advancePositions_2ndHalf();
 
   // Boris pusher
-  void advanceVelocities( const Real& a_cnormDt );
+  void advanceVelocities( const Real&  a_cnormDt, 
+                          const bool&  a_byHalfDt=false );
   void advanceVelocities_2ndHalf();
 
   void updateOldParticlePositions();

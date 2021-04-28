@@ -184,8 +184,8 @@ void PicSpecies::advancePositions( const Real& a_cnormDt )
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
 
-      //ListBox<JustinsParticle>& box_list = m_data[dit];
-      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
@@ -254,8 +254,8 @@ void PicSpecies::advancePositions_2ndHalf()
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
 
-      //ListBox<JustinsParticle>& box_list = m_data[dit];
-      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
@@ -296,7 +296,8 @@ void PicSpecies::advancePositions_2ndHalf()
    
 }
 
-void PicSpecies::advanceVelocities( const Real& a_cnormDt )
+void PicSpecies::advanceVelocities( const Real&  a_cnormDt, 
+                                    const bool&  a_byHalfDt )
 {
    CH_TIME("PicSpecies::advanceVelocities()");
    
@@ -351,6 +352,12 @@ void PicSpecies::advanceVelocities( const Real& a_cnormDt )
          vp[0] = vpl0 + alpha*Ep[0];
          vp[1] = vpl1 + alpha*Ep[1];
          vp[2] = vpl2 + alpha*Ep[2];
+
+         if(a_byHalfDt) {
+            vp[0] = (vp[0] + vpold[0])/2.0;
+            vp[1] = (vp[1] + vpold[1])/2.0;
+            vp[2] = (vp[2] + vpold[2])/2.0;
+         }
       
       } // end loop over particle list
       
@@ -394,8 +401,8 @@ void PicSpecies::updateOldParticlePositions()
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
 
-      //ListBox<JustinsParticle>& box_list = m_data[dit];
-      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
@@ -420,8 +427,8 @@ void PicSpecies::updateOldParticleVelocities()
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
 
-      //ListBox<JustinsParticle>& box_list = m_data[dit];
-      List<JustinsParticle>& pList = m_data[dit].listItems();
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 

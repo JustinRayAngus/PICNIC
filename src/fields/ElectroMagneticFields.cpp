@@ -521,6 +521,9 @@ void ElectroMagneticFields::setCurlB()
       }
 
    }  
+
+   SpaceUtils::exchangeEdgeDataBox(m_curlB);   
+   if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(m_curlB_virtual,m_mesh); // experimental
    
 }
 
@@ -640,6 +643,9 @@ void ElectroMagneticFields::setCurlE()
       }
 
    }  
+   
+   SpaceUtils::exchangeFluxBox(m_curlE);
+   if(SpaceDim<3) m_curlE_virtual.exchange();   
    
 }
   
