@@ -13,6 +13,7 @@ CH_SPACEDIM = 2
 
 # the location of the Chombo "lib" directory
 CHOMBO_HOME = ../../Chombo_3.2/lib
+#CHOMBO_HOME = ~angus1/COGENT/COGENTbuilds/Chombo/lib
 
 # names of Chombo libraries needed by this program, in order of search.
 LibNames = BaseTools
