@@ -10,9 +10,9 @@ me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
-rootPath = '../myPIC/fieldTests/test0_2D/';
-rootPath = '../myPIC/fieldTests/test1_2D/';
-rootPath = '../myPIC/fieldTests/test2_2D/';
+rootPath = '../fromQuartz/fieldTests/test0_2D/';
+%rootPath = '../fromQuartz/fieldTests/test1_2D/';
+%rootPath = '../fromQuartz/fieldTests/test2_2D/';
 
 ghosts = 0;
 
@@ -22,7 +22,7 @@ ghosts = 0;
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh.h5'];
+meshFile = [rootPath,'mesh_data/mesh.h5'];
 
 groupName = '/cell_centered_grid';
 data1 = import2Ddata_singleFile(meshFile,groupName,1);
@@ -82,19 +82,7 @@ end
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-%%%  loop over files and create movie
-%
-close(figure(1));
-f1=figure(1); set(f1,'position',[380 280 1400 700]);
-set(gcf,'color','white');
-
-images = cell(1,1);
-v=VideoWriter('./EMfield2D.mp4', 'MPEG-4');
-v.FrameRate = 2;
-open(v);
-
-fileList = dir([rootPath,'field_data/field*']);
+fileList = dir([rootPath,'mesh_data/field_data/field*']);
 ListLength = length(fileList);
 
 step = zeros(size(fileList));
@@ -117,10 +105,22 @@ J_0 = zeros(nX,nZ+1,iLmax);
 J_1 = zeros(nX+1,nZ,iLmax);
 J_2 = zeros(nX+1,nZ+1,iLmax);
 
+
+%%%  loop over files and create movie
+%
+close(figure(1));
+f1=figure(1); set(f1,'position',[380 280 1400 700]);
+set(gcf,'color','white');
+
+images = cell(1,1);
+v=VideoWriter('./EMfield2D.mp4', 'MPEG-4');
+v.FrameRate = 2;
+open(v);
+
 %iLmax = 1;
 for iL=1:iLmax
 
-    fieldFile = [rootPath,'field_data/',fileList(index(iL)).name];
+    fieldFile = [rootPath,'mesh_data/field_data/',fileList(index(iL)).name];
     fileinfo = hdf5info(fieldFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
     SpaceDim = h5readatt(fieldFile,'/Chombo_global','SpaceDim');

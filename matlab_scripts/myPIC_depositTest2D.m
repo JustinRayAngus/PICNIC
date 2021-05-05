@@ -10,8 +10,8 @@ qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
 species = 1;
-rootPath = '../myPIC/depositTests/test0_2D/';
-%rootPath = '../myPIC/depositTests/test1_2D/';
+rootPath = '../fromQuartz/depositTests/test0_2D/';
+%rootPath = '../fromQuartz/depositTests/test1_2D/';
 ghosts = 1; % must have ghosts in output for this test
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -20,7 +20,7 @@ ghosts = 1; % must have ghosts in output for this test
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh.h5'];
+meshFile = [rootPath,'mesh_data/mesh.h5'];
 
 groupName = '/cell_centered_grid';
 data1 = import2Ddata_singleFile(meshFile,groupName,ghosts);
@@ -52,25 +52,17 @@ Znc = squeeze(data2.Fnc(:,:,2));
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+partList = dir([rootPath,'particle_data/species',num2str(species), ...
+                         '_data/part*']);
+momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/moments*']);
+ListLength = length(partList);
+assert(ListLength==length(momentList));
 
-%%%  loop over files and create movie
-%
-close(figure(1));
-f1=figure(1); set(f1,'position',[740 540 1000 500]);
-set(gcf,'color','white');
-
-images = cell(1,1);
-v=VideoWriter('./deposit2D.mp4', 'MPEG-4');
-v.FrameRate = 1;
-open(v);
-
-fileList = dir([rootPath,'species',num2str(species),'_data/part*']);
-ListLength = length(fileList);
-
-step = zeros(size(fileList));
-index = zeros(size(fileList));
+step = zeros(size(partList));
+index = zeros(size(partList));
 for n=1:ListLength
-    thisFile = fileList(n).name;
+    thisFile = partList(n).name;
     step(n) = str2num(thisFile(6:end-3));
 end
 [step,index] = sort(step);
@@ -91,12 +83,25 @@ W10 = zeros(1,iLmax);
 W11 = zeros(1,iLmax);
 error = zeros(4,iLmax);
 
+%%%  loop over files and create movie
+%
+close(figure(1));
+f1=figure(1); set(f1,'position',[740 540 1000 500]);
+set(gcf,'color','white');
+
+images = cell(1,1);
+v=VideoWriter('./deposit2D.mp4', 'MPEG-4');
+v.FrameRate = 1;
+open(v);
+
 %iLmax = 1;
 for iL=1:iLmax
 
-    partsFile = [rootPath,'species',num2str(species),'_data/',fileList(index(iL)).name];
+    partsFile = [rootPath,'particle_data/species',num2str(species), ...
+                          '_data/',partList(index(iL)).name];
     fileinfo = hdf5info(partsFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
+    
     partData = hdf5read(partsFile,'/species_data/particles:data');
     SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
     numParts = h5readatt(partsFile,'/species_data','num_particles');
@@ -124,14 +129,17 @@ for iL=1:iLmax
        particle.ID   = partData(:,numPartComps);
     end
 
+    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/',momentList(index(iL)).name];
+    
     %%%   reading current density from part file
     %
     groupName = '/species_data';
-    data3 = import2Ddata_singleFile(partsFile,groupName,ghosts);
+    data3 = import2Ddata_singleFile(momentFile,groupName,ghosts);
     numberDen(:,:,iL) = squeeze(data3.Fcc(:,:,1));
     
     groupName = '/cell_centered_charge_density';
-    data3p1 = import2Ddata_singleFile(partsFile,groupName,ghosts);
+    data3p1 = import2Ddata_singleFile(momentFile,groupName,ghosts);
     chargeDen(:,:,iL) = squeeze(data3p1.Fcc(:,:,end));
     if(iL==1)
         rho0 = sum(sum(chargeDen(2:end-1,2:end-1,1)));
@@ -155,7 +163,7 @@ for iL=1:iLmax
     %
     %
     groupName = '/virtual_current_density';
-    data3p2 = import2Ddata_singleFile(partsFile,groupName,ghosts);
+    data3p2 = import2Ddata_singleFile(momentFile,groupName,ghosts);
     Jnc(:,:,iL) = squeeze(data3p2.Fnc(:,:,end));
     if(iL==1)
         Jnc0 = sum(sum(Jnc(2:end-2,2:end-2,1)));
@@ -241,7 +249,7 @@ display(['max error = ',num2str(max(max(error)))]);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 groupName = '/face_centered_charge_density'; patchData=1;
-data4 = import2Ddata_singleFile(partsFile,groupName,ghosts,patchData);
+data4 = import2Ddata_singleFile(momentFile,groupName,ghosts,patchData);
 Jfc0 = data4.Ffc0;
 Jfc1 = data4.Ffc1;
 
@@ -293,7 +301,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 groupName = '/current_density'; patchData=0;
-data5 = import2Ddata_singleFile(partsFile,groupName,ghosts,patchData);
+data5 = import2Ddata_singleFile(momentFile,groupName,ghosts,patchData);
 Jec0 = data5.Fec0;
 Jec1 = data5.Fec1;
 

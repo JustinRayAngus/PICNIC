@@ -10,14 +10,13 @@ qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
 species = 1;
-rootPath = '../myPIC/pistonTests/piston_collisionless/'; vpiston = 100;
-rootPath = '../myPIC/pistonTests/piston_collisional/'; vpiston = 100;
-rootPath = '../myPIC/pistonTests/piston_2species/'; vpiston = 1e3;
-rootPath = '../myPIC/pistonTests/piston_vp1e2/'; vpiston = 1e2;
-rootPath = '../myPIC/pistonTests/piston_vp1e3/'; vpiston = 1e3;
-%rootPath = '../myPIC/pistonTests/piston_vp1e4/'; vpiston = 1e4;
+rootPath = '../fromQuartz/pistonTests/piston_collisionless/'; vpiston = 100;
+%rootPath = '../fromQuartz/pistonTests/piston_collisional/'; vpiston = 100;
+%rootPath = '../fromQuartz/pistonTests/piston_2species/'; vpiston = 1e3;
+%rootPath = '../fromQuartz/pistonTests/piston_vp1e2/'; vpiston = 1e2;
+%rootPath = '../fromQuartz/pistonTests/piston_vp1e3/'; vpiston = 1e3;
+%rootPath = '../fromQuartz/pistonTests/piston_vp1e4/'; vpiston = 1e4;
 
-%rootPath = '../myPIC/pistonTests/testing/'; vpiston = 100;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -25,7 +24,7 @@ rootPath = '../myPIC/pistonTests/piston_vp1e3/'; vpiston = 1e3;
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh.h5'];
+meshFile = [rootPath,'mesh_data/mesh.h5'];
 fileinfo = hdf5info(meshFile);
 
 groupName = '/cell_centered_grid'; ghosts = 0;
@@ -39,27 +38,17 @@ Zcc = squeeze(data.Fcc(:,:,2)); nZ = length(Zcc(1,:)); dZ = Zcc(1,2)-Zcc(1,1);
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+partList   = dir([rootPath,'particle_data/species',num2str(species), ...
+                           '_data/parts*']);
+momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/moments*']);
+ListLength = length(partList);
+assert(ListLength==length(momentList));
 
-%%%  loop over files and create movie
-%
-close(figure(1));
-f1=figure(1); set(f1,'position',[888 570 900 450]);
-set(gcf,'color','white');
-
-images = cell(1,1);
-v=VideoWriter('./pistonCar.mp4', 'MPEG-4');
-v.FrameRate = 1;
-open(v);
-
-
-%fileList = dir([rootPath,'particle_data/part*']);
-fileList = dir([rootPath,'species',num2str(species),'_data/part*']);
-ListLength = length(fileList);
-
-step = zeros(size(fileList));
-index = zeros(size(fileList));
+step = zeros(size(partList));
+index = zeros(size(partList));
 for n=1:ListLength
-    thisFile = fileList(n).name;
+    thisFile = partList(n).name;
     step(n) = str2num(thisFile(6:end-3));
 end
 [step,index] = sort(step);
@@ -75,9 +64,22 @@ energyDenX = zeros(nX,nZ,iLmax);
 energyDenY = zeros(nX,nZ,iLmax);
 energyDenZ = zeros(nX,nZ,iLmax);
 
+
+%%%  loop over files and create movie
+%
+close(figure(1));
+f1=figure(1); set(f1,'position',[888 570 900 450]);
+set(gcf,'color','white');
+
+images = cell(1,1);
+v=VideoWriter('./pistonCar.mp4', 'MPEG-4');
+v.FrameRate = 1;
+open(v);
+
 for iL=1:iLmax
 
-    partsFile = [rootPath,'species',num2str(species),'_data/',fileList(index(iL)).name];
+    partsFile = [rootPath,'particle_data/species',num2str(species), ...
+                          '_data/',partList(index(iL)).name];
     fileinfo = hdf5info(partsFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
     
@@ -108,10 +110,13 @@ for iL=1:iLmax
        particle.ID   = partData(:,numPartComps);
     end
 
-    %%%   reading density from part file
+    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/',momentList(index(iL)).name];
+    
+    %%%   reading density from species moment file
     %
     groupName = '/species_data'; ghosts = 0;
-    data = import2Ddata_singleFile(partsFile,groupName,ghosts);
+    data = import2Ddata_singleFile(momentFile,groupName,ghosts);
     numberDen(:,:,iL) = squeeze(data.Fcc(:,:,1));
     momentumDenX(:,:,iL) = squeeze(data.Fcc(:,:,2))*cvac;
     momentumDenY(:,:,iL) = squeeze(data.Fcc(:,:,3))*cvac;

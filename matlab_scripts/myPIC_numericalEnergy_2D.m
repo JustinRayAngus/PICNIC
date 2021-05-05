@@ -13,31 +13,31 @@ mu0 = 4*pi*1e-7;
 ep0 = 1/mu0/cvac^2;
 
 species = 1; thisFig = 1;
-rootPath = '../myPIC/numericalEnergyTests_longTime/test2p0_fieldsOn_noCollisions/';
-%rootPath = '../myPIC/numericalEnergyTests_longTime/test2p0_fieldsOff_withCollisions/';
-%rootPath = '../myPIC/numericalEnergyTests_longTime/test2p0_fieldsOn_withCollisions/';
+
+rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOn_noCollisions/'; thisFig = 1;
+%rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOff_withCollisions/'; thisFig = 2;
+%rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOn_withCollisions/'; thisFig = 3;
 
 
-%rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOn_noCollisions/'; thisFig = 1;
-%rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOff_withCollisions/';
-%rootPath = '../myPIC/numericalEnergyTests/test2p0_fieldsOn_withCollisions/';
-
-
-rootPath = '../myPIC/semiImplicitTests/noCollisions/test2p0_iterMax2/'; thisFig = 2;
-rootPath = '../myPIC/semiImplicitTests/noCollisions/test2p0_iterMax5/'; thisFig = 6;
-rootPath = '../myPIC/semiImplicitTests/noCollisions/test2p0_iterMax10/'; thisFig = 10;
+rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax2/'; thisFig = 4;
+rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax5/'; thisFig = 5;
+rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax10/'; thisFig = 6;
 %
-%rootPath = '../myPIC/semiImplicitTests/withCollisions/test2p0_iterMax2/'; thisFig = 22;
-%rootPath = '../myPIC/semiImplicitTests/withCollisions/test2p0_iterMax5/'; thisFig = 55;
-rootPath = '../myPIC/semiImplicitTests/withCollisions/test2p0_iterMax10/'; thisFig = 100;
-
-%rootPath = '../myPIC/fullyImplicitTests/noCollisions/test2p0_iterMax2/'; thisFig = 2;
-rootPath = '../myPIC/fullyImplicitTests/noCollisions/test2p0_iterMax6/'; thisFig = 5;
-%rootPath = '../myPIC/fullyImplicitTests/noCollisions/test2p0_iterMax12/'; thisFig = 10;
+rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax2/'; thisFig = 7;
+rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax5/'; thisFig = 8;
+rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax10/'; thisFig = 9;
 %
-%rootPath = '../myPIC/fullyImplicitTests/withCollisions/test2p0_iterMax2/'; thisFig = 22;
-rootPath = '../myPIC/fullyImplicitTests/withCollisions/test2p0_iterMax6/'; thisFig = 55;
-%rootPath = '../myPIC/fullyImplicitTests/test2p0_withCollisions_iterMax12/'; thisFig = 100;
+rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/testing/'; thisFig = 8;
+
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/noCollisions/test2p0_iterMax2/'; thisFig = 10;
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/noCollisions/test2p0_iterMax6/'; thisFig = 11;
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/noCollisions/test2p0_iterMax12/'; thisFig = 12;
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/noCollisions/test2p0_iterMax18/'; thisFig = 13;
+%
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/withCollisions/test2p0_iterMax2/'; thisFig = 14;
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/withCollisions/test2p0_iterMax6/'; thisFig = 15;
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/withCollisions/test2p0_iterMax12/'; thisFig = 16;
+%rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/withCollisions/test2p0_iterMax18/'; thisFig = 17;
 
 %rootPath = '../myPIC/semiImplicitTests/noCollisions/testing_iterMax5_newChombo/'; thisFig = 100;
 
@@ -47,7 +47,7 @@ rootPath = '../myPIC/fullyImplicitTests/withCollisions/test2p0_iterMax6/'; thisF
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh.h5'];
+meshFile = [rootPath,'mesh_data/mesh.h5'];
 fileinfo = hdf5info(meshFile);
 
 groupName = '/cell_centered_grid'; ghosts = 0;
@@ -87,24 +87,27 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-fileList_parts = dir([rootPath,'species',num2str(species),'_data/part*']);
-ListLength_parts = length(fileList_parts);
+partList = dir([rootPath,'particle_data/species',num2str(species), ...
+                               '_data/part*']);
+momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/moments*']);
+ListLength = length(partList);
+assert(ListLength==length(momentList));
 
-fileList_fields = dir([rootPath,'field_data/field*']);
-ListLength_fields = length(fileList_fields);
+fieldList = dir([rootPath,'mesh_data/field_data/field*']);
+ListLength_fields = length(fieldList);
+assert(ListLength_fields==ListLength)
 
-assert(ListLength_fields==ListLength_parts)
-
-step = zeros(size(fileList_parts));
-index = zeros(size(fileList_parts));
-for n=1:ListLength_parts
-    thisFile_parts = fileList_parts(n).name;
-    thisFile_fields = fileList_fields(n).name;
+step = zeros(size(partList));
+index = zeros(size(partList));
+for n=1:ListLength
+    thisFile_parts = partList(n).name;
+    thisFile_fields = fieldList(n).name;
     step(n) = str2num(thisFile_parts(6:end-3));
 end
 [step,index] = sort(step);
 
-iLmax = ListLength_parts;
+iLmax = ListLength;
 time = zeros(1,iLmax);
 totalParts = zeros(1,iLmax);
 %
@@ -144,7 +147,8 @@ for iL=1:iLmax
 
     %%%   reading moments from part file for species 1
     %
-    partsFile_1 = [rootPath,'species',num2str(species),'_data/',fileList_parts(index(iL)).name];
+    partsFile_1 = [rootPath,'particle_data/species',num2str(species), ...
+                            '_data/',partList(index(iL)).name];
     fileinfo = hdf5info(partsFile_1);
     
     SpaceDim = h5readatt(partsFile_1,'/Chombo_global','SpaceDim');
@@ -155,8 +159,11 @@ for iL=1:iLmax
         Charge_1 = double(h5readatt(partsFile_1,'/species_data','charge'));
     end
 
+    momentFile_1 = [rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/',momentList(index(iL)).name];
+    
     groupName = '/species_data'; ghosts = 0;
-    data = import2Ddata_singleFile(partsFile_1,groupName,ghosts);
+    data = import2Ddata_singleFile(momentFile_1,groupName,ghosts);
     numberDen_1(:,:,iL) = squeeze(data.Fcc(:,:,1));            % [1/m^3]
     momentumDenX_1(:,:,iL) = squeeze(data.Fcc(:,:,2))*me*cvac; % [m/s/m^3]
     momentumDenY_1(:,:,iL) = squeeze(data.Fcc(:,:,3))*me*cvac; % [m/s/m^3]
@@ -167,25 +174,25 @@ for iL=1:iLmax
 
     try
         groupName = '/current_density';
-        data = import2Ddata_singleFile(partsFile_1,groupName,ghosts);
+        data = import2Ddata_singleFile(momentFile_1,groupName,ghosts);
         JX_1(:,:,iL) = squeeze(data.Fec0(:,:))*qe*cvac;  
         JY_1(:,:,iL) = squeeze(data.Fec1(:,:))*qe*cvac;     
 
         groupName = '/virtual_current_density';
-        data = import2Ddata_singleFile(partsFile_1,groupName,ghosts);
+        data = import2Ddata_singleFile(momentFile_1,groupName,ghosts);
         JZ_1(:,:,iL) = squeeze(data.Fnc(:,:))*qe*cvac;  
     end
     
     %%%   reading moments from part file for species 2
     %
-    partsFile_2 = [rootPath,'species2_data/',fileList_parts(index(iL)).name];
+    momentFile_2 = [rootPath,'mesh_data/species2_data/',momentList(index(iL)).name];
     if(iL==1)
-        Mass_2 = h5readatt(partsFile_2,'/species_data','mass');
-        Charge_2 = double(h5readatt(partsFile_2,'/species_data','charge'));
+        Mass_2 = h5readatt(momentFile_2,'/species_data','mass');
+        Charge_2 = double(h5readatt(momentFile_2,'/species_data','charge'));
     end
 
     groupName = '/species_data';
-    data = import2Ddata_singleFile(partsFile_2,groupName,ghosts);
+    data = import2Ddata_singleFile(momentFile_2,groupName,ghosts);
     numberDen_2(:,:,iL) = squeeze(data.Fcc(:,:,1));            % [1/m^3]
     momentumDenX_2(:,:,iL) = squeeze(data.Fcc(:,:,2))*me*cvac; % [m/s/m^3]
     momentumDenY_2(:,:,iL) = squeeze(data.Fcc(:,:,3))*me*cvac; % [m/s/m^3]
@@ -196,12 +203,12 @@ for iL=1:iLmax
     
     try
         groupName = '/current_density';
-        data = import2Ddata_singleFile(partsFile_2,groupName,ghosts);
+        data = import2Ddata_singleFile(momentFile_2,groupName,ghosts);
         JX_2(:,:,iL) = squeeze(data.Fec0(:,:))*qe*cvac;  
         JY_2(:,:,iL) = squeeze(data.Fec1(:,:))*qe*cvac;     
 
         groupName = '/virtual_current_density'; 
-        data = import2Ddata_singleFile(partsFile_2,groupName,ghosts);
+        data = import2Ddata_singleFile(momentFile_2,groupName,ghosts);
         JZ_2(:,:,iL) = squeeze(data.Fnc(:,:))*qe*cvac; 
     end
     
@@ -209,7 +216,7 @@ for iL=1:iLmax
     %
     %
     
-    fieldFile = [rootPath,'field_data/',fileList_fields(index(iL)).name];
+    fieldFile = [rootPath,'mesh_data/field_data/',fieldList(index(iL)).name];
     fileinfo = hdf5info(fieldFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
 

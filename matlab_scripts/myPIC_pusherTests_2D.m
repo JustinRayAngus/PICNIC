@@ -13,7 +13,7 @@ mu0 = 4*pi*1e-7;
 ep0 = 1/mu0/cvac^2;
 
 species = 1;
-rootPath = '../myPIC/pusherTests/test0/';
+rootPath = '../fromQuartz/pusherTests/test0/';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -21,7 +21,7 @@ rootPath = '../myPIC/pusherTests/test0/';
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh.h5'];
+meshFile = [rootPath,'mesh_data/mesh.h5'];
 fileinfo = hdf5info(meshFile);
 
 groupName = '/cell_centered_grid'; ghosts = 0;
@@ -61,12 +61,15 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-fileList_parts = dir([rootPath,'species',num2str(species),'_data/part*']);
+fileList_parts = dir([rootPath,'particle_data/species',num2str(species), ...
+                               '_data/part*']);
+momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/moments*']);
 ListLength_parts = length(fileList_parts);
+assert(ListLength_parts==length(momentList));
 
-fileList_fields = dir([rootPath,'field_data/field*']);
+fileList_fields = dir([rootPath,'mesh_data/field_data/field*']);
 ListLength_fields = length(fileList_fields);
-
 assert(ListLength_fields==ListLength_parts)
 
 step = zeros(size(fileList_parts));
@@ -110,10 +113,14 @@ for iL=1:iLmax
 
     %%%   reading moments from part file for species 1
     %
-    partsFile = [rootPath,'species',num2str(species),'_data/',fileList_parts(index(iL)).name];
+    partsFile = [rootPath,'particle_data/species',num2str(species), ...
+                          '_data/',fileList_parts(index(iL)).name];
     fileinfo = hdf5info(partsFile);
-    
+    fileinfo.GroupHierarchy.Groups(2).Attributes.Name; 
+   
+    partData = hdf5read(partsFile,'/species_data/particles:data');
     SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
+    numParts = h5readatt(partsFile,'/species_data','num_particles');
     time(iL) = h5readatt(partsFile,'/species_data','time');
     if(iL==1)
         time_scale = h5readatt(partsFile,'/species_data','time_scale_SI');
@@ -121,8 +128,7 @@ for iL=1:iLmax
         Charge_1 = double(h5readatt(partsFile,'/species_data','charge'));
         numPartComps = h5readatt(partsFile,'/species_data','numPartComps');
     end
-    partData = hdf5read(partsFile,'/species_data/particles:data');
-    numParts = h5readatt(partsFile,'/species_data','num_particles')
+
     partData = reshape(partData,numPartComps,numParts);
     partData = partData';
     totalParts(iL) = numParts;
@@ -156,8 +162,11 @@ for iL=1:iLmax
      %   delete(p1);
     end
     
+    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/',momentList(index(iL)).name];
+                       
     groupName = '/species_data'; ghosts = 0;
-    data = import2Ddata_singleFile(partsFile,groupName,ghosts);
+    data = import2Ddata_singleFile(momentFile,groupName,ghosts);
     numberDen_1(:,:,iL) = squeeze(data.Fcc(:,:,1));            % [1/m^3]
     momentumDenX_1(:,:,iL) = squeeze(data.Fcc(:,:,2))*me*cvac; % [m/s/m^3]
     momentumDenY_1(:,:,iL) = squeeze(data.Fcc(:,:,3))*me*cvac; % [m/s/m^3]
@@ -166,7 +175,7 @@ for iL=1:iLmax
     %
     %
     
-    fieldFile = [rootPath,'field_data/',fileList_fields(index(iL)).name];
+    fieldFile = [rootPath,'mesh_data/field_data/',fileList_fields(index(iL)).name];
     fileinfo = hdf5info(fieldFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
 

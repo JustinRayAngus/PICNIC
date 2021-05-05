@@ -11,11 +11,11 @@ cvac = 2.99792458e8;       % speed of light [m/s]
 amu  = 1.660539066e-27;    % atomic mass unit [kg]
 
 species = 1;
-rootPath = '../myPIC/thermalizationTests/test0/';
-rootPath = '../myPIC/thermalizationTests/test1/';
-%rootPath = '../myPIC/thermalizationTests/test2_oldNorm/';
-%rootPath = '../myPIC/thermalizationTests/test2_newNorm/';
-%rootPath = '../myPIC/thermalizationTests/test2_newAdvance/';
+rootPath = '../fromQuartz/thermalizationTests/test0/';
+rootPath = '../fromQuartz/thermalizationTests/test1/';
+rootPath = '../fromQuartz/thermalizationTests/test2_oldNorm/';
+rootPath = '../fromQuartz/thermalizationTests/test2_newNorm/';
+rootPath = '../fromQuartz/thermalizationTests/test2_newAdvance/';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -23,7 +23,7 @@ rootPath = '../myPIC/thermalizationTests/test1/';
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh.h5'];
+meshFile = [rootPath,'mesh_data/mesh.h5'];
 fileinfo = hdf5info(meshFile);
 
 groupName = '/cell_centered_grid'; ghosts = 0;
@@ -43,24 +43,18 @@ end
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+partList = dir([rootPath,'particle_data/species',num2str(species), ...
+                         '_data/part*']);
+momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/moments*']);
+ListLength = length(partList);
+assert(ListLength==length(momentList));
 
-close(figure(11));
-f1=figure(11); set(f1,'position',[570 450 900 450]);
-set(gcf,'color','white');
-
-images = cell(1,1);
-v=VideoWriter('./pistonCar.mp4', 'MPEG-4');
-v.FrameRate = 1;
-open(v);
-
-fileList = dir([rootPath,'species',num2str(species),'_data/part*']);
-ListLength = length(fileList)
-
-step = zeros(size(fileList));
-index = zeros(size(fileList));
+step = zeros(size(partList));
+index = zeros(size(partList));
 for n=1:ListLength
     n
-    thisFile = fileList(n).name
+    thisFile = partList(n).name
     step(n) = str2num(thisFile(6:end-3));
 end
 [step,index] = sort(step);
@@ -76,9 +70,21 @@ energyDenX = zeros(nX,nZ,iLmax);
 energyDenY = zeros(nX,nZ,iLmax);
 energyDenZ = zeros(nX,nZ,iLmax);
 
+
+close(figure(11));
+f1=figure(11); set(f1,'position',[570 450 900 450]);
+set(gcf,'color','white');
+
+images = cell(1,1);
+v=VideoWriter('./pistonCar.mp4', 'MPEG-4');
+v.FrameRate = 1;
+open(v);
+
+
 for iL=1:iLmax
 
-    partsFile = [rootPath,'species',num2str(species),'_data/',fileList(index(iL)).name];
+    partsFile = [rootPath,'particle_data/species',num2str(species), ...
+                          '_data/',partList(index(iL)).name];
     fileinfo = hdf5info(partsFile);
     
     SpaceDim = h5readatt(partsFile,'/Chombo_global','SpaceDim');
@@ -112,10 +118,13 @@ for iL=1:iLmax
        particle.ID   = partData(:,numPartComps);
     end
 
+    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
+                           '_data/',momentList(index(iL)).name];
+    
     %%%   reading moments from part file
     %
     groupName = '/species_data'; ghosts = 0;
-    data = import2Ddata_singleFile(partsFile,groupName,ghosts);
+    data = import2Ddata_singleFile(momentFile,groupName,ghosts);
     numberDen(:,:,iL) = squeeze(data.Fcc(:,:,1));
     momentumDenX(:,:,iL) = squeeze(data.Fcc(:,:,2))*cvac;
     momentumDenY(:,:,iL) = squeeze(data.Fcc(:,:,3))*cvac;
