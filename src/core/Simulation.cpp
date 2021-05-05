@@ -11,10 +11,15 @@ Simulation::Simulation( ParmParse& a_pp )
        m_max_step(0),
        m_cur_time(0.0),
        m_max_time(0.0),
+       m_new_epsilon(s_DT_EPS),
        m_cur_dt(DBL_MAX),
        m_fixed_dt(-1.0),
        m_cfl(1.0),
+       m_dt_light(DBL_MAX),
+       m_dt_parts(DBL_MAX),
        m_cfl_scatter(0.1),
+       m_dt_scatter(DBL_MAX),
+       m_dt_scatter_interval(10),
        m_adapt_dt(true),
        m_plot_interval(0),
        m_plot_time_interval(0.0),
@@ -90,6 +95,7 @@ Simulation::~Simulation()
 const Real
 Simulation::s_DT_EPS = std::numeric_limits<Real>::epsilon();
 
+
 void Simulation::printParameters()
 {
    if(!procID()) {
@@ -104,6 +110,8 @@ void Simulation::printParameters()
       else {
          std::cout << "plot step interval = " << m_plot_interval << endl;
       }
+      if(m_cfl_scatter) std::cout << "scatter dt multiplier = " << m_cfl_scatter << endl;
+      if(m_cfl_scatter) std::cout << "scatter dt interval = " << m_dt_scatter_interval << endl;
       if(m_history)                std::cout << "hist step interval = " << m_history_interval << endl;
       std::cout << endl;
    }
@@ -159,7 +167,13 @@ void Simulation::initializeTimers()
 bool Simulation::notDone()
 {
    CH_TIMERS("Simulation::notDone()");
-   return ( (m_cur_step<m_max_step) && (m_cur_time<m_max_time-s_DT_EPS*1e8) );
+   
+   //Real delta = m_cur_time - m_max_time;
+   //Real delta = m_cur_time - m_max_time*(1.0-s_DT_EPS);
+   Real delta = m_cur_time - m_max_time + m_new_epsilon;
+   
+   return ( (m_cur_step<m_max_step) && (delta<0.0) );
+
 }
 
 
@@ -174,7 +188,6 @@ void Simulation::advance()
          cout << endl;
          cout << "====================================================================" << endl;
       }
-      pout() << endl << "Step " << m_cur_step << endl;
       if (procID()==0) {
          cout << endl << "Step " << m_cur_step+1 
               << ", dt = " << m_cur_dt << endl;
@@ -194,9 +207,6 @@ void Simulation::advance()
    CH_START(t_print_diagnostcs);
    if (m_verbosity >= 1) {
       //m_system->printDiagnostics();
-      pout()<< "Step " << m_cur_step << " completed, simulation time is "
-            << m_cur_time << ", solver wall time is " << walltime_g << " seconds"
-            << endl << "----" << endl;
       if(procID()==0) {
          cout << "Step " << m_cur_step << " completed, simulation time is "
               << m_cur_time << ", solver wall time is " << walltime_g << " seconds"
@@ -279,6 +289,7 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
    // set cfl number for scattering
    if ( a_ppsim.query( "cfl_scatter", m_cfl_scatter ) ) {
       CH_assert( m_cfl_scatter>0.0 && m_cfl_scatter<=2.0 );
+      a_ppsim.query("dt_scatter_interval", m_dt_scatter_interval);
       if (!m_adapt_dt) MayDay::Error( "fixed_dt and cfl_scatter are mutually exclusive!" );
    }
  
@@ -300,9 +311,9 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
 }
 
 
-void Simulation::setFixedTimeStep( const Real& a_dt_stable )
+void Simulation::setFixedTimeStep( const Real& a_dt )
 {
-   m_cur_dt = m_fixed_dt; 
+   m_cur_dt = a_dt; 
 }
 
 void Simulation::enforceTimeStep(const Real  a_local_dt)
@@ -320,8 +331,7 @@ void Simulation::postTimeStep()
    CH_TIMERS("Simulation::postTimeStep()");
    
    if ( m_plot_time_interval>0.0 ) {
-      //if ( m_cur_time >= m_plot_time-s_DT_EPS*1.0e8 ) {
-      if ( m_cur_time >= m_plot_time - m_cur_dt/1000.0 ) {
+      if ( m_cur_time > m_plot_time - m_new_epsilon ) {
          writePlotFile();
          m_last_plot = m_cur_step;
          m_plot_time = m_plot_time + m_plot_time_interval;
@@ -344,17 +354,21 @@ void Simulation::preTimeStep()
 
    // set the stable time step
    if(m_cur_time==0.0) {
-      Real dt_light = m_system->fieldsDt( m_cur_step )*m_cfl;
-      m_cur_dt = std::min( m_cur_dt, dt_light );
-      m_system->adaptDt(m_adapt_dt);
+      m_dt_light = m_system->fieldsDt( m_cur_step )*m_cfl;
+      if(m_fixed_dt<0.0) {
+         m_cur_dt = std::min( m_cur_dt, m_dt_light );
+         m_system->adaptDt(m_adapt_dt);
+      }
       enforceTimeStep( m_cur_dt );
    }
-   Real dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
+   if ( (m_cur_step % m_dt_scatter_interval)==0 ) {
+      m_dt_scatter = m_system->scatterDt( m_cur_step )*m_cfl_scatter;
+   }
    if ( m_adapt_dt ) { 
-      Real dt_parts = m_system->partsDt( m_cur_step )*m_cfl;
+      m_dt_parts = m_system->partsDt( m_cur_step )*m_cfl;
+      m_cur_dt = std::min( m_dt_light, m_dt_parts );
+      m_cur_dt = std::min( m_cur_dt, m_dt_scatter );
       Real dt_specialOps = m_system->specialOpsDt( m_cur_step );
-      m_cur_dt = std::min( m_cur_dt, dt_parts );
-      m_cur_dt = std::min( m_cur_dt, dt_scatter );
       m_cur_dt = std::min( m_cur_dt, dt_specialOps );
       enforceTimeStep( m_cur_dt );
    } 
@@ -367,6 +381,8 @@ void Simulation::preTimeStep()
       //m_cur_dt = timeRemaining + m_max_time * s_DT_EPS;
       m_cur_dt = timeRemaining;
    }
+   
+   m_new_epsilon = m_cur_dt/1000.0;
 
    m_system->preTimeStep( m_cur_time, m_cur_dt, m_cur_step );
 

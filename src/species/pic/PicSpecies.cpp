@@ -16,7 +16,6 @@
 PicSpecies::PicSpecies( ParmParse&         a_ppspc,
                         const string&      a_name,
                         const MeshInterp&  a_meshInterp,
-                        //MeshInterp*  a_meshInterp,
                         const DomainGrid&  a_mesh )
    : m_mass(),
      m_charge(),
@@ -27,7 +26,6 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
      m_write_all_part_comps(false),
      m_mesh(a_mesh),
      m_interpToGrid(CIC),
-     //m_meshInterp(NULL)
      m_meshInterp(a_meshInterp)
 {
    m_name = a_name;
@@ -65,13 +63,10 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    const RealVect& meshSpacing(m_mesh.getdX());
    const RealVect& meshOrigin(m_mesh.getXmin());
    const int ghosts(m_mesh.ghosts());
-   //RealVect particleOrigin = RealVect(D_DECL(0.0,0.0,0.0));
-   //if(!procID()) cout << "particleOrigin = " << particleOrigin << endl; 
 
    m_stable_dt = meshSpacing[0]; // initialize stable time step
 
    // initialize the member LevelDatas
-   //
    const IntVect ghostVect = ghosts*IntVect::Unit; 
    
    m_density.define(grids,1,ghostVect);
@@ -94,8 +89,8 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       m_temperature[dit].setVal(0.0);
       m_velocity[dit].setVal(0.0);
    } 
+
    // each box has to be square with fixedBoxSize length to use ParticleData()
-   // I need a better way to ensure this and get this parameter here!
    int fixedBoxSize;
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       Box thisbox( grids[dit] ); 
@@ -106,38 +101,9 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    
    // ParticleData<T> behaves similar to LevelData<FArrayBox>
    // ghosts?
-   //
    m_data.define(grids, domain, fixedBoxSize,
                  meshSpacing, meshOrigin);
   
-   //
-   //
-   // create a BoxLayout that is same as the BoxLayout that m_data
-   // lives on, but grown to include ghost layers
-   //
-   /*
-   Vector<Box> grown_boxes;
-   Vector<int> box_ids;
-   const BoxLayout& BL = m_data.getBoxes();
-   DataIterator dit(BL);
-   for(dit.begin(); dit.ok(); ++dit) {
-      Box this_box = BL.get(dit); 
-      this_box.grow(ghostVect);
-      grown_boxes.push_back(this_box);
-      box_ids.push_back(procID());
-   }
-   BoxLayout grownBL(grown_boxes,box_ids); 
-   
-   DataIterator dit2(grownBL);
-   for(dit2.begin(); dit2.ok(); ++dit2) {
-      const Box& this_box = grownBL.get(dit2); 
-      cout << "JRA: procID() = " << procID() << " this_box = " << this_box <<endl;
-   }
-   m_testBLD.define(grownBL,1);
-   */
-   //
-   //
-
    // In order to initialize a LevelData<BinFab<T>>, first need to define a
    // BinFabFactory. The factor has a "create" function to define "new" pointers
    // to the BinFab that lives at the box level... Not sure if I need to use this
@@ -151,12 +117,6 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
 
 PicSpecies::~PicSpecies()
 {
-   /*
-   if(m_meshInterp!=NULL) {
-      delete m_meshInterp;
-      m_meshInterp = NULL;
-   } 
-   */
 }
 
 void PicSpecies::advancePositions( const Real& a_cnormDt )
@@ -164,22 +124,17 @@ void PicSpecies::advancePositions( const Real& a_cnormDt )
    CH_TIME("PicSpecies::advancePositions()");
     
    // get some Grid info
-   //
    //const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
    const RealVect& dX(m_mesh.getdX());
-   //const RealVect& meshOrigin(m_mesh.getXmin());
-   //const int ghosts(m_mesh.ghosts());
    
    // compute domain extent and get total num parts and sim volume
-   //
    const IntVect domainDimensions = domain.size();
    const RealVect& Xmin(m_mesh.getXmin());
    const RealVect& Xmax(m_mesh.getXmax());
    const RealVect Lbox = Xmax - Xmin; 
    
    // Each proc loops over its own boxes
-   //
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
@@ -480,7 +435,6 @@ void PicSpecies::setStableDt( const CodeUnits&  a_units )
    MPI_Allreduce( &local_stable_dt, &stable_dt, 1, MPI_CH_REAL, MPI_MIN, MPI_COMM_WORLD ); 
 #endif
    m_stable_dt = stable_dt; 
-   //if(!procID()) cout << "m_particle_dt = " << m_stable_dt << endl;
 
 }
 
@@ -518,107 +472,6 @@ void PicSpecies::binTheParticles()
       }
       thisBinFab_ptr.addItems(pListPtr);
    }
-}
-
-void PicSpecies::testParticleShuffling( const Real& a_dt )
-{
-   CH_TIME("PicSpecies::testParticleShuffling()");
-  
-    JustinsParticle* this_part_ptr = NULL;  
-   
-   // fill BinFab container with pointers to particles
-   //
-   binTheParticles();
-   
-   // loop over lists in each cell and test shuffle
-   //
-   const DisjointBoxLayout& grids = m_data_binfab_ptr.disjointBoxLayout();
-   DataIterator ditg(grids);
-   int thisNumCell;
-   int verbosity=0; // using this as a verbosity flag
-   for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
-   
-      const Box gridBox = grids.get(ditg);
-      BoxIterator gbit(gridBox);
-      
-      BinFab<JustinsParticlePtr>& thisBinFab_ptr = m_data_binfab_ptr[ditg];
-      std::vector<JustinsParticlePtr> shuffled_parts;
-      for (gbit.begin(); gbit.ok(); ++gbit) { // loop over grid indices
-         
-         const IntVect ig = gbit(); // grid index
-         List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
-         thisNumCell = cell_pList.length();
-         if(thisNumCell < 2) break;        
-         if(!procID() && verbosity) cout << "JRA: thisNumCell = " << thisNumCell << endl;
- 
-         //cell_pList.shuffle();
-         //thisNumCell = cell_pList.length();
-         
-         ListIterator<JustinsParticlePtr> lit(cell_pList);
-           
-         // copy the iterators to a vector
-         //std::vector<JustinsParticlePtr> shuffled_parts;
-         shuffled_parts.clear();
-         shuffled_parts.reserve(thisNumCell);
-         for (lit.begin(); lit.ok(); ++lit) shuffled_parts.push_back(lit());
-        
-         // randomly choose two unique elements from the vector
-         int random_index1, random_index2; 
-         for (auto n=0; n<thisNumCell; n++) {
-            random_index1 = std::rand() % thisNumCell;  
-            random_index2 = std::rand() % thisNumCell;
-            while(random_index2==random_index1) random_index2 = std::rand() % thisNumCell;  
-            if(procID()==0 && verbosity) {
-               cout << "JRA random_index1 = " << random_index1 << endl;
-               cout << "JRA random_index2 = " << random_index2 << endl;
-            }
-         }
-
-         // randomly shuffle the entire vector of iterators 
-         std::random_shuffle(shuffled_parts.begin(), shuffled_parts.end());
-         
-         // one way to loop over vector
-         for (auto it = shuffled_parts.begin(); it != shuffled_parts.end(); ++it) {  
-            JustinsParticlePtr& this_particle = (*it);
-            this_part_ptr = this_particle.getPointer();
-            const uint64_t& this_ID = this_part_ptr->ID();
-            if(procID()==0 && verbosity) {
-               cout << "JRA (shuffled): ID = " << this_ID << endl;
-            }
-         }
-         
-         // another way to loop over vector
-         for (auto n=0; n<shuffled_parts.size(); n++) {  
-            JustinsParticlePtr& this_particle = shuffled_parts[n];
-            this_part_ptr = this_particle.getPointer();
-            const uint64_t& this_ID = this_part_ptr->ID();
-            if(procID()==0 && verbosity) {
-               cout << "JRA (shuffled 2): ID = " << this_ID << endl;
-            }
-         }
-        
-         // loop over the particles in this cell using the iterator 
-         for (lit.begin(); lit.ok(); ++lit) {
-            JustinsParticlePtr& this_particle = lit();
-            this_part_ptr = this_particle.getPointer();
-            const uint64_t& this_ID = this_part_ptr->ID();
-            const RealVect& this_x = this_part_ptr->position();
-            if(procID()==0 && verbosity) {
-               cout << "JRA: ID = " << this_ID << endl;
-               cout << "JRA: position = " << this_x << endl;
-            }
-         }
-         verbosity=0;
-      }
-
-   }
-
-   this_part_ptr = NULL;
-   delete this_part_ptr;
-   //
-   //
-   ////////////////////////////////// 
-   
 }
 
 void PicSpecies::initialize( const CodeUnits&  a_units )
@@ -795,6 +648,8 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
             IntVect ipg = pbit();
             for(int dir=0; dir<SpaceDim; dir++) {
                Xpart[dir] += (ipg[dir] + 0.5)*dXpart[dir];
+               //cout << "JRA: procID() = " << procID() << endl;
+               //cout << "JRA: Xpart[dir] = " << Xpart[dir] << endl;
             }
 
             // check to see if this particle position is inside specified region
@@ -846,29 +701,11 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    m_data.remapOutcast();
    CH_assert(m_data.isClosed());
       
+   int totalParticleCount = m_data.numParticles();
    if(!procID()) {
-      cout << "Finished initializing pic species " << m_name  << endl << endl;
+      cout << "Finished initializing pic species " << m_name  << endl;
+      cout << "total particles  = " << totalParticleCount << endl << endl;
    }
-
-   // JRA, testing what's in binfab...
-   //
-   //testParticleShuffling( 0.0 );
-   //inspectBinFab( m_data_binfab_ptr );
-
-   /*
-   //  this code is depricated...remove here and in MeshInterp soon!!!
-   //
-   const DisjointBoxLayout& grids = m_density.disjointBoxLayout();
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      if(!procID()) cout << "JRA: grids[dit] = " << grids[dit] << endl;
-      const FArrayBox& this_density = m_density[dit];
-      ListBox<JustinsParticle>& box_list = m_data[dit];
-      List<JustinsParticle>& pList = box_list.listItems();
-      m_meshInterp.setWeightFromGridProfile( pList,
-                                             this_density,
-                                             totalPartsPerCell ); 
-   }
-   */
 
 }
 

@@ -1023,6 +1023,16 @@ void System::postTimeStep( const Real&  a_cur_time,
 {  
    CH_TIME("System::postTimeStep()");
    
+   if(m_advance_method==DSMC) {  
+   
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         if(this_picSpecies->motion()) this_picSpecies->updateOldParticlePositions();
+         if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
+      }
+
+   }
+   
    if(m_advance_method==PICMC_EXPLICIT) {  
    
       if (!m_electromagneticFields.isNull() && m_electromagneticFields->advance()) {
@@ -1133,7 +1143,7 @@ Real System::scatterDt( const int a_step_number )
                                               numberDensity2, energyDensity2 );
          }
 
-         scatterDt = min(scatterDt,this_scattering->scatterDt()); // [s]
+         scatterDt = Min(scatterDt,this_scattering->scatterDt()); // [s]
          scatterDt = scatterDt/tscale; // convert to code units
 
       }

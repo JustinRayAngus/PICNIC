@@ -66,7 +66,7 @@ class Simulation
       void loadRestartFile( ParmParse& ppsim );
       void writePlotFile();
       inline void writeHistFile(bool startup_flag);
-      void setFixedTimeStep(const Real& a_dt_stable);
+      void setFixedTimeStep(const Real& a_dt);
       void enforceTimeStep(const Real  a_local_dt);
       void preTimeStep();
       void postTimeStep();
@@ -78,11 +78,16 @@ class Simulation
 
       Real m_cur_time;
       Real m_max_time;
+      Real m_new_epsilon;
 
       Real m_cur_dt;
       Real m_fixed_dt;
       Real m_cfl;
+      Real m_dt_light;
+      Real m_dt_parts;
       Real m_cfl_scatter;
+      Real m_dt_scatter;
+      int m_dt_scatter_interval;
       bool m_adapt_dt;
       static const Real s_DT_EPS;
 

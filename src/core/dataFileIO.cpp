@@ -36,6 +36,63 @@ dataFileIO::dataFileIO( ParmParse&   a_ppsys,
 
 }
 
+inline
+std::string dirPrefix( const std::string& a_prefix )
+{
+   std::string dir_prefix( a_prefix );
+#if 1  // warning, OS dependencies, will not work on all platforms
+   std::string iter_str( a_prefix + "_data" );
+#ifdef CH_MPI
+   if (procID() == 0) {
+#endif
+      // only works the first time, subsequent failure is normal and expected
+      mkdir( iter_str.c_str(), 0777 );
+#ifdef CH_MPI
+   }
+#endif
+   dir_prefix = std::string( iter_str + "/" );
+#endif
+   return dir_prefix;
+}
+
+inline
+std::string plotFileName( const std::string& a_prefix,
+                          const std::string& a_diag_name )
+{  
+   std::string dir_prefix( dirPrefix( a_prefix ) );
+   std::string filename( dir_prefix + a_diag_name + ".h5" );
+   return filename;
+}
+
+inline
+std::string plotFileName( const std::string& a_prefix,
+                          const std::string& a_diag_name,
+                          const int a_cur_step )
+{  
+   std::string dir_prefix( dirPrefix( a_prefix ) );
+   char buffer[100];
+   sprintf( buffer, "%04d.", a_cur_step );
+   std::string filename( dir_prefix + a_diag_name + buffer + "h5" );
+   return filename;
+}
+
+inline
+std::string plotFileName( const std::string& a_prefix,
+                          const std::string& a_diag_name,
+                          const std::string& a_species_name,
+                          const int a_cur_step,
+                          const int a_species_index )
+{
+   std::string dir_prefix( dirPrefix( a_prefix ) );
+   char buffer0[10];
+   char buffer[20];
+   sprintf( buffer0, ".%d.", a_species_index);
+   sprintf( buffer, "%04d", a_cur_step );
+   std::string filename( dir_prefix + a_prefix + buffer0 + a_species_name + "." + a_diag_name + buffer + "." );
+
+   return filename;
+}
+
 void dataFileIO::writeMeshDataFile()
 {
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -45,9 +102,14 @@ void dataFileIO::writeMeshDataFile()
 
 #ifdef CH_USE_HDF5
 
-   const std::string plotFileName = "mesh.h5";
-   HDF5Handle handle( plotFileName.c_str(), HDF5Handle::CREATE );
+   //const std::string plotFileName = "mesh_data/mesh.h5";
+   //HDF5Handle handle( plotFileName.c_str(), HDF5Handle::CREATE );
   
+   std::string prefix = "mesh";
+   std::string plotFileNameMesh( plotFileName( prefix,
+                                               "mesh" ) );
+   HDF5Handle handle( plotFileNameMesh.c_str(), HDF5Handle::CREATE );
+   
    handle.setGroup("/");
 
    //
@@ -198,62 +260,6 @@ void dataFileIO::writeMeshDataFile()
 
 }
 
-
-
-inline
-std::string dirPrefix( const std::string& a_prefix,
-                       const std::string& a_diag_name )
-{
-   std::string dir_prefix( a_prefix );
-#if 1  // warning, OS dependencies, will not work on all platforms
-   //std::string iter_str( a_prefix + "_" + a_diag_name + "_plots" );
-   std::string iter_str( a_prefix + "_data" );
-#ifdef CH_MPI
-   if (procID() == 0) {
-#endif
-      // only works the first time, subsequent failure is normal and expected
-      mkdir( iter_str.c_str(), 0777 );
-#ifdef CH_MPI
-   }
-#endif
-   dir_prefix = std::string( iter_str + "/" );
-#endif
-   return dir_prefix;
-}
-
-
-inline
-std::string plotFileName( const std::string& a_prefix,
-                          const std::string& a_diag_name,
-                          const int a_cur_step )
-{  
-   std::string dir_prefix( dirPrefix( a_prefix, a_diag_name ) );
-   char buffer[100];
-   sprintf( buffer, "%04d.", a_cur_step );
-   //std::string filename( dir_prefix + a_prefix + "." + a_diag_name + buffer );
-   std::string filename( dir_prefix + a_diag_name + buffer + "h5" );
-   return filename;
-}
-
-
-inline
-std::string plotFileName( const std::string& a_prefix,
-                          const std::string& a_diag_name,
-                          const std::string& a_species_name,
-                          const int a_cur_step,
-                          const int a_species_index )
-{
-   std::string dir_prefix( dirPrefix( a_prefix, a_diag_name ) );
-   char buffer0[10];
-   char buffer[20];
-   sprintf( buffer0, ".%d.", a_species_index);
-   sprintf( buffer, "%04d", a_cur_step );
-   std::string filename( dir_prefix + a_prefix + buffer0 + a_species_name + "." + a_diag_name + buffer + "." );
-
-   return filename;
-}
-
-      
 void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
                                                      const int                     a_cur_step, 
                                                      const double                  a_cur_time )
@@ -266,13 +272,16 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
    
-   std::string prefix = "field";
+   std::string base_dir = dirPrefix("mesh");
+   stringstream s;
+   s << base_dir << "field"; 
+   std::string prefix = s.str();
+   //std::string prefix = "mesh_data/field";
    std::string plotFileNameFields( plotFileName( prefix,
                                                  "fields",
                                                  a_cur_step ) );
-
-   HDF5Handle handle( plotFileNameFields.c_str(), HDF5Handle::CREATE );
    
+   HDF5Handle handle( plotFileNameFields.c_str(), HDF5Handle::CREATE );
    
    //
    // write the default header
@@ -449,7 +458,6 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
 
 }      
 
-
 void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                               const int          a_species,
                                               const int          a_cur_step,
@@ -458,16 +466,63 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    CH_TIME("dataFileIO::writeNeutralSpeciesDataFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
    
+   if(!procID()) {
+      cout << "writing neutral species data file" << endl;
+      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
+      cout << "... " << endl;
+   }
+
+   // write the species particle data file
+   writeSpeciesParticleFile( a_picSpecies, a_species, a_cur_step, a_cur_time );
+   
+   // write the species moment data file
+   writeSpeciesMomentsFile( a_picSpecies, a_species, a_cur_step, a_cur_time, false, false );
+   
+   if(!procID()) cout << "finished writing neutral species data file" << endl << endl;
+
+}
+
+void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
+                                              const int          a_species,
+                                              const int          a_cur_step,
+                                              const double       a_cur_time,
+                                              const bool         a_write_charge_density,
+                                              const bool         a_write_current_density )
+{
+   CH_TIME("dataFileIO::writeChargedSpeciesDataFile()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+   
+   if(!procID()) {
+      cout << "writing charged species data file" << endl;
+      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
+      cout << "... " << endl;
+   }
+
+   // write the species particle data file
+   writeSpeciesParticleFile( a_picSpecies, a_species, a_cur_step, a_cur_time );
+   
+   // write the species moment data file
+   writeSpeciesMomentsFile( a_picSpecies, a_species, a_cur_step, a_cur_time, 
+                            a_write_charge_density, a_write_current_density );
+   
+   if(!procID()) cout << "finished writing charged species data file" << endl << endl;
+
+}
+
+void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
+                                           const int          a_species,
+                                           const int          a_cur_step,
+                                           const double       a_cur_time )
+{
+   CH_TIME("dataFileIO::writeSpeciesParticleFile()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+   
    // get references to particle data   
    const ParticleData<JustinsParticle>& a_Pdata = a_picSpecies.partData();
    
-   // It is the job of the caller to maker sure the moments are set
-   const LevelData<FArrayBox>& density  = a_picSpecies.getNumberDensity();
-   const LevelData<FArrayBox>& momentum = a_picSpecies.getMomentumDensity();
-   const LevelData<FArrayBox>& energy   = a_picSpecies.getEnergyDensity();
-   
-   if(!procID()) {
-      cout << "writing neutral species data file" << endl;
+   int verbosity = 0;
+   if(!procID() && verbosity) {
+      cout << "writing species " << a_species << " particle file" << endl;
       cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
       cout << "... " << endl;
    }
@@ -475,12 +530,10 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
    
-   ///////////// 
-   //
-   //   write the particles
-   //
+   // create the species particle file
+   std::string base_dir = dirPrefix("particle");
    stringstream s;
-   s << "species" << a_species; 
+   s << base_dir << "species" << a_species; 
    std::string prefix = s.str();
    std::string plotFileNameParts( plotFileName( prefix,
                                                 "parts",
@@ -491,11 +544,8 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    handleParts.setGroup("/");
 
    // write the header stuff
-   //
    HDF5HeaderData headerParts;
    
-   // set the component names
-   //
    Vector<string> vectNames;
    char field_name[50];
    char comp_name[50];
@@ -504,27 +554,6 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    coords[1] = '1';
    coords[2] = '2';
 
-   // first write header for mesh data
-   //
-   int numMeshComps = density.nComp() + momentum.nComp() + energy.nComp();
-   vectNames.push_back("density");
-   for (int dir=0; dir<momentum.nComp(); dir++) {
-      sprintf(field_name, "momentumDensity_%c", coords[dir]);
-      vectNames.push_back(field_name);
-   }
-   for (int dir=0; dir<energy.nComp(); dir++) {
-      sprintf(field_name, "energyDensity_%c", coords[dir]);
-      vectNames.push_back(field_name);
-   }
-   for(int i=0; i<numMeshComps; i++) {
-      sprintf(comp_name,"component_%d", i);
-      headerParts.m_string[comp_name] = vectNames[i];
-   }
-   headerParts.m_int["num_components"] = numMeshComps;
-
-
-   // now write header for particles
-   //
    vectNames.clear();
    vectNames.push_back("particle_weight");
    for (int dir=0; dir<SpaceDim; dir++) {
@@ -558,14 +587,12 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
  
    headerParts.writeToFile(handleParts);
 
-
    //
    ///////////////////////////////////// 
-
+   //
 
    const std::string groupName = std::string("species_data");
    handleParts.setGroup(groupName);  
-
 
    int totalParticleCount = a_Pdata.numParticles();
    headerParts.m_int["num_particles"] = totalParticleCount;
@@ -585,6 +612,108 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    write(handleParts, grids);
    writeParticlesToHDF(handleParts, a_Pdata, "particles", a_picSpecies.writeAll() );
 
+   //
+   // close the handle
+   //
+
+   handleParts.close();
+   
+   if(!procID() && verbosity) {
+      cout << "finished writing species " << a_species << " particle file" << endl << endl;
+   }
+
+}
+
+void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
+                                          const int          a_species,
+                                          const int          a_cur_step,
+                                          const double       a_cur_time,
+                                          const bool         a_write_charge_density,
+                                          const bool         a_write_current_density )
+{
+   CH_TIME("dataFileIO::writeSpeciesMomentsFile()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+   
+   // It is the job of the caller to maker sure the moments are set
+   const LevelData<FArrayBox>& density  = a_picSpecies.getNumberDensity();
+   const LevelData<FArrayBox>& momentum = a_picSpecies.getMomentumDensity();
+   const LevelData<FArrayBox>& energy   = a_picSpecies.getEnergyDensity();
+  
+   int verbosity = 0; 
+   if(!procID() && verbosity) {
+      cout << "writing species moments file" << endl;
+      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
+      cout << "... " << endl;
+   }
+   
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   // create the species moment file
+   std::string base_dir = dirPrefix("mesh");
+   stringstream s;
+   s << base_dir << "species" << a_species; 
+   std::string prefix = s.str();
+   std::string plotFileNameParts( plotFileName( prefix,
+                                                "moments",
+                                                a_cur_step ) );
+
+   HDF5Handle handleParts( plotFileNameParts.c_str(), HDF5Handle::CREATE );
+   
+   handleParts.setGroup("/");
+
+   //
+   // write the header stuff
+   //
+
+   HDF5HeaderData headerParts;
+   
+   Vector<string> vectNames;
+   char field_name[50];
+   char comp_name[50];
+   char coords[3];
+   coords[0] = '0';
+   coords[1] = '1';
+   coords[2] = '2';
+
+   int numMeshComps = density.nComp() + momentum.nComp() + energy.nComp();
+   vectNames.push_back("density");
+   for (int dir=0; dir<momentum.nComp(); dir++) {
+      sprintf(field_name, "momentumDensity_%c", coords[dir]);
+      vectNames.push_back(field_name);
+   }
+   for (int dir=0; dir<energy.nComp(); dir++) {
+      sprintf(field_name, "energyDensity_%c", coords[dir]);
+      vectNames.push_back(field_name);
+   }
+   for(int i=0; i<numMeshComps; i++) {
+      sprintf(comp_name,"component_%d", i);
+      headerParts.m_string[comp_name] = vectNames[i];
+   }
+   headerParts.m_int["num_components"] = numMeshComps;
+
+   headerParts.writeToFile(handleParts);
+
+   //
+   ///////////////////////////////////// 
+   //
+
+   const std::string groupName = std::string("species_data");
+   handleParts.setGroup(groupName);  
+
+
+   headerParts.m_real["mass"] = a_picSpecies.mass();
+   headerParts.m_int["charge"] = a_picSpecies.charge();
+   headerParts.m_real["Uint"] = a_picSpecies.Uint();
+   headerParts.m_int["step_number"] = a_cur_step;
+   headerParts.m_real["time"] = a_cur_time;
+   headerParts.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
+   //headerParts.m_real["number_density_scale_SI"] = m_units.getScale(m_units.NUMBER_DENSITY);
+   headerParts.m_box["prob_domain"] = domain.domainBox();
+   
+   // write the header 
+   headerParts.writeToFile(handleParts);
+ 
 
    // write the moment data
    LevelData<FArrayBox> momentData;
@@ -605,16 +734,96 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    write(handleParts, momentData.boxLayout());
    write(handleParts, momentData, "data", density.ghostVect());
    
+   if(a_write_charge_density) {
+      
+      //
+      // write the cell centered charge density
+      //
+   
+      const LevelData<FArrayBox>& chargeDensity  = a_picSpecies.getChargeDensity();
+      
+      const std::string groupRho_Name = std::string("cell_centered_charge_density");
+      handleParts.setGroup(groupRho_Name);
+   
+      headerParts.clear();
+      headerParts.m_int["is_cellbox"] = 1;
+      headerParts.m_int["num_components"] = chargeDensity.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, chargeDensity.boxLayout());
+      write(handleParts, chargeDensity, "data", chargeDensity.ghostVect());
+
+      //
+      // write the face centered charge density
+      //
+   
+      const LevelData<FluxBox>& chargeDenOnFaces  = a_picSpecies.getChargeDensityOnFaces();
+
+      const std::string groupRhoFaces_Name = std::string("face_centered_charge_density");
+      handleParts.setGroup(groupRhoFaces_Name);
+   
+      headerParts.clear();
+      headerParts.m_int["is_fluxbox"] = 1;
+      headerParts.m_int["num_components"] = chargeDenOnFaces.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, chargeDenOnFaces.boxLayout());
+      write(handleParts, chargeDenOnFaces, "data", chargeDenOnFaces.ghostVect());
+
+   }
+
+   if(a_write_current_density) {
+
+      //
+      // write the edge centered current density
+      //
+
+      const LevelData<EdgeDataBox>& JonEdges  = a_picSpecies.getCurrentDensity();
+      const std::string groupJ_Name = std::string("current_density");
+      handleParts.setGroup(groupJ_Name);
+   
+      headerParts.clear();
+      headerParts.m_int["is_edgebox"] = 1;
+      headerParts.m_int["num_components"] = JonEdges.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, JonEdges.boxLayout());
+      write(handleParts, JonEdges, "data", JonEdges.ghostVect());
+
+      //
+      // write the node centered virtual current density for 1D/2D sims
+      //
+   
+      if(SpaceDim<3) {
+         const LevelData<NodeFArrayBox>& JvirtOnNodes  = a_picSpecies.getCurrentDensity_virtual();
+         const std::string groupJvirtOnNodes_Name = std::string("virtual_current_density");
+         handleParts.setGroup(groupJvirtOnNodes_Name);
+   
+         headerParts.clear();
+         headerParts.m_int["is_nodebox"] = 1;
+         headerParts.m_int["num_components"] = JvirtOnNodes.nComp();
+         headerParts.m_box["prob_domain"] = domain.domainBox(); 
+         headerParts.writeToFile(handleParts);
+   
+         write(handleParts, JvirtOnNodes.boxLayout());
+         write(handleParts, JvirtOnNodes, "data", JvirtOnNodes.ghostVect());
+      }
+
+   }
+   
    //
    // close the handle
    //
 
    handleParts.close();
    
-   if(!procID()) cout << "finished writing neutral species data file" << endl << endl;
+   if(!procID() && verbosity) cout << "finished writing species moment data file" << endl << endl;
 
 }
-
+/*
 void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                               const int          a_species,
                                               const int          a_cur_step,
@@ -871,6 +1080,7 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
    if(!procID()) cout << "finished writing charged species data file" << endl << endl;
 
 }
+*/
 
 void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,
                                       const int                      a_cur_step,

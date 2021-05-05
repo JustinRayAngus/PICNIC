@@ -151,9 +151,6 @@ public:
   // bin the particle up for scattering
   void binTheParticles();
   
-  // test particle shuffling
-  void testParticleShuffling( const Real&  a_dt );
-
   //const PicSpecies& operator=( const PicSpecies& a_species );
   
   void inspectBinFab()
