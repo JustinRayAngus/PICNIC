@@ -1,1 +1,0 @@
-rm -r log.txt pout* time.table* slurm* mesh.h5 particle_data

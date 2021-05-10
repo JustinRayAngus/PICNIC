@@ -1,1 +1,0 @@
-../exec/myPIC2d.Linux.64.mpicxx.gfortran.DEBUG.MPI.ex
