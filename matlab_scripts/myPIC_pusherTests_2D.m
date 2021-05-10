@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
-%%%   2D boris pusher tests using myPIC
+%%%   2D boris pusher tests using PICNIC
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all;
@@ -105,7 +105,7 @@ f1=figure(1); set(f1,'position',[1170 310 520 420]);
 set(gcf,'color','white');
 
 images = cell(1,1);
-v=VideoWriter('./boris2D.mp4', 'MPEG-4');
+v=VideoWriter('./figs/boris2D.mp4', 'MPEG-4');
 v.FrameRate = 2;
 open(v);
 
@@ -152,7 +152,7 @@ for iL=1:iLmax
     set(gca,'xtick',-1:0.25:1); ylabel('y [cm]');    
     title('electron orbit for uniform B_z');
     
-    NameString = 'pusher2D';
+    NameString = './figs/pusher2D';
     print(NameString,'-dpng','-r200');
     images = imread(sprintf([NameString,'.png']));
     frame = im2frame(images);

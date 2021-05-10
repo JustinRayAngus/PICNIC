@@ -11,8 +11,8 @@ qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
 rootPath = '../fromQuartz/fieldTests/test0_2D/';
-%rootPath = '../fromQuartz/fieldTests/test1_2D/';
-%rootPath = '../fromQuartz/fieldTests/test2_2D/';
+rootPath = '../fromQuartz/fieldTests/test1_2D/';
+rootPath = '../fromQuartz/fieldTests/test2_2D/';
 
 ghosts = 0;
 
@@ -113,7 +113,7 @@ f1=figure(1); set(f1,'position',[380 280 1400 700]);
 set(gcf,'color','white');
 
 images = cell(1,1);
-v=VideoWriter('./EMfield2D.mp4', 'MPEG-4');
+v=VideoWriter('./figs/EMfield2D.mp4', 'MPEG-4');
 v.FrameRate = 2;
 open(v);
 
@@ -227,7 +227,7 @@ for iL=1:iLmax
     %
     %
     
-    NameString = 'field2D';
+    NameString = './figs/field2D';
     print(NameString,'-dpng','-r200');
     images = imread(sprintf([NameString,'.png']));
     frame = im2frame(images);

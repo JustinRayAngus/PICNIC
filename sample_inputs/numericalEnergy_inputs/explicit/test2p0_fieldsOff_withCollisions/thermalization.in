@@ -23,6 +23,7 @@ simulation.max_time            = 2000.0
 #simulation.cfl_number          = 0.565
 #simulation.cfl_scatter         = 0.001
 simulation.fixed_dt            = 0.10
+simulation.dt_scatter_interval = 10
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 100.0
 simulation.plot_prefix         = "plt"
@@ -79,7 +80,7 @@ pic_species.1.name   = "electron"
 pic_species.1.mass   = 1.0
 pic_species.1.charge = -1
 pic_species.1.motion = true
-pic_species.1.forces = true
+pic_species.1.forces = false
 pic_species.1.scatter = true
 
 IC.electron.X_min = 0.0
@@ -106,7 +107,7 @@ pic_species.2.name   = "proton"
 pic_species.2.mass   = 1836.15
 pic_species.2.charge = 1
 pic_species.2.motion = true
-pic_species.2.forces = true
+pic_species.2.forces = false
 pic_species.2.scatter = true
 
 IC.proton.X_min = 0.0

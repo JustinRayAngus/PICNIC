@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
-%%%   2D numerical energy conservation tests using myPIC
+%%%   2D numerical energy conservation tests using PICNIC
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all;
@@ -15,20 +15,17 @@ ep0 = 1/mu0/cvac^2;
 species = 1; thisFig = 1;
 
 rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOn_noCollisions/'; thisFig = 1;
-%rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOff_withCollisions/'; thisFig = 2;
-%rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOn_withCollisions/'; thisFig = 3;
-
-
-rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax2/'; thisFig = 4;
-rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax5/'; thisFig = 5;
-rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax10/'; thisFig = 6;
+rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOff_withCollisions/'; thisFig = 2;
+rootPath = '../fromQuartz/numericalEnergyTests/explicit/test2p0_fieldsOn_withCollisions/'; thisFig = 3;
 %
-rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax2/'; thisFig = 7;
-rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax5/'; thisFig = 8;
-rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax10/'; thisFig = 9;
+%rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax2/'; thisFig = 4;
+%rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax5/'; thisFig = 5;
+%rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/noCollisions/test2p0_iterMax10/'; thisFig = 6;
 %
-rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/testing/'; thisFig = 8;
-
+%rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax2/'; thisFig = 7;
+%rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax5/'; thisFig = 8;
+%rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test2p0_iterMax10/'; thisFig = 9;
+%
 %rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/noCollisions/test2p0_iterMax2/'; thisFig = 10;
 %rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/noCollisions/test2p0_iterMax6/'; thisFig = 11;
 %rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/noCollisions/test2p0_iterMax12/'; thisFig = 12;
@@ -38,8 +35,6 @@ rootPath = '../fromQuartz/numericalEnergyTests/semi_implicit/withCollisions/test
 %rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/withCollisions/test2p0_iterMax6/'; thisFig = 15;
 %rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/withCollisions/test2p0_iterMax12/'; thisFig = 16;
 %rootPath = '../fromQuartz/numericalEnergyTests/fully_implicit/withCollisions/test2p0_iterMax18/'; thisFig = 17;
-
-%rootPath = '../myPIC/semiImplicitTests/noCollisions/testing_iterMax5_newChombo/'; thisFig = 100;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%

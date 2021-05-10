@@ -11,7 +11,7 @@ cvac = 2.99792458e8;       % speed of light [m/s]
 
 species = 1;
 rootPath = '../fromQuartz/depositTests/test0_2D/';
-%rootPath = '../fromQuartz/depositTests/test1_2D/';
+rootPath = '../fromQuartz/depositTests/test1_2D/';
 ghosts = 1; % must have ghosts in output for this test
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -90,7 +90,7 @@ f1=figure(1); set(f1,'position',[740 540 1000 500]);
 set(gcf,'color','white');
 
 images = cell(1,1);
-v=VideoWriter('./deposit2D.mp4', 'MPEG-4');
+v=VideoWriter('./figs/deposit2D.mp4', 'MPEG-4');
 v.FrameRate = 1;
 open(v);
 
@@ -181,7 +181,7 @@ for iL=1:iLmax
     xlabel('Z'); ylabel('X');   
     
     
-    NameString = 'deposit2D';
+    NameString = './figs/deposit2D';
     print(NameString,'-dpng','-r200');
     images = imread(sprintf([NameString,'.png']));
     frame = im2frame(images);

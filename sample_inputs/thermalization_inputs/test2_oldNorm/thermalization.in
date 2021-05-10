@@ -18,6 +18,7 @@ simulation.max_step            = 100000
 simulation.max_time            = 3.54e-14
 #simulation.cfl_number          = 0.7
 #simulation.cfl_scatter         = 0.001
+#simulation.dt_scatter_interval = 10
 simulation.fixed_dt            = 3.10e-18
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 1.77e-15

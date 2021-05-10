@@ -5,9 +5,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all;
 
-rootPath = '../myPIC/fieldTests/testingNode3x3/'; thisFig = 3;
-%rootPath = '../myPIC/fieldTests/testingNode3x3_newExchange/'; thisFig = 4;
-%rootPath = '../myPIC/fieldTests/testingNode3x3_defaultExchange/'; thisFig = 5;
+rootPath = '../fromQuartz/fieldTests/testingNode3x3/'; thisFig = 3;
 ghosts = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -16,7 +14,7 @@ ghosts = 0;
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh.h5'];
+meshFile = [rootPath,'mesh_data/mesh.h5'];
 
 groupName = '/cell_centered_grid';
 data1 = import2Ddata_singleFile(meshFile,groupName,1);

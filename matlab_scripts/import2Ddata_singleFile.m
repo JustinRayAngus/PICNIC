@@ -9,7 +9,7 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
-%%%   import 2D data from myPIC output files
+%%%   import 2D data from PICNIC output files
 %%%
 %%%   input parameters:
 %%%   fileName = 'string/to/plt_something_plots/thisFile'
