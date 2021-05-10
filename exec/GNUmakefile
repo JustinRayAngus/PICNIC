@@ -5,7 +5,7 @@
 ## Define the variables needed by Make.example
 
 # the base name(s) of the application(s) in this directory
-ebase = myPIC
+ebase = picnic
 
 # the location of the Chombo "lib" directory
 #CHOMBO_HOME = ../../Chombo_3.2/lib

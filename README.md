@@ -1,5 +1,4 @@
-# HEMPc
+# PICNIC
 
-Hybrid Extended-Mhd Particle Code using Chombo framework
+PICNIC is a Particle-In-Cell code with Nicely Incorporated Collisions
 
-Using Chombo 3.2, which has tools for handeling particles

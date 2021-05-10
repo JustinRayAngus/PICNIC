@@ -30,8 +30,8 @@ inline int checkCommandLineArgs( int a_argc, char* a_argv[] )
 {  
    // Check for an input file
    if (a_argc<=1) {
-      pout() << "Usage:  myPIC...ex <inputfile>" << endl;
-      pout() << "No input file specified" << endl;
+      cout << "Usage: PICNIC...ex <inputfile>" << endl;
+      cout << "No input file specified" << endl;
       return -1;
    }
    return 0;
@@ -69,8 +69,8 @@ int main(int a_argc, char* a_argv[])
    num_procs = 1;
 #endif
 
-   if(rank==0) cout << "myPIC: number of procs = " << num_procs << endl;
-   if(rank==0) cout << "myPIC: SpaceDim = " << SpaceDim << endl << endl;
+   if(rank==0) cout << "PICNIC: number of procs = " << num_procs << endl;
+   if(rank==0) cout << "PICNIC: SpaceDim = " << SpaceDim << endl << endl;
 
    // Check for an input file
    char* inFile = NULL;
