@@ -1,0 +1,158 @@
+#####################################################
+# Verbosity Definitions
+#####################################################
+simulation.verbosity = 10
+#simulation.fixed_random_seed = 1983
+
+###   some fundamental parameters for
+###   N = 1.0e30/m^3, Ti = Te = 100eV:
+###   1/wpe0 = 1.77e-17 s
+###   de0 = cvac/wpe0 =  5.314e-9 m
+###   taue0 = 3.44e-17 s
+###   taui0 = 1.04e-15 s
+
+system.advance_method = "PICMC_EXPLICIT"
+system.write_species_charge_density = false
+system.write_species_current_density = false
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 1
+simulation.max_step            = 100000
+simulation.max_time            = 2000.0
+#simulation.cfl_number          = 0.565
+#simulation.cfl_scatter         = 0.001
+simulation.fixed_dt            = 0.10
+simulation.dt_scatter_interval = 10
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 100.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 40 40 
+grid.is_periodic   = 1  1
+grid.config_decomp = 10 10
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 1
+
+grid.X_min = 0.0
+grid.X_max = 10.0 # 10*de0
+grid.Z_min = 0.0
+grid.Z_max = 10.0 # 10*de0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 5.314e-9  # m
+units.time           = 1.77e-17  # s
+
+#####################################################
+# Fields Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = false
+#em_fields.advance_electric_field = 1 1 0
+#em_fields.advance_magnetic_field = 0 0 1
+#em_fields.write_curls = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+#####################################################
+# Species Definitions
+#####################################################
+pic_species.1.name   = "electron"
+pic_species.1.mass   = 1.0
+pic_species.1.charge = -1
+pic_species.1.motion = true
+pic_species.1.forces = false
+pic_species.1.scatter = true
+
+IC.electron.X_min = 0.0
+IC.electron.X_max = 10.0
+IC.electron.Z_min = 0.0
+IC.electron.Z_max = 10.0
+IC.electron.parts_per_cell = 10 10
+IC.electron.density.type = "constant"
+IC.electron.density.value = 1.0e30 # [number/m^3]
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 100.0 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 100.0 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 100.0 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 0.0
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+pic_species.2.name   = "proton"
+pic_species.2.mass   = 1836.15
+pic_species.2.charge = 1
+pic_species.2.motion = true
+pic_species.2.forces = false
+pic_species.2.scatter = true
+
+IC.proton.X_min = 0.0
+IC.proton.X_max = 10.0
+IC.proton.Z_min = 0.0
+IC.proton.Z_max = 10.0
+IC.proton.parts_per_cell = 10 10
+IC.proton.density.type = "constant"
+IC.proton.density.value = 1.0e30 # [number/m^3]
+IC.proton.temperature_0.type = "constant"
+IC.proton.temperature_0.value = 100.0 # [eV]
+IC.proton.temperature_1.type = "constant"
+IC.proton.temperature_1.value = 100.0 # [eV]
+IC.proton.temperature_2.type = "constant"
+IC.proton.temperature_2.value = 100.0 # [eV]
+IC.proton.velocity_0.type = "constant"
+IC.proton.velocity_0.value = 0.0
+IC.proton.velocity_1.type = "constant"
+IC.proton.velocity_1.value = 0.0
+IC.proton.velocity_2.type = "constant"
+IC.proton.velocity_2.value = 0.0
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.1.model = "TA"
+scattering.1.species1 = 1
+scattering.1.species2 = 1
+scattering.1.coulomb_logarithm = 3.0
+
+scattering.2.model = "TA"
+scattering.2.species1 = 2
+scattering.2.species2 = 2
+scattering.2.coulomb_logarithm = 3.0
+
+scattering.3.model = "TA"
+scattering.3.species1 = 2
+scattering.3.species2 = 1
+scattering.3.coulomb_logarithm = 3.0
+
+#####################################################
+
+

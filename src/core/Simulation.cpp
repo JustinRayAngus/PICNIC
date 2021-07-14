@@ -1,6 +1,7 @@
 #include "Simulation.H"
 #include <limits>
 
+#include "MathUtils.H"
 #include "LoadBalance.H"
 
 #include "NamespaceHeader.H"
@@ -25,10 +26,11 @@ Simulation::Simulation( ParmParse& a_pp )
        m_plot_time_interval(0.0),
        m_plot_time(0.0),
        m_last_plot(0),
+       m_plot_prefix( "plt" ),
        m_history(false),
        m_history_interval(1),
        m_last_history(0),
-       m_plot_prefix( "plt" ),
+       m_fixed_random_seed(-1),
        m_system( NULL )
 #ifdef CH_USE_TIMER
 ,
@@ -67,8 +69,10 @@ Simulation::Simulation( ParmParse& a_pp )
       m_last_plot = m_cur_step;
       if ( m_plot_time_interval>=0.0 ) m_plot_time = m_plot_time_interval;
    }
-   //writeHistFile(m_history); // "true" forces a write on start-up
-   //m_last_history = m_cur_step;
+   if(m_history) {
+      writeHistFile(true);
+      m_last_history = m_cur_step;
+   }
 
 #ifdef CH_USE_TIMER
    setup_timer->stop();
@@ -112,7 +116,8 @@ void Simulation::printParameters()
       }
       if(m_cfl_scatter) std::cout << "scatter dt multiplier = " << m_cfl_scatter << endl;
       if(m_cfl_scatter) std::cout << "scatter dt interval = " << m_dt_scatter_interval << endl;
-      if(m_history)                std::cout << "hist step interval = " << m_history_interval << endl;
+      if(m_history)     std::cout << "history step interval = " << m_history_interval << endl;
+      if(m_fixed_random_seed>=0)     std::cout << "fixed random seed = " << m_fixed_random_seed<< endl;
       std::cout << endl;
    }
 }
@@ -171,11 +176,10 @@ bool Simulation::notDone()
    //Real delta = m_cur_time - m_max_time;
    //Real delta = m_cur_time - m_max_time*(1.0-s_DT_EPS);
    Real delta = m_cur_time - m_max_time + m_new_epsilon;
-   
+
    return ( (m_cur_step<m_max_step) && (delta<0.0) );
 
 }
-
 
 void Simulation::advance()
 {
@@ -303,7 +307,12 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
    a_ppsim.query("history", m_history);
    a_ppsim.query("history_interval", m_history_interval );
    if(m_history) CH_assert( m_history_interval>0 );
-
+   
+   // seed for the global random number generator
+   a_ppsim.query( "fixed_random_seed", m_fixed_random_seed );
+   if(m_fixed_random_seed>=0) m_fixed_random_seed = m_fixed_random_seed*(procID() + 1);
+   MathUtils::seedRNG(m_fixed_random_seed);
+   
    if (m_verbosity) {
       printParameters();
    }
@@ -343,7 +352,12 @@ void Simulation::postTimeStep()
          m_last_plot = m_cur_step;
       }
    }
-   //writeHistFile(false);
+   if(m_history) {
+      if ( (m_cur_step % m_history_interval)==0 ) {
+         writeHistFile(false);
+         m_last_history = m_cur_step;
+      }
+   }
 
    m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
 }
@@ -355,7 +369,10 @@ void Simulation::preTimeStep()
    // set the stable time step
    if(m_cur_time==0.0) {
       m_dt_light = m_system->fieldsDt( m_cur_step )*m_cfl;
-      if(m_fixed_dt<0.0) {
+      if(m_fixed_dt>0.0) {
+         CH_assert(m_cur_dt<=m_dt_light);
+      }
+      else {
          m_cur_dt = std::min( m_cur_dt, m_dt_light );
          m_system->adaptDt(m_adapt_dt);
       }
@@ -372,7 +389,6 @@ void Simulation::preTimeStep()
       m_cur_dt = std::min( m_cur_dt, dt_specialOps );
       enforceTimeStep( m_cur_dt );
    } 
-   CH_assert( m_cur_dt > 1.0e-30 );
    
    // If less than a time step from the final time, adjust time step
    // to end just over the final time.

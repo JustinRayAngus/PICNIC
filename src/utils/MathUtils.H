@@ -19,12 +19,9 @@
    
 extern std::mt19937 global_rand_gen;
    
-// this is not best way to do this. This means
-// that each file that has the MathUtils.H header file
-// will have its own local static random number engine.
-// But I can't figure out how to do it better yet.
-//static std::random_device global_rd;
-//static std::mt19937 global_rand_gen(global_rd());
+// This (using extern) may not be the best way to do this. 
+// Does this mean that each file that includes the MathUtils.H 
+// file will have its own local static random number engine?
 
 namespace MathUtils {
 
@@ -40,6 +37,8 @@ namespace MathUtils {
    int randInt(const int& A, const int& B);
    
    double randn();
+
+   void seedRNG( const int&  a_seed );
 
 }
 

@@ -101,6 +101,8 @@ class Simulation
       int         m_history_interval;
       int         m_last_history;
 
+      int m_fixed_random_seed;
+
       System* m_system;
 
 #ifdef CH_USE_TIMER

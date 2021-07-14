@@ -1,0 +1,98 @@
+#####################################################
+# Verbosity Definitions
+#####################################################
+simulation.verbosity = 10
+#simulation.fixed_random_seed = 1983
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 10
+simulation.max_step            = 100000
+simulation.max_time            = 9.0e-3
+simulation.cfl_number          = 0.7
+simulation.cfl_scatter         = 0.5
+simulation.dt_scatter_interval = 10
+#simulation.fixed_dt            = 1.0e-5
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 5.0e-4
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 64
+grid.is_periodic   = 0
+grid.config_decomp = 8
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 1
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.Z_min = -1.0
+grid.Z_max = 1.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 1.0  # m
+units.time           = 1.0  # s
+
+#####################################################
+# Species Definitions
+#####################################################
+pic_species.1.name   = "deuteriumAtom"
+pic_species.1.mass   = 3671.3
+pic_species.1.charge = 0
+pic_species.1.motion = false # must be false to use piston operator
+pic_species.1.forces = false
+pic_species.1.scatter = true
+
+IC.deuteriumAtom.X_min = 0.0
+IC.deuteriumAtom.X_max = 1.0
+IC.deuteriumAtom.Z_min = -1.0
+IC.deuteriumAtom.Z_max = 1.0
+IC.deuteriumAtom.parts_per_cell = 128
+IC.deuteriumAtom.density.type = "constant"
+IC.deuteriumAtom.density.value = 1.0e21 # [number/m^3]
+IC.deuteriumAtom.temperature_0.type = "constant"
+IC.deuteriumAtom.temperature_0.value = 0.0 # [eV]
+IC.deuteriumAtom.temperature_1.type = "constant"
+IC.deuteriumAtom.temperature_1.value = 25.9e-3 # [eV]
+IC.deuteriumAtom.temperature_2.type = "constant"
+IC.deuteriumAtom.temperature_2.value = 25.9e-3 # [eV]
+IC.deuteriumAtom.velocity_0.type = "constant"
+IC.deuteriumAtom.velocity_0.value = 0.0 # [m/s]
+IC.deuteriumAtom.velocity_1.type = "constant"
+IC.deuteriumAtom.velocity_1.value = 0.0 # [m/s]
+IC.deuteriumAtom.velocity_2.type = "constant"
+IC.deuteriumAtom.velocity_2.value = -1.0e3 # [m/s]
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.1.model = "VHS"
+scattering.1.species1 = 1
+scattering.1.species2 = 1
+scattering.1.reference_temperature = 300   # [K]
+scattering.1.reference_viscosity = 1.26e-5 # [Pa-s]
+scattering.1.eta = 0.69
+
+#####################################################
+# Special Operator Definitions
+#####################################################
+
+special_operator.1.model = "piston"
+special_operator.1.direction = 0
+special_operator.1.position = 1.0
+special_operator.1.velocity = -100.0 # [m/s]
+special_operator.1.dtFrac = 0.5
+
+#####################################################
+

@@ -1,0 +1,31 @@
+This README_SIMPLE is for manually generating baselines and 
+testing via already checked out picnic and Chombo.
+(Such as would be used by developer prior to checking in.)
+
+See README for generating baselines and testing
+via an automated clean checkout of picnic and Chombo. 
+(Such as would be used for nightly regression testing.)
+
+------------------------------
+To generate baseline solutions
+------------------------------
+
+- Copy the following files to a new directory:
+    generate_baselines_simple.sh 
+- Customize generate_baselines.sh as necessary
+    (eg., set paths to picnic and Chombo dirs)
+- Execute generate_baselines_simple.sh 
+    (eg., "source generate_baselines_simple.sh > log.txt &")
+
+------------------------------
+Running tests
+------------------------------
+
+- Copy the following files to a new directory:
+    run_tests_simple.sh 
+- Customize run_tests_simple.sh as necessary:
+    (eg., set paths to picnic and Chombo dirs)
+    (eg., set paths to baselines and set the diff tolerance)
+- Execute run_tests_simple.sh
+    (eg., "source run_tests_simple.sh > log.txt &")
+

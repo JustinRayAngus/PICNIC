@@ -17,7 +17,7 @@ void VariableHardSphere::initialize( const DomainGrid&         a_mesh,
                                      const PicSpeciesPtrVect&  a_picSpeciesPtrVect )
 {
    CH_TIME("VariableHardSphere::initialize()");
-      
+
    int this_sp = m_sp1;
    CH_assert(m_sp1<a_picSpeciesPtrVect.size());
    PicSpeciesPtr this_picSpecies(a_picSpeciesPtrVect[this_sp]);
@@ -378,22 +378,21 @@ void VariableHardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
 
    cout << "VariableHardSphere::applyInterScattering() NOT YET IMPLEMENTED" << endl;
  
-   JustinsParticle* this_part1_ptr = NULL;  
-   JustinsParticle* this_part2_ptr = NULL;  
+   //JustinsParticle* this_part1_ptr = NULL;  
+   //JustinsParticle* this_part2_ptr = NULL;  
  
    // define references to picSpecies1
    //
-   LevelData<BinFab<JustinsParticlePtr>>& data1_binfab_ptr = a_picSpecies1.partData_binfab();
-   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
-   const LevelData<FArrayBox>& numberDensity1 = a_picSpecies1.getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity1 = a_picSpecies1.getEnergyDensity(setMoments);
+   //LevelData<BinFab<JustinsParticlePtr>>& data1_binfab_ptr = a_picSpecies1.partData_binfab();
+   //const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
+   //const LevelData<FArrayBox>& numberDensity1 = a_picSpecies1.getNumberDensity(setMoments);
+   //const LevelData<FArrayBox>& energyDensity1 = a_picSpecies1.getEnergyDensity(setMoments);
    
    // define references to picSpecies2
    //
-   LevelData<BinFab<JustinsParticlePtr>>& data2_binfab_ptr = a_picSpecies2.partData_binfab();
-   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity2 = a_picSpecies2.getEnergyDensity(setMoments);
-
+   //LevelData<BinFab<JustinsParticlePtr>>& data2_binfab_ptr = a_picSpecies2.partData_binfab();
+   //const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensity(setMoments);
+   //const LevelData<FArrayBox>& energyDensity2 = a_picSpecies2.getEnergyDensity(setMoments);
   
 }
 

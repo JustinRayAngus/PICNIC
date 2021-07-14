@@ -327,7 +327,6 @@ SpaceUtils::interpCellToEdges( LevelData<EdgeDataBox>&   a_edge_phi,
          edge_box.enclosedCells( dir ); // shrink hi end by 1 in dir
          
          FArrayBox& this_edge_phi_dir( this_edge_phi[dir] );
-         const FArrayBox& this_norm_vel_dir( a_norm_vel[dit][dir] );
          FORT_C2EDGE( CHF_FRA( this_edge_phi_dir ),
                       CHF_CONST_FRA( this_cell_phi ),
                       CHF_BOX( edge_box ),
@@ -801,7 +800,7 @@ SpaceUtils::simpleStagGradComp( FArrayBox&  a_dst,
    
    // create the appropriate box
    Box dst_box = a_grid_box;
-   for (int dir; dir<SpaceDim; dir++) {
+   for (int dir=0; dir<SpaceDim; dir++) {
       if(dst_box_type[dir]) dst_box.surroundingNodes(dir);  // grow dir hi end by one
    }
 
@@ -1350,7 +1349,6 @@ SpaceUtils::exchangeFluxBox( LevelData<FluxBox>& a_Face )
 
    for (dit.begin(); dit.ok(); ++dit) {
 
-      const Box& gridBox = grids[dit];
       FluxBox& thisTemp = tmp_Face[dit];
       FluxBox& thisFace = a_Face[dit];
 
@@ -1399,7 +1397,6 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
    // to be the "correct" value
 
    for (dit.begin(); dit.ok(); ++dit) {
-      const Box& gridBox = grids[dit];
       EdgeDataBox& thisTemp = tmp_Edge[dit];
       EdgeDataBox& thisEdge = a_Edge[dit];
 

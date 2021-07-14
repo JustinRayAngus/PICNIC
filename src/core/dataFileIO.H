@@ -43,6 +43,10 @@ class dataFileIO
                                                const int                     a_cur_step, 
                                                const double                  a_cur_time );
       
+      void writeEMFieldCurls( const ElectroMagneticFields&  a_emfield,
+                              HDF5Handle&                   a_handle,
+                              HDF5HeaderData&               a_header );
+      
       void writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                         const int          a_species, 
                                         const int          a_cur_step, 

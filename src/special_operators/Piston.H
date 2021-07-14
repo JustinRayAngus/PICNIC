@@ -54,7 +54,6 @@ class Piston : public SpecialOperator
          // get some Grid info
          //
          const ProblemDomain& domain(a_mesh.getDomain());
-         const RealVect& dX(a_mesh.getdX());
    
          // compute domain extent and get total num parts and sim volume
          //
@@ -131,7 +130,6 @@ class Piston : public SpecialOperator
                              const CodeUnits&   a_units,
                              const Real&        a_cnormDt )
       {
-         const ProblemDomain& domain(a_mesh.getDomain());
          const RealVect& dX(a_mesh.getdX());
          const RealVect& Xmin(a_mesh.getXmin());
          

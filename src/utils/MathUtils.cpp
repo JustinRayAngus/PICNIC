@@ -6,6 +6,17 @@
 
 #include "NamespaceHeader.H"
 
+void MathUtils::seedRNG( const int&  a_seed )
+{
+   if(a_seed < 0) {
+      std::random_device rd;
+      global_rand_gen.seed(rd());
+   }
+   else {
+      global_rand_gen.seed(a_seed);
+   }
+}
+
 double MathUtils::errorfun( const double&  a_x )
 {
    // errorfun(x) = 2/sqrt(pi)*int_0^x(exp(-x^2))dx

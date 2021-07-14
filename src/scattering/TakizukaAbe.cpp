@@ -73,10 +73,14 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
 {
    CH_TIME("TakizukaAbe::setMeanFreeTime()");
  
-   Real Teff_eV, numberDensity, energyDensity, Clog;
+   Real Teff_eV, numberDensity, energyDensity;
    Real tau;
    Real box_nuMax=0.0; // for scattering time step calculation
-   
+ 
+   // nu_12 = q1^2*q2^2*n2*Clog/(8*pi*ep0^2*mu^2*Vab^3)
+   Real nu0 = pow(Constants::QE,4.0)/8.0/Constants::PI/pow(Constants::EP0,2.0);
+   Real Vab, nuab;  
+
    Real cvacSq = Constants::CVAC*Constants::CVAC;
     
    const DisjointBoxLayout& grids = a_numberDensity.disjointBoxLayout();
@@ -102,13 +106,14 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
          Teff_eV = Constants::ME*2.0/3.0*energyDensity/numberDensity*cvacSq; // [Joules]
          Teff_eV = Constants::EV_PER_JOULE*Teff_eV; // local temperature [eV]
 
-         Clog = 10.0;
-         
          // define self-species collision time
-         tau = 3.44e5*pow(Teff_eV,1.5)/(numberDensity*Constants::M3_PER_CM3)/Clog; // [s]
-         tau = tau*sqrt(m_mass1/2.0)/pow(m_charge1*m_charge2,2);
+         
+         //Vab = 4.1938e5*sqrt(2.0*Teff_eV/m_mass1); // [m/s]
+         //nuab = nu0*pow(m_charge1*m_charge2,2)*m_Clog*numberDensity/(m_mu*m_mu*Vab*Vab*Vab); // [Hz]
+         //box_nuMax = Max(box_nuMax,nuab);
 
-         // compute nuMax [Hz]
+         tau = 3.44e5*pow(Teff_eV,1.5)/(numberDensity*Constants::M3_PER_CM3)/m_Clog; // [s]
+         tau = tau*sqrt(m_mass1/2.0)/pow(m_charge1*m_charge2,2); // [s]
          box_nuMax = Max(box_nuMax,1.0/tau);
       }
    
@@ -142,7 +147,7 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
          
    const Real factor = pow(Constants::QE*m_charge1*Constants::QE*m_charge2/Constants::EP0,2)/Constants::FOURPI; // [Joules-m]
 
-   Real tau, Clog;
+   Real tau;
    Real box_nuMax=0.0; // for scattering time step calculation
    
    Real cvacSq = Constants::CVAC*Constants::CVAC;
@@ -182,16 +187,14 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
          VT1 = sqrt(Constants::QE*Teff1_eV/(Constants::ME*m_mass1)); // [m/s]
          VT2 = sqrt(Constants::QE*Teff2_eV/(Constants::ME*m_mass2)); // [m/s]
 
-         Clog = 10.0;
-
          x12 = (Teff1_eV/m_mass1)/(Teff2_eV/m_mass2); // ratio of velocities squared
          x21 = 1./x12;
 
          psi12 = 2.0/sqrt(Constants::PI)*MathUtils::gammainc(x12,1.5);
          psi21 = 2.0/sqrt(Constants::PI)*MathUtils::gammainc(x21,1.5);
 
-         nu012 = factor*Clog*numberDensity2/(pow(energy1,2))*VT1; // [Hz]
-         nu021 = factor*Clog*numberDensity1/(pow(energy2,2))*VT2; // [Hz]
+         nu012 = factor*m_Clog*numberDensity2/(pow(energy1,2))*VT1; // [Hz]
+         nu021 = factor*m_Clog*numberDensity1/(pow(energy2,2))*VT2; // [Hz]
          
          nu12 = (1.0 + m_mass1/m_mass2)*psi12*nu012;
          nu21 = (1.0 + m_mass2/m_mass1)*psi21*nu021;
@@ -243,12 +246,10 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
    const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
    const LevelData<FArrayBox>& numberDensity = a_picSpecies.getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity = a_picSpecies.getEnergyDensity(setMoments);
 
    // predefine some variables
    int numCell;
    Real Teff_eV, tau, numDen, eneDen;
-   Real Clog=10.0;
    Real box_nuMax=0.0;
    std::array<Real,3> deltaU;
  
@@ -259,7 +260,6 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
 
       const FArrayBox& this_numberDensity = numberDensity[ditg];
-      const FArrayBox& this_energyDensity = energyDensity[ditg];
      
       BinFab<JustinsParticlePtr>& thisBinFab_ptr = data_binfab_ptr[ditg];
    
@@ -311,7 +311,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             computeDeltaU( deltaU,
                            this_betap1, numDen,
                            this_betap2, numDen,
-                           Clog, a_dt_sec );     
+                           m_Clog, a_dt_sec );     
             //deltaU = {0,0,0};
             
             // update particle velocities
@@ -343,7 +343,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
                computeDeltaU( deltaU,
                               this_betap1, numDen/2.0,
                               this_betap2, numDen/2.0,
-                              Clog, a_dt_sec );     
+                              m_Clog, a_dt_sec );     
                //deltaU = {0,0,0};
             
                // update particle velocities
@@ -390,19 +390,16 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab1_ptr = a_picSpecies1.partData_binfab();
    const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
    const LevelData<FArrayBox>& numberDensity1 = a_picSpecies1.getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity1 = a_picSpecies1.getEnergyDensity(setMoments);
    
    // define references to a_picSpecies2
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab2_ptr = a_picSpecies2.partData_binfab();
    const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity2 = a_picSpecies2.getEnergyDensity(setMoments);
   
  
    // predefine some variables
    int numCell1, numCell2, pMax, pMin;
    Real Teff1_eV, numDen1, eneDen1;
    Real Teff2_eV, numDen2, eneDen2;
-   Real Clog=10.0;
    Real box_nuMax=0.0;
    std::array<Real,3> deltaU;
  
@@ -413,10 +410,7 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
    for (ditg.begin(); ditg.ok(); ++ditg) { // loop over boxes
 
       const FArrayBox& this_numberDensity1 = numberDensity1[ditg];
-      const FArrayBox& this_energyDensity1 = energyDensity1[ditg];
-      
       const FArrayBox& this_numberDensity2 = numberDensity2[ditg];
-      const FArrayBox& this_energyDensity2 = energyDensity2[ditg];
      
       BinFab<JustinsParticlePtr>& thisBinFab1_ptr = data_binfab1_ptr[ditg];
       BinFab<JustinsParticlePtr>& thisBinFab2_ptr = data_binfab2_ptr[ditg];
@@ -490,7 +484,7 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
             computeDeltaU( deltaU,
                            this_betap1, numDen1,
                            this_betap2, numDen2,
-                           Clog, a_dt_sec );     
+                           m_Clog, a_dt_sec );     
             //deltaU = {0,0,0};
             
             // update particle velocities
@@ -541,13 +535,17 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    Real b90 = m_b90_cofactor/(u*u); // 90 degree impact parameter [m]
    Real deltasq_var = Constants::TWOPI*b90*b90*den*a_Clog*u*Constants::CVAC*a_dt_sec;
 
-   // sample from gaussian distribution  
-   m_delta = sqrt(deltasq_var)*MathUtils::randn();
-   m_deltasq = m_delta*m_delta;
-
-   // set the polar scattering angle
-   m_sinth = 2.0*m_delta/(1.0+m_deltasq); 
-   m_costh = 1.0 - 2.0*m_deltasq/(1.0+m_deltasq);
+   if(deltasq_var<1.0) { // sample from gaussian distribution  
+      m_delta = sqrt(deltasq_var)*MathUtils::randn();
+      m_deltasq = m_delta*m_delta;
+      m_sinth = 2.0*m_delta/(1.0+m_deltasq); 
+      m_costh = 1.0 - 2.0*m_deltasq/(1.0+m_deltasq);
+   } 
+   else { // set random polar angle between zero and pi
+      Real theta = Constants::PI*MathUtils::rand();
+      m_costh = cos(theta);
+      m_sinth = sin(theta);
+   }
 
    // set random azimuthal angle
    m_phi = Constants::TWOPI*MathUtils::rand();

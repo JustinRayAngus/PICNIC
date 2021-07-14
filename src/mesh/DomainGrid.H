@@ -17,6 +17,8 @@
 #include "RealVect.H"
 #include "DisjointBoxLayout.H"
 
+#include "BoundaryBoxLayout.H"
+
 #include "NamespaceHeader.H"
 
 class DomainGrid
@@ -39,6 +41,8 @@ public:
   virtual const ProblemDomain& getDomain() const {return m_domain;}
   
   virtual const DisjointBoxLayout& getDBL() const {return m_grids;}
+  
+  virtual const BoundaryBoxLayoutPtrVect& getBoundaryLayout() const {return m_domain_bdry_layout;}
  
   virtual const RealVect& getdX() const {return m_dX;}
   
@@ -80,6 +84,7 @@ private:
   
   ProblemDomain m_domain;
   DisjointBoxLayout m_grids;
+  BoundaryBoxLayoutPtrVect m_domain_bdry_layout;
   
   LevelData<FArrayBox> m_Xcc;     // coords at cell center
   LevelData<FluxBox> m_Xfc;       // coords at cell faces
@@ -87,6 +92,8 @@ private:
   LevelData<NodeFArrayBox> m_Xnc; // coords at cell nodes
 
   void setRealCoords();
+
+  void defineBoundaryBoxLayout();
 
 };
 

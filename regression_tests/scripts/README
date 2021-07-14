@@ -1,0 +1,38 @@
+This README is for generating baselines and testing
+via an automated clean checkout of picnic and Chombo. 
+(Such as would be used for nightly regression testing.)
+
+See README_SIMPLE for manually generating baselines and 
+testing via already checked out picnic and Chombo.
+(Such as would be used by developer prior to checking in.)
+
+It is assumed that you have password-less 
+(i.e., through HTTPS or SSH keys) access 
+to the PICNIC repository.
+
+------------------------------
+To generate baseline solutions
+------------------------------
+
+- Copy the following files to a new directory:
+    generate_baselines.sh 
+    get_picnic.sh
+- Customize generate_baselines.sh as necessary
+  (eg., PICNIC  branch to generate baselines from)
+- Execute generate_baselines.sh (you may need
+  to change permissions to executable).
+
+------------------------------
+Running tests
+------------------------------
+
+- Copy the following files to a new directory:
+    run_tests.sh 
+    get_picnic.sh
+- Customize run_tests.sh as necessary:
+  + Specify the branch you want to test (PICNIC_BRANCH)
+  + Provide the location of the baselines 
+    (PICNIC_TESTS_BASELINES_LOC)
+- Execute run_tests.sh (you may need to change 
+  permissions to executable).
+

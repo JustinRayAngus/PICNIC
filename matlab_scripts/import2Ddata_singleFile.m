@@ -125,8 +125,8 @@ end
 for d=1:1+isFluxBox+isEdgeBox
     for iP = 1:numProcs
         lo_i(iP,d) = boxes(iP).Data{1} + 1 - ig;
-        lo_j(iP,d) = boxes(iP).Data{2} + 1 - ig;
-        hi_i(iP,d) = boxes(iP).Data{3} + 1 + jg ...
+        lo_j(iP,d) = boxes(iP).Data{2} + 1 - jg;
+        hi_i(iP,d) = boxes(iP).Data{3} + 1 + ig ...
                      + isFluxBox*mod(d,SpaceDim) ...
                      + isEdgeBox*(d-1) ...
                      + isNodeBox;
@@ -269,6 +269,8 @@ else
     DataStr.numGhostX = 0;
     DataStr.numGhostY = 0;
 end
+
+fclose('all');
 
 end
 

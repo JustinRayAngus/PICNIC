@@ -14,8 +14,8 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
                   const DisjointBoxLayout&  a_grids )
    : m_axisymmetric(false),
      m_ghosts(a_numGhosts),
-     m_mapped_cell_volume(1.0),
-     m_mapped_face_area(SpaceDim,1.0)
+     m_mapped_cell_volume(1.0)
+    // m_mapped_face_area(SpaceDim,1.0)
 {
    m_grids  = a_grids;
    m_domain = a_domain;
@@ -52,6 +52,7 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
    //
    for (int dir=0; dir<SpaceDim; ++dir) {
       m_mapped_cell_volume *= m_dX[dir];
+      m_mapped_face_area[dir] = 1.0;
       for (int tdir=0; tdir<SpaceDim; ++tdir) {
          if (tdir != dir) m_mapped_face_area[dir] *= m_dX[tdir];
       }
@@ -88,8 +89,25 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
    }
 
    // set the physical coordinates
-   //
    setRealCoords();
+
+   // define the vector of boundary box layouts for BCs
+   defineBoundaryBoxLayout();
+
+   // check the BoundaryBoxLayout()
+   for (int i(0); i<m_domain_bdry_layout.size(); i++) {
+      const BoundaryBoxLayout& bdry_layout( *(m_domain_bdry_layout[i]) );
+      const int& dir( bdry_layout.dir() );
+      const Side::LoHiSide& side( bdry_layout.side() );
+      const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
+      for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         const Box bdry_box( bdry_grids[dit] );
+         //cout << "JRA: procID() = " << procID() << endl;
+         //cout << "JRA: dir = " << dir << endl;
+         //cout << "JRA: side = " << side << endl;
+         //cout << "JRA: bdry_box = " << bdry_box << endl;
+      }
+   }
 
 }
 
@@ -151,6 +169,27 @@ void DomainGrid::setRealCoords()
    
 }
 
+void DomainGrid::defineBoundaryBoxLayout()
+{
+
+   const IntVect ghostVect = m_ghosts*IntVect::Unit;
+   const Box domain_box = m_domain.domainBox();
+
+   for(int dir=0; dir<SpaceDim; dir++) {
+      for(SideIterator si; si.ok(); ++si) {
+         Side::LoHiSide side( si() );
+         if(!m_domain.isPeriodic(dir)) {
+            m_domain_bdry_layout.push_back(
+            BoundaryBoxLayoutPtr( new BoundaryBoxLayout( m_grids,
+                                                         domain_box,
+                                                         dir,
+                                                         side,
+                                                         ghostVect )));
+         }
+      }
+   }
+
+}
 
 
 #include "NamespaceFooter.H"

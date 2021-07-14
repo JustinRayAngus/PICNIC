@@ -20,12 +20,12 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    : m_mass(),
      m_charge(),
      m_Uint(0.0),
+     m_interpToGrid(CIC),
      m_motion(true),
      m_forces(true),
      m_scatter(false),
      m_write_all_part_comps(false),
      m_mesh(a_mesh),
-     m_interpToGrid(CIC),
      m_meshInterp(a_meshInterp)
 {
    m_name = a_name;
@@ -126,7 +126,6 @@ void PicSpecies::advancePositions( const Real& a_cnormDt )
    // get some Grid info
    //const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
-   const RealVect& dX(m_mesh.getdX());
    
    // compute domain extent and get total num parts and sim volume
    const IntVect domainDimensions = domain.size();
@@ -196,7 +195,6 @@ void PicSpecies::advancePositions_2ndHalf()
     
    // get some Grid info
    const ProblemDomain& domain(m_mesh.getDomain());
-   const RealVect& dX(m_mesh.getdX());
    
    // compute domain extent and get total num parts and sim volume
    const IntVect domainDimensions = domain.size();
@@ -313,7 +311,7 @@ void PicSpecies::advanceVelocities( const Real&  a_cnormDt,
             vp[1] = (vp[1] + vpold[1])/2.0;
             vp[2] = (vp[2] + vpold[2])/2.0;
          }
-      
+
       } // end loop over particle list
       
    } // end loop over boxes
@@ -387,10 +385,7 @@ void PicSpecies::updateOldParticleVelocities()
       ListIterator<JustinsParticle> li(pList);
       for(li.begin(); li.ok(); ++li) {
 
-         std::array<Real,3>& vpold = li().velocity_old(); // actually beta
          const std::array<Real,3>& vp = li().velocity();  // actually beta
-         //vpold = vp;
-
          li().setOldVelocity(vp);
 
       } // end loop over particle list
@@ -478,103 +473,7 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
 {
    if(!procID()) cout << "Initializing pic species " << m_name  << "..." << endl;
    int verbosity=0; // using this as a verbosity flag
-
-   // set ICs for this species 
-   const std::string spcIC("IC." + m_name);
-   ParmParse ppspcIC( spcIC.c_str() );
-   std::vector<int> partsPerCellstd;
-   ppspcIC.getarr("parts_per_cell",partsPerCellstd,0,SpaceDim);
-   IntVect partsPerCell; // convert std::vector<int> to IntVect
-   for (int dir=0; dir<SpaceDim; ++dir) {
-      partsPerCell[dir] = 0;
-      partsPerCell[dir] = partsPerCellstd[dir];
-      CH_assert( partsPerCell[dir]>0 );
-   }
    
-   // parse the spatial range for the initial profile
-   RealVect sXmin = m_mesh.getXmin();
-   RealVect sXmax = m_mesh.getXmax();
-   
-   ppspcIC.query("X_min", sXmin[0]);
-   ppspcIC.query("X_max", sXmax[0]);
-   if(SpaceDim==2) {
-      ppspcIC.get("Z_min", sXmin[1]);
-      ppspcIC.get("Z_max", sXmax[1]);
-   }
-   if(SpaceDim==3) {
-      ppspcIC.get("Y_min", sXmin[1]);
-      ppspcIC.get("Y_max", sXmax[1]);
-      ppspcIC.get("Z_min", sXmin[2]);
-      ppspcIC.get("Z_max", sXmax[2]);
-   }
-
-   // parse the initial profiles of moments to construct
-   // initial particle positions and velocities
-   GridFunctionFactory  gridFactory;
-   const Real this_time = 0.0;
-   
-   // set density profile from ICs
-   const std::string spcdenIC("IC." + m_name + ".density");
-   ParmParse ppdenIC( spcdenIC.c_str() );
-   RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppdenIC,verbosity);
-   gridFunction->assign( m_density, m_mesh, this_time );
-
-   // set temperature profiles from ICs
-   const DisjointBoxLayout& grids(m_mesh.getDBL());
-   LevelData<FArrayBox> tempProfile;
-   tempProfile.define(grids,1,m_temperature.ghostVect());
-
-   const std::string spctemp0IC("IC." + m_name + ".temperature_0");
-   ParmParse pptemp0IC( spctemp0IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionTemp0 = gridFactory.create(pptemp0IC,verbosity);
-   gridFunctionTemp0->assign( tempProfile, m_mesh, this_time );
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      m_temperature[dit].copy(tempProfile[dit],0,0,1);
-   }
-   
-   const std::string spctemp1IC("IC." + m_name + ".temperature_1");
-   ParmParse pptemp1IC( spctemp1IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionTemp1 = gridFactory.create(pptemp1IC,verbosity);
-   gridFunctionTemp1->assign( tempProfile, m_mesh, this_time );
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      m_temperature[dit].copy(tempProfile[dit],0,1,1);
-   }
-   
-   const std::string spctemp2IC("IC." + m_name + ".temperature_2");
-   ParmParse pptemp2IC( spctemp2IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionTemp2 = gridFactory.create(pptemp2IC,verbosity);
-   gridFunctionTemp2->assign( tempProfile, m_mesh, this_time );
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      m_temperature[dit].copy(tempProfile[dit],0,2,1);
-   }
-   
-   // set mean velocity profiles from ICs
-   const std::string spcvel0IC("IC." + m_name + ".velocity_0");
-   ParmParse ppvel0IC( spcvel0IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionVel0 = gridFactory.create(ppvel0IC,verbosity);
-   gridFunctionVel0->assign( tempProfile, m_mesh, this_time );
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      m_velocity[dit].copy(tempProfile[dit],0,0,1);
-   }
-   
-   const std::string spcvel1IC("IC." + m_name + ".velocity_1");
-   ParmParse ppvel1IC( spcvel1IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionVel1 = gridFactory.create(ppvel1IC,verbosity);
-   gridFunctionVel1->assign( tempProfile, m_mesh, this_time );
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      m_velocity[dit].copy(tempProfile[dit],0,1,1);
-   }
-   
-   const std::string spcvel2IC("IC." + m_name + ".velocity_2");
-   ParmParse ppvel2IC( spcvel2IC.c_str() );
-   RefCountedPtr<GridFunction> gridFunctionVel2 = gridFactory.create(ppvel2IC,verbosity);
-   gridFunctionVel2->assign( tempProfile, m_mesh, this_time );
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      m_velocity[dit].copy(tempProfile[dit],0,2,1);
-   }
-
-   ////////////////////////////////////////////////////////////////////////////////////////
-
    // set the normalization constant for the equation of motion
    const Real Escale = a_units.getScale(a_units.ELECTRIC_FIELD);
    const Real Xscale = a_units.getScale(a_units.LENGTH);
@@ -585,125 +484,231 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    // get some mesh info
    const RealVect& dX(m_mesh.getdX());
    const LevelData<FArrayBox>& Xcc(m_mesh.getXcc());
+
+   // loop over all ICs for this species
+   std::string spcIC("IC." + m_name);
+   ParmParse ppspcIC( spcIC.c_str() );
+
+   int IC_count = 1;
+   bool more_ICs = true;
+   while(more_ICs) {
+      
+      std::vector<int> partsPerCellstd;
+      ppspcIC.getarr("parts_per_cell",partsPerCellstd,0,SpaceDim);
+      IntVect partsPerCell; // convert std::vector<int> to IntVect
+      for (int dir=0; dir<SpaceDim; ++dir) {
+         partsPerCell[dir] = 0;
+         partsPerCell[dir] = partsPerCellstd[dir];
+         CH_assert( partsPerCell[dir]>0 );
+      }
    
-   int totalPartsPerCell = 1;
-   m_volume_scale = a_units.getScale(a_units.VOLUME);
-   Real cellVolume = m_volume_scale;
-   for (int dir=0; dir<SpaceDim; dir++)
-   {
-      totalPartsPerCell *= partsPerCell[dir];
-      cellVolume = cellVolume*dX[dir];
-   }
-   Real pWeight = 0.0; 
+      // parse the spatial range for the initial profile
+      RealVect sXmin = m_mesh.getXmin();
+      RealVect sXmax = m_mesh.getXmax();
    
-   // create sub-box and dX for particles
-   const Box partSubBox(IntVect::Zero, partsPerCell-IntVect::Unit);
-   BoxIterator pbit(partSubBox);
-   
-   RealVect dXpart = dX;
-   if(totalPartsPerCell > 1 ) {
-      for(int dir=0; dir<SpaceDim; dir++) dXpart[dir] /= partsPerCell[dir];
-   }
-
-   // loop over boxes and set the initial
-   // particle values (pos., vel., weight)
-   const BoxLayout& BL = m_data.getBoxes();
-   DataIterator dit(BL);
-   uint64_t ID = procID()*512 + 1; // hack for testing purposes
-   //Real ID = 0.;
-   Real numDen_scale = a_units.getScale(a_units.NUMBER_DENSITY); // multiply input by this to get density in SI
-   for (dit.begin(); dit.ok(); ++dit) {
-
-      CH_XD::List<JustinsParticle> thisList;
-     
-      // loop over grid indices
-      //
-      const Box gridBox = BL.get(dit);
-      BoxIterator gbit(gridBox);
-      for(gbit.begin(); gbit.ok(); ++gbit) {
-
-         const IntVect ig = gbit(); // grid index
-         Real local_density = m_density[dit].get(ig,0);
-         pWeight = numDen_scale*local_density*cellVolume/(Real)totalPartsPerCell; 
-        
-         RealVect local_Xcc; 
-         std::array<Real,3> local_temperature;
-         std::array<Real,3> local_velocity;
-         for(int dir=0; dir<SpaceDim; dir++) {
-            local_Xcc[dir] = Xcc[dit].get(ig,dir);
-         }
-         for(int dir=0; dir<3; dir++) {
-            local_temperature[dir] = m_temperature[dit].get(ig,dir);
-            local_velocity[dir] = m_velocity[dit].get(ig,dir);
-         }
-     
-         // loop over subgrid corresponding to where particles are 
-         // placed in each grid cell    
-         //
-         Real V0 = sqrt(Constants::QE/Constants::ME); // ele thermal speed at 1eV [m/s]
-         for(pbit.begin(); pbit.ok(); ++pbit) {
-            
-            // set particle position uniformly on grid
-            RealVect Xpart = local_Xcc - 0.5*dX;
-            IntVect ipg = pbit();
-            for(int dir=0; dir<SpaceDim; dir++) {
-               Xpart[dir] += (ipg[dir] + 0.5)*dXpart[dir];
-               //cout << "JRA: procID() = " << procID() << endl;
-               //cout << "JRA: Xpart[dir] = " << Xpart[dir] << endl;
-            }
-
-            // check to see if this particle position is inside specified region
-            if(Xpart[0]<sXmin[0] || Xpart[0]>sXmax[0]) continue;
-            if(SpaceDim==2) {
-               if(Xpart[1]<sXmin[1] || Xpart[1]>sXmax[1]) continue;
-            }
-            if(SpaceDim==3) {
-               if(Xpart[2]<sXmin[2] || Xpart[2]>sXmax[2]) continue;
-            }
-
-            // initialize particle velocities by randomly sampling a maxwellian
-            std::array<Real,3> BetaPart = {0,0,0};
-            Real thisRand, thisVT;
-            for(int dir=0; dir<3; dir++) { 
-               //thisRand = MathUtils::rand();
-               //BetaPart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
-               //thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
-               //BetaPart[dir] = (BetaPart[dir]*sqrt(2.0)*thisVT + local_velocity[dir])/Constants::CVAC;
-               thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
-               BetaPart[dir] = (thisVT*MathUtils::randn() + local_velocity[dir])/Constants::CVAC;
-            } 
-            
-            // create this particle
-            JustinsParticle particle(pWeight, Xpart, BetaPart);
-            particle.setID(ID);
-            ID = ID + 1;
- 
-            // append particle to the list
-            thisList.append(particle);
-            
-         }
-
+      ppspcIC.query("X_min", sXmin[0]);
+      ppspcIC.query("X_max", sXmax[0]);
+      if(SpaceDim==2) {
+         ppspcIC.get("Z_min", sXmin[1]);
+         ppspcIC.get("Z_max", sXmax[1]);
+      }
+      if(SpaceDim==3) {
+         ppspcIC.get("Y_min", sXmin[1]);
+         ppspcIC.get("Y_max", sXmax[1]);
+         ppspcIC.get("Z_min", sXmin[2]);
+         ppspcIC.get("Z_max", sXmax[2]);
       }
 
-      // finally, add particles destructively to this ListBox. Those that are
-      // left behind are outcasts.
-      m_data[dit].addItemsDestructive(thisList);
-      
-      // If all the particles were contained on the Box that 
-      // created them, thisList would now be empty. But, 
-      // because we perturb the initial particle distribution,
-      // particles can move off the box that created them. We 
-      // add these to the outcast list to be re-distributed later. 
-      m_data.outcast().catenate(thisList); // no iterator? outside loop?
+      // parse the initial profiles of moments to construct
+      // initial particle positions and velocities
+      GridFunctionFactory  gridFactory;
+      const Real this_time = 0.0;
+   
+      // set density profile from ICs
+      const std::string spcdenIC(spcIC + ".density");
+      ParmParse ppdenIC( spcdenIC.c_str() );
+      RefCountedPtr<GridFunction> gridFunction = gridFactory.create(ppdenIC,verbosity);
+      gridFunction->assign( m_density, m_mesh, this_time );
 
-   }
-   //const int numOutcast = m_PNew.numOutcast();
-   m_data.remapOutcast();
-   CH_assert(m_data.isClosed());
+      // set temperature profiles from ICs
+      const DisjointBoxLayout& grids(m_mesh.getDBL());
+      LevelData<FArrayBox> tempProfile;
+      tempProfile.define(grids,1,m_temperature.ghostVect());
+
+      const std::string spctemp0IC(spcIC + ".temperature_0");
+      ParmParse pptemp0IC( spctemp0IC.c_str() );
+      RefCountedPtr<GridFunction> gridFunctionTemp0 = gridFactory.create(pptemp0IC,verbosity);
+      gridFunctionTemp0->assign( tempProfile, m_mesh, this_time );
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         m_temperature[dit].copy(tempProfile[dit],0,0,1);
+      }
+   
+      const std::string spctemp1IC(spcIC + ".temperature_1");
+      ParmParse pptemp1IC( spctemp1IC.c_str() );
+      RefCountedPtr<GridFunction> gridFunctionTemp1 = gridFactory.create(pptemp1IC,verbosity);
+      gridFunctionTemp1->assign( tempProfile, m_mesh, this_time );
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         m_temperature[dit].copy(tempProfile[dit],0,1,1);
+      }
+   
+      const std::string spctemp2IC(spcIC + ".temperature_2");
+      ParmParse pptemp2IC( spctemp2IC.c_str() );
+      RefCountedPtr<GridFunction> gridFunctionTemp2 = gridFactory.create(pptemp2IC,verbosity);
+      gridFunctionTemp2->assign( tempProfile, m_mesh, this_time );
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         m_temperature[dit].copy(tempProfile[dit],0,2,1);
+      }
+   
+      // set mean velocity profiles from ICs
+      const std::string spcvel0IC(spcIC + ".velocity_0");
+      ParmParse ppvel0IC( spcvel0IC.c_str() );
+      RefCountedPtr<GridFunction> gridFunctionVel0 = gridFactory.create(ppvel0IC,verbosity);
+      gridFunctionVel0->assign( tempProfile, m_mesh, this_time );
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         m_velocity[dit].copy(tempProfile[dit],0,0,1);
+      }
+   
+      const std::string spcvel1IC(spcIC + ".velocity_1");
+      ParmParse ppvel1IC( spcvel1IC.c_str() );
+      RefCountedPtr<GridFunction> gridFunctionVel1 = gridFactory.create(ppvel1IC,verbosity);
+      gridFunctionVel1->assign( tempProfile, m_mesh, this_time );
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         m_velocity[dit].copy(tempProfile[dit],0,1,1);
+      }
+   
+      const std::string spcvel2IC(spcIC + ".velocity_2");
+      ParmParse ppvel2IC( spcvel2IC.c_str() );
+      RefCountedPtr<GridFunction> gridFunctionVel2 = gridFactory.create(ppvel2IC,verbosity);
+      gridFunctionVel2->assign( tempProfile, m_mesh, this_time );
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         m_velocity[dit].copy(tempProfile[dit],0,2,1);
+      }
+
+   ////////////////////////////////////////////////////////////////////////////////////////
+
+      int totalPartsPerCell = 1;
+      m_volume_scale = a_units.getScale(a_units.VOLUME);
+      Real cellVolume = m_volume_scale;
+      for (int dir=0; dir<SpaceDim; dir++)
+      {
+         totalPartsPerCell *= partsPerCell[dir];
+         cellVolume = cellVolume*dX[dir];
+      }
+      Real pWeight = 0.0; 
+   
+      // create sub-box and dX for particles
+      const Box partSubBox(IntVect::Zero, partsPerCell-IntVect::Unit);
+      BoxIterator pbit(partSubBox);
+   
+      RealVect dXpart = dX;
+      if(totalPartsPerCell > 1 ) {
+         for(int dir=0; dir<SpaceDim; dir++) dXpart[dir] /= partsPerCell[dir];
+      }
+
+      // loop over boxes and set the initial particle values (pos., vel., weight)
+      const BoxLayout& BL = m_data.getBoxes();
+      DataIterator dit(BL);
+      uint64_t ID = procID()*512 + 1; // hack for testing purposes
+      //Real ID = 0.;
+      Real numDen_scale = a_units.getScale(a_units.NUMBER_DENSITY); // multiply input by this to get density in SI
+      for (dit.begin(); dit.ok(); ++dit) {
+
+         CH_XD::List<JustinsParticle> thisList;
+     
+         // loop over grid indices
+         const Box gridBox = BL.get(dit);
+         BoxIterator gbit(gridBox);
+         for(gbit.begin(); gbit.ok(); ++gbit) {
+
+            const IntVect ig = gbit(); // grid index
+            Real local_density = m_density[dit].get(ig,0);
+            pWeight = numDen_scale*local_density*cellVolume/(Real)totalPartsPerCell; 
+        
+            RealVect local_Xcc; 
+            std::array<Real,3> local_temperature;
+            std::array<Real,3> local_velocity;
+            for(int dir=0; dir<SpaceDim; dir++) {
+               local_Xcc[dir] = Xcc[dit].get(ig,dir);
+            }
+            for(int dir=0; dir<3; dir++) {
+               local_temperature[dir] = m_temperature[dit].get(ig,dir);
+               local_velocity[dir] = m_velocity[dit].get(ig,dir);
+            }
+     
+            // loop over subgrid corresponding to where particles are placed in each grid cell    
+            Real V0 = sqrt(Constants::QE/Constants::ME); // ele thermal speed at 1eV [m/s]
+            for(pbit.begin(); pbit.ok(); ++pbit) {
+            
+               // set particle position uniformly on grid
+               RealVect Xpart = local_Xcc - 0.5*dX;
+               IntVect ipg = pbit();
+               for(int dir=0; dir<SpaceDim; dir++) {
+                  Xpart[dir] += (ipg[dir] + 0.5)*dXpart[dir];
+               }
+
+               // check to see if this particle position is inside specified region
+               if(Xpart[0]<sXmin[0] || Xpart[0]>sXmax[0]) continue;
+               if(SpaceDim==2) {
+                  if(Xpart[1]<sXmin[1] || Xpart[1]>sXmax[1]) continue;
+               }
+               if(SpaceDim==3) {
+                  if(Xpart[2]<sXmin[2] || Xpart[2]>sXmax[2]) continue;
+               }
+
+               // initialize particle velocities by randomly sampling a maxwellian
+               std::array<Real,3> BetaPart = {0,0,0};
+               Real thisVT;
+               for(int dir=0; dir<3; dir++) { 
+                  //thisRand = MathUtils::rand();
+                  //BetaPart[dir] = MathUtils::errorinv(2.0*thisRand-1.0);
+                  //thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
+                  //BetaPart[dir] = (BetaPart[dir]*sqrt(2.0)*thisVT + local_velocity[dir])/Constants::CVAC;
+                  thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
+                  BetaPart[dir] = (thisVT*MathUtils::randn() + local_velocity[dir])/Constants::CVAC;
+               }
+            
+               // create this particle
+               JustinsParticle particle(pWeight, Xpart, BetaPart);
+               particle.setID(ID);
+               ID = ID + 1;
+ 
+               // append particle to the list
+               thisList.append(particle);
+            
+            }
+
+         }
+
+         // finally, add particles destructively to this ListBox. Those that are
+         // left behind are outcasts.
+         m_data[dit].addItemsDestructive(thisList);
       
+         // add the outcast list to be re-distributed later. 
+         m_data.outcast().catenate(thisList); // no iterator? outside loop?
+
+      }
+      //const int numOutcast = m_PNew.numOutcast();
+      m_data.remapOutcast();
+      CH_assert(m_data.isClosed());
+
+      // check for more ICs
+      IC_count = IC_count + 1;
+      stringstream spcIC_ss;
+      spcIC_ss << "IC_" << IC_count << "." << m_name; 
+      spcIC = spcIC_ss.str();
+
+      ppspcIC = spcIC.c_str();
+      if(!ppspcIC.contains("parts_per_cell")) {
+         IC_count = IC_count - 1;
+         more_ICs = false;
+      }
+  
+   } // end while loop
+    
    int totalParticleCount = m_data.numParticles();
    if(!procID()) {
       cout << "Finished initializing pic species " << m_name  << endl;
+      cout << "found " << IC_count << " ICs for this species"  << endl;
       cout << "total particles  = " << totalParticleCount << endl << endl;
    }
 
@@ -799,7 +804,6 @@ void PicSpecies::setChargeDensity()
    for(dit.begin(); dit.ok(); ++dit) {
       
       const ListBox<JustinsParticle>& box_list = m_data[dit];
-      const List<JustinsParticle>& pList = box_list.listItems();
       
       // deposit on cells 
       FArrayBox& this_rho = m_chargeDensity[dit];
@@ -815,7 +819,8 @@ void PicSpecies::setChargeDensity()
    // add ghost cells to valid cells
    LDaddOp<FArrayBox> addOp;
    m_chargeDensity.exchange(m_chargeDensity.interval(), m_mesh.reverseCopier(), addOp);
-   
+   //m_chargeDensity.exchange(); // needed if more than 1 box per proccesor. bug?
+
 }
 
 void PicSpecies::setChargeDensityOnFaces()
@@ -831,7 +836,6 @@ void PicSpecies::setChargeDensityOnFaces()
    for(dit.begin(); dit.ok(); ++dit) {
       
       const ListBox<JustinsParticle>& box_list = m_data[dit];
-      const List<JustinsParticle>& pList = box_list.listItems();
       
       //  deposit on faces 
       for( int dir=0; dir<SpaceDim; dir++) {
@@ -849,7 +853,7 @@ void PicSpecies::setChargeDensityOnFaces()
    // add ghost cells to valid cells
    LDaddFaceOp<FluxBox> addFaceOp;
    m_chargeDensity_FB.exchange(m_chargeDensity_FB.interval(), m_mesh.reverseCopier(), addFaceOp);
-   
+   //SpaceUtils::exchangeFluxBox(m_chargeDensity_FB); // needed if more than 1 box per proccesor. bug?
 
 }
 
@@ -885,6 +889,7 @@ void PicSpecies::setCurrentDensity()
    // add ghost cells to valid cells
    LDaddEdgeOp<EdgeDataBox> addEdgeOp;
    m_currentDensity.exchange(m_currentDensity.interval(), m_mesh.reverseCopier(), addEdgeOp);
+   //SpaceUtils::exchangeEdgeDataBox(m_currentDensity); // needed if more than 1 box per proccesor. bug?
    
    // 
    // compute virtual current density for 1D/2D sims
@@ -914,6 +919,8 @@ void PicSpecies::setCurrentDensity()
       LDaddNodeOp<NodeFArrayBox> addNodeOp;
       m_currentDensity_virtual.exchange(m_currentDensity_virtual.interval(), 
                                           m_mesh.reverseCopier(), addNodeOp);
+      //SpaceUtils::exchangeNodeFArrayBox(m_currentDensity_virtual,m_mesh); // needed if more than 1 box per proccesor. bug?
+
    }
    
 }

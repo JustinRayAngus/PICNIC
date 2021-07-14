@@ -9,7 +9,7 @@
 #endif
 
 #include "ParmParse.H"
-//#define CH_SPACEDIM CFG_DIM
+//#define CH_SPACE_DIM DIM
 
 #include "CH_HDF5.H"
 #include "parstream.H"
@@ -21,7 +21,6 @@
 #include "parstream.H"
 
 #include "Simulation.H"
-//#include "DomainGrid.H"
 #include "MathUtils.H"
 
 #include "UsingNamespace.H"
@@ -39,18 +38,8 @@ inline int checkCommandLineArgs( int a_argc, char* a_argv[] )
 
 /***************/
 
-// have to give initial definition to static
-// variables before main()
-//
-//DomainGrid* DomainGrid::mesh = NULL; 
-//
-//  I used static pointer to mesh in myMHD.. works great..doesn't work here?
-//
-
 // set the mt19937 random generator as global variable 
-std::random_device rd;
-std::mt19937 global_rand_gen(rd());
-//global_rand_gen.seed(rd());
+std::mt19937 global_rand_gen;
 
 int main(int a_argc, char* a_argv[])
 {
@@ -89,8 +78,10 @@ int main(int a_argc, char* a_argv[])
    // Parse the command line and the input file (if any)
    ParmParse pp(a_argc-2,a_argv+2,NULL,inFile);
   
-   // initialize/run/finalize simulation
+   // initialize the simulation
    Simulation sim( pp ); // initialization done in constructor
+
+   // run/finalize the simulation
    while ( sim.notDone() ) sim.advance();
    sim.finalize();
 

@@ -26,6 +26,7 @@ class TakizukaAbe : public Scattering
          : Scattering(a_verbosity)
       {
          m_scatter_dt = DBL_MAX;
+         m_Clog = 10.0;
          m_b90_codeToPhys = Constants::QE*Constants::QE/(4.0*Constants::PI*Constants::EP0*Constants::ME); 
          parseParameters( a_pp );
       }
@@ -62,8 +63,9 @@ class TakizukaAbe : public Scattering
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "TakizukaAbe scattering parameters:" << std::endl;
-            std::cout << "  species 1 name:          " << m_species1_name << std::endl;
-            std::cout << "  species 2 name:          " << m_species2_name << std::endl;
+            std::cout << "  species 1 name:      " << m_species1_name << std::endl;
+            std::cout << "  species 2 name:      " << m_species2_name << std::endl;
+            std::cout << "  Clog =               " << m_Clog << std::endl;
          }
       }
       
@@ -99,11 +101,13 @@ class TakizukaAbe : public Scattering
       {
          a_pp.get( "species1", m_sp1 ); m_sp1 = m_sp1-1; 
          a_pp.get( "species2", m_sp2 ); m_sp2 = m_sp2-1;
+         a_pp.query( "coulomb_logarithm", m_Clog ); CH_assert(m_Clog>=3.0);
       }
 
       std::string m_species1_name;
       std::string m_species2_name;
       mutable Real m_scatter_dt; // (mean free time)
+      mutable Real m_Clog;       // Coulomb Logarithm
       int m_sp1;     // species 1 identifier
       int m_sp2;     // species 2 identifier
       signed int m_charge1; // species 1 charge / |electron charge|

@@ -9,7 +9,7 @@ ebase = picnic
 
 # the location of the Chombo "lib" directory
 #CHOMBO_HOME = ../../Chombo_3.2/lib
-CHOMBO_HOME = ../../../COGENT/COGENTbuilds/Chombo/lib
+CHOMBO_HOME = ${CHOMBO_DIR}/lib
 
 # names of Chombo libraries needed by this program, in order of search.
 #

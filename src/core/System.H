@@ -104,6 +104,7 @@ class System
          PICMC_FULLY_IMPLICIT
       };
       int m_iter_max;
+      Real m_theta;
      
       ADVANCE_METHOD m_advance_method;
 
@@ -136,7 +137,7 @@ class System
       std::vector<bool> m_is_periodic;
       std::vector<int>  m_config_decomp;
 
-
+      Real m_rtol, m_atol;
 };
 
 #include "NamespaceFooter.H"
