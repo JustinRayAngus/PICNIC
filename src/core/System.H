@@ -64,10 +64,13 @@ class System
       
       void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
 
-      void advance_DSMC( Real&  a_dt );
-      void advance_PICMC_EXPLICIT( Real&  a_dt );
-      void advance_PICMC_SEMI_IMPLICIT( Real&  a_dt );
-      void advance_PICMC_FULLY_IMPLICIT( Real&  a_dt );
+      void advance_DSMC( const Real&  a_cur_time, Real&  a_dt );
+      void advance_PICMC_EXPLICIT( const Real&  a_cur_time, Real&  a_dt );
+      void advance_PICMC_SEMI_IMPLICIT( const Real&  a_cur_time, Real&  a_dt );
+      void advance_PICMC_FULLY_IMPLICIT( const Real&  a_cur_time, Real&  a_dt );
+
+      void setChargeDensity();
+      void setCurrentDensity();
 
       void scatterParticles( const Real&  a_dt );
       

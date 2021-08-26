@@ -246,6 +246,113 @@ inline void FORTRAN_NAME(inlineCIC_INTERPOLATE, inlineCIC_INTERPOLATE)(
 }
 #endif  // GUARDCIC_INTERPOLATE 
 
+#ifndef GUARDCIC_DEPOSIT_CURRENT 
+#define GUARDCIC_DEPOSIT_CURRENT 
+// Prototype for Fortran procedure cic_deposit_current ...
+//
+void FORTRAN_NAME( CIC_DEPOSIT_CURRENT ,cic_deposit_current )(
+      CHFp_FRA1(rhoVx)
+      ,CHFp_FRA1(rhoVy)
+      ,CHFp_FRA1(rhoVz)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp)
+      ,CHFp_CONST_REAL(vpx)
+      ,CHFp_CONST_REAL(vpy)
+      ,CHFp_CONST_REAL(vpz)
+      ,CHFp_CONST_REAL(q) );
+
+#define FORT_CIC_DEPOSIT_CURRENT FORTRAN_NAME( inlineCIC_DEPOSIT_CURRENT, inlineCIC_DEPOSIT_CURRENT)
+#define FORTNT_CIC_DEPOSIT_CURRENT FORTRAN_NAME( CIC_DEPOSIT_CURRENT, cic_deposit_current)
+
+inline void FORTRAN_NAME(inlineCIC_DEPOSIT_CURRENT, inlineCIC_DEPOSIT_CURRENT)(
+      CHFp_FRA1(rhoVx)
+      ,CHFp_FRA1(rhoVy)
+      ,CHFp_FRA1(rhoVz)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp)
+      ,CHFp_CONST_REAL(vpx)
+      ,CHFp_CONST_REAL(vpy)
+      ,CHFp_CONST_REAL(vpz)
+      ,CHFp_CONST_REAL(q) )
+{
+ CH_TIMELEAF("FORT_CIC_DEPOSIT_CURRENT");
+ FORTRAN_NAME( CIC_DEPOSIT_CURRENT ,cic_deposit_current )(
+      CHFt_FRA1(rhoVx)
+      ,CHFt_FRA1(rhoVy)
+      ,CHFt_FRA1(rhoVz)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(xp)
+      ,CHFt_CONST_REAL(vpx)
+      ,CHFt_CONST_REAL(vpy)
+      ,CHFt_CONST_REAL(vpz)
+      ,CHFt_CONST_REAL(q) );
+}
+#endif  // GUARDCIC_DEPOSIT_CURRENT 
+
+#ifndef GUARDCIC_INTERPOLATE_FIELDS 
+#define GUARDCIC_INTERPOLATE_FIELDS 
+// Prototype for Fortran procedure cic_interpolate_fields ...
+//
+void FORTRAN_NAME( CIC_INTERPOLATE_FIELDS ,cic_interpolate_fields )(
+      CHFp_REAL(Epx)
+      ,CHFp_REAL(Epy)
+      ,CHFp_REAL(Epz)
+      ,CHFp_REAL(Bpx)
+      ,CHFp_REAL(Bpy)
+      ,CHFp_REAL(Bpz)
+      ,CHFp_CONST_FRA1(Ex)
+      ,CHFp_CONST_FRA1(Ey)
+      ,CHFp_CONST_FRA1(Ez)
+      ,CHFp_CONST_FRA1(Bx)
+      ,CHFp_CONST_FRA1(By)
+      ,CHFp_CONST_FRA1(Bz)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp) );
+
+#define FORT_CIC_INTERPOLATE_FIELDS FORTRAN_NAME( inlineCIC_INTERPOLATE_FIELDS, inlineCIC_INTERPOLATE_FIELDS)
+#define FORTNT_CIC_INTERPOLATE_FIELDS FORTRAN_NAME( CIC_INTERPOLATE_FIELDS, cic_interpolate_fields)
+
+inline void FORTRAN_NAME(inlineCIC_INTERPOLATE_FIELDS, inlineCIC_INTERPOLATE_FIELDS)(
+      CHFp_REAL(Epx)
+      ,CHFp_REAL(Epy)
+      ,CHFp_REAL(Epz)
+      ,CHFp_REAL(Bpx)
+      ,CHFp_REAL(Bpy)
+      ,CHFp_REAL(Bpz)
+      ,CHFp_CONST_FRA1(Ex)
+      ,CHFp_CONST_FRA1(Ey)
+      ,CHFp_CONST_FRA1(Ez)
+      ,CHFp_CONST_FRA1(Bx)
+      ,CHFp_CONST_FRA1(By)
+      ,CHFp_CONST_FRA1(Bz)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp) )
+{
+ CH_TIMELEAF("FORT_CIC_INTERPOLATE_FIELDS");
+ FORTRAN_NAME( CIC_INTERPOLATE_FIELDS ,cic_interpolate_fields )(
+      CHFt_REAL(Epx)
+      ,CHFt_REAL(Epy)
+      ,CHFt_REAL(Epz)
+      ,CHFt_REAL(Bpx)
+      ,CHFt_REAL(Bpy)
+      ,CHFt_REAL(Bpz)
+      ,CHFt_CONST_FRA1(Ex)
+      ,CHFt_CONST_FRA1(Ey)
+      ,CHFt_CONST_FRA1(Ez)
+      ,CHFt_CONST_FRA1(Bx)
+      ,CHFt_CONST_FRA1(By)
+      ,CHFt_CONST_FRA1(Bz)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(xp) );
+}
+#endif  // GUARDCIC_INTERPOLATE_FIELDS 
+
 #ifndef GUARDCIC_INTERPOLATE_DIR 
 #define GUARDCIC_INTERPOLATE_DIR 
 // Prototype for Fortran procedure cic_interpolate_dir ...

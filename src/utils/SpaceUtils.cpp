@@ -521,37 +521,6 @@ SpaceUtils::interpNodesToCells( LevelData<FArrayBox>&      a_cellPhi_out,
 }
 
 void
-SpaceUtils::ParaEdgeGradientAtNodes( NodeFArrayBox&  a_gradPhi,
-                               const EdgeDataBox&    a_edgePhi,
-                               const RealVect&       a_dx,
-                               const Box&            a_box,
-                               const std::string&    a_method )
-{
-   CH_TIME("SpaceUtils::ParaEdgeGradientAtNodes()");
-   CH_assert( a_method=="c2" );
-   
-   // calculate normal gradient at nodes from edge data
-   // i.e.
-   // gradPhi(comp=0) = d(edgePhi0)/dX0
-   // gradPhi(comp=1) = d(edgePhi1)/dX1
-   //
-      
-   FArrayBox& this_gradPhi( a_gradPhi.getFab() );
-   for (int dir(0); dir<SpaceDim; dir++) {
-         
-      double thisdx = a_dx[dir];
-      const FArrayBox& this_edgePhi( a_edgePhi[dir] );
-        
-      FORT_EDGE_GRAD_AT_NODES( CHF_BOX( a_box ),
-                               CHF_CONST_INT( dir ),
-                               CHF_CONST_REAL( thisdx ),
-                               CHF_CONST_FRA1( this_edgePhi,0 ),
-                               CHF_FRA1( this_gradPhi,dir ) );
-   }
-
-}
-
-void
 SpaceUtils::PerpEdgeGradientAtCells( FArrayBox&    a_gradPhi,
                                const EdgeDataBox&  a_edgePhi,
                                const RealVect&     a_dx,

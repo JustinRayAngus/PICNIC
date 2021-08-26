@@ -78,6 +78,7 @@ class Simulation
 
       Real m_cur_time;
       Real m_max_time;
+      
       Real m_new_epsilon;
 
       Real m_cur_dt;
@@ -102,7 +103,15 @@ class Simulation
       int         m_last_history;
 
       int m_fixed_random_seed;
-
+      
+      int m_command_check_step_interval;
+      enum COMMAND {
+         NONE,
+         STOP,
+         ABORT
+      };
+      COMMAND m_command;
+      
       System* m_system;
 
 #ifdef CH_USE_TIMER

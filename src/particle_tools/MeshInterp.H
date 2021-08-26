@@ -50,6 +50,19 @@ public:
   void deposit(const List<P>&  a_particleList,
                FArrayBox&      a_rho,
                const InterpType&  a_interpType) const; // JRA const
+
+  template <class P>
+  void depositCurrent( FArrayBox&   a_rhoVx,
+                       FArrayBox&   a_rhoVy,
+                       FArrayBox&   a_rhoVz,
+                 const List<P>&     a_particleList,
+                 const InterpType&  a_interpType ) const;
+  
+  template <class P>
+  void depositCurrent1D( FArrayBox&   a_rhoVx,
+                         FArrayBox&   a_rhoVvirt,
+                   const List<P>&     a_particleList,
+                   const InterpType&  a_interpType ) const;
   
   template <class P>
   void depositVelocity( FArrayBox&   a_rhoV,
@@ -67,6 +80,24 @@ public:
                    InterpType& a_interpType);
   
   // Interpolate a_electric_field onto the particles in a_particleList.
+  template <class P>
+  void interpolateEMfieldsToPart( List<P>&     a_particleList,
+                            const FArrayBox&   a_Ex,
+                            const FArrayBox&   a_Ey,
+                            const FArrayBox&   a_Ez,
+                            const FArrayBox&   a_Bx,
+                            const FArrayBox&   a_By,
+                            const FArrayBox&   a_Bz,
+                            const InterpType&  a_interpType ) const;
+  
+  template <class P>
+  void interpolateEMfieldsToPart1D( List<P>&     a_particleList,
+                              const FArrayBox&   a_Ex,
+                              const FArrayBox&   a_Evirt,
+                              const FArrayBox&   a_Bx,
+                              const FArrayBox&   a_Bvirt,
+                              const InterpType&  a_interpType ) const;
+
   template <class P>
   void interpolateEfieldToPart( List<P>&     a_particleList,
                           const int          a_dir,
@@ -145,8 +176,19 @@ private:
                            const RealVect& a_position,
                            const InterpType& a_interpType);
   
+   //
    // JRA
-   //void interpolateToParticle( Real&        a_Fp_dir,
+   //
+   /*
+   std::array<Real,3> interpolateToParticle(
+                                  const FArrayBox&   a_Ex,
+                                  const FArrayBox&   a_Ey,
+                                  const FArrayBox&   a_Ez,
+                                  const RealVect&    a_domainLeftEdge,
+                                  const RealVect&    a_dx,
+                                  const RealVect&    a_position,
+                                  const InterpType&  a_interpType ) const;
+   */
    Real interpolateToParticle(
                          const FArrayBox&   a_field,
                          const RealVect&    a_domainLeftEdge,

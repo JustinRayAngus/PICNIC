@@ -43,9 +43,21 @@ class dataFileIO
                                                const int                     a_cur_step, 
                                                const double                  a_cur_time );
       
+      void writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
+                            HDF5Handle&                   a_handle,
+                            HDF5HeaderData&               a_header );
+      
+      void writeEMFieldDivs( const ElectroMagneticFields&  a_emfield,
+                             HDF5Handle&                   a_handle,
+                             HDF5HeaderData&               a_header );
+      
       void writeEMFieldCurls( const ElectroMagneticFields&  a_emfield,
                               HDF5Handle&                   a_handle,
                               HDF5HeaderData&               a_header );
+      
+      void writeEMFieldPotential( const ElectroMagneticFields&  a_emfield,
+                                  HDF5Handle&                   a_handle,
+                                  HDF5HeaderData&               a_header );
       
       void writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                         const int          a_species, 
@@ -77,7 +89,6 @@ class dataFileIO
 
    private:
 
-      bool m_plot_particle_moments;
       const DomainGrid& m_mesh;
       const CodeUnits& m_units;
       bool m_verbosity;

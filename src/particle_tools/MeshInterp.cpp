@@ -123,7 +123,6 @@ void MeshInterp::interpolateParticle(RealVect& a_particleField,
     }
 }
 
-//void MeshInterp::interpolateToParticle( Real&        a_Fp_dir,
 Real MeshInterp::interpolateToParticle(
                                   const FArrayBox&   a_field,
                                   const RealVect&    a_domainLeftEdge,

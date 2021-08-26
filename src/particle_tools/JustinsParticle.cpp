@@ -29,6 +29,9 @@ JustinsParticle::JustinsParticle( const Real                 a_weight,
 {
   setOldPosition(a_position);
   setOldVelocity(a_velocity);
+  //std::array<Real,3> zero_array = {0,0,0};
+  //setElectricField(zero_array);
+  //setMagneticField(zero_array);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      for(int i=0; i<3-SpaceDim; i++) {
@@ -49,8 +52,9 @@ void JustinsParticle::define( const Real                 a_weight,
   setOldPosition(a_position);
   setVelocity(a_velocity);
   setOldVelocity(a_velocity);
-  //std::array<Real,3> thisElectricField = {0,0,0};
-  //setElectricField(thisElectricField);
+  //std::array<Real,3> zero_array = {0,0,0};
+  //setElectricField(zero_array);
+  //setMagneticField(zero_array);
   if(SpaceDim<3) {
      std::array<Real,3-SpaceDim> thisPosVirt;
      for(int i=0; i<3-SpaceDim; i++) {

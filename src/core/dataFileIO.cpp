@@ -18,7 +18,6 @@ dataFileIO::dataFileIO( ParmParse&   a_ppsys,
                   const DomainGrid&  a_mesh,
                   const CodeUnits&   a_units )
    :
-     m_plot_particle_moments(false),
      m_mesh(a_mesh),
      m_units(a_units),
      m_verbosity(0)
@@ -446,12 +445,13 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    }
    
    //
-   // write the curl of the fields
+   // write the div/curl of the fields
    //
 
-   if(a_emfield.writeCurls()) {
-      writeEMFieldCurls( a_emfield, handle, header );
-   }
+   if(a_emfield.writeRho()) writeEMFieldRho( a_emfield, handle, header );
+   if(a_emfield.writeDivs()) writeEMFieldDivs( a_emfield, handle, header );
+   if(a_emfield.writeCurls()) writeEMFieldCurls( a_emfield, handle, header );
+   if(a_emfield.usePoisson()) writeEMFieldPotential( a_emfield, handle, header );
 
    //
    // close the handle
@@ -461,6 +461,82 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    
    if(!procID()) cout << "finished writing field data file" << endl << endl;
 
+}
+
+void dataFileIO::writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
+                                  HDF5Handle&                   a_handle,
+                                  HDF5HeaderData&               a_header )
+{
+   CH_TIME("dataFileIO::writeEMFieldRho()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   //
+   // write the charge density
+   //
+   
+   const LevelData<NodeFArrayBox>& rho  = a_emfield.getChargeDensity();
+
+   const std::string groupName = std::string("charge_density");
+   a_handle.setGroup(groupName);
+   
+   a_header.clear();
+   a_header.m_int["is_nodebox"] = 1;
+   a_header.m_int["num_components"] = rho.nComp();
+   a_header.m_box["prob_domain"] = domain.domainBox(); 
+   a_header.writeToFile(a_handle);
+   
+   write(a_handle, rho.boxLayout());
+   write(a_handle, rho, "data", rho.ghostVect());
+
+}
+
+void dataFileIO::writeEMFieldDivs( const ElectroMagneticFields&  a_emfield,
+                                   HDF5Handle&                   a_handle,
+                                   HDF5HeaderData&               a_header )
+{
+   CH_TIME("dataFileIO::writeEMFieldDivs()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   //
+   // write the div of the electric field
+   //
+   
+   const LevelData<NodeFArrayBox>& divE  = a_emfield.getDivE();
+
+   const std::string groupName = std::string("div_electric_field");
+   a_handle.setGroup(groupName);
+   
+   a_header.clear();
+   a_header.m_int["is_nodebox"] = 1;
+   a_header.m_int["num_components"] = divE.nComp();
+   a_header.m_box["prob_domain"] = domain.domainBox(); 
+   a_header.writeToFile(a_handle);
+   
+   write(a_handle, divE.boxLayout());
+   write(a_handle, divE, "data", divE.ghostVect());
+
+   //
+   // write the div of the magnetic field
+   //
+   
+   const LevelData<FArrayBox>& divB  = a_emfield.getDivB();
+
+   const std::string group2Name = std::string("div_magnetic_field");
+   a_handle.setGroup(group2Name);
+   
+   a_header.clear();
+   a_header.m_int["is_cellbox"] = 1;
+   a_header.m_int["num_components"] = divB.nComp();
+   a_header.m_box["prob_domain"] = domain.domainBox(); 
+   a_header.writeToFile(a_handle);
+   
+   write(a_handle, divB.boxLayout());
+   write(a_handle, divB, "data", divB.ghostVect());
+ 
 }
 
 void dataFileIO::writeEMFieldCurls( const ElectroMagneticFields&  a_emfield,
@@ -552,6 +628,71 @@ void dataFileIO::writeEMFieldCurls( const ElectroMagneticFields&  a_emfield,
 
    }
  
+}
+
+void dataFileIO::writeEMFieldPotential( const ElectroMagneticFields&  a_emfield,
+                                        HDF5Handle&                   a_handle,
+                                        HDF5HeaderData&               a_header )
+{
+   CH_TIME("dataFileIO::writeEMFieldPotential()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   //
+   // write the potential
+   //
+   
+   const LevelData<NodeFArrayBox>& potential  = a_emfield.getPotential();
+
+   const std::string groupName = std::string("potential");
+   a_handle.setGroup(groupName);
+   
+   a_header.clear();
+   a_header.m_int["is_nodebox"] = 1;
+   a_header.m_int["num_components"] = potential.nComp();
+   a_header.m_box["prob_domain"] = domain.domainBox(); 
+   a_header.writeToFile(a_handle);
+   
+   write(a_handle, potential.boxLayout());
+   write(a_handle, potential, "data", potential.ghostVect());
+   
+   //
+   // write the rhs
+   //
+   
+   const LevelData<NodeFArrayBox>& rhs  = a_emfield.getRHS();
+
+   const std::string groupName2 = std::string("rhs");
+   a_handle.setGroup(groupName2);
+   
+   a_header.clear();
+   a_header.m_int["is_nodebox"] = 1;
+   a_header.m_int["num_components"] = rhs.nComp();
+   a_header.m_box["prob_domain"] = domain.domainBox(); 
+   a_header.writeToFile(a_handle);
+   
+   write(a_handle, rhs.boxLayout());
+   write(a_handle, rhs, "data", rhs.ghostVect());
+   
+   //
+   // write the electric field correction
+   //
+   
+   const LevelData<EdgeDataBox>& E_corr  = a_emfield.getElectricFieldCorrection();
+
+   const std::string groupName3 = std::string("electric_field_correction");
+   a_handle.setGroup(groupName3);
+   
+   a_header.clear();
+   a_header.m_int["is_edgebox"] = 1;
+   a_header.m_int["num_components"] = E_corr.nComp();
+   a_header.m_box["prob_domain"] = domain.domainBox(); 
+   a_header.writeToFile(a_handle);
+   
+   write(a_handle, E_corr.boxLayout());
+   write(a_handle, E_corr, "data", E_corr.ghostVect());
+
 }
 
 void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
@@ -867,6 +1008,24 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    
       write(handleParts, chargeDenOnFaces.boxLayout());
       write(handleParts, chargeDenOnFaces, "data", chargeDenOnFaces.ghostVect());
+      
+      //
+      // write the node centered charge density
+      //
+   
+      const LevelData<NodeFArrayBox>& chargeDenOnNodes  = a_picSpecies.getChargeDensityOnNodes();
+
+      const std::string groupRhoNodes_Name = std::string("node_centered_charge_density");
+      handleParts.setGroup(groupRhoNodes_Name);
+   
+      headerParts.clear();
+      headerParts.m_int["is_nodebox"] = 1;
+      headerParts.m_int["num_components"] = chargeDenOnNodes.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, chargeDenOnNodes.boxLayout());
+      write(handleParts, chargeDenOnNodes, "data", chargeDenOnNodes.ghostVect());
 
    }
 

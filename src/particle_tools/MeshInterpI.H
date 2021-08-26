@@ -11,6 +11,8 @@
 #ifndef _MESHINTERPI_H_
 #define _MESHINTERPI_H_
 
+#include "MeshInterp.H"
+
 #include "NamespaceHeader.H"
 
 template <class P>
@@ -39,6 +41,83 @@ void MeshInterp::deposit( const List<P>&  a_particleList,
                     stag, 
                     a_interpType);
   }
+
+}
+
+template <class P>
+void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
+                                 FArrayBox&   a_rhoVy,
+                                 FArrayBox&   a_rhoVz,
+                           const List<P>&     a_particleList,
+                           const InterpType&  a_interpType ) const
+{
+   CH_TIME("MeshInterp::depositCurrent()");
+
+   // user-specified way for interpolating particle velocity density to 
+   // grid points in a FArrayBox (used for current density calc)
+
+   for (ListIterator<P> lit(a_particleList); lit; ++lit) {
+      const P& this_particle = lit();
+      const RealVect& this_x = this_particle.position();
+      const std::array<Real,3>& this_vel = this_particle.velocity(); 
+      const Real& this_w = this_particle.weight();
+      
+      switch (a_interpType) {
+         case CIC:
+         FORT_CIC_DEPOSIT_CURRENT( CHF_FRA1(a_rhoVx, 0),
+                                   CHF_FRA1(a_rhoVy, 0),
+                                   CHF_FRA1(a_rhoVz, 0),
+                                   CHF_CONST_REALVECT(m_domainLeftEdge),
+                                   CHF_CONST_REALVECT(m_dx),
+                                   CHF_CONST_REALVECT(this_x),
+                                   CHF_CONST_REAL(this_vel[0]),
+                                   CHF_CONST_REAL(this_vel[1]),
+                                   CHF_CONST_REAL(this_vel[2]),
+                                   CHF_CONST_REAL(this_w) );
+         break;
+         default:
+         MayDay::Error("Invalid interpolation type in MeshInterp::interpolateToParticle.");
+      }
+
+   }
+
+}
+
+template <class P>
+void MeshInterp::depositCurrent1D( FArrayBox&   a_rhoVx,
+                                   FArrayBox&   a_rhoVvirt,
+                             const List<P>&     a_particleList,
+                             const InterpType&  a_interpType ) const
+{
+   //CH_TIME("MeshInterp::depositCurrent1D()");
+
+   // user-specified way for interpolating particle velocity density to 
+   // grid points in a FArrayBox (used for current density calc)
+
+   for (ListIterator<P> lit(a_particleList); lit; ++lit) {
+      const P& this_particle = lit();
+      const RealVect& this_x = this_particle.position();
+      const std::array<Real,3>& this_vel = this_particle.velocity(); 
+      const Real& this_w = this_particle.weight();
+      
+      switch (a_interpType) {
+         case CIC:
+         FORT_CIC_DEPOSIT_CURRENT( CHF_FRA1(a_rhoVx, 0),
+                                   CHF_FRA1(a_rhoVvirt, 0),
+                                   CHF_FRA1(a_rhoVvirt, 1),
+                                   CHF_CONST_REALVECT(m_domainLeftEdge),
+                                   CHF_CONST_REALVECT(m_dx),
+                                   CHF_CONST_REALVECT(this_x),
+                                   CHF_CONST_REAL(this_vel[0]),
+                                   CHF_CONST_REAL(this_vel[1]),
+                                   CHF_CONST_REAL(this_vel[2]),
+                                   CHF_CONST_REAL(this_w) );
+         break;
+         default:
+         MayDay::Error("Invalid interpolation type in MeshInterp::interpolateToParticle.");
+      }
+
+   }
 
 }
 
@@ -101,6 +180,92 @@ void MeshInterp::interpolate(List<P>& a_particleList,
 //
 
 template <class P>
+void MeshInterp::interpolateEMfieldsToPart( List<P>&     a_particleList,
+                                      const FArrayBox&   a_Ex,
+                                      const FArrayBox&   a_Ey,
+                                      const FArrayBox&   a_Ez,
+                                      const FArrayBox&   a_Bx,
+                                      const FArrayBox&   a_By,
+                                      const FArrayBox&   a_Bz,
+                                      const InterpType&  a_interpType ) const
+{
+  
+  for (ListIterator<P> lit(a_particleList); lit; ++lit) {
+     std::array<Real,3> this_Ep;
+     std::array<Real,3> this_Bp;
+     P& this_particle = lit();
+     const RealVect& this_xp = this_particle.position();
+     
+     switch (a_interpType) {
+        case CIC:
+        FORT_CIC_INTERPOLATE_FIELDS( CHF_REAL(this_Ep[0]),
+                                     CHF_REAL(this_Ep[1]),
+                                     CHF_REAL(this_Ep[2]),
+                                     CHF_REAL(this_Bp[0]),
+                                     CHF_REAL(this_Bp[1]),
+                                     CHF_REAL(this_Bp[2]),
+                                     CHF_CONST_FRA1(a_Ex, 0),
+                                     CHF_CONST_FRA1(a_Ey, 0),
+                                     CHF_CONST_FRA1(a_Ez, 0),
+                                     CHF_CONST_FRA1(a_Bx, 0),
+                                     CHF_CONST_FRA1(a_By, 0),
+                                     CHF_CONST_FRA1(a_Bz, 0),
+                                     CHF_CONST_REALVECT(m_domainLeftEdge),
+                                     CHF_CONST_REALVECT(m_dx),
+                                     CHF_CONST_REALVECT(this_xp) );
+        break;
+        default:
+        MayDay::Error("Invalid interpolation type in MeshInterp::interpolateToParticle.");
+     }
+     this_particle.setElectricField(this_Ep);
+     this_particle.setMagneticField(this_Bp);
+  }
+
+}
+
+template <class P>
+void MeshInterp::interpolateEMfieldsToPart1D( List<P>&     a_particleList,
+                                        const FArrayBox&   a_Ex,
+                                        const FArrayBox&   a_Evirt,
+                                        const FArrayBox&   a_Bx,
+                                        const FArrayBox&   a_Bvirt,
+                                        const InterpType&  a_interpType ) const
+{
+  
+  for (ListIterator<P> lit(a_particleList); lit; ++lit) {
+     std::array<Real,3> this_Ep = {0.0,0.0,0.0};
+     std::array<Real,3> this_Bp = {0.0,0.0,0.0};
+     P& this_particle = lit();
+     const RealVect& this_xp = this_particle.position();
+   
+     switch (a_interpType) {
+        case CIC:
+        FORT_CIC_INTERPOLATE_FIELDS( CHF_REAL(this_Ep[0]),
+                                     CHF_REAL(this_Ep[1]),
+                                     CHF_REAL(this_Ep[2]),
+                                     CHF_REAL(this_Bp[0]),
+                                     CHF_REAL(this_Bp[1]),
+                                     CHF_REAL(this_Bp[2]),
+                                     CHF_CONST_FRA1(a_Ex, 0),
+                                     CHF_CONST_FRA1(a_Evirt, 0),
+                                     CHF_CONST_FRA1(a_Evirt, 1),
+                                     CHF_CONST_FRA1(a_Bx, 0),
+                                     CHF_CONST_FRA1(a_Bvirt, 0),
+                                     CHF_CONST_FRA1(a_Bvirt, 1),
+                                     CHF_CONST_REALVECT(m_domainLeftEdge),
+                                     CHF_CONST_REALVECT(m_dx),
+                                     CHF_CONST_REALVECT(this_xp) );
+        break;
+        default:
+        MayDay::Error("Invalid interpolation type in MeshInterp::interpolateToParticle.");
+     }
+     this_particle.setElectricField(this_Ep);
+     this_particle.setMagneticField(this_Bp);
+  }
+
+}
+
+template <class P>
 void MeshInterp::interpolateEfieldToPart( List<P>&     a_particleList,
                                     const int          a_dir,
                                     const FArrayBox&   a_electric_field,
@@ -113,7 +278,6 @@ void MeshInterp::interpolateEfieldToPart( List<P>&     a_particleList,
      Real this_Ep_dir = 0.0;
      P& this_particle = lit();
      RealVect& this_x = this_particle.position();
-     //interpolateToParticle( this_Ep_dir,
      this_Ep_dir = interpolateToParticle(
                             a_electric_field,
                             m_domainLeftEdge,
@@ -140,7 +304,6 @@ void MeshInterp::interpolateBfieldToPart( List<P>&     a_particleList,
      Real this_Bp_dir = 0.0;
      P& this_particle = lit();
      RealVect& this_x = this_particle.position();
-     //interpolateToParticle( this_Bp_dir,
      this_Bp_dir = interpolateToParticle(
                             a_magnetic_field,
                             m_domainLeftEdge,

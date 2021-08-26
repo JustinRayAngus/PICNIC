@@ -1,5 +1,9 @@
 #include "Simulation.H"
 #include <limits>
+#include <fstream>
+#include <iostream>
+#include <cstdio>
+#include <sys/stat.h>
 
 #include "MathUtils.H"
 #include "LoadBalance.H"
@@ -31,6 +35,8 @@ Simulation::Simulation( ParmParse& a_pp )
        m_history_interval(1),
        m_last_history(0),
        m_fixed_random_seed(-1),
+       m_command_check_step_interval(100),
+       m_command(NONE),
        m_system( NULL )
 #ifdef CH_USE_TIMER
 ,
@@ -173,11 +179,44 @@ bool Simulation::notDone()
 {
    CH_TIMERS("Simulation::notDone()");
    
-   //Real delta = m_cur_time - m_max_time;
-   //Real delta = m_cur_time - m_max_time*(1.0-s_DT_EPS);
-   Real delta = m_cur_time - m_max_time + m_new_epsilon;
+   //  look for command file with "stop" or "abort" command
+   if((m_cur_step % m_command_check_step_interval)==0 ) {
+      const std::string fileName("command");
+      struct stat buffer;
+      if(procID()==0 && (stat (fileName.c_str(),&buffer)==0)) {
+         ifstream commandFile;
+         commandFile.open(fileName,ios::in);
+         std::string line;
+         while(getline(commandFile,line)) {
+            if ( line.compare("stop") == 0 ) {
+               cout << " terminating simulation: found stop command " << endl;
+               m_command = STOP;
+               break;
+            }
+            if ( line.compare("abort") == 0 ) {
+               m_command = ABORT;
+               cout << " terminating simulation: found abort command " << endl;
+               break;
+            }
+         }
+         commandFile.close();
+         std::remove(fileName.c_str());
+      }
+#ifdef CH_MPI
+      MPI_Bcast( &m_command, 1, MPI_INT, 0, MPI_COMM_WORLD ); 
+#endif
+   }
 
-   return ( (m_cur_step<m_max_step) && (delta<0.0) );
+   if(m_command==STOP || m_command==ABORT) {
+      if(m_command==ABORT) m_last_plot = m_cur_step;
+      return 0;
+   }
+   else {
+      //Real delta = m_cur_time - m_max_time;
+      //Real delta = m_cur_time - m_max_time*(1.0-s_DT_EPS);
+      Real delta = m_cur_time - m_max_time + m_new_epsilon;
+      return ( (m_cur_step<m_max_step) && (delta<0.0) );
+   }
 
 }
 
@@ -185,6 +224,7 @@ void Simulation::advance()
 {
    CH_TIMERS("Simulation::advance()");
    CH_TIMER("print_diagnostics",t_print_diagnostcs);
+   const int cout_step_interval = 10;
 
    preTimeStep();
    if (m_verbosity >= 1) {
@@ -192,7 +232,7 @@ void Simulation::advance()
          cout << endl;
          cout << "====================================================================" << endl;
       }
-      if (procID()==0) {
+      if(procID()==0 && ((m_cur_step+1) % cout_step_interval)==0 ) {
          cout << endl << "Step " << m_cur_step+1 
               << ", dt = " << m_cur_dt << endl;
       }
@@ -211,7 +251,7 @@ void Simulation::advance()
    CH_START(t_print_diagnostcs);
    if (m_verbosity >= 1) {
       //m_system->printDiagnostics();
-      if(procID()==0) {
+      if(procID()==0 && (m_cur_step % cout_step_interval)==0 ) {
          cout << "Step " << m_cur_step << " completed, simulation time is "
               << m_cur_time << ", solver wall time is " << walltime_g << " seconds"
               << endl << "----" << endl;
@@ -250,7 +290,7 @@ void Simulation::finalize()
    main_walltime_g = main_walltime;
    solve_walltime_g = solve_walltime;
 #endif
-   if (!procID()) {
+   if(!procID()) {
      cout << "Solve wall time (in seconds): " << solve_walltime_g << "\n";
      cout << "Total wall time (in seconds): " << main_walltime_g << "\n";
    }
@@ -339,6 +379,8 @@ void Simulation::postTimeStep()
 {
    CH_TIMERS("Simulation::postTimeStep()");
    
+   m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
+   
    if ( m_plot_time_interval>0.0 ) {
       if ( m_cur_time > m_plot_time - m_new_epsilon ) {
          writePlotFile();
@@ -359,7 +401,7 @@ void Simulation::postTimeStep()
       }
    }
 
-   m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
+   //m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
 }
 
 void Simulation::preTimeStep()
@@ -370,7 +412,8 @@ void Simulation::preTimeStep()
    if(m_cur_time==0.0) {
       m_dt_light = m_system->fieldsDt( m_cur_step )*m_cfl;
       if(m_fixed_dt>0.0) {
-         CH_assert(m_cur_dt<=m_dt_light);
+         if(m_cur_dt>m_dt_light) std::cout << "WARNING: m_cur_dt > m_dt_light" << std::endl;
+         //CH_assert(m_cur_dt<=m_dt_light);
       }
       else {
          m_cur_dt = std::min( m_cur_dt, m_dt_light );

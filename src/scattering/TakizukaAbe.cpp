@@ -50,7 +50,7 @@ void TakizukaAbe::initialize( const DomainGrid&         a_mesh,
    //
    
    // define references to picSpecies1
-   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
+   const bool setMoments = true; // It is the job of the caller to make sure the moments are pre-computed
    const LevelData<FArrayBox>& numberDensity1 = this_picSpecies1->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity1 = this_picSpecies1->getEnergyDensity(setMoments);
    
@@ -307,12 +307,17 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             this_part2_ptr = this_part2.getPointer();
             std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
    
+            //
             // compute deltaU
+            //
             computeDeltaU( deltaU,
                            this_betap1, numDen,
                            this_betap2, numDen,
                            m_Clog, a_dt_sec );     
             //deltaU = {0,0,0};
+            //
+            // compute deltaU
+            //
             
             // update particle velocities
             for (int dir=0; dir<3; dir++) {
@@ -339,12 +344,17 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
                this_part2_ptr = this_part2.getPointer();
                std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
 
+               //
                // compute deltaU
+               //
                computeDeltaU( deltaU,
                               this_betap1, numDen/2.0,
                               this_betap2, numDen/2.0,
                               m_Clog, a_dt_sec );     
                //deltaU = {0,0,0};
+               //
+               // compute deltaU
+               //
             
                // update particle velocities
                for (int dir=0; dir<3; dir++) {
@@ -479,14 +489,14 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
             JustinsParticlePtr& this_part2 = vector_part2_ptrs[p2];
             this_part2_ptr = this_part2.getPointer();
             std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
-   
+  
             // compute deltaU
             computeDeltaU( deltaU,
                            this_betap1, numDen1,
                            this_betap2, numDen2,
                            m_Clog, a_dt_sec );     
             //deltaU = {0,0,0};
-            
+
             // update particle velocities
             for (int dir=0; dir<3; dir++) {
                this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
@@ -526,8 +536,6 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    Real uy = a_vp1[1]-a_vp2[1];
    Real uz = a_vp1[2]-a_vp2[2];
    Real u = sqrt(ux*ux + uy*uy + uz*uz);
-
-   //Real cvacSq = Constants::CVAC*Constants::CVAC;
 
    // compute deltasq_var
    Real den = Min(a_den1,a_den2); 

@@ -39,13 +39,19 @@ class BoundaryBoxLayout
       const int& dir() const;
 
       const Side::LoHiSide& side() const;
+      
+      const string& name() const;
    
       bool hasBoxes() const;
 
    private:
-
+      
+      std::string getBdryName( const int dir,
+                               const int side );
+   
       int                   m_dir;
       Side::LoHiSide        m_side;
+      std::string           m_name;
       bool                  m_has_boxes;
       bool                  m_is_defined;
       DisjointBoxLayout     m_bdry_grids;
@@ -119,6 +125,13 @@ const Side::LoHiSide& BoundaryBoxLayout::side() const
 {
    CH_assert(m_is_defined);
    return m_side;
+}
+
+inline
+const std::string& BoundaryBoxLayout::name() const
+{
+   CH_assert(m_is_defined);
+   return m_name;
 }
 
 inline

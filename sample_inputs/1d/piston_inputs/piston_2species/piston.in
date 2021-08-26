@@ -73,6 +73,9 @@ IC.deuteriumAtom.velocity_1.value = 0.0 # [m/s]
 IC.deuteriumAtom.velocity_2.type = "constant"
 IC.deuteriumAtom.velocity_2.value = 0.0 # [m/s]
 
+BC.deuteriumAtom.dir0_lower.type = symmetry
+BC.deuteriumAtom.dir0_upper.type = symmetry
+
 pic_species.2.name   = "tritiumAtom"
 pic_species.2.mass   = 5497.9
 pic_species.2.charge = 0
@@ -99,6 +102,10 @@ IC.tritiumAtom.velocity_1.type = "constant"
 IC.tritiumAtom.velocity_1.value = 0.0 # [m/s]
 IC.tritiumAtom.velocity_2.type = "constant"
 IC.tritiumAtom.velocity_2.value = 0.0 # [m/s]
+
+BC.tritiumAtom.dir0_lower.type = symmetry
+BC.tritiumAtom.dir0_upper.type = symmetry
+
 
 #####################################################
 # Scattering Definitions

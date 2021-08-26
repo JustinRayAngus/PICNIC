@@ -109,12 +109,8 @@ void System::initialize( const int     a_cur_step,
    // initialize the electromagnetic fields
    if (!m_electromagneticFields.isNull()) {
       m_electromagneticFields->initialize();
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         int this_charge = this_picSpecies->charge();
-         if(this_charge != 0) this_picSpecies->setCurrentDensity();
-      }
-      m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+      setChargeDensity();
+      setCurrentDensity();
    }
      
    // assert that m_electromagneticFields is not NULL if using forces 
@@ -265,22 +261,22 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
       MayDay::Error( "Configuration domain box cannot be load balanced" );
    }
   
-  // Make the layout.  This is where boxes are assigned to processes.
-  Vector<int> procMap;
-  LoadBalance( procMap, boxes );
+   // Make the layout.  This is where boxes are assigned to processes.
+   Vector<int> procMap;
+   LoadBalance( procMap, boxes );
 
-  a_grids.define( boxes, procMap, m_domain );
-  a_grids.close();
+   a_grids.define( boxes, procMap, m_domain );
+   a_grids.close();
    
-  if(!procID()) cout << "Done constructing DisjointBoxLayout" << endl << endl;
+   if(!procID()) cout << "Done constructing DisjointBoxLayout" << endl << endl;
 
-  if(!procID() && m_verbosity) {
-     for (int n=0; n<boxes.size(); n++) {
-        const Box& local_box = boxes[n];
-        cout << " box " << local_box << " is assigned to process " << procMap[n] << endl;
-     }
-     cout << endl;
-  }
+   if(!procID() && m_verbosity) {
+      for (int n=0; n<boxes.size(); n++) {
+         const Box& local_box = boxes[n];
+         cout << " box " << local_box << " is assigned to process " << procMap[n] << endl;
+      }
+      cout << endl;
+   }
 
 }
 
@@ -488,6 +484,11 @@ void System::writePlotFile( const int     a_cur_step,
    CH_TIME("System::writePlotFile()");
    
    if (!m_electromagneticFields.isNull()) {
+      if(m_electromagneticFields->writeRho()) setChargeDensity();
+      if(m_electromagneticFields->writeDivs()) {
+         m_electromagneticFields->setDivE();
+         m_electromagneticFields->setDivB();
+      }
       m_dataFile->writeElectroMagneticFieldsDataFile( *m_electromagneticFields,
                                                       a_cur_step, a_cur_time ); 
    }
@@ -508,6 +509,7 @@ void System::writePlotFile( const int     a_cur_step,
          if(m_writeSpeciesChargeDensity) {
             this_picSpecies->setChargeDensity();      
             this_picSpecies->setChargeDensityOnFaces(); 
+            this_picSpecies->setChargeDensityOnNodes(); 
          }     
          if(m_writeSpeciesCurrentDensity) this_picSpecies->setCurrentDensity();      
          m_dataFile->writeChargedSpeciesDataFile( *this_picSpecies, 
@@ -528,8 +530,10 @@ void System::writeHistFile( const int     a_cur_step,
    
    if(a_startup) setupHistFile();
 
+   //FILE *histFile;
    std::ofstream histFile;
    if(!procID()) {
+      //if((histFile = fopen("history.txt", "a")) != NULL) {
       histFile.open("history.txt", std::ios_base::app);
       if(histFile.is_open()) {
          histFile << a_cur_step << " ";
@@ -618,10 +622,11 @@ void System::preTimeStep( const Real&  a_cur_time,
                           const int&   a_step_number )
 {  
    CH_TIME("System::preTimeStep()");
+      
+   Real cnormDt = a_dt*m_units->CvacNorm();
+   Real cnormHalfDt = 0.5*cnormDt;
 
    if(m_advance_method==PICMC_EXPLICIT) {  
-   
-      Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
 
       //
       // complete advance of E from t_{n} to t_{n+1/2}
@@ -630,13 +635,19 @@ void System::preTimeStep( const Real&  a_cur_time,
       if (!m_electromagneticFields.isNull() && m_electromagneticFields->advanceE()) {
          if (a_cur_time==0.0) { // initial advance of electric field by 1/2 time step
             m_electromagneticFields->setCurlB();
-            //m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
             m_electromagneticFields->advanceElectricField(cnormHalfDt);
+            m_electromagneticFields->applyBCs_electricField(a_cur_time);
+            if(m_electromagneticFields->usePoisson()) {
+               setChargeDensity();
+               m_electromagneticFields->setDivE();
+               m_electromagneticFields->solvePoisson(a_cur_time);
+               m_electromagneticFields->correctElectricField();
+            }
          }
          else {
             m_electromagneticFields->advanceElectricField_2ndHalf();
+            m_electromagneticFields->applyBCs_electricField(a_cur_time);
          }
-         m_electromagneticFields->updateOldElectricField();
       }
   
       //
@@ -647,12 +658,13 @@ void System::preTimeStep( const Real&  a_cur_time,
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
          if(this_picSpecies->motion()) {
             if (a_cur_time==0.0) { // initial advance of particle positions by 1/2 time step
-               this_picSpecies->advancePositions(cnormHalfDt);
+               this_picSpecies->createInflowParticles( a_cur_time, cnormHalfDt );
+               this_picSpecies->advancePositions(cnormHalfDt,false); // false is correct here
             }
             else {
                this_picSpecies->advancePositions_2ndHalf();
+               //this_picSpecies->advancePositions(cnormDt);
             }
-            this_picSpecies->updateOldParticlePositions();
          }
       }
 
@@ -666,17 +678,33 @@ void System::preTimeStep( const Real&  a_cur_time,
 
       if (!m_electromagneticFields.isNull() && m_electromagneticFields->advanceB()) {
          if (a_cur_time==0.0) { // initial advance of magnetic field by 1/2 time step
-            Real cnormHalfDt = 0.5*a_dt*m_units->CvacNorm();
             m_electromagneticFields->setCurlE();
             m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+            m_electromagneticFields->applyBCs_magneticField(a_cur_time);
          }
          else {
             m_electromagneticFields->advanceMagneticField_2ndHalf();
+            m_electromagneticFields->applyBCs_magneticField(a_cur_time);
          }
-         m_electromagneticFields->updateOldMagneticField();
          m_electromagneticFields->setCurlB(); // update curlB here
       }
   
+   }
+     
+   // update old field values
+   if (!m_electromagneticFields.isNull()) {
+      if(m_electromagneticFields->advanceE()) m_electromagneticFields->updateOldElectricField();
+      if(m_electromagneticFields->advanceB()) m_electromagneticFields->updateOldMagneticField();
+   }
+   
+   // update old particle values and create inflow particles  
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->motion()) {
+         this_picSpecies->createInflowParticles( a_cur_time, cnormDt );
+         this_picSpecies->updateOldParticlePositions();
+      }
+      if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
    }
 
 }
@@ -689,16 +717,16 @@ void System::advance( Real&  a_cur_time,
 
    switch(m_advance_method) {
       case DSMC : 
-          advance_DSMC( a_dt );
+          advance_DSMC( a_cur_time, a_dt );
           break;
       case PICMC_EXPLICIT : 
-          advance_PICMC_EXPLICIT( a_dt );
+          advance_PICMC_EXPLICIT( a_cur_time, a_dt );
           break;
       case PICMC_SEMI_IMPLICIT : 
-          advance_PICMC_SEMI_IMPLICIT( a_dt );
+          advance_PICMC_SEMI_IMPLICIT( a_cur_time, a_dt );
           break;
       case PICMC_FULLY_IMPLICIT : 
-          advance_PICMC_FULLY_IMPLICIT( a_dt );
+          advance_PICMC_FULLY_IMPLICIT( a_cur_time, a_dt );
           break;
       default :
           MayDay::Error("Invalid advance method");
@@ -710,7 +738,7 @@ void System::advance( Real&  a_cur_time,
 
 }
 
-void System::advance_DSMC( Real&  a_dt )
+void System::advance_DSMC( const Real&  a_cur_time, Real&  a_dt )
 {  
    CH_TIME("System::advance_DSMC()");
    
@@ -739,10 +767,10 @@ void System::advance_DSMC( Real&  a_dt )
       }
       m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
    }
-
+   
 }
 
-void System::advance_PICMC_EXPLICIT( Real&  a_dt )
+void System::advance_PICMC_EXPLICIT( const Real&  a_cur_time, Real&  a_dt )
 {  
    CH_TIME("System::advance_PICMC_EXPLICIT()");
    
@@ -753,7 +781,9 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
     
    Real cnormDt = a_dt*m_units->CvacNorm();
    Real cnormHalfDt = 0.5*cnormDt;
-      
+     
+   Real cur_time = 0.0; // dummy. Add to passed arguements latter
+ 
    if (!m_electromagneticFields.isNull()) {
    
       //
@@ -762,6 +792,7 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
       if (m_electromagneticFields->advanceB()) {
          m_electromagneticFields->setCurlE();
          m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
       }
 
       //
@@ -770,17 +801,8 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
          if(this_picSpecies->forces()) {
-            const LevelData<EdgeDataBox>& Efield = m_electromagneticFields->getElectricField();
-            const LevelData<FluxBox>& Bfield = m_electromagneticFields->getMagneticField();
-            this_picSpecies->interpolateElectricFieldToParticles( Efield );
-            this_picSpecies->interpolateMagneticFieldToParticles( Bfield );
-            if(SpaceDim<3) {
-               const LevelData<NodeFArrayBox>& Efield_virt = m_electromagneticFields->getVirtualElectricField();
-               const LevelData<FArrayBox>& Bfield_virt = m_electromagneticFields->getVirtualMagneticField();
-               this_picSpecies->interpolateElectricFieldToParticles( Efield_virt );
-               this_picSpecies->interpolateMagneticFieldToParticles( Bfield_virt );
-            }
-            this_picSpecies->advanceVelocities( cnormDt );
+            this_picSpecies->interpolateFieldsToParticles( *m_electromagneticFields );
+            this_picSpecies->advanceVelocities( cnormDt, false );
          }
       }
 
@@ -793,7 +815,7 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
    // advance particle positions from t_{n+1/2} to t_{n+1} using vp_{n+1}
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt);
+      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt,true);
    }
    
    if (!m_electromagneticFields.isNull()) {
@@ -801,19 +823,22 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
       // complete advance of B from t_{n+1/2} to t_{n+1} and compute the curl
       if (m_electromagneticFields->advanceB()) {
          m_electromagneticFields->advanceMagneticField_2ndHalf();
+         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
          m_electromagneticFields->setCurlB();
       }
 
       // compute current density at t_{n+1} and advance E from t_{n+1/2} to t_{n+1} 
       // using B_{n+1} and J_{n+1}
       if (m_electromagneticFields->advanceE()) {
-         for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-            PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-            int this_charge = this_picSpecies->charge();
-            if(this_charge != 0) this_picSpecies->setCurrentDensity();
-         }
-         m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+         setCurrentDensity();
          m_electromagneticFields->advanceElectricField(cnormHalfDt);
+         m_electromagneticFields->applyBCs_electricField(a_cur_time);
+         if(m_electromagneticFields->usePoisson()) {
+            setChargeDensity();
+            m_electromagneticFields->setDivE();
+            m_electromagneticFields->solvePoisson(a_cur_time);
+            m_electromagneticFields->correctElectricField();
+         }
       }
 
    }
@@ -829,7 +854,7 @@ void System::advance_PICMC_EXPLICIT( Real&  a_dt )
 
 }
 
-void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
+void System::advance_PICMC_SEMI_IMPLICIT( const Real&  a_cur_time, Real&  a_dt )
 {  
    CH_TIME("System::advance_PICMC_SEMI_IMPLICIT()");
 
@@ -851,7 +876,15 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
       //
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt);
+         if(!m_electromagneticFields.isNull() && iter>0) {
+            if(this_picSpecies->forces()) { // reposition outcasts from previous iteration and update velocity
+               this_picSpecies->repositionOutcastsAndApplyForces( *m_electromagneticFields, cnormDt, true );
+            }
+         }
+         if(this_picSpecies->motion()) {
+            //this_picSpecies->repositionInflowParticles(); // not needed. experimental.
+            this_picSpecies->advancePositions(cnormHalfDt,true);
+         }
       }
       
       //
@@ -862,16 +895,7 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
          for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
             PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
             if(this_picSpecies->forces()) {
-               const LevelData<EdgeDataBox>& Efield = m_electromagneticFields->getElectricField();
-               const LevelData<FluxBox>& Bfield = m_electromagneticFields->getMagneticField();
-               this_picSpecies->interpolateElectricFieldToParticles( Efield );
-               this_picSpecies->interpolateMagneticFieldToParticles( Bfield );
-               if(SpaceDim<3) {
-                  const LevelData<NodeFArrayBox>& Efield_virt = m_electromagneticFields->getVirtualElectricField();
-                  const LevelData<FArrayBox>& Bfield_virt = m_electromagneticFields->getVirtualMagneticField();
-                  this_picSpecies->interpolateElectricFieldToParticles( Efield_virt );
-                  this_picSpecies->interpolateMagneticFieldToParticles( Bfield_virt );
-               }
+               this_picSpecies->interpolateFieldsToParticles( *m_electromagneticFields );
                this_picSpecies->advanceVelocities( cnormDt, true );
             }
          }
@@ -880,15 +904,11 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
          // Step 3: compute current density at t_{n+1/2} and advance E from t_n to t_{n+1/2} 
          //
          if (m_electromagneticFields->advanceE()) {
-            for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-               PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-               int this_charge = this_picSpecies->charge();
-               if(this_charge != 0) this_picSpecies->setCurrentDensity();
-            }
-            m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+            setCurrentDensity();
             //m_electromagneticFields->setCurlB(); // done in preTimeStep()
             m_electromagneticFields->saveElectricField();
             m_electromagneticFields->advanceElectricField(cnormHalfDt);
+            m_electromagneticFields->applyBCs_electricField(a_cur_time);
             norm_efield = m_electromagneticFields->diffElectricField();
             if (iter == 0) norm_efield0 = norm_efield;
 
@@ -921,7 +941,7 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
            }
            break;
          }
- 
+         
       }
       else {
          break;
@@ -945,10 +965,14 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
    //         1st half-advance of B from t_{n+1/2} to t_{n+1} using E_{n+1}
    //
    if (!m_electromagneticFields.isNull()) {
-      if (m_electromagneticFields->advanceE()) m_electromagneticFields->advanceElectricField_2ndHalf();
+      if (m_electromagneticFields->advanceE()) {
+         m_electromagneticFields->advanceElectricField_2ndHalf();
+         m_electromagneticFields->applyBCs_electricField(a_cur_time);
+      }
       if (m_electromagneticFields->advanceB()) {
          m_electromagneticFields->setCurlE();
          m_electromagneticFields->advanceMagneticField(cnormHalfDt);
+         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
       }
    }
 
@@ -959,7 +983,7 @@ void System::advance_PICMC_SEMI_IMPLICIT( Real&  a_dt )
 
 }
 
-void System::advance_PICMC_FULLY_IMPLICIT( Real&  a_dt )
+void System::advance_PICMC_FULLY_IMPLICIT( const Real&  a_cur_time, Real&  a_dt )
 {  
    CH_TIME("System::advance_PICMC_FULLY_IMPLICIT()");
 
@@ -983,7 +1007,15 @@ void System::advance_PICMC_FULLY_IMPLICIT( Real&  a_dt )
       //
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt);
+         if(!m_electromagneticFields.isNull() && iter>0) {
+            if(this_picSpecies->forces()) { // reposition outcasts from previous iteration and update velocity
+               this_picSpecies->repositionOutcastsAndApplyForces( *m_electromagneticFields, cnormDt, true );
+            }
+         }
+         if(this_picSpecies->motion()) {
+            //this_picSpecies->repositionInflowParticles(); // not needed. experimental.
+            this_picSpecies->advancePositions(cnormHalfDt,true);
+         }
       }
       
       if (!m_electromagneticFields.isNull()) {
@@ -995,16 +1027,7 @@ void System::advance_PICMC_FULLY_IMPLICIT( Real&  a_dt )
          for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
             PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
             if(this_picSpecies->forces()) {
-               const LevelData<EdgeDataBox>& Efield = m_electromagneticFields->getElectricField();
-               const LevelData<FluxBox>& Bfield = m_electromagneticFields->getMagneticField();
-               this_picSpecies->interpolateElectricFieldToParticles( Efield );
-               this_picSpecies->interpolateMagneticFieldToParticles( Bfield );
-               if(SpaceDim<3) {
-                  const LevelData<NodeFArrayBox>& Efield_virt = m_electromagneticFields->getVirtualElectricField();
-                  const LevelData<FArrayBox>& Bfield_virt = m_electromagneticFields->getVirtualMagneticField();
-                  this_picSpecies->interpolateElectricFieldToParticles( Efield_virt );
-                  this_picSpecies->interpolateMagneticFieldToParticles( Bfield_virt );
-               }
+               this_picSpecies->interpolateFieldsToParticles( *m_electromagneticFields );
                this_picSpecies->advanceVelocities( cnormDt, true );
             }
          }
@@ -1020,20 +1043,17 @@ void System::advance_PICMC_FULLY_IMPLICIT( Real&  a_dt )
                m_electromagneticFields->setCurlE();
                m_electromagneticFields->saveMagneticField();
                m_electromagneticFields->advanceMagneticField(cnormThetaDt);
+               m_electromagneticFields->applyBCs_magneticField(a_cur_time);
                norm_bfield = m_electromagneticFields->diffMagneticField();
             }
 
             // then advance E
             if (m_electromagneticFields->advanceE()) {
-               for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-                  PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-                  int this_charge = this_picSpecies->charge();
-                  if(this_charge != 0) this_picSpecies->setCurrentDensity();
-               }
-               m_electromagneticFields->setCurrentDensity(m_pic_species_ptr_vect);
+               setCurrentDensity();
                m_electromagneticFields->setCurlB();
                m_electromagneticFields->saveElectricField();
                m_electromagneticFields->advanceElectricField(cnormThetaDt);
+               m_electromagneticFields->applyBCs_electricField(a_cur_time);
                norm_efield = m_electromagneticFields->diffElectricField();
             }
 
@@ -1093,14 +1113,103 @@ void System::advance_PICMC_FULLY_IMPLICIT( Real&  a_dt )
    }
 
    if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advanceE()) m_electromagneticFields->advanceElectricField_2ndHalf(m_theta);
-      if(m_electromagneticFields->advanceB()) m_electromagneticFields->advanceMagneticField_2ndHalf(m_theta);
+      if(m_electromagneticFields->advanceE()) {
+          m_electromagneticFields->advanceElectricField_2ndHalf(m_theta);
+          m_electromagneticFields->applyBCs_electricField(a_cur_time);
+      }
+      if(m_electromagneticFields->advanceB()) {
+         m_electromagneticFields->advanceMagneticField_2ndHalf(m_theta);
+         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
+      }
    }
 
    //   
    // Step 6: scatter the particles: vp_{n+1} ==> vp'_{n+1}
    //
    if(m_use_scattering) scatterParticles( a_dt );
+
+}
+
+void System::setChargeDensity()
+{
+   CH_TIME("System::setChargeDensity()");
+   const DisjointBoxLayout& grids(m_mesh->getDBL());
+ 
+   LevelData<NodeFArrayBox>& chargeDensity = m_electromagneticFields->getChargeDensity();
+   
+   // set the charge density to zero
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      FArrayBox& this_rho_nodes = chargeDensity[dit].getFab();
+      this_rho_nodes.setVal(0.0);
+   }
+
+   // loop over all pic species and add the charge density 
+   for (int s=0; s<m_pic_species_ptr_vect.size(); ++s) {
+      const PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      int this_charge = this_picSpecies->charge();
+      if(this_charge != 0) {
+
+         this_picSpecies->setChargeDensityOnNodes();
+         const LevelData<NodeFArrayBox>& species_rho = this_picSpecies->getChargeDensityOnNodes();
+         for(DataIterator dit(grids); dit.ok(); ++dit) {
+            const FArrayBox& this_species_rho = species_rho[dit].getFab();
+            FArrayBox& this_rho = chargeDensity[dit].getFab();
+            this_rho.plus(this_species_rho,0,0,chargeDensity.nComp());
+         }
+
+      }
+   }
+
+}
+
+void System::setCurrentDensity()
+{
+   CH_TIME("System::setCurrentDensity()");
+   const DisjointBoxLayout& grids(m_mesh->getDBL());
+ 
+   LevelData<EdgeDataBox>&  currentDensity = m_electromagneticFields->getCurrentDensity();
+   LevelData<NodeFArrayBox>&  currentDensity_virtual = m_electromagneticFields->getVirtualCurrentDensity();
+   
+   // set the current density member to zero
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         currentDensity[dit][dir].setVal(0.0);
+      }
+      if(SpaceDim<3) {
+         FArrayBox& this_Jv_nodes = currentDensity_virtual[dit].getFab();
+         this_Jv_nodes.setVal(0.0);
+      }
+   }
+
+   // loop over all pic species and add the current density 
+   for (int s=0; s<m_pic_species_ptr_vect.size(); ++s) {
+      const PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      int this_charge = this_picSpecies->charge();
+      if(this_charge != 0) {
+
+         this_picSpecies->setCurrentDensity();
+         const LevelData<EdgeDataBox>& species_J = this_picSpecies->getCurrentDensity();
+         for(DataIterator dit(grids); dit.ok(); ++dit) {
+            for (int dir=0; dir<SpaceDim; dir++) {
+               const FArrayBox& this_species_Jdir = species_J[dit][dir];
+               currentDensity[dit][dir].plus(this_species_Jdir,0,0,1);
+            }
+         }
+         if(SpaceDim<3) {
+            const LevelData<NodeFArrayBox>& species_Jv = this_picSpecies->getCurrentDensity_virtual();
+            for(DataIterator dit(grids); dit.ok(); ++dit) {
+               const FArrayBox& this_species_Jv = species_Jv[dit].getFab();
+               FArrayBox& this_Jv = currentDensity_virtual[dit].getFab();
+               this_Jv.plus(this_species_Jv,0,0,currentDensity_virtual.nComp());
+            }
+         }
+
+      }
+   }
+
+   // call exchange
+   //SpaceUtils::exchangeEdgeDataBox(m_currentDensity);
+   //if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(m_currentDensity_virtual,m_mesh);
 
 }
 
@@ -1128,13 +1237,13 @@ void System::scatterParticles( const Real&  a_dt )
       const int this_species2 = this_scattering->species2();
          
       PicSpeciesPtr this_picSpecies1(m_pic_species_ptr_vect[this_species1]);
-      this_picSpecies1->setEnergyDensity();
+      //this_picSpecies1->setEnergyDensity();
       if(this_species1==this_species2) { // self-species scattering
          this_scattering->applySelfScattering( *this_picSpecies1, *m_mesh, dt_sec );
       }
       else { // inter-species scattering
          PicSpeciesPtr this_picSpecies2(m_pic_species_ptr_vect[this_species2]);
-         this_picSpecies2->setEnergyDensity();
+         //this_picSpecies2->setEnergyDensity();
          this_scattering->applyInterScattering( *this_picSpecies1, *this_picSpecies2, *m_mesh, dt_sec );
       }
 
@@ -1148,59 +1257,16 @@ void System::postTimeStep( const Real&  a_cur_time,
 {  
    CH_TIME("System::postTimeStep()");
    
-   if(m_advance_method==DSMC) {  
+   // remove particles that have left the physical domain and create new ones
    
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->motion()) this_picSpecies->updateOldParticlePositions();
-         if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
+   Real cnormDt = a_dt*m_units->CvacNorm();
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      if(this_picSpecies->motion()) {
+         this_picSpecies->removeOutflowParticles();
       }
-
    }
    
-   if(m_advance_method==PICMC_EXPLICIT) {  
-   
-      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advanceB()) {
-         m_electromagneticFields->updateOldMagneticField();
-      }
-   
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
-      }
-
-   }
-   
-   if(m_advance_method==PICMC_SEMI_IMPLICIT) {  
-   
-      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advanceE()) {
-         m_electromagneticFields->updateOldElectricField();
-      }
-   
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->motion()) this_picSpecies->updateOldParticlePositions();
-         if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
-      }
-
-   }
-   
-   if(m_advance_method==PICMC_FULLY_IMPLICIT) {  
-   
-      if (!m_electromagneticFields.isNull()) {
-         if(m_electromagneticFields->advanceE()) m_electromagneticFields->updateOldElectricField();
-         if(m_electromagneticFields->advanceB()) m_electromagneticFields->updateOldMagneticField();
-      }
-   
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->motion()) this_picSpecies->updateOldParticlePositions();
-         if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
-      }
-
-   }
-
-
 }
 
 Real System::fieldsDt( const int a_step_number )

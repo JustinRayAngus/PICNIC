@@ -73,6 +73,10 @@ IC.deuteriumAtom.velocity_1.value = 0.0 # [m/s]
 IC.deuteriumAtom.velocity_2.type = "constant"
 IC.deuteriumAtom.velocity_2.value = 0.0 # [m/s]
 
+BC.deuteriumAtom.dir0_lower.type = symmetry
+BC.deuteriumAtom.dir0_upper.type = symmetry
+
+
 #####################################################
 # Scattering Definitions
 #####################################################

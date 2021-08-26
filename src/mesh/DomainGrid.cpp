@@ -176,9 +176,9 @@ void DomainGrid::defineBoundaryBoxLayout()
    const Box domain_box = m_domain.domainBox();
 
    for(int dir=0; dir<SpaceDim; dir++) {
-      for(SideIterator si; si.ok(); ++si) {
-         Side::LoHiSide side( si() );
-         if(!m_domain.isPeriodic(dir)) {
+      if(!m_domain.isPeriodic(dir)) {
+         for(SideIterator si; si.ok(); ++si) {
+            Side::LoHiSide side( si() );
             m_domain_bdry_layout.push_back(
             BoundaryBoxLayoutPtr( new BoundaryBoxLayout( m_grids,
                                                          domain_box,

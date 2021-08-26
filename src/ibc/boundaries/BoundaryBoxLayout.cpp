@@ -5,31 +5,10 @@
 #include "LoHiSide.H"
 #include "Vector.H"
 
+#include "BCUtils.H"
+
 #include "NamespaceHeader.H"
    
-inline
-Box getGhostBox( const Box&             a_domain_box,
-                 const Box&             a_box,
-                 const int&             a_dir,
-                 const Side::LoHiSide&  a_side,
-                 const int&             a_num_ghosts )
-{
-   const Box g_box( adjCellBox( a_box, a_dir, a_side, a_num_ghosts ) );
-   const Box g_domain_box( adjCellBox( a_domain_box, a_dir, a_side, a_num_ghosts ) );
-   return (g_box & g_domain_box);
-}
-
-inline
-bool touchesPhysicalBoundary( const Box&             a_domain_box,
-                              const Box&             a_box,
-                              const int&             a_dir,
-                              const Side::LoHiSide&  a_side )
-{
-   const Box g_box( adjCellBox( a_box, a_dir, a_side, 1 ) );
-   const Box g_domain_box( adjCellBox( a_domain_box, a_dir, a_side, 1 ) );
-   return g_box.intersects( g_domain_box );
-}
-
 inline
 bool buildBoxLayout( DisjointBoxLayout&            a_bdry_grids,
                      std::map<Box,LayoutIterator>& a_box_map,
@@ -44,13 +23,13 @@ bool buildBoxLayout( DisjointBoxLayout&            a_bdry_grids,
    
    for (LayoutIterator lit( a_grids.layoutIterator() ); lit.ok(); ++lit) {
 
-      if (touchesPhysicalBoundary( a_domain_box, a_grids[lit], a_dir, a_side )) {
+      if (BCUtils::touchesPhysicalBoundary( a_domain_box, a_grids[lit], a_dir, a_side )) {
 
-         Box boundary_box( getGhostBox( a_domain_box,
-                                        a_grids[lit],
-                                        a_dir,
-                                        a_side,
-                                        a_nghosts[a_dir]) );
+         Box boundary_box( BCUtils::getGhostBox( a_domain_box,
+                                                 a_grids[lit],
+                                                 a_dir,
+                                                 a_side,
+                                                 a_nghosts[a_dir]) );
 
          if (!boundary_box.isEmpty()) {
             boxes.push_back( boundary_box );
@@ -86,7 +65,8 @@ void BoundaryBoxLayout::define( const DisjointBoxLayout&  a_grids,
 {
    m_dir = a_dir;
    m_side = a_side;
-   
+   m_name = getBdryName(m_dir,m_side);   
+
    std::map<Box,LayoutIterator> box_map;
    m_has_boxes = buildBoxLayout( m_bdry_grids,
                                  box_map,
@@ -107,6 +87,57 @@ void BoundaryBoxLayout::define( const DisjointBoxLayout&  a_grids,
    }
    m_is_defined = true;
    
+}
+
+std::string 
+BoundaryBoxLayout::getBdryName( const int  a_dir,
+                                const int  a_side )
+{
+   std::string bdry_name;
+
+   if ( a_dir == 0 ) {
+      if ( a_side == 0 ) {
+         bdry_name = "dir0_lower";
+      }
+      else if ( a_side == 1 ) {
+         bdry_name = "dir0_upper";
+      }
+      else {
+         MayDay::Error("BoundaryBoxLayout::getBdryName(): Invalid side argument");
+      }
+   }
+#if CH_SPACEDIM>=2
+   else if ( a_dir == 1 ) {
+      if ( a_side == 0 ) {
+         bdry_name = "dir1_lower";
+      }
+      else if ( a_side == 1 ) {
+         bdry_name = "dir1_upper";
+      }
+      else {
+         MayDay::Error("BoundaryBoxLayout::getBdryName(): Invalid side argument");
+      }
+   }
+#endif
+#if CH_SPACEDIM==3
+   else if ( a_dir == 2 ) {
+      if ( a_side == 0 ) {
+         bdry_name = "dir2_lower";
+      }
+      else if ( a_side == 1 ) {
+         bdry_name = "dir2_upper";
+      }
+      else {
+         MayDay::Error("BoundaryBoxLayout::getBdryName(): Invalid side argument");
+      }
+   }
+#endif
+   else {
+      cout << " a_dir = " << a_dir << " a_side = " << a_dir << endl;
+      MayDay::Error("BoundaryBoxLayout::getBdryName(): Invalid direction argument");
+   }
+
+   return bdry_name;
 }
 
 #include "NamespaceFooter.H"

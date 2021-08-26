@@ -90,12 +90,6 @@ namespace SpaceUtils {
                      const LevelData<FArrayBox>&,
                      const std::string& );
 
-  void ParaEdgeGradientAtNodes( NodeFArrayBox&,
-                          const EdgeDataBox&,
-                          const RealVect&,
-                          const Box&,
-                          const std::string& );
-
   void PerpEdgeGradientAtCells( FArrayBox&,
                           const EdgeDataBox&,
                           const RealVect&,

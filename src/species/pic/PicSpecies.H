@@ -17,6 +17,8 @@
 #include "RealVect.H"
 #include "DisjointBoxLayout.H"
 #include "Vector.H"
+#include <vector>
+#include <array>
 #include "RefCountedPtr.H"
 
 #include "BinFab.H"
@@ -28,6 +30,9 @@
 #include "ListBoxFactory.H"
 #include "MeshInterp.H"
 #include "CodeUnits.H"
+
+#include "ElectroMagneticFields.H"
+#include "PicSpeciesBC.H"
 
 #include "NamespaceHeader.H"
 
@@ -124,23 +129,40 @@ public:
   
   void setChargeDensity();
   void setChargeDensityOnFaces();
-  const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
-  const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_FB;}
-
-  void interpolateElectricFieldToParticles( const LevelData<EdgeDataBox>&  a_Efield );
-  void interpolateElectricFieldToParticles( const LevelData<NodeFArrayBox>&  a_Efield_virt );
+  void setChargeDensityOnNodes();
   
-  void interpolateMagneticFieldToParticles( const LevelData<FluxBox>&  a_Bfield );
-  void interpolateMagneticFieldToParticles( const LevelData<FArrayBox>&  a_Bfield_virt );
+  const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
+  const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_faces;}
+  const LevelData<NodeFArrayBox>& getChargeDensityOnNodes() const {return m_chargeDensity_nodes;}
+
+  void interpolateFieldsToParticles( const ElectroMagneticFields&  a_em_fields );
+
+  void interpolateFieldsToOutcasts( const ElectroMagneticFields&  a_em_fields );
+  
+  void repositionInflowParticles(); 
+
+  void repositionOutcastsAndApplyForces( const ElectroMagneticFields&   a_em_fields,
+                                         const Real&  a_cnormDt, 
+                                         const bool&  a_byHalfDt );
+
+  void applyForces( List<JustinsParticle>&  a_pList,
+              const Real&  a_cnormDt, 
+              const bool&  a_byHalfDt );
  
   // advance particle positions
-  void advancePositions( const Real&  a_cnormDt );
+  void advancePositions( const Real&  a_cnormDt,
+                         const bool&  a_intermediate_advance=false );
   void advancePositions_2ndHalf();
 
   // Boris pusher
   void advanceVelocities( const Real&  a_cnormDt, 
                           const bool&  a_byHalfDt=false );
   void advanceVelocities_2ndHalf();
+  
+  void removeOutflowParticles();
+  
+  void createInflowParticles( const Real&  a_time,
+                              const Real&  a_dt );
 
   void updateOldParticlePositions();
   void updateOldParticleVelocities();
@@ -164,6 +186,12 @@ private:
   int  m_charge;   // species charge / electron charge
   Real m_Uint;     // species internal energy [eV]
 
+  //
+  // temporary members for moving boundry shock sims
+  //
+  PicSpeciesBC* m_species_bc;  
+  std::string m_BC_type_lower, m_BC_type_upper;
+
   Real m_volume_scale; 
   Real m_stable_dt = DBL_MAX; 
   Real m_fnorm_const; // normalization constant for particle force
@@ -181,7 +209,6 @@ private:
   
   //MeshInterp* m_meshInterp;
   
-  //ParticleData<Particle> m_data; // container for storing list of particle data
   ParticleData<JustinsParticle> m_data; // container for storing list of particles for each box
   LevelData<BinFab<JustinsParticlePtr>> m_data_binfab_ptr; // container for storing array of lists of ptrs to JustinsParticles 
                                          // each grid cell has a list of all particles living in that cell
@@ -195,7 +222,8 @@ private:
   mutable LevelData<NodeFArrayBox> m_currentDensity_virtual;  // needed for 1D/2D simulations
   //mutable BoxLayoutData<FArrayBox> m_testBLD;          
   mutable LevelData<FArrayBox> m_chargeDensity;          
-  mutable LevelData<FluxBox> m_chargeDensity_FB;          
+  mutable LevelData<FluxBox> m_chargeDensity_faces;          
+  mutable LevelData<NodeFArrayBox> m_chargeDensity_nodes;          
 
   // physical quantities
   //

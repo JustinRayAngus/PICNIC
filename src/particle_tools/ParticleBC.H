@@ -25,9 +25,10 @@ public:
   /// by a_leftEdge and a_rightEdge will have their positions 
   /// periodiocally shifted until that is no longer true
   template <class P>
-  static void enforcePeriodic(ParticleData<P>& a_particleData,
-                              const RealVect& a_leftEdge,
-                              const RealVect& a_rightEdge);
+  static void enforcePeriodic( ParticleData<P>&  a_particleData,
+                         const RealVect&         a_leftEdge,
+                         const RealVect&         a_rightEdge);
+  
 };
 
 #include "NamespaceFooter.H"

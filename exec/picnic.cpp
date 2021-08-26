@@ -59,7 +59,7 @@ int main(int a_argc, char* a_argv[])
 #endif
 
    if(rank==0) cout << "PICNIC: number of procs = " << num_procs << endl;
-   if(rank==0) cout << "PICNIC: SpaceDim = " << SpaceDim << endl << endl;
+   if(rank==0) cout << "PICNIC: SpaceDim = " << SpaceDim << endl;
 
    // Check for an input file
    char* inFile = NULL;
@@ -67,6 +67,7 @@ int main(int a_argc, char* a_argv[])
    if(a_argc > 1)
    {
       inFile = a_argv[1];
+      if(rank==0) cout << "input file = " << inFile << endl << endl;
    }
    else
    {

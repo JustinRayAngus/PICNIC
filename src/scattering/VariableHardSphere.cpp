@@ -50,17 +50,16 @@ void VariableHardSphere::initialize( const DomainGrid&         a_mesh,
    //
    
    // define references to picSpecies1
-   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
-   const LevelData<FArrayBox>& numberDensity1 = this_picSpecies->getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity1 = this_picSpecies->getEnergyDensity(setMoments);
+   const LevelData<FArrayBox>& numberDensity1 = this_picSpecies->getNumberDensity(false); // pre-computed
+   const LevelData<FArrayBox>& energyDensity1 = this_picSpecies->getEnergyDensity(true);
    
    if(m_sp1==m_sp2) {
       setMeanFreeTime(numberDensity1,energyDensity1);
    }
    else {
       // define references to picSpecies2
-      //const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity(setMoments);
-      //const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity(setMoments);
+      //const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity(false);
+      //const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity(true);
       //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
    }
 
@@ -198,9 +197,8 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    
    // define reference to a_picSpcies binfab container of pointers to particle data
    LevelData<BinFab<JustinsParticlePtr>>& data_binfab_ptr = a_picSpecies.partData_binfab();
-   const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
-   const LevelData<FArrayBox>& numberDensity = a_picSpecies.getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity = a_picSpecies.getEnergyDensity(setMoments);
+   const LevelData<FArrayBox>& numberDensity = a_picSpecies.getNumberDensity(false);
+   const LevelData<FArrayBox>& energyDensity = a_picSpecies.getEnergyDensity(true);
 
    // predefine some variables
    Real local_Teff, local_numberDensity, local_energyDensity, local_gmax;
@@ -384,15 +382,14 @@ void VariableHardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
    // define references to picSpecies1
    //
    //LevelData<BinFab<JustinsParticlePtr>>& data1_binfab_ptr = a_picSpecies1.partData_binfab();
-   //const bool setMoments = false; // It is the job of the caller to make sure the moments are pre-computed
-   //const LevelData<FArrayBox>& numberDensity1 = a_picSpecies1.getNumberDensity(setMoments);
-   //const LevelData<FArrayBox>& energyDensity1 = a_picSpecies1.getEnergyDensity(setMoments);
+   //const LevelData<FArrayBox>& numberDensity1 = a_picSpecies1.getNumberDensity(false);
+   //const LevelData<FArrayBox>& energyDensity1 = a_picSpecies1.getEnergyDensity(true);
    
    // define references to picSpecies2
    //
    //LevelData<BinFab<JustinsParticlePtr>>& data2_binfab_ptr = a_picSpecies2.partData_binfab();
-   //const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensity(setMoments);
-   //const LevelData<FArrayBox>& energyDensity2 = a_picSpecies2.getEnergyDensity(setMoments);
+   //const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensity(false);
+   //const LevelData<FArrayBox>& energyDensity2 = a_picSpecies2.getEnergyDensity(true);
   
 }
 
