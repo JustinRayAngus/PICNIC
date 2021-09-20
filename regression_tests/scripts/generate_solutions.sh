@@ -17,7 +17,7 @@ for prob_dir in $1; do
    mkdir $prob_dir
    cp -r $PICNIC_TEST_INPUTS_DIR/$prob_dir/* $prob_dir
    cd $prob_dir
-   rm -rf plt* stdout pout*
+   rm -rf mesh_data particle_data history.txt time.table* stdout pout*
    input_file=$(ls *.in)
    np=`grep TEST $input_file | sed -e 's/.*\(np=\)/\1/' -e 's/\(,\).*//' -e 's/np=//'`
    timelimit=`grep TEST $input_file | sed -e 's/.*\(timelimit=\)/\1/' -e 's/\(,\).*//' -e 's/timelimit=//'`

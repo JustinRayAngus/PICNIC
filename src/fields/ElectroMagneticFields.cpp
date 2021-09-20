@@ -367,8 +367,8 @@ void ElectroMagneticFields::advanceElectricField_2ndHalf( const Real&  a_theta )
    }
    
    // apply the BCs and perform exchange   
-   Real dummy_time = 0.0;
-   applyBCs_electricField(dummy_time);
+   //Real dummy_time = 0.0;
+   //applyBCs_electricField(dummy_time);
 
 }
 

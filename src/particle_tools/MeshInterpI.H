@@ -191,8 +191,8 @@ void MeshInterp::interpolateEMfieldsToPart( List<P>&     a_particleList,
 {
   
   for (ListIterator<P> lit(a_particleList); lit; ++lit) {
-     std::array<Real,3> this_Ep;
-     std::array<Real,3> this_Bp;
+     std::array<Real,3> this_Ep = {0.0,0.0,0.0};
+     std::array<Real,3> this_Bp = {0.0,0.0,0.0};
      P& this_particle = lit();
      const RealVect& this_xp = this_particle.position();
      
