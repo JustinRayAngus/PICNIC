@@ -13,7 +13,7 @@ Mi   = 1836.15*me;
 mu0 = 4*pi*1e-7;
 ep0 = 1/mu0/cvac^2;
 
-species = 1;
+sp = 1;
 dt_sim = 0.1;
 testPath = '../fromQuartz/1D/numericalEnergyTests/';
 
@@ -60,8 +60,11 @@ end
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/moments*']);
+species_folders = dir([rootPath,'mesh_data/species*']);
+numSpecies = length(species_folders);
+cd
+momentList = dir([rootPath,'mesh_data/',species_folders(sp).name,'/moment*']);
+
 ListLength = length(momentList)
 
 fieldList = dir([rootPath,'mesh_data/field_data/field*']);
@@ -94,8 +97,8 @@ for iL=1:iLmax
 
     %%%   reading moments from part file for species 1
     %
-    momentFile_1 = [rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/',momentList(index(iL)).name];
+    momentFile_1 = [rootPath,'mesh_data/',species_folders(1).name, ...
+                 '/',momentList(index(iL)).name];   
     fileinfo = hdf5info(momentFile_1);
 
     SpaceDim = h5readatt(momentFile_1,'/Chombo_global','SpaceDim');
@@ -112,7 +115,8 @@ for iL=1:iLmax
 
     %%%   reading moments from part file for species 2
     %
-    momentFile_2 = [rootPath,'mesh_data/species2_data/',momentList(index(iL)).name];
+    momentFile_2 = [rootPath,'mesh_data/',species_folders(2).name, ...
+                 '/',momentList(index(iL)).name];
     if(iL==1)
         Mass_2 = h5readatt(momentFile_2,'/species_data','mass');
         Charge_2 = double(h5readatt(momentFile_2,'/species_data','charge'));

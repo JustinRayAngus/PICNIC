@@ -37,11 +37,10 @@ public:
   
   virtual ~ElectroMagneticFields();
 
-  void initialize();
+  void initialize( const Real          a_cur_time,
+                   const std::string&  a_restart_file_name );
   
   bool advance() const { return m_advance; }
-  bool advanceE() const { return m_advanceE; }
-  bool advanceB() const { return m_advanceB; }
   
   std::array<bool,3> advanceE_comp() const { return m_advanceE_comp; }
   std::array<bool,3> advanceB_comp() const { return m_advanceB_comp; }
@@ -57,10 +56,14 @@ public:
   // const references to magnetic field  
   const LevelData<FluxBox>& getMagneticField() const {return m_magneticField;}
   const LevelData<FArrayBox>& getVirtualMagneticField() const {return m_magneticField_virtual;}
+  const LevelData<FluxBox>& getMagneticField_old() const {return m_magneticField_old;}
+  const LevelData<FArrayBox>& getVirtualMagneticField_old() const {return m_magneticField_virtual_old;}
   
   // const references to electric field  
   const LevelData<EdgeDataBox>& getElectricField() const {return m_electricField;}
   const LevelData<NodeFArrayBox>& getVirtualElectricField() const {return m_electricField_virtual;}
+  const LevelData<EdgeDataBox>& getElectricField_old() const {return m_electricField_old;}
+  const LevelData<NodeFArrayBox>& getVirtualElectricField_old() const {return m_electricField_virtual_old;}
   
   // const references to charge/current density
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
@@ -90,20 +93,16 @@ public:
   const LevelData<FArrayBox>& getDivB() const {return m_divB;}
   
   // advance the fields in time
-  void advanceElectricField( const Real& a_cnormDt );
-  void advanceMagneticField( const Real& a_cnormDt );
+  void advanceElectricField( const Real, const Real );
+  void advanceMagneticField( const Real, const Real );
   
   // convert from half time advance to full advance
-  void advanceMagneticField_2ndHalf( const Real&  a_theta=0.5 );
-  void advanceElectricField_2ndHalf( const Real&  a_theta=0.5 );
+  void advanceMagneticField_2ndHalf( const Real, const Real a_theta=0.5 );
+  void advanceElectricField_2ndHalf( const Real, const Real a_theta=0.5 );
  
   // save fields for error calc
   void saveElectricField();
   void saveMagneticField();
-  
-  // applyBCs to fields
-  void applyBCs_electricField( const Real  a_time );
-  void applyBCs_magneticField( const Real  a_time );
   
   // diff the fields for error calc
   Real diffElectricField();
@@ -113,18 +112,25 @@ public:
   void updateOldElectricField();
   void updateOldMagneticField();
 
-  // compute the curl of the fields 
-  void setCurlB();
-  void setCurlE();
-  
   // compute the divegence of the fields 
   void setDivB();
   void setDivE();
 
   void solvePoisson( const Real&  a_time );
   void correctElectricField();
+  
+  bool advanceE() const { return m_advanceE; }
+  bool advanceB() const { return m_advanceB; }
  
 private:
+  
+  // applyBCs to fields
+  void applyBCs_electricField( const Real  a_time );
+  void applyBCs_magneticField( const Real  a_time );
+  
+  // compute the curl of the fields 
+  void setCurlB();
+  void setCurlE();
   
   const bool m_verbosity; 
   bool m_use_poisson; 

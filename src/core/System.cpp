@@ -3,10 +3,12 @@
 
 #include "BoxIterator.H"
 #include "DomainGrid.H"
+#include "SpaceUtils.H"
 
 #include "dataFileIO.H"
 #include <iostream>
 #include <fstream>
+#include <stdio.h>
 
 #include "SpecialOperatorFactory.H"
 #include "ScatteringFactory.H"
@@ -18,13 +20,15 @@ System::System( ParmParse&  a_pp )
    :
      m_iter_max(0),
      m_theta(0.5),
-     m_mesh(NULL),
-     m_units(NULL),
-     m_dataFile(NULL),
-     m_meshInterp(NULL),
+     m_advance_method(PIC_DSMC),
+     m_mesh(nullptr),
+     m_units(nullptr),
+     m_dataFile(nullptr),
+     m_meshInterp(nullptr),
      m_verbosity(0),
      m_rtol(1e-6),
-     m_atol(1e-12)
+     m_atol(1e-12),
+     m_time_integrator(nullptr)
 {
    ParmParse ppsys("system");
    parseParameters(ppsys);
@@ -51,10 +55,26 @@ System::System( ParmParse&  a_pp )
 
    createSpecialOperators();
 
+   if(m_advance_method == PIC_DSMC) {
+     m_time_integrator = new PICTimeIntegrator_DSMC;
+   } else if(m_advance_method == PIC_EM_EXPLICIT) {
+     m_time_integrator = new PICTimeIntegrator_EM_Explicit;
+   } else if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
+     m_time_integrator = new PICTimeIntegrator_EM_SemiImplicit;
+   } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
+     m_time_integrator = new PICTimeIntegrator_EM_ThetaImplicit;
+     dynamic_cast<PICTimeIntegrator_EM_ThetaImplicit*>(m_time_integrator)->theta(m_theta);
+   }
+   m_time_integrator->define( this,
+                              m_pic_species_ptr_vect, 
+                              m_electromagneticFields,
+                              m_units );
+   m_time_integrator->setSolverParams( m_rtol, m_atol, m_iter_max );
 }
 
 System::~System()
 {
+   delete m_time_integrator;
    delete m_mesh;
    delete m_units;
    delete m_dataFile;
@@ -64,22 +84,16 @@ System::~System()
    }
 }
 
-void System::initialize( const int     a_cur_step,
-                         const double  a_cur_time )
+void System::initialize( const int           a_cur_step,
+                         const double        a_cur_time,
+                         const std::string&  a_restart_file_name )
 {
    CH_TIME("System::initialize()");
    
    // initialize the pic species
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(a_cur_step==0) {
-         this_picSpecies->initialize(*m_units); // set initial particle positions and velocities
-      }
-      else { // restart
-         if(!procID()) cout << "System::initialize() called at step = " << a_cur_step << endl;
-         if(!procID()) cout << "restarting not currently an option !!! " << endl;
-         exit(EXIT_FAILURE);
-      }
+      this_picSpecies->initialize(*m_units,a_cur_time,a_restart_file_name);
    }
    
    // initialize the scattering operators
@@ -105,10 +119,10 @@ void System::initialize( const int     a_cur_step,
       }
 
    }
-   
+
    // initialize the electromagnetic fields
    if (!m_electromagneticFields.isNull()) {
-      m_electromagneticFields->initialize();
+      m_electromagneticFields->initialize(a_cur_time,a_restart_file_name);
       setChargeDensity();
       setCurrentDensity();
    }
@@ -324,8 +338,8 @@ void System::createEMfields()
    if(use_fields) {
       bool verbose = true;
       m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>(new ElectroMagneticFields(ppflds,*m_mesh,*m_units,verbose)); 
-      if(m_advance_method == DSMC ) {
-         if(!procID()) cout << "advance_method DSMC cannot be used with electromagnetic fields on" << endl;
+      if(m_advance_method == PIC_DSMC ) {
+         if(!procID()) cout << "advance_method PIC_DSMC cannot be used with electromagnetic fields on" << endl;
          exit(EXIT_FAILURE);
       }
       if(!procID()) cout << "Finished creating Electromagnetic fields object" << endl << endl;
@@ -350,7 +364,7 @@ void System::createPICspecies()
    int species;
    while(more_vars) { // look for pic species...
  
-      species = m_pic_species_ptr_vect.size() + 1;
+      species = m_pic_species_ptr_vect.size();
 
       stringstream s;
       s << "pic_species." << species; 
@@ -368,7 +382,7 @@ void System::createPICspecies()
       if(more_vars) {
       
          // Create the pic species object
-         PicSpecies* picSpecies = new PicSpecies( ppspc, name, *m_meshInterp, *m_mesh );
+         PicSpecies* picSpecies = new PicSpecies( ppspc, species, name, *m_meshInterp, *m_mesh );
 
          // Add the new pic species object to the vector of pointers to PicSpecies
          m_pic_species_ptr_vect.push_back(PicSpeciesPtr(picSpecies));
@@ -406,7 +420,7 @@ void System::createScattering()
       while(more_scattering_models) { // look for scattering ops
       
          stringstream s;
-         s << "scattering." << m_scattering_ptr_vect.size() + 1; 
+         s << "scattering." << m_scattering_ptr_vect.size(); 
          ParmParse pp_scatter( s.str().c_str() );
      
          string model;
@@ -450,7 +464,7 @@ void System::createSpecialOperators()
 
    bool more_ops(true);
    string name0;
-   int special_op_num = 0;
+   int special_op_num = -1;
    while(more_ops) { // look for special operator...
  
       special_op_num = special_op_num + 1;
@@ -503,7 +517,7 @@ void System::writePlotFile( const int     a_cur_step,
 
       if(this_picSpecies->charge() == 0) {
          m_dataFile->writeNeutralSpeciesDataFile( *this_picSpecies, 
-                                                  s+1, a_cur_step, a_cur_time );
+                                                  s, a_cur_step, a_cur_time );
       }
       else {
          if(m_writeSpeciesChargeDensity) {
@@ -513,7 +527,7 @@ void System::writePlotFile( const int     a_cur_step,
          }     
          if(m_writeSpeciesCurrentDensity) this_picSpecies->setCurrentDensity();      
          m_dataFile->writeChargedSpeciesDataFile( *this_picSpecies, 
-                                                  s+1, a_cur_step, a_cur_time,
+                                                  s, a_cur_step, a_cur_time,
                                                   m_writeSpeciesChargeDensity,
                                                   m_writeSpeciesCurrentDensity );
       }
@@ -528,7 +542,7 @@ void System::writeHistFile( const int     a_cur_step,
 {
    CH_TIME("System::writeHistFile()");
    
-   if(a_startup) setupHistFile();
+   if(a_startup && !procID()) setupHistFile(a_cur_step);
 
    //FILE *histFile;
    std::ofstream histFile;
@@ -546,70 +560,149 @@ void System::writeHistFile( const int     a_cur_step,
 
 }
 
-void System::setupHistFile() 
+void System::setupHistFile(const int a_cur_step) 
 {
-   if(!procID()) cout << "setting up the history file ..." << endl << endl;
- 
-   std::ofstream histFile("history.txt",std::ofstream::out);
+   CH_TIME("System::setupHistFile()");
+   if(!procID()) cout << "setting up the history file at step " << a_cur_step << endl << endl;
 
-   if(histFile.is_open()) {
-      histFile << "#0 step number \n";
-      histFile << "#1 time [code units] \n";
-      histFile.close();
-   }
+   const std::string hf_name = "history.txt"; 
+  
+   if(a_cur_step==0) {
+
+      std::ofstream histFile(hf_name,std::ofstream::out);
+      if(histFile.is_open()) {
+         histFile << "#0 step number \n";
+         histFile << "#1 time [code units] \n";
+         histFile.close();
+      }
+      else {
+         cout << "Problem creating/opening history.txt file" << endl;
+      }
+
+   } 
    else {
-      cout << "Problem creating/opening history.txt file" << endl;
+      std::ifstream histFile;
+      std::ofstream histFile_temp;
+      std::string this_line;
+      int this_step;
+      
+      histFile.open(hf_name,std::ifstream::in);
+      histFile_temp.open("history_temp.txt",std::ofstream::out);
+      if(histFile.is_open()) {
+         while(getline(histFile, this_line)) {
+            stringstream ss;
+            ss << this_line;
+            string temp;
+            ss >> temp; // first element is step number
+            if( stringstream(temp) >> this_step && this_step >= a_cur_step ) {
+               break;
+            }
+            else {
+               histFile_temp << this_line; 
+               histFile_temp << "\n"; 
+            }
+         }
+         histFile.close();
+         histFile_temp.close();
+         remove(hf_name.c_str());
+         rename("history_temp.txt",hf_name.c_str());
+      }
+      else {
+         cout << "Problem opening history.txt file on restart" << endl;
+      }
    }
 
 }
 
+void System::writeCheckpointFile( HDF5Handle&  a_handle,
+                            const int          a_cur_step,
+                            const double       a_cur_time,
+                            const double       a_cur_dt )
+{
+   CH_TIME("System::writeCheckpointFile()");
+
+   MPI_Barrier(MPI_COMM_WORLD);
+   if(!procID()) cout << "Writing checkpoint file at step " << a_cur_step << endl;
+
+   HDF5HeaderData header;
+   header.m_int["cur_step"]  = a_cur_step;
+   header.m_real["cur_time"] = a_cur_time;
+   header.m_real["cur_dt"]   = a_cur_dt;
+
+   header.writeToFile( a_handle );
+   
+   // write the field data
+   if (!m_electromagneticFields.isNull()) {
+      m_dataFile->writeCheckpointEMFields( a_handle, *m_electromagneticFields );
+   }
+
+   // write the particle data
+   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+      m_dataFile->writeCheckpointParticles( a_handle, *this_picSpecies, s );
+   }
+
+}
+
+void System::readCheckpointFile( const std::string&  a_chkpt_fname,
+                                 int&                a_cur_step,
+                                 Real&               a_cur_time,
+                                 Real&               a_cur_dt )
+{
+   CH_TIME("System::readCheckpointFile()");
+
+   if(!procID()) cout << "Reading restart file " << a_chkpt_fname << endl;
+
+#ifdef CH_USE_HDF5
+   HDF5Handle handle( a_chkpt_fname, HDF5Handle::OPEN_RDONLY );
+
+   HDF5HeaderData header;
+   header.readFromFile( handle );
+
+   a_cur_step = header.m_int["cur_step"];
+   a_cur_time = header.m_real["cur_time"];
+   a_cur_dt   = header.m_real["cur_dt"];
+
+   handle.close();
+
+#else
+   MayDay::Error("restart only defined with hdf5");
+#endif
+   
+}
+
 void System::parseParameters( ParmParse&  a_ppsys )
 {
-
-   //CH_assert(a_ppsys.contains("advance_method"));
-   std::string advance_method_string = "DSMC";
-   a_ppsys.query("advance_method", advance_method_string);
-   if(advance_method_string=="DSMC") {
-      m_advance_method = DSMC;
-   }
-   else if(advance_method_string=="PICMC_EXPLICIT") {
-      m_advance_method = PICMC_EXPLICIT;
-   }
-   else if(advance_method_string=="PICMC_SEMI_IMPLICIT") {
-      m_advance_method = PICMC_SEMI_IMPLICIT;
+   a_ppsys.query("advance_method", m_advance_method);
+   if(m_advance_method == PICMC_EXPLICIT) m_advance_method = PIC_EM_EXPLICIT;
+   if(m_advance_method == PICMC_SEMI_IMPLICIT) m_advance_method = PIC_EM_SEMI_IMPLICIT;
+   if(m_advance_method == PICMC_FULLY_IMPLICIT) m_advance_method = PIC_EM_THETA_IMPLICIT;
+   if(m_advance_method == PIC_EM_SEMI_IMPLICIT) {
       a_ppsys.get("iter_max",m_iter_max);
       a_ppsys.query("abs_tol", m_atol);
       a_ppsys.query("rel_tol", m_rtol);
-   }
-   else if(advance_method_string=="PICMC_FULLY_IMPLICIT") {
-      m_advance_method = PICMC_FULLY_IMPLICIT;
+   } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
       a_ppsys.get("iter_max",m_iter_max);
       a_ppsys.query("abs_tol", m_atol);
       a_ppsys.query("rel_tol", m_rtol);
       a_ppsys.query("theta_parameter",m_theta);
-      //CH_assert(m_theta>0.0 && m_theta<=1.0);
       CH_assert(m_theta>=0.5 && m_theta<=1.0);
-   }
-   else {
-      if(!procID()) cout << "advance method = " << advance_method_string << " is not defined " << endl;
-      exit(EXIT_FAILURE);
    }
 
    a_ppsys.query("write_species_charge_density", m_writeSpeciesChargeDensity);
    a_ppsys.query("write_species_current_density", m_writeSpeciesCurrentDensity);
  
    if(!procID()) {
-      cout << "advance method  = " << advance_method_string << endl;
-      if(m_advance_method==PICMC_SEMI_IMPLICIT) {
-         cout << "iter_max = " << m_iter_max << endl;
-         cout << "abs_tol  = " << m_atol << endl;
-         cout << "rel_tol  = " << m_rtol << endl;
-      }
-      if(m_advance_method==PICMC_FULLY_IMPLICIT) {
-         cout << "iter_max = " << m_iter_max << endl;
-         cout << "abs_tol  = " << m_atol << endl;
-         cout << "rel_tol  = " << m_rtol << endl;
-         cout << "theta_parameter = " << m_theta << endl; 
+      cout << "advance method  = " << m_advance_method << endl;
+      if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
+         cout << "  iter_max = " << m_iter_max << endl;
+         cout << "  abs_tol  = " << m_atol << endl;
+         cout << "  rel_tol  = " << m_rtol << endl;
+      } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
+         cout << "  iter_max = " << m_iter_max << endl;
+         cout << "  abs_tol  = " << m_atol << endl;
+         cout << "  rel_tol  = " << m_rtol << endl;
+         cout << "  theta_parameter = " << m_theta << endl; 
       }
       cout << "write species charge density  = " << m_writeSpeciesChargeDensity << endl;
       cout << "write species current density = " << m_writeSpeciesCurrentDensity << endl << endl;
@@ -626,75 +719,12 @@ void System::preTimeStep( const Real&  a_cur_time,
    Real cnormDt = a_dt*m_units->CvacNorm();
    Real cnormHalfDt = 0.5*cnormDt;
 
-   if(m_advance_method==PICMC_EXPLICIT) {  
+   m_time_integrator->preTimeStep( a_cur_time, a_dt, a_step_number );
 
-      //
-      // complete advance of E from t_{n} to t_{n+1/2}
-      //
-
-      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advanceE()) {
-         if (a_cur_time==0.0) { // initial advance of electric field by 1/2 time step
-            m_electromagneticFields->setCurlB();
-            m_electromagneticFields->advanceElectricField(cnormHalfDt);
-            m_electromagneticFields->applyBCs_electricField(a_cur_time);
-            if(m_electromagneticFields->usePoisson()) {
-               setChargeDensity();
-               m_electromagneticFields->setDivE();
-               m_electromagneticFields->solvePoisson(a_cur_time);
-               m_electromagneticFields->correctElectricField();
-            }
-         }
-         else {
-            m_electromagneticFields->advanceElectricField_2ndHalf();
-            m_electromagneticFields->applyBCs_electricField(a_cur_time);
-         }
-      }
-  
-      //
-      // complete advance of xp from t_{n} to t_{n+1/2}
-      //
-
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->motion()) {
-            if (a_cur_time==0.0) { // initial advance of particle positions by 1/2 time step
-               this_picSpecies->createInflowParticles( a_cur_time, cnormHalfDt );
-               this_picSpecies->advancePositions(cnormHalfDt,false); // false is correct here
-            }
-            else {
-               this_picSpecies->advancePositions_2ndHalf();
-               //this_picSpecies->advancePositions(cnormDt);
-            }
-         }
-      }
-
-   }
-   
-   if(m_advance_method==PICMC_SEMI_IMPLICIT) {  
-
-      //
-      // complete advance of B from t_{n} to t_{n+1/2}
-      //
-
-      if (!m_electromagneticFields.isNull() && m_electromagneticFields->advanceB()) {
-         if (a_cur_time==0.0) { // initial advance of magnetic field by 1/2 time step
-            m_electromagneticFields->setCurlE();
-            m_electromagneticFields->advanceMagneticField(cnormHalfDt);
-            m_electromagneticFields->applyBCs_magneticField(a_cur_time);
-         }
-         else {
-            m_electromagneticFields->advanceMagneticField_2ndHalf();
-            m_electromagneticFields->applyBCs_magneticField(a_cur_time);
-         }
-         m_electromagneticFields->setCurlB(); // update curlB here
-      }
-  
-   }
-     
    // update old field values
    if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advanceE()) m_electromagneticFields->updateOldElectricField();
-      if(m_electromagneticFields->advanceB()) m_electromagneticFields->updateOldMagneticField();
+      m_electromagneticFields->updateOldElectricField();
+      m_electromagneticFields->updateOldMagneticField();
    }
    
    // update old particle values and create inflow particles  
@@ -715,418 +745,9 @@ void System::advance( Real&  a_cur_time,
 {  
    CH_TIME("System::advance()");
 
-   switch(m_advance_method) {
-      case DSMC : 
-          advance_DSMC( a_cur_time, a_dt );
-          break;
-      case PICMC_EXPLICIT : 
-          advance_PICMC_EXPLICIT( a_cur_time, a_dt );
-          break;
-      case PICMC_SEMI_IMPLICIT : 
-          advance_PICMC_SEMI_IMPLICIT( a_cur_time, a_dt );
-          break;
-      case PICMC_FULLY_IMPLICIT : 
-          advance_PICMC_FULLY_IMPLICIT( a_cur_time, a_dt );
-          break;
-      default :
-          MayDay::Error("Invalid advance method");
-   }
-   
-   // update current time and step number
+   m_time_integrator->timeStep( a_cur_time, a_dt, a_step_number );
    a_cur_time = a_cur_time + a_dt;
    a_step_number = a_step_number + 1;
-
-}
-
-void System::advance_DSMC( const Real&  a_cur_time, Real&  a_dt )
-{  
-   CH_TIME("System::advance_DSMC()");
-   
-   //
-   // explicit advance of particle positions 
-   // + velocity scatter
-   // + special operators
-   //
-    
-   Real cnormDt = a_dt*m_units->CvacNorm();
-
-   // advance particle positions from t_{n} to t_{n+1} using vp_{n}
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormDt);
-   }
-   
-   // scatter the particles: vp_{n+1} ==> vp'_{n+1}
-   if(m_use_scattering) scatterParticles( a_dt );
-   
-   // apply special operators
-   if(m_use_specialOps) {
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
-      }
-      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
-   }
-   
-}
-
-void System::advance_PICMC_EXPLICIT( const Real&  a_cur_time, Real&  a_dt )
-{  
-   CH_TIME("System::advance_PICMC_EXPLICIT()");
-   
-   //
-   // explicit leap-frog time advance of particles and fields
-   // B and vp are defined a whole time steps while E and xp are at half
-   //
-    
-   Real cnormDt = a_dt*m_units->CvacNorm();
-   Real cnormHalfDt = 0.5*cnormDt;
-     
-   Real cur_time = 0.0; // dummy. Add to passed arguements latter
- 
-   if (!m_electromagneticFields.isNull()) {
-   
-      //
-      // Step 1: advance B from t_{n} to t_{n+1/2} using E_{n+1/2}
-      //
-      if (m_electromagneticFields->advanceB()) {
-         m_electromagneticFields->setCurlE();
-         m_electromagneticFields->advanceMagneticField(cnormHalfDt);
-         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
-      }
-
-      //
-      // Step 2: compute Ep and Bp at t_{n+1/2} and xp_{n+1/2} and advance vp from t_{n} to t_{n+1}
-      //
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->forces()) {
-            this_picSpecies->interpolateFieldsToParticles( *m_electromagneticFields );
-            this_picSpecies->advanceVelocities( cnormDt, false );
-         }
-      }
-
-   }
-   
-   // scatter the particles: vp_{n+1} ==> vp'_{n+1}
-   if(m_use_scattering) scatterParticles( a_dt );
-   
-
-   // advance particle positions from t_{n+1/2} to t_{n+1} using vp_{n+1}
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) this_picSpecies->advancePositions(cnormHalfDt,true);
-   }
-   
-   if (!m_electromagneticFields.isNull()) {
-   
-      // complete advance of B from t_{n+1/2} to t_{n+1} and compute the curl
-      if (m_electromagneticFields->advanceB()) {
-         m_electromagneticFields->advanceMagneticField_2ndHalf();
-         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
-         m_electromagneticFields->setCurlB();
-      }
-
-      // compute current density at t_{n+1} and advance E from t_{n+1/2} to t_{n+1} 
-      // using B_{n+1} and J_{n+1}
-      if (m_electromagneticFields->advanceE()) {
-         setCurrentDensity();
-         m_electromagneticFields->advanceElectricField(cnormHalfDt);
-         m_electromagneticFields->applyBCs_electricField(a_cur_time);
-         if(m_electromagneticFields->usePoisson()) {
-            setChargeDensity();
-            m_electromagneticFields->setDivE();
-            m_electromagneticFields->solvePoisson(a_cur_time);
-            m_electromagneticFields->correctElectricField();
-         }
-      }
-
-   }
-   
-   // apply special operators
-   if(m_use_specialOps) {
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
-      }
-      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
-   }
-
-}
-
-void System::advance_PICMC_SEMI_IMPLICIT( const Real&  a_cur_time, Real&  a_dt )
-{  
-   CH_TIME("System::advance_PICMC_SEMI_IMPLICIT()");
-
-   //
-   // semi-implicit semi-energy-conservative scheme by Chen 2020
-   // B is defined at half time steps while all other quantities
-   // (E, xp, and vp) are defined at whole time steps
-   //
-    
-   Real cnormDt = a_dt*m_units->CvacNorm();
-   Real cnormHalfDt = 0.5*cnormDt;
-  
-   int iter = 0;
-   Real norm_efield = 0, norm_efield0 = 0;
-   while( 1 ) {
-
-      //
-      // Step 1: advance particle positions from t_{n} to t_{n+1/2} using vp_{n+1/2}
-      //
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(!m_electromagneticFields.isNull() && iter>0) {
-            if(this_picSpecies->forces()) { // reposition outcasts from previous iteration and update velocity
-               this_picSpecies->repositionOutcastsAndApplyForces( *m_electromagneticFields, cnormDt, true );
-            }
-         }
-         if(this_picSpecies->motion()) {
-            //this_picSpecies->repositionInflowParticles(); // not needed. experimental.
-            this_picSpecies->advancePositions(cnormHalfDt,true);
-         }
-      }
-      
-      //
-      // Step 2: compute Ep and Bp at t_{n+1/2} and xp_{n+1/2} and advance vp from t_{n} to t_{n+1/2}
-      //
-      if (!m_electromagneticFields.isNull()) {
-     
-         for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-            PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-            if(this_picSpecies->forces()) {
-               this_picSpecies->interpolateFieldsToParticles( *m_electromagneticFields );
-               this_picSpecies->advanceVelocities( cnormDt, true );
-            }
-         }
-      
-         // 
-         // Step 3: compute current density at t_{n+1/2} and advance E from t_n to t_{n+1/2} 
-         //
-         if (m_electromagneticFields->advanceE()) {
-            setCurrentDensity();
-            //m_electromagneticFields->setCurlB(); // done in preTimeStep()
-            m_electromagneticFields->saveElectricField();
-            m_electromagneticFields->advanceElectricField(cnormHalfDt);
-            m_electromagneticFields->applyBCs_electricField(a_cur_time);
-            norm_efield = m_electromagneticFields->diffElectricField();
-            if (iter == 0) norm_efield0 = norm_efield;
-
-            if (!procID()) {
-              printf("  iter = %3d,", iter);
-              printf(" norm_efield = %1.4e (abs.), %1.4e (rel.)\n",
-                     norm_efield, norm_efield/norm_efield0 );
-            }
-            if (norm_efield < m_atol) {
-              if (!procID()) {
-                printf("  exiting: satisfied absolute tolerance (%1.3e).\n", 
-                       m_atol);
-              }
-              break;
-            }
-            if (norm_efield/norm_efield0 < m_rtol) {
-              if (!procID()) {
-                printf("  exiting: satisfied relative tolerance (%1.3e).\n", 
-                       m_rtol);
-              }
-              break;
-            }
-
-         }
-
-         if ( iter >= m_iter_max ) {
-           if (!procID()) {
-             printf("  exiting: iterations exceed max iterations (%d).\n", 
-                    m_iter_max);
-           }
-           break;
-         }
-         
-      }
-      else {
-         break;
-      }
-      
-      iter = iter + 1;
-  
-   } // end iteration loop
-
-   //
-   // Step 4: 2nd half-advance of xp and vp from t_{n+1/2} to t_{n+1}
-   //
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) this_picSpecies->advancePositions_2ndHalf();
-      if(this_picSpecies->forces()) this_picSpecies->advanceVelocities_2ndHalf();
-   }
-
-   //
-   // Step 5: 2nd half-advance of E from t_{n+1/2} to t_{n+1} and 
-   //         1st half-advance of B from t_{n+1/2} to t_{n+1} using E_{n+1}
-   //
-   if (!m_electromagneticFields.isNull()) {
-      if (m_electromagneticFields->advanceE()) {
-         m_electromagneticFields->advanceElectricField_2ndHalf();
-         m_electromagneticFields->applyBCs_electricField(a_cur_time);
-      }
-      if (m_electromagneticFields->advanceB()) {
-         m_electromagneticFields->setCurlE();
-         m_electromagneticFields->advanceMagneticField(cnormHalfDt);
-         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
-      }
-   }
-
-   //   
-   // Step 6: scatter the particles: vp_{n+1} ==> vp'_{n+1}
-   //
-   if(m_use_scattering) scatterParticles( a_dt );
-
-}
-
-void System::advance_PICMC_FULLY_IMPLICIT( const Real&  a_cur_time, Real&  a_dt )
-{  
-   CH_TIME("System::advance_PICMC_FULLY_IMPLICIT()");
-
-   //
-   // fully-implicit energy-conservative scheme by Markidis and
-   // Lapenta 2011. All quantities (E, B, xp, and vp) are defined 
-   // at whole time steps
-   //
-    
-   Real cnormDt = a_dt*m_units->CvacNorm();
-   Real cnormHalfDt = 0.5*cnormDt;
-   Real cnormThetaDt = m_theta*cnormDt;
-  
-   int iter = 0;
-   Real  norm_efield = 0, norm_efield0 = 0, 
-         norm_bfield = 0, norm_bfield0 = 0;
-   while(1) {
- 
-      //
-      // Step 1: advance particle positions from t_{n} to t_{n+1/2} using vp_{n+1/2}
-      //
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(!m_electromagneticFields.isNull() && iter>0) {
-            if(this_picSpecies->forces()) { // reposition outcasts from previous iteration and update velocity
-               this_picSpecies->repositionOutcastsAndApplyForces( *m_electromagneticFields, cnormDt, true );
-            }
-         }
-         if(this_picSpecies->motion()) {
-            //this_picSpecies->repositionInflowParticles(); // not needed. experimental.
-            this_picSpecies->advancePositions(cnormHalfDt,true);
-         }
-      }
-      
-      if (!m_electromagneticFields.isNull()) {
-      
-         //
-         // Step 2: compute Ep and Bp at t_{n+1/2} and xp_{n+1/2} and advance 
-         // vp from t_{n} to t_{n+1/2}
-         //
-         for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-            PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-            if(this_picSpecies->forces()) {
-               this_picSpecies->interpolateFieldsToParticles( *m_electromagneticFields );
-               this_picSpecies->advanceVelocities( cnormDt, true );
-            }
-         }
-      
-         // 
-         // Step 3: compute current density at t_{n+1/2} and advance B and E 
-         // from t_n to t_{n+1/2} 
-         //
-         if (m_electromagneticFields->advance()) {
-            
-            // advance B first
-            if (m_electromagneticFields->advanceB()) {
-               m_electromagneticFields->setCurlE();
-               m_electromagneticFields->saveMagneticField();
-               m_electromagneticFields->advanceMagneticField(cnormThetaDt);
-               m_electromagneticFields->applyBCs_magneticField(a_cur_time);
-               norm_bfield = m_electromagneticFields->diffMagneticField();
-            }
-
-            // then advance E
-            if (m_electromagneticFields->advanceE()) {
-               setCurrentDensity();
-               m_electromagneticFields->setCurlB();
-               m_electromagneticFields->saveElectricField();
-               m_electromagneticFields->advanceElectricField(cnormThetaDt);
-               m_electromagneticFields->applyBCs_electricField(a_cur_time);
-               norm_efield = m_electromagneticFields->diffElectricField();
-            }
-
-            if (iter == 0) norm_bfield0 = norm_bfield;
-            if (iter == 0) norm_efield0 = norm_efield;
-
-            if (!procID()) {
-              printf("  iter = %3d,", iter);
-              printf(" norm_efield = %1.4e (abs.), %1.4e (rel.),",
-                     norm_efield, norm_efield/norm_efield0 );
-              printf(" norm_bfield = %1.4e (abs.), %1.4e (rel.)\n",
-                     norm_bfield, norm_bfield/norm_bfield0 );
-            }
-            if ((norm_efield < m_atol) && (norm_bfield < m_atol)) {
-              if (!procID()) {
-                printf("  exiting: satisfied absolute tolerance (%1.3e).\n", 
-                       m_atol);
-              }
-              break;
-            }
-            if (     (norm_efield/norm_efield0 < m_rtol)
-                 &&  (norm_bfield/norm_bfield0 < m_rtol) ) {
-              if (!procID()) {
-                printf("  exiting: satisfied relative tolerance (%1.3e).\n", 
-                       m_rtol);
-              }
-              break;
-            }
-
-         }
- 
-         if ( iter >= m_iter_max ) {
-           if (!procID()) {
-             printf("  exiting: iterations exceed max iterations (%d).\n", 
-                    m_iter_max);
-           }
-           break;
-         }
-
-      }
-      else {
-         break;
-      }
-      
-      iter = iter + 1;
-  
-   } // end iteration loop
-
-   //
-   // Step 4: 2nd half-advance of all quantities (E, B, xp, and vp)
-   // from t_{n+1/2} to t_{n+1}
-   //
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) this_picSpecies->advancePositions_2ndHalf();
-      if(this_picSpecies->forces()) this_picSpecies->advanceVelocities_2ndHalf();
-   }
-
-   if (!m_electromagneticFields.isNull()) {
-      if(m_electromagneticFields->advanceE()) {
-          m_electromagneticFields->advanceElectricField_2ndHalf(m_theta);
-          m_electromagneticFields->applyBCs_electricField(a_cur_time);
-      }
-      if(m_electromagneticFields->advanceB()) {
-         m_electromagneticFields->advanceMagneticField_2ndHalf(m_theta);
-         m_electromagneticFields->applyBCs_magneticField(a_cur_time);
-      }
-   }
-
-   //   
-   // Step 6: scatter the particles: vp_{n+1} ==> vp'_{n+1}
-   //
-   if(m_use_scattering) scatterParticles( a_dt );
 
 }
 
@@ -1215,6 +836,8 @@ void System::setCurrentDensity()
 
 void System::scatterParticles( const Real&  a_dt )
 {  
+   if (!m_use_scattering) return;
+
    CH_TIME("System::scatterParticles()");
 
    const Real tscale = m_units->getScale(m_units->TIME);
@@ -1256,10 +879,18 @@ void System::postTimeStep( const Real&  a_cur_time,
                            const int&   a_step_number )
 {  
    CH_TIME("System::postTimeStep()");
+  
+   // apply special operators
+   Real cnormDt = a_dt*m_units->CvacNorm();
+   if(m_specialOps) {
+      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
+         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
+         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
+      }
+      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
+   }
    
    // remove particles that have left the physical domain and create new ones
-   
-   Real cnormDt = a_dt*m_units->CvacNorm();
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
       if(this_picSpecies->motion()) {
@@ -1358,8 +989,8 @@ Real System::specialOpsDt( const int a_step_number )
 
 void System::adaptDt( bool&  a_adapt_dt )
 {
-   if(m_advance_method==PICMC_EXPLICIT) a_adapt_dt = false;
-   if(m_advance_method==PICMC_SEMI_IMPLICIT) a_adapt_dt = false;
+   if(m_advance_method==PIC_EM_EXPLICIT) a_adapt_dt = false;
+   if(m_advance_method==PIC_EM_SEMI_IMPLICIT) a_adapt_dt = false;
 }
 
 

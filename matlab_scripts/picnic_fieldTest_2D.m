@@ -10,9 +10,17 @@ me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
-rootPath = '../fromQuartz/fieldTests/test0_2D/';
-rootPath = '../fromQuartz/fieldTests/test1_2D/';
-rootPath = '../fromQuartz/fieldTests/test2_2D/';
+rootPath = '../fromQuartz/2D/fieldTests/test0_2D/'; thisFig = 1;
+%rootPath = '../fromQuartz/2D/fieldTests/test1_2D/'; thisFig = 2;
+%rootPath = '../fromQuartz/2D/fieldTests/test2_2D/'; thisFig = 3;
+
+%rootPath = '../fromQuartz/2D/fieldTests/test0_bcs/'; thisFig = 1;
+%rootPath = '../fromQuartz/2D/fieldTests/test1_bcs/'; thisFig = 2;
+%rootPath = '../fromQuartz/2D/fieldTests/test2_bcs/'; thisFig = 3;
+rootPath = '../fromQuartz/2D/fieldTests/test3_bcs/'; thisFig = 4;
+
+%rootPath = '../fromQuartz/2D/fieldTests/testing_insulator/'; thisFig = 5;
+
 
 ghosts = 0;
 
@@ -22,7 +30,8 @@ ghosts = 0;
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-meshFile = [rootPath,'mesh_data/mesh.h5'];
+mesh_data = 'mesh_data';
+meshFile = [rootPath,mesh_data,'/mesh.h5'];
 
 groupName = '/cell_centered_grid';
 data1 = import2Ddata_singleFile(meshFile,groupName,1);
@@ -82,7 +91,7 @@ end
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fileList = dir([rootPath,'mesh_data/field_data/field*']);
+fileList = dir([rootPath,mesh_data,'/field_data/field*']);
 ListLength = length(fileList);
 
 step = zeros(size(fileList));
@@ -108,8 +117,8 @@ J_2 = zeros(nX+1,nZ+1,iLmax);
 
 %%%  loop over files and create movie
 %
-close(figure(1));
-f1=figure(1); set(f1,'position',[380 280 1400 700]);
+close(figure(thisFig));
+f1=figure(thisFig); set(f1,'position',[380 280 1400 700]);
 set(gcf,'color','white');
 
 images = cell(1,1);
@@ -117,10 +126,14 @@ v=VideoWriter('./figs/EMfield2D.mp4', 'MPEG-4');
 v.FrameRate = 2;
 open(v);
 
-%iLmax = 1;
-for iL=1:iLmax
 
-    fieldFile = [rootPath,'mesh_data/field_data/',fileList(index(iL)).name];
+ghosts = 0; patchData = 0;
+
+%iLmax = 2;
+for iL = iLmax    
+%for iL=1:iLmax
+
+    fieldFile = [rootPath,mesh_data,'/field_data/',fileList(index(iL)).name];
     fileinfo = hdf5info(fieldFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
     SpaceDim = h5readatt(fieldFile,'/Chombo_global','SpaceDim');
@@ -129,14 +142,14 @@ for iL=1:iLmax
     %%%   read magnetic field from field file
     %
     groupName = '/magnetic_field';
-    data = import2Ddata_singleFile(fieldFile,groupName,ghosts);
+    data = import2Ddata_singleFile(fieldFile,groupName,ghosts,patchData);
     B_0(:,:,iL) = squeeze(data.Ffc0(:,:));
     B_1(:,:,iL) = squeeze(data.Ffc1(:,:));
     
     %%%   read virtual magnetic field from field file
     %
     groupName = '/virtual_magnetic_field';
-    data = import2Ddata_singleFile(fieldFile,groupName,ghosts);
+    data = import2Ddata_singleFile(fieldFile,groupName,ghosts,patchData);
     B_2(:,:,iL) = squeeze(data.Fcc(:,:));
     
     %%%   read electric field from field file
@@ -230,7 +243,8 @@ for iL=1:iLmax
     NameString = './figs/field2D';
     print(NameString,'-dpng','-r200');
     images = imread(sprintf([NameString,'.png']));
-    frame = im2frame(images);
+    frame = getframe(gcf);
+    %frame = im2frame(images);
     writeVideo(v,frame);
 
     if(iL~=iLmax)
@@ -238,6 +252,7 @@ for iL=1:iLmax
         delete(p4); delete(p5); delete(p6);
     end
 
+    display(iL);
     
 end
 close(v);

@@ -46,12 +46,12 @@ units.time           = 1.0  # s
 #####################################################
 # Species Definitions
 #####################################################
-pic_species.1.name   = "deuteriumAtom"
-pic_species.1.mass   = 3671.3
-pic_species.1.charge = 0
-pic_species.1.motion = false # must be false to use piston operator
-pic_species.1.forces = false
-pic_species.1.scatter = false
+pic_species.0.name   = "deuteriumAtom"
+pic_species.0.mass   = 3671.3
+pic_species.0.charge = 0
+pic_species.0.motion = false # must be false to use piston operator
+pic_species.0.forces = false
+pic_species.0.scatter = false
 
 IC.deuteriumAtom.X_min = 0.0
 IC.deuteriumAtom.X_max = 1.0
@@ -81,22 +81,22 @@ BC.deuteriumAtom.dir0_upper.type = symmetry
 # Scattering Definitions
 #####################################################
 
-scattering.1.model = "VHS"
-scattering.1.species1 = 1
-scattering.1.species2 = 1
-scattering.1.reference_temperature = 300   # [K]
-scattering.1.reference_viscosity = 1.26e-5 # [Pa-s]
-scattering.1.eta = 0.69
+scattering.0.model = "VHS"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 0
+scattering.0.reference_temperature = 300   # [K]
+scattering.0.reference_viscosity = 1.26e-5 # [Pa-s]
+scattering.0.eta = 0.69
 
 #####################################################
 # Special Operator Definitions
 #####################################################
 
-special_operator.1.model = "piston"
-special_operator.1.direction = 0
-special_operator.1.position = 1.0
-special_operator.1.velocity = -100.0 # [m/s]
-special_operator.1.dtFrac = 0.5
+special_operator.0.model = "piston"
+special_operator.0.direction = 0
+special_operator.0.position = 1.0
+special_operator.0.velocity = -100.0 # [m/s]
+special_operator.0.dtFrac = 0.5
 
 #####################################################
 

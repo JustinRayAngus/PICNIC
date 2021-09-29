@@ -21,6 +21,8 @@
 
 #include "MeshInterp.H"
 
+#include "PICTimeIntegratorLibrary.H"
+
 #ifdef CH_USE_TIMER
 #include "CH_Timer.H"
 #endif
@@ -42,12 +44,24 @@ class System
       System( ParmParse&  a_pp );
       virtual ~System();
 
-      virtual void initialize( const int cur_step, const double cur_time );
+      virtual void initialize( const int           a_cur_step, 
+                               const Real          a_cur_time,
+                               const std::string&  a_restart_file_name );
       
-      void writePlotFile(const int cur_step, const double cur_time);
+      void writePlotFile(const int cur_step, const Real cur_time);
       
-      void writeHistFile(const int cur_step, const double cur_time, const bool startup_flag);
-
+      void writeHistFile(const int cur_step, const Real cur_time, const bool startup_flag);
+      
+      void writeCheckpointFile( HDF5Handle&  a_handle,
+                          const int          a_cur_step, 
+                          const Real         a_cur_time, 
+                          const Real         a_cur_dt );
+      
+      void readCheckpointFile( const std::string&  a_chkpt_fname,
+                          int&                     a_cur_step, 
+                          Real&                    a_cur_time, 
+                          Real&                    a_cur_dt );
+      
       Real fieldsDt( const int a_step_number );
       
       Real partsDt( const int a_step_number );
@@ -63,11 +77,6 @@ class System
                         const int&   a_step_number );
       
       void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
-
-      void advance_DSMC( const Real&  a_cur_time, Real&  a_dt );
-      void advance_PICMC_EXPLICIT( const Real&  a_cur_time, Real&  a_dt );
-      void advance_PICMC_SEMI_IMPLICIT( const Real&  a_cur_time, Real&  a_dt );
-      void advance_PICMC_FULLY_IMPLICIT( const Real&  a_cur_time, Real&  a_dt );
 
       void setChargeDensity();
       void setCurrentDensity();
@@ -86,7 +95,7 @@ class System
       
       void getDisjointBoxLayout( DisjointBoxLayout& grids );
       
-      void setupHistFile();
+      void setupHistFile( const int  a_cur_step );
       
       void createMeshInterp();
 
@@ -100,16 +109,10 @@ class System
       
       void createSpecialOperators();
       
-      enum ADVANCE_METHOD {
-         DSMC,
-         PICMC_EXPLICIT,
-         PICMC_SEMI_IMPLICIT,
-         PICMC_FULLY_IMPLICIT
-      };
       int m_iter_max;
       Real m_theta;
      
-      ADVANCE_METHOD m_advance_method;
+      PICTIType m_advance_method;
 
       DomainGrid* m_mesh;
       CodeUnits*  m_units;
@@ -117,11 +120,8 @@ class System
       MeshInterp* m_meshInterp;
      
       PicSpeciesPtrVect m_pic_species_ptr_vect;
-      
       ScatteringPtrVect m_scattering_ptr_vect;
-     
       RefCountedPtr<ElectroMagneticFields> m_electromagneticFields;
-      
       RefCountedPtr<SpecialOperator> m_specialOps;
 
       bool m_writeSpeciesChargeDensity = false;
@@ -132,7 +132,6 @@ class System
       bool m_use_specialOps = false;
 
       // problem domain 
-      //
       ProblemDomain     m_domain;
       std::string       m_geom_type; 
       int               m_num_ghosts;
@@ -141,6 +140,8 @@ class System
       std::vector<int>  m_config_decomp;
 
       Real m_rtol, m_atol;
+
+      PICTimeIntegrator* m_time_integrator;
 };
 
 #include "NamespaceFooter.H"

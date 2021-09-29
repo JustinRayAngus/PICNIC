@@ -10,7 +10,7 @@ simulation.verbosity = 10
 ###   tau_ce = 2*pi/omega_ce = 1.07e-7 s
 ###   rg = Ve/omega_ce = 0.0072 [m]
 
-system.advance_method = "PICMC_EXPLICIT"
+system.advance_method = "PIC_EM_EXPLICIT"
 system.write_species_charge_density = false
 system.write_species_current_density = false
 
@@ -75,12 +75,12 @@ IC.em_fields.electric.2.value = 0.0
 #####################################################
 # Species Definitions
 #####################################################
-pic_species.1.name   = "electron"
-pic_species.1.mass   = 1.0
-pic_species.1.charge = -1
-pic_species.1.motion = true
-pic_species.1.forces = true
-pic_species.1.scatter = false
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = false
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 0.05

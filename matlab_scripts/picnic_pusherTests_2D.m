@@ -12,8 +12,8 @@ amu  = 1.660539066e-27;    % atomic mass unit [kg]
 mu0 = 4*pi*1e-7;
 ep0 = 1/mu0/cvac^2;
 
-species = 1;
-rootPath = '../fromQuartz/pusherTests/test0/';
+sp = 1;
+rootPath = '../fromQuartz/2D/pusherTests/test0/';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -60,23 +60,24 @@ end
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+species_folders = dir([rootPath,'mesh_data/species*']);
+numSpecies = length(species_folders);
 
-fileList_parts = dir([rootPath,'particle_data/species',num2str(species), ...
-                               '_data/part*']);
-momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/moments*']);
-ListLength_parts = length(fileList_parts);
+partList = dir([rootPath,'particle_data/',species_folders(sp).name,'/part*']);
+momentList = dir([rootPath,'mesh_data/',species_folders(sp).name,'/moment*']);
+fieldList = dir([rootPath,'mesh_data/field_data/field*']);
+
+ListLength_parts = length(partList);
 assert(ListLength_parts==length(momentList));
 
-fileList_fields = dir([rootPath,'mesh_data/field_data/field*']);
-ListLength_fields = length(fileList_fields);
+ListLength_fields = length(fieldList);
 assert(ListLength_fields==ListLength_parts)
 
-step = zeros(size(fileList_parts));
-index = zeros(size(fileList_parts));
+step = zeros(size(partList));
+index = zeros(size(partList));
 for n=1:ListLength_parts
-    thisFile_parts = fileList_parts(n).name;
-    thisFile_fields = fileList_fields(n).name;
+    thisFile_parts = partList(n).name;
+    thisFile_fields = fieldList(n).name;
     step(n) = str2num(thisFile_parts(6:end-3));
 end
 [step,index] = sort(step);
@@ -113,8 +114,8 @@ for iL=1:iLmax
 
     %%%   reading moments from part file for species 1
     %
-    partsFile = [rootPath,'particle_data/species',num2str(species), ...
-                          '_data/',fileList_parts(index(iL)).name];
+    partsFile = [rootPath,'particle_data/',species_folders(sp).name, ...
+                 '/',partList(index(iL)).name];                      
     fileinfo = hdf5info(partsFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name; 
    
@@ -162,9 +163,10 @@ for iL=1:iLmax
      %   delete(p1);
     end
     
-    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/',momentList(index(iL)).name];
-                       
+
+    momentFile = [rootPath,'mesh_data/',species_folders(sp).name, ...
+                 '/',momentList(index(iL)).name];    
+             
     groupName = '/species_data'; ghosts = 0;
     data = import2Ddata_singleFile(momentFile,groupName,ghosts);
     numberDen_1(:,:,iL) = squeeze(data.Fcc(:,:,1));            % [1/m^3]
@@ -175,7 +177,7 @@ for iL=1:iLmax
     %
     %
     
-    fieldFile = [rootPath,'mesh_data/field_data/',fileList_fields(index(iL)).name];
+    fieldFile = [rootPath,'mesh_data/field_data/',fieldList(index(iL)).name];
     fileinfo = hdf5info(fieldFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
 

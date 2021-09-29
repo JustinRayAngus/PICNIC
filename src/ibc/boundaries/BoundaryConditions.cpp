@@ -16,7 +16,9 @@ void BoundaryConditions::setBC( FArrayBox&       a_dst,
    // determine if a_dst is stag in dir direction
    const IntVect& stag_vect = a_dst.box().type();
    const int& is_stag = stag_vect[a_dir];
-   
+
+   //if(!procID()) cout << "JRA: a_bc_type = " << a_bc_type << endl;  
+ 
    const int ISIDE(a_side);
    IntVect ghosts = a_boundary_box.size();
  
@@ -32,6 +34,10 @@ void BoundaryConditions::setBC( FArrayBox&       a_dst,
                        CHF_CONST_INT(ISIDE) );
    }
    
+   else if (a_bc_type == "zero") {
+      a_dst.setVal(0.0,a_boundary_box,0,a_dst.nComp());
+   }
+   
    else if (a_bc_type == "symmetry") {
       CH_assert( !is_stag );
       CH_assert( a_dst.nComp()==SpaceDim );
@@ -44,6 +50,7 @@ void BoundaryConditions::setBC( FArrayBox&       a_dst,
 
    else { // default is fill ghost cells based on extrap
       int order = 2;
+      //int order = 4;
       FORT_EXTRAP_BC( CHF_FRA(a_dst),
                       CHF_BOX(a_boundary_box),
                       CHF_CONST_INT(a_dir),

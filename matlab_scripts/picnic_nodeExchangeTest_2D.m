@@ -5,7 +5,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all;
 
-rootPath = '../fromQuartz/fieldTests/testingNode3x3/'; thisFig = 3;
+rootPath = '../fromQuartz/fieldTests/2D/testingNode3x3/'; thisFig = 3;
 ghosts = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

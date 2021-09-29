@@ -3,15 +3,16 @@
 %%%   2D test of CIC method for particle deposition
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-clear all;
+%clear all;
 
 me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
-species = 1;
+sp = 1;
 rootPath = '../fromQuartz/depositTests/test0_2D/';
-rootPath = '../fromQuartz/depositTests/test1_2D/';
+%rootPath = '../fromQuartz/depositTests/test0p1_2D/';
+%rootPath = '../fromQuartz/depositTests/test1_2D/';
 ghosts = 1; % must have ghosts in output for this test
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -52,10 +53,12 @@ Znc = squeeze(data2.Fnc(:,:,2));
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-partList = dir([rootPath,'particle_data/species',num2str(species), ...
-                         '_data/part*']);
-momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/moments*']);
+species_folders = dir([rootPath,'mesh_data/species*']);
+numSpecies = length(species_folders);
+
+partList = dir([rootPath,'particle_data/',species_folders(sp).name,'/part*']);
+momentList = dir([rootPath,'mesh_data/',species_folders(sp).name,'/moment*']);
+
 ListLength = length(partList);
 assert(ListLength==length(momentList));
 
@@ -94,11 +97,11 @@ v=VideoWriter('./figs/deposit2D.mp4', 'MPEG-4');
 v.FrameRate = 1;
 open(v);
 
-%iLmax = 1;
+%iLmax = 4;
 for iL=1:iLmax
 
-    partsFile = [rootPath,'particle_data/species',num2str(species), ...
-                          '_data/',partList(index(iL)).name];
+    partsFile = [rootPath,'particle_data/',species_folders(sp).name, ...
+                 '/',partList(index(iL)).name]; 
     fileinfo = hdf5info(partsFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
     
@@ -129,8 +132,8 @@ for iL=1:iLmax
        particle.ID   = partData(:,numPartComps);
     end
 
-    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/',momentList(index(iL)).name];
+    momentFile = [rootPath,'mesh_data/',species_folders(sp).name, ...
+                 '/',momentList(index(iL)).name];   
     
     %%%   reading current density from part file
     %
@@ -196,7 +199,6 @@ for iL=1:iLmax
      
     %%%   compute the weights manually using CIC to verify
     %
-    
     totalWeightCells(iL) = sum(sum(chargeDen(i0:i1,j0:j1,iL)))/rho0;
     totalWeightNodes(iL) = sum(sum(Jnc(2:end-2,2:end-2,iL)))/Jnc0;
     %

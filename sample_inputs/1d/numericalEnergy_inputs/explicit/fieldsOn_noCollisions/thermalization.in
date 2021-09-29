@@ -11,7 +11,7 @@ simulation.verbosity = 10
 ###   taue0 = 3.44e-17 s
 ###   taui0 = 1.04e-15 s
 
-system.advance_method = "PICMC_EXPLICIT"
+system.advance_method = "PIC_EM_EXPLICIT"
 system.write_species_charge_density = false
 system.write_species_current_density = false
 
@@ -76,12 +76,12 @@ IC.em_fields.electric.2.value = 0.0
 #####################################################
 # Species Definitions
 #####################################################
-pic_species.1.name   = "electron"
-pic_species.1.mass   = 1.0
-pic_species.1.charge = -1
-pic_species.1.motion = true
-pic_species.1.forces = true
-pic_species.1.scatter = false
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = false
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 10.0
@@ -101,12 +101,12 @@ IC.electron.velocity_1.value = 0.0
 IC.electron.velocity_2.type = "constant"
 IC.electron.velocity_2.value = 0.0
 
-pic_species.2.name   = "proton"
-pic_species.2.mass   = 1836.15
-pic_species.2.charge = 1
-pic_species.2.motion = true
-pic_species.2.forces = true
-pic_species.2.scatter = false
+pic_species.1.name   = "proton"
+pic_species.1.mass   = 1836.15
+pic_species.1.charge = 1
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = false
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 10.0
@@ -130,20 +130,20 @@ IC.proton.velocity_2.value = 0.0
 # Scattering Definitions
 #####################################################
 
+scattering.0.model = "TA"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 0
+scattering.0.coulomb_logarithm = 3.0
+
 scattering.1.model = "TA"
-scattering.1.species1 = 1
-scattering.1.species2 = 1
+scattering.1.speciesA = 1
+scattering.1.speciesB = 1
 scattering.1.coulomb_logarithm = 3.0
 
 scattering.2.model = "TA"
-scattering.2.species1 = 2
-scattering.2.species2 = 2
+scattering.2.speciesA = 1
+scattering.2.speciesB = 0
 scattering.2.coulomb_logarithm = 3.0
-
-scattering.3.model = "TA"
-scattering.3.species1 = 2
-scattering.3.species2 = 1
-scattering.3.coulomb_logarithm = 3.0
 
 #####################################################
 

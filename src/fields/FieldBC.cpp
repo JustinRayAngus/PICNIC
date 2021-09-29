@@ -40,8 +40,12 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
       if( fpp.contains("type") ) {
          fpp.get( "type", m_bc_type[i] );
          CH_assert( m_bc_type[i] == "symmetry" ||    
+                    m_bc_type[i] == "odd" ||
+                    m_bc_type[i] == "even" ||
+                    m_bc_type[i] == "zero" ||
                     m_bc_type[i] == "conductor" ||
                     m_bc_type[i] == "extrapolate" || 
+                    m_bc_type[i] == "extrapolate_zeroBv" || 
                     m_bc_type[i] == "insulator_conductor" );
          if(m_bc_type[i]=="insulator_conductor") {
             m_InsulatorBC = RefCountedPtr<InsulatorBC> (new InsulatorBC(i,m_bdry_name[i],m_mesh));

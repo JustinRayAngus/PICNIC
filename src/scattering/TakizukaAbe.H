@@ -63,8 +63,8 @@ class TakizukaAbe : public Scattering
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "TakizukaAbe scattering parameters:" << std::endl;
-            std::cout << "  species 1 name:      " << m_species1_name << std::endl;
-            std::cout << "  species 2 name:      " << m_species2_name << std::endl;
+            std::cout << "  species A name:      " << m_species1_name << std::endl;
+            std::cout << "  species B name:      " << m_species2_name << std::endl;
             std::cout << "  Clog =               " << m_Clog << std::endl;
          }
       }
@@ -99,8 +99,8 @@ class TakizukaAbe : public Scattering
       // Parse the input database for parameters.
       void parseParameters( ParmParse&  a_pp ) 
       {
-         a_pp.get( "species1", m_sp1 ); m_sp1 = m_sp1-1; 
-         a_pp.get( "species2", m_sp2 ); m_sp2 = m_sp2-1;
+         a_pp.get( "speciesA", m_sp1 ); 
+         a_pp.get( "speciesB", m_sp2 );
          a_pp.query( "coulomb_logarithm", m_Clog ); CH_assert(m_Clog>=3.0);
       }
 

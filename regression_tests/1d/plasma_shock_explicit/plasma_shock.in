@@ -15,9 +15,9 @@ simulation.fixed_random_seed = 1983
 ###   taui2 = 2.62e-12 s
 ###   mfpi2 = Vi2*taui2 = 8.94e-8 m
 
-system.advance_method = "PICMC_EXPLICIT"
-#system.advance_method = "PICMC_SEMI_IMPLICIT"
-#system.advance_method = "PICMC_FULLY_IMPLICIT"
+system.advance_method = "PIC_EM_EXPLICIT"
+#system.advance_method = "PIC_EM_SEMI_IMPLICIT"
+#system.advance_method = "PIC_EM_THETA_IMPLICIT"
 #system.iter_max = 8
 #system.abs_tol = 1.0e-6
 #system.rel_tol = 1.0e-12
@@ -94,12 +94,12 @@ BC.em_fields.dir0_upper.type = "symmetry"
 
 # Species 1: electrons
 
-pic_species.1.name   = "electron"
-pic_species.1.mass   = 1.0
-pic_species.1.charge = -1
-pic_species.1.motion = true
-pic_species.1.forces = true
-pic_species.1.scatter = true
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 200.0
@@ -129,12 +129,12 @@ BC.electron.dir0_upper.type = "symmetry"
 
 # Species 2: protons
 
-pic_species.2.name   = "proton"
-pic_species.2.mass   = 1836
-pic_species.2.charge = 1
-pic_species.2.motion = true
-pic_species.2.forces = true
-pic_species.2.scatter = true
+pic_species.1.name   = "proton"
+pic_species.1.mass   = 1836
+pic_species.1.charge = 1
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = true
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 200.0
@@ -166,20 +166,20 @@ BC.proton.dir0_upper.type = "symmetry"
 # Scattering Definitions
 #####################################################
 
+scattering.0.model = "TA"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 0
+scattering.0.coulomb_logarithm = 10.0
+
 scattering.1.model = "TA"
-scattering.1.species1 = 1
-scattering.1.species2 = 1
+scattering.1.speciesA = 1
+scattering.1.speciesB = 1
 scattering.1.coulomb_logarithm = 10.0
 
 scattering.2.model = "TA"
-scattering.2.species1 = 2
-scattering.2.species2 = 2
+scattering.2.speciesA = 1
+scattering.2.speciesB = 0
 scattering.2.coulomb_logarithm = 10.0
-
-scattering.3.model = "TA"
-scattering.3.species1 = 2
-scattering.3.species2 = 1
-scattering.3.coulomb_logarithm = 10.0
 
 #####################################################
 

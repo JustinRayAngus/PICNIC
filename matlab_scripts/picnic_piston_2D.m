@@ -9,13 +9,12 @@ me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
-species = 1;
+sp = 2;
 rootPath = '../fromQuartz/pistonTests/piston_collisionless/'; vpiston = 100;
-rootPath = '../fromQuartz/pistonTests/piston_collisional/'; vpiston = 100;
 rootPath = '../fromQuartz/pistonTests/piston_2species/'; vpiston = 1e3;
-rootPath = '../fromQuartz/pistonTests/piston_vp1e2/'; vpiston = 1e2;
-rootPath = '../fromQuartz/pistonTests/piston_vp1e3/'; vpiston = 1e3;
-rootPath = '../fromQuartz/pistonTests/piston_vp1e4/'; vpiston = 1e4;
+%rootPath = '../fromQuartz/pistonTests/piston_vp1e2/'; vpiston = 1e2;
+%rootPath = '../fromQuartz/pistonTests/piston_vp1e3/'; vpiston = 1e3;
+%rootPath = '../fromQuartz/pistonTests/piston_vp1e4/'; vpiston = 1e4;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -39,10 +38,13 @@ Zcc = squeeze(data.Fcc(:,:,2)); nZ = length(Zcc(1,:)); dZ = Zcc(1,2)-Zcc(1,1);
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-partList   = dir([rootPath,'particle_data/species',num2str(species), ...
-                           '_data/parts*']);
-momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/moments*']);
+species_folders = dir([rootPath,'mesh_data/species*']);
+numSpecies = length(species_folders);
+
+partList = dir([rootPath,'particle_data/',species_folders(sp).name,'/part*']);
+momentList = dir([rootPath,'mesh_data/',species_folders(sp).name,'/moment*']);
+
+                       
 ListLength = length(partList);
 assert(ListLength==length(momentList));
 
@@ -77,10 +79,11 @@ v=VideoWriter('./figs/pistonCar.mp4', 'MPEG-4');
 v.FrameRate = 1;
 open(v);
 
+%iLmax = 1;
 for iL=1:iLmax
 
-    partsFile = [rootPath,'particle_data/species',num2str(species), ...
-                          '_data/',partList(index(iL)).name];
+    partsFile = [rootPath,'particle_data/',species_folders(sp).name, ...
+                 '/',partList(index(iL)).name];  
     fileinfo = hdf5info(partsFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
     
@@ -111,8 +114,8 @@ for iL=1:iLmax
        particle.ID   = partData(:,numPartComps);
     end
 
-    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/',momentList(index(iL)).name];
+    momentFile = [rootPath,'mesh_data/',species_folders(sp).name, ...
+                 '/',momentList(index(iL)).name];   
     
     %%%   reading density from species moment file
     %
@@ -159,6 +162,7 @@ for iL=1:iLmax
     NameString = './figs/pistonCar';
     print(NameString,'-dpng','-r200');
     images = imread(sprintf([NameString,'.png']));
+    %frame = getframe(gcf);
     frame = im2frame(images);
     writeVideo(v,frame);
 
@@ -176,9 +180,9 @@ close(v);
 velX = momentumDenX./numberDen/Mass;
 velY = momentumDenY./numberDen/Mass;
 velZ = momentumDenZ./numberDen/Mass;
-tempX = 2*(energyDenX - momentumDenX.^2./numberDen/Mass/2.0)./numberDen*me/qe;
-tempY = 2*(energyDenY - momentumDenY.^2./numberDen/Mass/2.0)./numberDen*me/qe;
-tempZ = 2*(energyDenZ - momentumDenZ.^2./numberDen/Mass/2.0)./numberDen*me/qe;
+tempX = 2*(energyDenX*me - me*Mass*numberDen.*velX.^2/2.0)./numberDen/qe;
+tempY = 2*(energyDenY*me - me*Mass*numberDen.*velY.^2/2.0)./numberDen/qe;
+tempZ = 2*(energyDenZ*me - me*Mass*numberDen.*velZ.^2/2.0)./numberDen/qe;
 
 for i=1:nX
     for j=1:nZ
@@ -218,8 +222,8 @@ dfn = dfn/normC;
 
 close(figure(44)); f4=figure(44); 
 
-TY0 = mean(mean(nonzeros(tempY(:,:,end))));
-UY0 = mean(mean(nonzeros(velY(:,:,end))));
+TY0 = mean(mean(nonzeros(tempY(:,:,iLmax))));
+UY0 = mean(mean(nonzeros(velY(:,:,iLmax))));
 VTY = 4.19e5*sqrt(TY0/Mass);
 plot(Vgrid,exp(-((Vgrid-UY0)/sqrt(2)/VTY).^2)/sqrt(2*pi)/VTY); hold on;
 plot(Vgrid,dfn); 
@@ -299,8 +303,8 @@ tempYavg = squeeze(mean(tempY,2)); tempYavg0 = squeeze(mean(tempYavg,1));
 tempZavg = squeeze(mean(tempZ,2)); tempZavg0 = squeeze(mean(tempZavg,1));
 
 
-close(figure(99)); 
-f9=figure(99); set(f9,'position',[316 424 1050 405]);
+close(figure(9)); 
+f9=figure(9); set(f9,'position',[316 424 1050 405]);
 
 subplot(1,2,1);
 plot(time,velXavg0,'displayName','x-velocity'); hold on;
@@ -357,8 +361,8 @@ Navg = squeeze(mean(numberDen,2));
 Pavg = Tavg.*Navg;
 P0 = mean(Tavg(:,1))*rho0;
 
-close(figure(8));
-f8=figure(8); set(f8,'position',[800 30 1000 400]);
+close(figure(10));
+f10=figure(10); set(f10,'position',[800 30 1000 400]);
 for m=2:2:14
     subplot(1,2,1); hold on;
     plot(Xcc(:,1),Navg(:,m)/rho0);

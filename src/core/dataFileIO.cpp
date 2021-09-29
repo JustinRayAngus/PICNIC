@@ -259,6 +259,186 @@ void dataFileIO::writeMeshDataFile()
 
 }
 
+void dataFileIO::writeEMFields( HDF5Handle&             a_handle,
+                          const ElectroMagneticFields&  a_emfield )
+{
+   CH_TIME("dataFileIO::writeEMFields()");
+   
+   const ProblemDomain& domain(m_mesh.getDomain());
+   HDF5HeaderData header;
+   
+   //
+   // write the magnetic field data
+   //
+   
+   const LevelData<FluxBox>& Bfield  = a_emfield.getMagneticField();
+
+   const std::string group2Name = std::string("magnetic_field");
+   a_handle.setGroup(group2Name);
+   
+   header.clear();
+   header.m_int["is_fluxbox"] = 1;
+   header.m_int["num_components"] = Bfield.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, Bfield.boxLayout());
+   write(a_handle, Bfield, "data", Bfield.ghostVect());
+   
+   //
+   // write the virtual magnetic field data
+   //
+
+   if(SpaceDim<3) {
+   
+      const LevelData<FArrayBox>& Bfield_virt  = a_emfield.getVirtualMagneticField();
+
+      const std::string group3Name = std::string("virtual_magnetic_field");
+      a_handle.setGroup(group3Name);
+   
+      header.clear();
+      header.m_int["is_cellbox"] = 1;
+      header.m_int["num_components"] = Bfield_virt.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(a_handle);
+   
+      write(a_handle, Bfield_virt.boxLayout());
+      write(a_handle, Bfield_virt, "data", Bfield_virt.ghostVect());
+
+   }
+   
+   //
+   // write the electric field data
+   //
+   
+   const LevelData<EdgeDataBox>& Efield  = a_emfield.getElectricField();
+
+   const std::string group4Name = std::string("electric_field");
+   a_handle.setGroup(group4Name);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = Efield.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, Efield.boxLayout());
+   write(a_handle, Efield, "data", Efield.ghostVect());
+   
+   //
+   // write the virtual electric field data
+   //
+
+   if(SpaceDim<3) {
+   
+      const LevelData<NodeFArrayBox>& Efield_virt  = a_emfield.getVirtualElectricField();
+
+      const std::string group5Name = std::string("virtual_electric_field");
+      a_handle.setGroup(group5Name);
+   
+      header.clear();
+      header.m_int["is_nodebox"] = 1;
+      header.m_int["num_components"] = Efield_virt.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(a_handle);
+   
+      write(a_handle, Efield_virt.boxLayout());
+      write(a_handle, Efield_virt, "data", Efield_virt.ghostVect());
+
+   }
+
+}
+
+void dataFileIO::writeEMFields_old( HDF5Handle&             a_handle,
+                              const ElectroMagneticFields&  a_emfield )
+{
+   CH_TIME("dataFileIO::writeEMFields_old()");
+   
+   const ProblemDomain& domain(m_mesh.getDomain());
+   HDF5HeaderData header;
+   
+   //
+   // write the magnetic field data
+   //
+   
+   const LevelData<FluxBox>& Bfield  = a_emfield.getMagneticField_old();
+
+   const std::string group2Name = std::string("magnetic_field_old");
+   a_handle.setGroup(group2Name);
+   
+   header.clear();
+   header.m_int["is_fluxbox"] = 1;
+   header.m_int["num_components"] = Bfield.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, Bfield.boxLayout());
+   write(a_handle, Bfield, "data", Bfield.ghostVect());
+   
+   //
+   // write the virtual magnetic field data
+   //
+
+   if(SpaceDim<3) {
+   
+      const LevelData<FArrayBox>& Bfield_virt  = a_emfield.getVirtualMagneticField_old();
+
+      const std::string group3Name = std::string("virtual_magnetic_field_old");
+      a_handle.setGroup(group3Name);
+   
+      header.clear();
+      header.m_int["is_cellbox"] = 1;
+      header.m_int["num_components"] = Bfield_virt.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(a_handle);
+   
+      write(a_handle, Bfield_virt.boxLayout());
+      write(a_handle, Bfield_virt, "data", Bfield_virt.ghostVect());
+
+   }
+   
+   //
+   // write the electric field data
+   //
+   
+   const LevelData<EdgeDataBox>& Efield  = a_emfield.getElectricField_old();
+
+   const std::string group4Name = std::string("electric_field_old");
+   a_handle.setGroup(group4Name);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = Efield.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, Efield.boxLayout());
+   write(a_handle, Efield, "data", Efield.ghostVect());
+   
+   //
+   // write the virtual electric field data
+   //
+
+   if(SpaceDim<3) {
+   
+      const LevelData<NodeFArrayBox>& Efield_virt  = a_emfield.getVirtualElectricField_old();
+
+      const std::string group5Name = std::string("virtual_electric_field_old");
+      a_handle.setGroup(group5Name);
+   
+      header.clear();
+      header.m_int["is_nodebox"] = 1;
+      header.m_int["num_components"] = Efield_virt.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(a_handle);
+   
+      write(a_handle, Efield_virt.boxLayout());
+      write(a_handle, Efield_virt, "data", Efield_virt.ghostVect());
+
+   }
+
+}
+
 void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
                                                      const int                     a_cur_step, 
                                                      const double                  a_cur_time )
@@ -325,123 +505,52 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    header.writeToFile(handle);
 
    //
-   // write the magnetic field data
-   //
-   
-   const LevelData<FluxBox>& Bfield  = a_emfield.getMagneticField();
-
-   const std::string group2Name = std::string("magnetic_field");
-   handle.setGroup(group2Name);
-   
-   header.clear();
-   header.m_int["is_fluxbox"] = 1;
-   header.m_int["num_components"] = Bfield.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(handle);
-   
-   write(handle, Bfield.boxLayout());
-   write(handle, Bfield, "data", Bfield.ghostVect());
-   
-   //
-   // write the virtual magnetic field data
+   //  write the E and B field variables
    //
 
-   if(SpaceDim<3) {
-   
-      const LevelData<FArrayBox>& Bfield_virt  = a_emfield.getVirtualMagneticField();
-
-      const std::string group3Name = std::string("virtual_magnetic_field");
-      handle.setGroup(group3Name);
-   
-      header.clear();
-      header.m_int["is_cellbox"] = 1;
-      header.m_int["num_components"] = Bfield_virt.nComp();
-      header.m_box["prob_domain"] = domain.domainBox(); 
-      header.writeToFile(handle);
-   
-      write(handle, Bfield_virt.boxLayout());
-      write(handle, Bfield_virt, "data", Bfield_virt.ghostVect());
-
-   }
-   
-   //
-   // write the electric field data
-   //
-   
-   const LevelData<EdgeDataBox>& Efield  = a_emfield.getElectricField();
-
-   const std::string group4Name = std::string("electric_field");
-   handle.setGroup(group4Name);
-   
-   header.clear();
-   header.m_int["is_edgebox"] = 1;
-   header.m_int["num_components"] = Efield.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(handle);
-   
-   write(handle, Efield.boxLayout());
-   write(handle, Efield, "data", Efield.ghostVect());
-   
-   //
-   // write the virtual electric field data
-   //
-
-   if(SpaceDim<3) {
-   
-      const LevelData<NodeFArrayBox>& Efield_virt  = a_emfield.getVirtualElectricField();
-
-      const std::string group5Name = std::string("virtual_electric_field");
-      handle.setGroup(group5Name);
-   
-      header.clear();
-      header.m_int["is_nodebox"] = 1;
-      header.m_int["num_components"] = Efield_virt.nComp();
-      header.m_box["prob_domain"] = domain.domainBox(); 
-      header.writeToFile(handle);
-   
-      write(handle, Efield_virt.boxLayout());
-      write(handle, Efield_virt, "data", Efield_virt.ghostVect());
-
-   }
+   writeEMFields(handle,a_emfield);
    
    //
    // write the current density data
    //
-   
-   const LevelData<EdgeDataBox>& Jfield  = a_emfield.getCurrentDensity();
+  
+   if (a_emfield.advance()) {
 
-   const std::string group6Name = std::string("current_density");
-   handle.setGroup(group6Name);
+      const LevelData<EdgeDataBox>& Jfield  = a_emfield.getCurrentDensity();
    
-   header.clear();
-   header.m_int["is_edgebox"] = 1;
-   header.m_int["num_components"] = Jfield.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(handle);
-   
-   write(handle, Jfield.boxLayout());
-   write(handle, Jfield, "data", Jfield.ghostVect());
-   
-   //
-   // write the virtual current density data
-   //
-
-   if(SpaceDim<3) {
-   
-      const LevelData<NodeFArrayBox>& Jfield_virt  = a_emfield.getVirtualCurrentDensity();
-
-      const std::string group7Name = std::string("virtual_current_density");
-      handle.setGroup(group7Name);
-   
+      const std::string group6Name = std::string("current_density");
+      handle.setGroup(group6Name);
+      
       header.clear();
-      header.m_int["is_nodebox"] = 1;
-      header.m_int["num_components"] = Jfield_virt.nComp();
+      header.m_int["is_edgebox"] = 1;
+      header.m_int["num_components"] = Jfield.nComp();
       header.m_box["prob_domain"] = domain.domainBox(); 
       header.writeToFile(handle);
+      
+      write(handle, Jfield.boxLayout());
+      write(handle, Jfield, "data", Jfield.ghostVect());
+      
+      //
+      // write the virtual current density data
+      //
    
-      write(handle, Jfield_virt.boxLayout());
-      write(handle, Jfield_virt, "data", Jfield_virt.ghostVect());
-
+      if(SpaceDim<3) {
+      
+         const LevelData<NodeFArrayBox>& Jfield_virt  = a_emfield.getVirtualCurrentDensity();
+   
+         const std::string group7Name = std::string("virtual_current_density");
+         handle.setGroup(group7Name);
+      
+         header.clear();
+         header.m_int["is_nodebox"] = 1;
+         header.m_int["num_components"] = Jfield_virt.nComp();
+         header.m_box["prob_domain"] = domain.domainBox(); 
+         header.writeToFile(handle);
+      
+         write(handle, Jfield_virt.boxLayout());
+         write(handle, Jfield_virt, "data", Jfield_virt.ghostVect());
+   
+      }
    }
    
    //
@@ -777,8 +886,6 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
                                                 a_cur_step ) );
 
    HDF5Handle handleParts( plotFileNameParts.c_str(), HDF5Handle::CREATE );
-   
-   handleParts.setGroup("/");
 
    // write the header stuff
    HDF5HeaderData headerParts;
@@ -833,9 +940,9 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
 
    int totalParticleCount = a_Pdata.numParticles();
    headerParts.m_int["num_particles"] = totalParticleCount;
-   headerParts.m_real["mass"] = a_picSpecies.mass();
+   headerParts.m_real["mass"]  = a_picSpecies.mass();
    headerParts.m_int["charge"] = a_picSpecies.charge();
-   headerParts.m_real["Uint"] = a_picSpecies.Uint();
+   headerParts.m_real["Uint"]  = a_picSpecies.Uint();
    headerParts.m_int["step_number"] = a_cur_step;
    headerParts.m_real["time"] = a_cur_time;
    headerParts.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
@@ -848,10 +955,6 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
    // write the particles
    write(handleParts, grids);
    writeParticlesToHDF(handleParts, a_Pdata, "particles", a_picSpecies.writeAll() );
-
-   //
-   // close the handle
-   //
 
    handleParts.close();
    
@@ -1110,6 +1213,53 @@ void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>& 
    handleParts.close();
    
    if(!procID()) cout << "finished writing binfab particle data file" << endl << endl;
+
+}
+
+void dataFileIO::writeCheckpointEMFields( HDF5Handle&             a_handle,
+                                    const ElectroMagneticFields&  a_emfield )
+{
+   CH_TIME("dataFileIO::writeCheckpointEMFields()");
+
+   writeEMFields( a_handle, a_emfield );
+   writeEMFields_old( a_handle, a_emfield );
+
+}
+
+void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
+                                     const PicSpecies&  a_picSpecies,
+                                     const int          a_species )
+{
+   CH_TIME("dataFileIO::writeCheckpointParticles()");
+  
+   // get references to particle data   
+   const ParticleData<JustinsParticle>& a_Pdata = a_picSpecies.partData();
+   
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   HDF5HeaderData headerParts;
+   
+   stringstream s;
+   s << "species" << a_species; 
+   const std::string groupName = std::string( s.str() + "_data");
+   a_handle.setGroup(groupName);  
+
+   int totalParticleCount = a_Pdata.numParticles();
+   headerParts.m_int["species_number"] = a_species;
+   headerParts.m_int["num_particles"]  = totalParticleCount;
+   headerParts.m_real["mass"]  = a_picSpecies.mass();
+   headerParts.m_int["charge"] = a_picSpecies.charge();
+   headerParts.m_real["Uint"]  = a_picSpecies.Uint();
+   headerParts.m_box["prob_domain"] = domain.domainBox();
+   
+   // write the header 
+   headerParts.writeToFile(a_handle);
+ 
+   // write the particles
+   write(a_handle, grids);
+   const bool writeAll = true;
+   writeParticlesToHDF(a_handle, a_Pdata, "particles", writeAll );
 
 }
 

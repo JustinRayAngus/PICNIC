@@ -5,40 +5,74 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all;
 
-me   = 9.1093837015e-31;   % electron mass [kg]
-qe   = 1.602176634e-19;    % electron charge [C]
+me   = 9.1093837015e-31;  % electron mass [kg]
+mp  = 1.67262192e-27;     % proton mass [kg]
+qe   = 1.602176634e-19;   % electron charge [C]
 ep0  = 8.85418782e-12;
-cvac = 2.99792458e8;       % speed of light [m/s]
+cvac = 2.99792458e8;      % speed of light [m/s]
 
-gamma = 5/3;
 
-rootPath = '../fromQuartz/1D/steadyStateShock/plasma/test0/';
+basePath = '../fromQuartz/1D/steadyStateShock/plasma/hydrogen1/mach6/uniformFlow/'; Z = 1; Mach = 6;
+%basePath = '../fromQuartz/1D/steadyStateShock/plasma/hydrogen1/mach24/uniformFlow/'; Z = 1; Mach = 24;
+%rootPath = [basePath,'L200/inflow_outflow/']; thisFig = 8;
+% rootPath = [basePath,'L200/inflow_outflow_old/']; thisFig = 9;
+% rootPath = [basePath,'L200/locally_periodic/']; thisFig = 10;
+%rootPath = [basePath,'L200/periodic/']; thisFig = 11;
+%rootPath = [basePath,'L200/inflow_outflow_noForces/']; thisFig = 14;
+%rootPath = [basePath,'L200/inflow_outflow_smallDt/']; thisFig = 15;
+% rootPath = [basePath,'L200/inflow_outflow_implicit/']; thisFig = 11;
+% rootPath = [basePath,'L200/inflow_outflow_implicit2/']; thisFig = 12;
 
-basePath = '../fromQuartz/1D/steadyStateShock/plasma/uniformMovingFrame/explicit/';
-%basePath = '../fromQuartz/1D/steadyStateShock/plasma/uniformMovingFrame/implicit/';
-rootPath = [basePath,'test1_periodic/'];
-%rootPath = [basePath,'test0_labFrame/'];
-rootPath = [basePath,'test1/'];
+rootPath = [basePath,'L200/testing/']; thisFig = 13;
+rootPath = [basePath,'L200/testing2/']; thisFig = 14; Mach = 12;
+rootPath = [basePath,'L200/testing2p1/']; thisFig = 15; Mach = 12;
+rootPath = [basePath,'L200/testing2p2/']; thisFig = 16; Mach = 12;
+rootPath = [basePath,'L200/testing2p2_refined/']; thisFig = 17; Mach = 12;
+rootPath = [basePath,'L200/testing2p2_halfDt/']; thisFig = 18; Mach = 12;
+rootPath = [basePath,'L200/testing2p2_twiceDt/']; thisFig = 19; Mach = 12;
+rootPath = [basePath,'L200/testing2p2_moreParts/']; thisFig = 20; Mach = 12;
+rootPath = [basePath,'L200/testing2p2_periodic/']; thisFig = 21; Mach = 12;
+rootPath = [basePath,'L200/testing2p2_symmetryBClo/']; thisFig = 22; Mach = 12;
+rootPath = [basePath,'L200/testing2p2_wtf/']; thisFig = 23; Mach = 12;
 
-basePath = '../fromQuartz/1D/steadyStateShock/plasma/counterBeams/';
-rootPath = [basePath,'L400/Np200_dt0p025/'];
-%rootPath = [basePath,'L400/Np200_dt0p050/'];
-rootPath = [basePath,'L400/Np200_dt0p100/'];
-rootPath = [basePath,'L400/test_symmetry/'];
-%rootPath = [basePath,'L400/Np400_dt0p050/'];
-%rootPath = [basePath,'L400/Np800_dt0p050/'];
-%
-%rootPath = [basePath,'L800/Np200_dt0p050/'];
-%rootPath = [basePath,'L800/Np400_dt0p050/'];
-%
-%rootPath = [basePath,'L1600/Np200_dt0p050/'];
-%rootPath = [basePath,'L1600/Np400_dt0p050/'];
+
+% basePath = '../fromQuartz/1D/steadyStateShock/plasma/hydrogen1/mach6/'; Z = 1; Mach = 6;
+%basePath = '../fromQuartz/1D/steadyStateShock/plasma/hydrogen1/mach24/'; Z = 1; Mach = 24;
+% 
+%rootPath = [basePath,'L200/Np200_dt0p20_testing/']; thisFig = 1;
+% rootPath = [basePath,'L200/Np400_dt0p20/']; thisFig = 2;
+% %rootPath = [basePath,'L200/Np200_dt1p00_implicit/']; thisFig = 3;
+
+
+% basePath = '../fromQuartz/1D/steadyStateShock/plasma/helium4/mach6/'; Z = 2;
+% % rootPath = [basePath,'L200/Np200_dt0p20/']; thisFig = 6;
+% % rootPath = [basePath,'L400/Np200_dt0p20/']; thisFig = 7;
+% rootPath = [basePath,'L800/Np200_dt0p20/']; thisFig = 8;
+% %rootPath = [basePath,'L800/Np200_dt0p20_noInterCollisions/']; thisFig = 9;
+% % rootPath = [basePath,'L800/Np200_dt0p50_implicit/']; thisFig = 10;
+% % rootPath = [basePath,'L800/Np200_dt1p00_implicit/']; thisFig = 11;
+% rootPath = [basePath,'L800/Np400_dt1p00_implicit/']; thisFig = 12;
+
+
+% basePath = '../fromQuartz/1D/steadyStateShock/plasma/beryllium9/mach6/';  Z = 4;
+% rootPath = [basePath,'L800/Np100_dt0p20/']; thisFig = 1;
+% rootPath = [basePath,'L1600/Np100_dt0p20/']; thisFig = 3;
+
+basePath = '../fromQuartz/1D/steadyStateShock/plasma/hydrogen1/mach6/';
+rootPath = [basePath,'fullyEM/test0_periodic/']; thisFig = 4; Mach = 6;
+rootPath = [basePath,'fullyEM/test0_inflow/']; thisFig = 5;
+rootPath = [basePath,'fullyEM/test0_symmetry/']; thisFig = 6;
+rootPath = [basePath,'fullyEM/test0_implicit/']; thisFig = 7;
+%rootPath = [basePath,'fullyEM/test0/']; thisFig = 7;
+
 
 %%% see planaShockJump.m
 %
-T2_soln = 5.3716;
-P2oP1_soln = 82.2069; 
-N2oN1_soln = 3.826;
+gamma = 5/3; gp1 = gamma+1; gm1 = gamma-1;
+N2oN1 = gp1*Mach^2/(gm1*Mach^2+2);
+P2oP1 = (2*gamma*Mach^2 - gm1)/gp1;
+T2oT1 = P2oP1/N2oN1;
+pistonMach = (1-1./N2oN1)*Mach;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -67,26 +101,33 @@ X0 = Xfc(end);
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%partList_1   = dir([rootPath,'particle_data/species1_data/parts*']);
-%partList_2   = dir([rootPath,'particle_data/species2_data/parts*']);
-momentList_1 = dir([rootPath,'mesh_data/species1_data/moments*']);
-momentList_2 = dir([rootPath,'mesh_data/species2_data/moments*']);
-ListLength = length(momentList_1);
+species_folders = dir([rootPath,'mesh_data/species*']);
+numSpecies = length(species_folders);
+
+%partList_1 = dir([rootPath,'particle_data/',species_folders(1).name,'/part*']);
+%partList_2 = dir([rootPath,'particle_data/',species_folders(1).name,'/part*']);
+momentList = dir([rootPath,'mesh_data/',species_folders(1).name,'/moment*']);
+momentList_2 = dir([rootPath,'mesh_data/',species_folders(2).name,'/moment*']);
+
+ListLength = length(momentList);
 assert(ListLength==length(momentList_2));
 
 fieldList = dir([rootPath,'mesh_data/field_data/field*']);
 ListLength_fields = length(fieldList);
 assert(ListLength_fields==ListLength)
 
-step = zeros(size(momentList_1));
-index = zeros(size(momentList_1));
+step = zeros(size(momentList));
+index = zeros(size(momentList));
 for n=1:ListLength
     thisFile = fieldList(n).name;
     step(n) = str2num(thisFile(7:end-3));
 end
 [step,index] = sort(step);
 
-iLmax = ListLength;
+iLmax = min(ListLength,301)
+dt_out = 2; iLvect = 1:dt_out:iLmax;
+iLmax = length(iLvect);
+
 time = zeros(1,iLmax);
 %
 EX = zeros(nX+2,iLmax); % +2 is for ghosts
@@ -99,28 +140,30 @@ numberDen_1 = zeros(nX,iLmax);
 momDenX_1 = zeros(nX,iLmax); velX_1 = zeros(nX,iLmax);
 momDenY_1 = zeros(nX,iLmax); velY_1 = zeros(nX,iLmax);
 momDenZ_1 = zeros(nX,iLmax); velZ_1 = zeros(nX,iLmax);
-eneDenX_1 = zeros(nX,iLmax); tempX_1 = zeros(nX,iLmax);
-eneDenY_1 = zeros(nX,iLmax); tempY_1 = zeros(nX,iLmax);
-eneDenZ_1 = zeros(nX,iLmax); tempZ_1 = zeros(nX,iLmax);
+eneDenX_1 = zeros(nX,iLmax); tempX_1 = zeros(nX,iLmax); EmeanX_1 = zeros(nX,iLmax);
+eneDenY_1 = zeros(nX,iLmax); tempY_1 = zeros(nX,iLmax); EmeanY_1 = zeros(nX,iLmax);
+eneDenZ_1 = zeros(nX,iLmax); tempZ_1 = zeros(nX,iLmax); EmeanZ_1 = zeros(nX,iLmax);
 %
-tempAvg_1 = zeros(nX,iLmax); presAvg_1 = zeros(nX,iLmax); eintAvg_1 = zeros(nX,iLmax);
+tempAvg_1 = zeros(nX,iLmax); presAvg_1 = zeros(nX,iLmax); 
+eintAvg_1 = zeros(nX,iLmax);
 %
 %totalParts_2 = zeros(1,iLmax);
 numberDen_2 = zeros(nX,iLmax);
 momDenX_2 = zeros(nX,iLmax); velX_2 = zeros(nX,iLmax);
 momDenY_2 = zeros(nX,iLmax); velY_2 = zeros(nX,iLmax);
 momDenZ_2 = zeros(nX,iLmax); velZ_2 = zeros(nX,iLmax);
-eneDenX_2 = zeros(nX,iLmax); tempX_2 = zeros(nX,iLmax);
-eneDenY_2 = zeros(nX,iLmax); tempY_2 = zeros(nX,iLmax);
-eneDenZ_2 = zeros(nX,iLmax); tempZ_2 = zeros(nX,iLmax);
+eneDenX_2 = zeros(nX,iLmax); tempX_2 = zeros(nX,iLmax); EmeanX_2 = zeros(nX,iLmax);
+eneDenY_2 = zeros(nX,iLmax); tempY_2 = zeros(nX,iLmax); EmeanY_2 = zeros(nX,iLmax);
+eneDenZ_2 = zeros(nX,iLmax); tempZ_2 = zeros(nX,iLmax); EmeanZ_2 = zeros(nX,iLmax);
 %
-tempAvg_2 = zeros(nX,iLmax); presAvg_2 = zeros(nX,iLmax); eintAvg_2 = zeros(nX,iLmax);
+tempAvg_2 = zeros(nX,iLmax); presAvg_2 = zeros(nX,iLmax); 
+eintAvg_2 = zeros(nX,iLmax);
 %
 
 %%%  loop over files and create movie
 %
-close(figure(1));
-f1=figure(1); set(f1,'position',[860 240 900 760]);
+close(figure(thisFig));
+f1=figure(thisFig); set(f1,'position',[860 240 900 760]);
 set(gcf,'color','white');
 %
 images = cell(1,1);
@@ -128,19 +171,14 @@ v=VideoWriter('./figs/plasmaShock.mp4', 'MPEG-4');
 v.FrameRate = 1;
 open(v);
 
-dt_out = 1;
-if ( (dt_out==2) && (floor(iLmax/dt_out)==iLmax/dt_out) )
-   iLmax = iLmax-1; 
-end
-%iLmax = 16; %iLmax = 141;
-display(iLmax);
-%for iL = 1:dt_out:iLmax
-for iL = [1,iLmax]   
+for iL = 1:length(iLvect)
+    it = iLvect(iL);
+%for iL = [1,iLmax]   
 
     %
     %   load field data
     %
-    fieldFile = [rootPath,'mesh_data/field_data/',fieldList(index(iL)).name];
+    fieldFile = [rootPath,'mesh_data/field_data/',fieldList(index(it)).name];
     
     if(iL==1)
         time_scale = h5readatt(fieldFile,'/field_data','time_scale_SI');
@@ -175,33 +213,8 @@ for iL = [1,iLmax]
     %
     %   load data for species1
     %
-    
-%     partsFile_1 = [rootPath,'particle_data/species1_data/', ...
-%                  partList_1(index(iL)).name];
-%     fileinfo = hdf5info(partsFile_1);
-%     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
-%     
-%     partData = hdf5read(partsFile_1,'/species_data/particles:data');
-%     SpaceDim = h5readatt(partsFile_1,'/Chombo_global','SpaceDim');
-%     numParts = h5readatt(partsFile_1,'/species_data','num_particles');
-%     time(iL) = h5readatt(partsFile_1,'/species_data','time');
-%     if(iL==1)
-%         numPartComps_1 = h5readatt(partsFile_1,'/species_data','numPartComps');
-%     end
-%     partData = reshape(partData,numPartComps_1,numParts);
-%     partData = partData';
-%     totalParts_1(iL) = numParts;
-% 
-%     particle.weight = partData(:,1);
-%     particle.x    = partData(:,2);
-%     particle.y    = partData(:,3);
-%     particle.z    = partData(:,4); 
-%     particle.vx   = partData(:,5)*cvac;
-%     particle.vy   = partData(:,6)*cvac;
-%     particle.vz   = partData(:,7)*cvac;
-%     particle.ID   = partData(:,numPartComps_1);
-
-    momentFile_1 = [rootPath,'mesh_data/species1_data/',momentList_1(index(iL)).name];
+    momentFile_1 = [rootPath,'mesh_data/',species_folders(1).name, ...
+                 '/',momentList(index(iL)).name]; 
     if(iL==1)
         time_scale = h5readatt(momentFile_1,'/species_data','time_scale_SI');
         Mass_1 = h5readatt(momentFile_1,'/species_data','mass');
@@ -217,9 +230,9 @@ for iL = [1,iLmax]
     momDenX_1(:,iL) = data.Fcc(:,2)*cvac;
     momDenY_1(:,iL) = data.Fcc(:,3)*cvac;
     momDenZ_1(:,iL) = data.Fcc(:,4)*cvac;
-    eneDenX_1(:,iL) = squeeze(data.Fcc(:,5))*cvac^2; tempX_1(:,iL) = 2*(eneDenX_1(:,iL)*me - me*Mass_1*numberDen_1(:,iL).*velX_1(:,iL).^2/2.0)./numberDen_1(:,iL)/qe;
-    eneDenY_1(:,iL) = squeeze(data.Fcc(:,6))*cvac^2;
-    eneDenZ_1(:,iL) = squeeze(data.Fcc(:,7))*cvac^2;
+    eneDenX_1(:,iL) = squeeze(data.Fcc(:,5))*me*cvac^2/qe; % [eV/m^3]
+    eneDenY_1(:,iL) = squeeze(data.Fcc(:,6))*me*cvac^2/qe; % [eV/m^3]
+    eneDenZ_1(:,iL) = squeeze(data.Fcc(:,7))*me*cvac^2/qe; % [eV/m^3]
     
     %%%   compute physical variables
     
@@ -227,9 +240,13 @@ for iL = [1,iLmax]
     velY_1(:,iL) = momDenY_1(:,iL)./numberDen_1(:,iL)/Mass_1; % [m/s]
     velZ_1(:,iL) = momDenZ_1(:,iL)./numberDen_1(:,iL)/Mass_1; % [m/s]
     
-    tempX_1(:,iL) = 2*me/qe*(eneDenX_1(:,iL) - Mass_1*numberDen_1(:,iL).*velX_1(:,iL).^2/2.0)./numberDen_1(:,iL);
-    tempY_1(:,iL) = 2*me/qe*(eneDenY_1(:,iL) - Mass_1*numberDen_1(:,iL).*velY_1(:,iL).^2/2.0)./numberDen_1(:,iL);
-    tempZ_1(:,iL) = 2*me/qe*(eneDenZ_1(:,iL) - Mass_1*numberDen_1(:,iL).*velZ_1(:,iL).^2/2.0)./numberDen_1(:,iL);
+    EmeanX_1(:,iL) = me*Mass_1*numberDen_1(:,iL).*velX_1(:,iL).^2/2.0/qe; % [eV/m^3]
+    EmeanY_1(:,iL) = me*Mass_1*numberDen_1(:,iL).*velY_1(:,iL).^2/2.0/qe; % [eV/m^3]
+    EmeanZ_1(:,iL) = me*Mass_1*numberDen_1(:,iL).*velZ_1(:,iL).^2/2.0/qe; % [eV/m^3]
+    
+    tempX_1(:,iL) = 2*(eneDenX_1(:,iL) - EmeanX_1(:,iL))./numberDen_1(:,iL);
+    tempY_1(:,iL) = 2*(eneDenY_1(:,iL) - EmeanY_1(:,iL))./numberDen_1(:,iL);
+    tempZ_1(:,iL) = 2*(eneDenZ_1(:,iL) - EmeanZ_1(:,iL))./numberDen_1(:,iL);
    
     tempAvg_1(:,iL) = (tempX_1(:,iL) + tempY_1(:,iL) + tempZ_1(:,iL))/3;
     presAvg_1(:,iL) = tempAvg_1(:,iL).*numberDen_1(:,iL);
@@ -238,36 +255,9 @@ for iL = [1,iLmax]
     %
     %   load data for species2
     %
-    
-%     partsFile_2 = [rootPath,'particle_data/species2_data/', ...
-%                  partList_2(index(iL)).name];
-%     fileinfo = hdf5info(partsFile_2);
-%     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
-    
-%     partData = hdf5read(partsFile_2,'/species_data/particles:data');
-%     SpaceDim = h5readatt(partsFile_2,'/Chombo_global','SpaceDim');
-%     numParts = h5readatt(partsFile_2,'/species_data','num_particles');
-%     time(iL) = h5readatt(partsFile_2,'/species_data','time');
-%     if(iL==1)
-%         Mass_2 = h5readatt(partsFile_2,'/species_data','mass');
-%         Charge_2 = double(h5readatt(partsFile_2,'/species_data','charge'));
-%         Uint_2 = h5readatt(partsFile_2,'/species_data','Uint'); % [eV]
-%         numPartComps_2 = h5readatt(partsFile_2,'/species_data','numPartComps');
-%     end
-%     partData = reshape(partData,numPartComps_2,numParts);
-%     partData = partData';
-%     totalParts_2(iL) = numParts;
-% 
-%     particle.weight = partData(:,1);
-%     particle.x    = partData(:,2);
-%     particle.y    = partData(:,3);
-%     particle.z    = partData(:,4); 
-%     particle.vx   = partData(:,5)*cvac;
-%     particle.vy   = partData(:,6)*cvac;
-%     particle.vz   = partData(:,7)*cvac;
-%     particle.ID   = partData(:,numPartComps_1);
 
-    momentFile_2 = [rootPath,'mesh_data/species2_data/',momentList_2(index(iL)).name];
+    momentFile_2 = [rootPath,'mesh_data/',species_folders(2).name, ...
+                 '/',momentList(index(iL)).name]; 
     if(iL==1)
         time_scale = h5readatt(momentFile_2,'/species_data','time_scale_SI');
         Mass_2 = h5readatt(momentFile_2,'/species_data','mass');
@@ -282,9 +272,9 @@ for iL = [1,iLmax]
     momDenX_2(:,iL) = data.Fcc(:,2)*cvac;
     momDenY_2(:,iL) = data.Fcc(:,3)*cvac;
     momDenZ_2(:,iL) = data.Fcc(:,4)*cvac;
-    eneDenX_2(:,iL) = squeeze(data.Fcc(:,5))*cvac^2; tempX_2(:,iL) = 2*(eneDenX_2(:,iL)*me - me*Mass_2*numberDen_2(:,iL).*velX_2(:,iL).^2/2.0)./numberDen_2(:,iL)/qe;
-    eneDenY_2(:,iL) = squeeze(data.Fcc(:,6))*cvac^2;
-    eneDenZ_2(:,iL) = squeeze(data.Fcc(:,7))*cvac^2;
+    eneDenX_2(:,iL) = squeeze(data.Fcc(:,5))*me*cvac^2/qe; % [eV/m^3]
+    eneDenY_2(:,iL) = squeeze(data.Fcc(:,6))*me*cvac^2/qe; % [eV/m^3]
+    eneDenZ_2(:,iL) = squeeze(data.Fcc(:,7))*me*cvac^2/qe; % [eV/m^3]
     
     %%%   compute physical variables
     
@@ -292,77 +282,112 @@ for iL = [1,iLmax]
     velY_2(:,iL) = momDenY_2(:,iL)./numberDen_2(:,iL)/Mass_2; % [m/s]
     velZ_2(:,iL) = momDenZ_2(:,iL)./numberDen_2(:,iL)/Mass_2; % [m/s]
     
-    tempX_2(:,iL) = 2*me/qe*(eneDenX_2(:,iL) - Mass_2*numberDen_2(:,iL).*velX_2(:,iL).^2/2.0)./numberDen_2(:,iL);
-    tempY_2(:,iL) = 2*me/qe*(eneDenY_2(:,iL) - Mass_2*numberDen_2(:,iL).*velY_2(:,iL).^2/2.0)./numberDen_2(:,iL);
-    tempZ_2(:,iL) = 2*me/qe*(eneDenZ_2(:,iL) - Mass_2*numberDen_2(:,iL).*velZ_2(:,iL).^2/2.0)./numberDen_2(:,iL);
+    EmeanX_2(:,iL) = me*Mass_2*numberDen_2(:,iL).*velX_2(:,iL).^2/2.0/qe; % [eV/m^3]
+    EmeanY_2(:,iL) = me*Mass_2*numberDen_2(:,iL).*velY_2(:,iL).^2/2.0/qe; % [eV/m^3]
+    EmeanZ_2(:,iL) = me*Mass_2*numberDen_2(:,iL).*velZ_2(:,iL).^2/2.0/qe; % [eV/m^3]
+    
+    tempX_2(:,iL) = 2*(eneDenX_2(:,iL) - EmeanX_2(:,iL))./numberDen_2(:,iL); % [eV]
+    tempY_2(:,iL) = 2*(eneDenY_2(:,iL) - EmeanY_2(:,iL))./numberDen_2(:,iL); % [eV]
+    tempZ_2(:,iL) = 2*(eneDenZ_2(:,iL) - EmeanZ_2(:,iL))./numberDen_2(:,iL); % [eV]
    
     tempAvg_2(:,iL) = (tempX_2(:,iL) + tempY_2(:,iL) + tempZ_2(:,iL))/3;
     presAvg_2(:,iL) = tempAvg_2(:,iL).*numberDen_2(:,iL);
     eintAvg_2(:,iL) = tempAvg_2(:,iL)/(gamma-1);   
     
-    
-    if(iL==1) 
-        n0 = min(numberDen_2(:,iL));
-        T0 = mean(tempAvg_2(1:nX/2,iL));
-        P0 = n0*T0;
-        V0 = sqrt(qe*2*T0/(me*(Mass_1+Mass_2))*gamma);
-        %
-        Z = 1;
-        Clog = 10;
-        T2_eV = 5.4;
-        nui = 4.80e-8*Z^4*(n0/1e6)*Clog/(T2_eV)^1.5; % [Hz]
+    try
+    momentFile_3 = [rootPath,'mesh_data/',species_folders(3).name, ...
+                 '/',momentList(index(iL)).name]; 
+    if(iL==1)
+        time_scale = h5readatt(momentFile_3,'/species_data','time_scale_SI');
+        Mass_3 = h5readatt(momentFile_3,'/species_data','mass');
+        Charge_3 = double(h5readatt(momentFile_3,'/species_data','charge'));
     end
     
+    %%%   reading density from species moment file
+    groupName = '/species_data'; ghosts = 0;
+    data = import1Ddata_singleFile(momentFile_3,groupName,ghosts);
+    numberDen_3(:,iL) = data.Fcc(:,1);
+    momDenX_3(:,iL) = data.Fcc(:,2)*cvac;
+    momDenY_3(:,iL) = data.Fcc(:,3)*cvac;
+    momDenZ_3(:,iL) = data.Fcc(:,4)*cvac;
+    eneDenX_3(:,iL) = squeeze(data.Fcc(:,5))*cvac^2;
+    eneDenY_3(:,iL) = squeeze(data.Fcc(:,6))*cvac^2;
+    eneDenZ_3(:,iL) = squeeze(data.Fcc(:,7))*cvac^2;
+    
+    %%%   compute physical variables
+    velX_3(:,iL) = momDenX_3(:,iL)./numberDen_3(:,iL)/Mass_3; % [m/s]
+    velY_3(:,iL) = momDenY_3(:,iL)./numberDen_3(:,iL)/Mass_3; % [m/s]
+    velZ_3(:,iL) = momDenZ_3(:,iL)./numberDen_3(:,iL)/Mass_3; % [m/s]
+    
+    tempX_3(:,iL) = 2*me/qe*(eneDenX_3(:,iL) - Mass_3*numberDen_3(:,iL).*velX_3(:,iL).^2/2.0)./numberDen_3(:,iL);
+    tempY_3(:,iL) = 2*me/qe*(eneDenY_3(:,iL) - Mass_3*numberDen_3(:,iL).*velY_3(:,iL).^2/2.0)./numberDen_3(:,iL);
+    tempZ_3(:,iL) = 2*me/qe*(eneDenZ_3(:,iL) - Mass_3*numberDen_3(:,iL).*velZ_3(:,iL).^2/2.0)./numberDen_3(:,iL);
+   
+    tempAvg_3(:,iL) = (tempX_3(:,iL) + tempY_3(:,iL) + tempZ_3(:,iL))/3;
+    presAvg_3(:,iL) = tempAvg_3(:,iL).*numberDen_3(:,iL);
+    eintAvg_3(:,iL) = tempAvg_3(:,iL)/(gamma-1);  
+    end
+    
+    if(iL==1) 
+        n0_1 = min(numberDen_1(:,iL)); 
+        n0_2 = min(numberDen_2(:,iL)); %n0_3 = min(numberDen_3(:,iL));
+        %n0 = 9.082e24; n0_2 = n0;
+        %Mass_avg = (n0*Mass_1 + n0_2*Mass_2 + n0_3*Mass_3)/(n0 + n0_2 + n0_3);
+        Mass_avg = (n0_1*Mass_1 + n0_2*Mass_2)/(n0_1 + n0_2);
+        T0 = mean(tempAvg_2(1:nX/2,iL));
+        T2_soln = T0*T2oT1;
+        P0_1 = n0_1*T0;
+        P0_2 = n0_2*T0;
+        V0 = sqrt(qe*T0/(me*(Mass_avg))*gamma);
+        %
+        Clog = 10;
+        mu = sqrt(Mass_2*me/mp);
+        nui = 4.80e-8*Z^4*(n0_2*N2oN1/1e6)*Clog/(T2_soln)^1.5*sqrt(mu); % [Hz]
+    end
+    
+    Xshift = Xfc(end); Xmin = -1*200; dXplot = abs(Xmin)/5;
+    Xplot = Xcc - Xshift; Xfcplot = Xfc - Xshift; L = Xfc(end)-Xfc(1);
     subplot(2,2,1); hold off; axis('tight');
-    p11=plot(Xcc-X0/2,numberDen_2(:,iL)/n0,'displayName','ion'); box on; hold on;
-    p12=plot(Xcc-X0/2,numberDen_1(:,iL)/n0,'displayName','ele','linestyle','--');
+    p11=plot(Xplot,numberDen_2(:,iL)/n0_2,'displayName','ion'); box on; hold on;
+    %p13=plot(Xplot,numberDen_3(:,iL)/n0,'displayName','ion 2'); box on; hold on;
+    p12=plot(Xplot,numberDen_1(:,iL)/n0_1,'displayName','ele','linestyle','--');
     title('density'); grid on; legend('show','location','northwest');
-    set(gca,'xtick',-X0/2:80:X0/2); xlim([-240 240]); ylim([0 5]);
-    xlabel('x/\lambda_i_i'); ylabel('n/n_0'); axis('square');
-    hold on; line([Xcc(1)-X0/2 Xcc(end)-X0/2],[N2oN1_soln N2oN1_soln],'linestyle','-.','color','black');
+    set(gca,'xtick',Xfcplot(1):dXplot:Xfcplot(end)); xlim([Xmin Xfcplot(end)]); ylim([0 5]);
+    xlabel('x/\lambda_i_i^D^S'); ylabel('n/n_0'); axis('square');
+    hold on; l1=line([Xplot(1) Xplot(end)],[N2oN1 N2oN1],'linestyle','-.','color','black');
 
     %
     subplot(2,2,2); hold off; axis('tight');
-    p21=plot(Xcc-X0/2,velX_2(:,iL)/V0,'displayName','ion'); box on; hold on;
-    %p22=plot(Xcc,velX_1(:,iL)/V0,'displayName','ele','linestyle','--');
+    p21=plot(Xplot,velX_2(:,iL)/V0,'displayName','ion'); box on; hold on;
+    %p22=plot(Xplot,velX_1(:,iL)/V0,'displayName','ele','linestyle','--');
+    hold on; l2=line([Xplot(1) Xplot(end)],[pistonMach pistonMach],'linestyle','-.','color','black');
     title('x-velocity'); grid on; 
-    set(gca,'xtick',-X0/2:80:X0/2); xlim([-240 240]); ylim([-8 8]);
-    xlabel('x/\lambda_i_i'); ylabel('v/c_1'); axis('square');
+    set(gca,'xtick',Xfcplot(1):dXplot:Xfcplot(end)); xlim([Xmin Xfcplot(end)]); ylim([0 Mach]);
+    xlabel('x/\lambda_i_i^D^S'); ylabel('v/c_1'); axis('square');
     %
     subplot(2,2,3); hold off; axis('tight');
-    p31=plot(Xcc-X0/2,tempAvg_2(:,iL),'displayName','ion'); box on; hold on;
-    p32=plot(Xcc-X0/2,tempAvg_1(:,iL),'displayName','ele','linestyle','--');
+    p31=plot(Xplot,tempAvg_2(:,iL),'displayName','ion'); box on; hold on;
+   %p33=plot(Xplot,tempAvg_3(:,iL),'displayName','ion 2'); box on; hold on;
+    p32=plot(Xplot,tempAvg_1(:,iL),'displayName','ele','linestyle','--');
     title('temperature'); grid on; legend('show','location','best');
-    set(gca,'xtick',-X0/2:80:X0/2); xlim([-240 240]); ylim([0 7]);
-    xlabel('x/\lambda_i_i'); ylabel('temperature [eV]'); axis('square');
-    hold on; plot(Xcc-X0/2,tempAvg_2(:,1),'black--');
-    hold on; line([Xcc(1)-X0/2 Xcc(end)-X0/2],[T2_soln T2_soln],'linestyle','-.','color','black');
-    %
-%     subplot(2,2,4); hold off; axis('tight');
-%     p41=plot(Xcc-X0/2,presAvg_2(:,iL)/P0,'displayName','ion'); box on; hold on;
-%     p42=plot(Xcc-X0/2,presAvg_1(:,iL)/P0,'displayName','ele','linestyle','--');
-%     title('pressure'); grid on; legend('show','location','best');
-%     set(gca,'xtick',-X0/2:80:X0/2); xlim([-240 240]); ylim([0 100]);
-%     xlabel('x/\lambda_i_i'); ylabel('P/P_0'); axis('square');
-%     hold on; line([Xcc(1)-X0/2 Xcc(end)-X0/2],[P2oP1_soln P2oP1_soln],'linestyle','-.','color','black');
+    set(gca,'xtick',Xfcplot(1):dXplot:Xfcplot(end)); xlim([Xmin Xfcplot(end)]); ylim([0 14]);
+    xlabel('x/\lambda_i_i^D^S'); ylabel('temperature [eV]'); axis('square'); Ymax = max(15,max(tempAvg_2(:,iL)));
+    hold on; plot(Xplot,tempAvg_2(:,1),'black--'); ylim([0 Ymax]); set(gca,'ytick',0:3:Ymax)
+    hold on; line([Xfcplot(1) Xfcplot(end)],[T2_soln T2_soln],'linestyle','-.','color','black');
     %
     subplot(2,2,4); hold off; axis('tight');
-    p41=plot(Xcc-X0/2,EX(2:end-1,iL)); box on;
-    title('electric field [V/m]'); grid on; legend('show','location','best');
-    set(gca,'xtick',-X0/2:80:X0/2); xlim([-240 240]); ylim([-6e7 6e7]);
-    xlabel('x/\lambda_i_i'); ylabel('E [V/m]'); axis('square');
+    p41=plot(Xplot,presAvg_2(:,iL)/P0_2,'displayName','ion'); box on; hold on;
+    p42=plot(Xplot,presAvg_1(:,iL)/P0_1,'displayName','ele','linestyle','--');
+    title('pressure'); grid on; legend('show','location','best'); Ymax = max(60,max(presAvg_2(:,iL)/P0_2));
+    set(gca,'xtick',Xfcplot(1):dXplot:Xfcplot(end)); xlim([Xmin Xfcplot(end)]); ylim([0 Ymax]);
+    xlabel('x/\lambda_i_i^D^S'); ylabel('P/P_0'); axis('square');
+    hold on; line([Xfcplot(1) Xfcplot(end)],[P2oP1 P2oP1],'linestyle','-.','color','black');
     %
-%     subplot(2,2,4); hold off;
-%     p41=plot(Xcc,JX(2:end-1,iL)); box on;
-%     title('current density [A/m^2]'); grid on; legend('show','location','northwest');
-%     set(gca,'xtick',-X0/2:80:X0/2); xlim([-240 240]); ylim([-1e10 1e10]);
-%     xlabel('x/\lambda_i_i'); ylabel('J [A/m^2]'); axis('square');
-
-%     subplot(2,2,4); hold off;
-%     p41=plot(Xcc,JX(2:end-1,iL).*EX(2:end-1,iL)); box on;
-%     title('J*E'); grid on; legend('show','location','northwest');
-%     set(gca,'xtick',-X0/2:80:X0/2); xlim([-240 240]); ylim([-1e17 1e17]);
-%     xlabel('x/\lambda_i_i'); ylabel('J*E'); axis('square');
+%     subplot(2,2,4); hold off; axis('tight');
+%     p41=plot(Xplot,EX(2:end-1,iL)); box on;
+%     title('electric field [V/m]'); grid on; legend('show','location','best');
+%     set(gca,'xtick',Xfcplot(1):dXplot:Xfcplot(end)); xlim([Xmin Xfcplot(end)]); %ylim([-6e7 6e7]);
+%     xlabel('x/\lambda_i_i^D^S'); ylabel('E [V/m]'); axis('square');
 
     % Create textbox
     t0 = length_scale/(6*V0); % time for piston to go 1 lambda_ii
@@ -386,71 +411,51 @@ for iL = [1,iLmax]
         delete(p41); %delete(p42);
         delete(a1);
     end
-    display(iL);
+    display(it);
 
 end
 close(v);
 
-% close(figure(7));
-% f7=figure(7); 
-% 
-% plot(Xcc,tempAvg_2(:,end),'displayName','ion'); hold on;
-% plot(Xcc,tempAvg_1(:,end),'displayName','ele'); hold off;
-% xlabel('x/\lambda_i_i'); ylabel('T [eV]'); title('temperatures');
-% hold on; plot(Xcc,tempAvg_2(:,1),'black--');
-% hold on; line([Xcc(1) Xcc(end)],[T2_soln T2_soln],'linestyle','-.','color','black');
+f7=figure(771); hold on;
+plot(Xplot,(tempAvg_1(:,end)-tempAvg_2(:,end))/T2_soln); grid on;
+xlim([-200 -70]); title('temp diff'); xlabel('x/\lambda_i_i^D^S');
+ylabel('(T_e - T_i)/T_s_o_l_n^D^S'); box on;
+
+f8=figure(881); hold on;
+plot(time*time_scale/t0,tempAvg_2(end,:)/T2_soln,'displayName','ion'); hold on;
+plot(time*time_scale/t0,tempAvg_1(end,:)/T2_soln,'displayName','ele');
+grid on; box on; title('temperature at Xmax'); ylabel('T/T_s_o_l_n^D^S');
+xlabel('t/t_0'); legend('show');
 
 
-for i=1:nX
-    for n=1:iLmax
-        thisDen = numberDen_1(i,n);
-        if(thisDen==0)
-            velX_1(i,n) = 0;
-            velY_1(i,n) = 0;
-            velZ_1(i,n) = 0;
-            tempX_1(i,n) = 0;
-            tempY_1(i,n) = 0;
-            tempZ_1(i,n) = 0;
-        end
-    end
-end
-
-%%%%%%%%%%%%%%%%%%
-%%%
-%%%   bin up the particles in velocity space and look at distribution
-%%%
-%%%%%%%%%%%%%%%%%%
-
-% Vmax = max(particle.vy);
-% Vmin = min(particle.vy);
-% Vgrid = linspace(Vmin,Vmax,100);
-% dVy = Vgrid(2)-Vgrid(1);
-% 
-% dfn = zeros(size(Vgrid));
-% for i=1:numParts
-%     thisv = particle.vy(i);
-%     [~,index]=min(abs(thisv-Vgrid));
-%     dfn(index) = dfn(index) + 1;
-% end
-% normC = sum(dfn)*dVy;
-% dfn = dfn/normC;
-
-% close(figure(44)); f4=figure(44); 
-% 
-% TY0 = mean(nonzeros(tempY_1(:,iLmax)));
-% UY0 = mean(nonzeros(velY_1(:,iLmax)));
-% VTY = 4.19e5*sqrt(TY0/Mass_1);
-% plot(Vgrid,exp(-((Vgrid-UY0)/sqrt(2)/VTY).^2)/sqrt(2*pi)/VTY); hold on;
-% plot(Vgrid,dfn); 
-% xlabel('y-velocity'); ylabel('dfn-vy');
-% title('vy-distribution function');
-% legend('maxwellian','data'); axis('tight');
-
+Pii_xx = numberDen_2.*(tempX_2-tempAvg_2); % ion viscosity tensor xx
+Pii_yy = numberDen_2.*(tempY_2-tempAvg_2);
+Pii_zz = numberDen_2.*(tempZ_2-tempAvg_2);
+Pie_xx = numberDen_1.*(tempX_1-tempAvg_1); % ele viscosity tensor xx
+Pie_yy = numberDen_1.*(tempY_1-tempAvg_1);
+Pie_zz = numberDen_1.*(tempZ_1-tempAvg_1);
+%
+f9=figure(993); set(gcf,'position',[860 640 900 380]);
+%
+subplot(1,2,1);
+plot(Xplot,presAvg_1(:,end)/P0_2,'displayName','scalar P'); hold on;
+plot(Xplot,Pie_xx(:,end)/P0_2,'displayName','\Pi_x_x'); hold on;
+grid on; box on; title('electron pressure'); ylabel('P/P_i_0');
+xlabel('x/\lambda_i_i^D^S'); legend('show','location','best');
+set(gca,'xtick',Xfcplot(1):dXplot:Xfcplot(end)); xlim([Xfcplot(1) Xfcplot(end)]);
+plot_ylim = get(gca,'ylim');
+%
+subplot(1,2,2);
+plot(Xplot,presAvg_2(:,end)/P0_2,'displayName','scalar P'); hold on;
+plot(Xplot,Pii_xx(:,end)/P0_2,'displayName','\Pi_x_x'); hold on;
+grid on; box on; title('ion pressure'); ylabel('P/P_i_0');
+xlabel('x/\lambda_i_i^D^S'); legend('show','location','best');
+set(gca,'xtick',Xfcplot(1):dXplot:Xfcplot(end)); xlim([Xfcplot(1) Xfcplot(end)]);
+set(gca,'ylim',plot_ylim);
 
 %%%   compute divE and charge density
 
 chargeDen = qe*(Charge_1*numberDen_1 + Charge_2*numberDen_2);
-
 divE = zeros(length(Xfc),length(time));
 for i=1:length(Xfc)
     divE(i,:) = ep0*(EX(i+1,:) - EX(i,:))/dX/length_scale; % [SI]
@@ -460,4 +465,8 @@ divE_cc = zeros(length(Xcc),length(time));
 for i=1:length(Xcc)
     divE_cc(i,:) = ep0*(EX(i+2,:) - EX(i,:))/dX/2/length_scale; % [SI]
 end
+
+% [a,i0]=max(tempAvg_2(:,end));
+% hold on; line([Xplot(i0)-0*sqrt(Mass_2/Mass_1) Xplot(i0)-0*sqrt(Mass_2/Mass_1)],[0 1e23]);
+% hold on; line([Xplot(i0)-sqrt(Mass_2/Mass_1) Xplot(i0)-sqrt(Mass_2/Mass_1)],[0 1e23]);
 

@@ -46,12 +46,12 @@ units.time           = 1.0  # s
 #####################################################
 # Species Definitions
 #####################################################
-pic_species.1.name   = "deuteriumAtom"
-pic_species.1.mass   = 3671.3
-pic_species.1.charge = 0
-pic_species.1.motion = true # must be false to use piston operator
-pic_species.1.forces = false
-pic_species.1.scatter = true
+pic_species.0.name   = "deuteriumAtom"
+pic_species.0.mass   = 3671.3
+pic_species.0.charge = 0
+pic_species.0.motion = true # must be false to use piston operator
+pic_species.0.forces = false
+pic_species.0.scatter = true
 
 IC.deuteriumAtom.X_min = 0.0
 IC.deuteriumAtom.X_max = 1.0
@@ -77,12 +77,12 @@ IC.deuteriumAtom.velocity_2.value = -1.0e3
 # Scattering Definitions
 #####################################################
 
-scattering.1.model = "VHS"
-scattering.1.species1 = 1
-scattering.1.species2 = 1
-scattering.1.reference_temperature = 300   # [K]
-scattering.1.reference_viscosity = 1.26e-5 # [Pa-s]
-scattering.1.eta = 0.69
+scattering.0.model = "VHS"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 0
+scattering.0.reference_temperature = 300   # [K]
+scattering.0.reference_viscosity = 1.26e-5 # [Pa-s]
+scattering.0.eta = 0.69
 
 #####################################################
 

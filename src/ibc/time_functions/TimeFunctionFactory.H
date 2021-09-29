@@ -4,6 +4,7 @@
 #include "ParmParse.H"
 #include "TimeFunction.H"
 
+#include "Constant0D.H"
 #include "Ramp0D.H"
 #include "SinSq0D.H"
 
@@ -44,8 +45,11 @@ RefCountedPtr<TimeFunction> TimeFunctionFactory::create(
    else if (model == "sinsq" || model == "SINSQ") {
       result = RefCountedPtr<TimeFunction>( new SinSq0D( a_pp, a_verbosity ) );
    }
-   else if (model == "unit") {
-      result = RefCountedPtr<TimeFunction>( new Ramp0D( 1.0/DBL_MAX, 1.0, a_verbosity ) );
+   else if (model == "constant") {
+      result = RefCountedPtr<TimeFunction>( new Constant0D( a_pp, a_verbosity ) );
+   }
+   else if (model == "zero") {
+      result = RefCountedPtr<TimeFunction>( new Constant0D( 0.0, a_verbosity ) );
    }
    else {
       MayDay::Error( "TimeFunctionFactory: Unimplemented time function type selected" );

@@ -41,16 +41,23 @@ class PicSpecies
 
 public:
 
-  PicSpecies( ParmParse&         a_ppspc,
-              const string&      a_name,
-              const MeshInterp&  a_meshInterp,
-              //const RefCountedPtr<MeshInterp>&  a_meshInterp,
-              //MeshInterp*  a_meshInterp,
-              const DomainGrid&  a_mesh );
+  PicSpecies( ParmParse&   a_ppspc,
+        const int          a_species,
+        const string&      a_name,
+        const MeshInterp&  a_meshInterp,
+        //const RefCountedPtr<MeshInterp>&  a_meshInterp,
+        //MeshInterp*  a_meshInterp,
+        const DomainGrid&  a_mesh );
   
   virtual ~PicSpecies();
 
-  void initialize( const CodeUnits&  a_units );
+  void initialize( const CodeUnits&    a_units,
+                   const Real          a_time,
+                   const std::string&  a_restart_file_name );
+
+  void initializeFromInputFile( const CodeUnits&    a_units );
+  void initializeFromRestartFile( const Real          a_time,
+                                  const std::string&  a_restart_file_name );
 
   virtual Real mass() const { return m_mass; }
   virtual int charge() const { return m_charge; }
@@ -181,7 +188,8 @@ public:
   }
   
 private:
-  
+ 
+  int  m_species;  // species number identifier 
   Real m_mass;     // species mass / electron mass
   int  m_charge;   // species charge / electron charge
   Real m_Uint;     // species internal energy [eV]

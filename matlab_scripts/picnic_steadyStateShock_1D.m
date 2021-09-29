@@ -9,7 +9,7 @@ me   = 9.1093837015e-31;   % electron mass [kg]
 qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 
-species = 1; gamma = 5/3;
+sp = 1; gamma = 5/3;
 rootPath = '../fromQuartz/1D/steadyStateShock/neutrals/test0_noBCs/';
 rootPath = '../fromQuartz/1D/steadyStateShock/neutrals/test0_withBCs/';
 
@@ -39,10 +39,13 @@ X0 = Xfc(end);
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-partList   = dir([rootPath,'particle_data/species',num2str(species), ...
-                           '_data/parts*']);
-momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
-                           '_data/moments*']);
+species_folders = dir([rootPath,'mesh_data/species*']);
+numSpecies = length(species_folders);
+
+partList = dir([rootPath,'particle_data/',species_folders(sp).name,'/part*']);
+momentList = dir([rootPath,'mesh_data/',species_folders(sp).name,'/moment*']);                       
+                       
+                       
 ListLength = length(partList);
 assert(ListLength==length(momentList));
 % 
@@ -83,8 +86,8 @@ open(v);
 %iLmax = 1;
 for iL=1:iLmax
 
-    partsFile = [rootPath,'particle_data/species',num2str(species), ...
-                          '_data/',partList(index(iL)).name];
+    partsFile = [rootPath,'particle_data/',species_folders(sp).name, ...
+                 '/',partList(index(iL)).name]; 
     fileinfo = hdf5info(partsFile);
     fileinfo.GroupHierarchy.Groups(2).Attributes.Name;
     
@@ -112,7 +115,7 @@ for iL=1:iLmax
     particle.ID   = partData(:,numPartComps);
 
 
-    momentFile = [rootPath,'mesh_data/species',num2str(species), ...
+    momentFile = [rootPath,'mesh_data/species',num2str(sp), ...
                            '_data/',momentList(index(iL)).name];
     
     %%%   reading density from species moment file

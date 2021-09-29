@@ -65,8 +65,8 @@ class HardSphere : public Scattering
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "HardSphere scattering parameters:" << std::endl;
-            std::cout << "  species 1 name:          " << m_species1_name << std::endl;
-            std::cout << "  species 2 name:          " << m_species2_name << std::endl;
+            std::cout << "  species A name:          " << m_species1_name << std::endl;
+            std::cout << "  species B name:          " << m_species2_name << std::endl;
             std::cout << "  species 1 radius [m]:    " << m_r1 << std::endl;
             std::cout << "  species 2 radius [m]:    " << m_r2 << std::endl;
             std::cout << "  sigmaT = pi(r1+r2)^2:    " << m_sigmaT << std::endl << std::endl;
@@ -94,8 +94,8 @@ class HardSphere : public Scattering
       // Parse the input database for parameters.
       void parseParameters( ParmParse&  a_pp ) 
       {
-         a_pp.get( "species1", m_sp1 ); m_sp1 = m_sp1-1; 
-         a_pp.get( "species2", m_sp2 ); m_sp2 = m_sp2-1;
+         a_pp.get( "speciesA", m_sp1 ); 
+         a_pp.get( "speciesB", m_sp2 );
          a_pp.query( "radius1", m_r1 );
          a_pp.query( "radius2", m_r2 );
       }

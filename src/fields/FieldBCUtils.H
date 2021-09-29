@@ -320,6 +320,7 @@ namespace FieldBCUtils {
          if(this_bc_type=="symmetry") Bv_bc_type = "odd";
          if(this_bc_type=="conductor") Bv_bc_type = "even";
          if(this_bc_type=="insulator_conductor") Bv_bc_type = "even";
+         if(this_bc_type=="extrapolate_zeroBv") Bv_bc_type = "zero";
 
          for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
@@ -394,6 +395,8 @@ namespace FieldBCUtils {
                         this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
                      }
                   }
+                  if(this_bc_type=="extrapolate_zeroBv") B_bc_type = "extrapolate";
+
                   if(dir==bdry_layout.dir()) { // dont change value on face in setBC()
                      const int ISIDE(bdry_layout.side());
                      if(ISIDE==0) fill_box_grown.growHi(bdry_layout.dir(),-1);
@@ -451,7 +454,7 @@ namespace FieldBCUtils {
                   grow_vect[bdry_dir] = 0;
                   fill_box_grown.grow(grow_vect);
                      
-                  std::string E_bc_type;
+                  std::string E_bc_type = this_bc_type;
                   if(this_bc_type=="symmetry") {
                      E_bc_type = "odd";
                      if(dir!=bdry_layout.dir()) E_bc_type = "even";
@@ -463,6 +466,7 @@ namespace FieldBCUtils {
                         this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
                      }
                   }
+                  if(this_bc_type=="extrapolate_zeroBv") E_bc_type = "extrapolate";
 
                   if(dir!=bdry_layout.dir()) { // dont change value on face in setBC()
                      const int ISIDE(bdry_layout.side());
@@ -522,6 +526,7 @@ namespace FieldBCUtils {
                   Ev_bc_type = "odd";
                   this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
                }
+               if(this_bc_type=="extrapolate_zeroBv") Ev_bc_type = "extrapolate";
             
                // dont change value on face in setBC()
                const int ISIDE(bdry_layout.side());

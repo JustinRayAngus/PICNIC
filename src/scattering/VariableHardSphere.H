@@ -59,8 +59,8 @@ class VariableHardSphere : public Scattering
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "VariableHardSphere scattering parameters:" << std::endl;
-            std::cout << "  species 1 name:              " << m_species1_name << std::endl;
-            std::cout << "  species 2 name:              " << m_species2_name << std::endl;
+            std::cout << "  species A name:              " << m_species1_name << std::endl;
+            std::cout << "  species B name:              " << m_species2_name << std::endl;
             std::cout << "  reference temperature [K]  : " << m_T0 << std::endl;
             std::cout << "  reference viscosity [Pa-s] : " << m_mu0 << std::endl;
             std::cout << "  mu=mu0*(T/T0)^eta with eta : " << m_eta << std::endl;
@@ -90,8 +90,8 @@ class VariableHardSphere : public Scattering
        */
       void parseParameters( ParmParse&  a_pp ) 
       {
-         a_pp.get( "species1", m_sp1 ); m_sp1 = m_sp1-1; 
-         a_pp.get( "species2", m_sp2 ); m_sp2 = m_sp2-1;
+         a_pp.get( "speciesA", m_sp1 );
+         a_pp.get( "speciesB", m_sp2 );
          a_pp.get( "reference_temperature", m_T0 );
          a_pp.get( "reference_viscosity", m_mu0 );
          a_pp.get( "eta", m_eta );

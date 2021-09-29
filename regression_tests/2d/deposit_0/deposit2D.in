@@ -47,13 +47,13 @@ units.time           = 1.0  # s
 #####################################################
 # Species Definitions
 #####################################################
-pic_species.1.name   = "deuteriumIon"
-pic_species.1.mass   = 3671.3
-pic_species.1.charge = 1 
-pic_species.1.interp_type_parts = "CIC"
-pic_species.1.motion = true # must be false to use piston operator
-pic_species.1.forces = false
-pic_species.1.scatter = false
+pic_species.0.name   = "deuteriumIon"
+pic_species.0.mass   = 3671.3
+pic_species.0.charge = 1 
+pic_species.0.interp_type_parts = "CIC"
+pic_species.0.motion = true # must be false to use piston operator
+pic_species.0.forces = false
+pic_species.0.scatter = false
 
 IC.deuteriumIon.X_min = 0.25
 IC.deuteriumIon.X_max = 0.375

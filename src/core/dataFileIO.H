@@ -43,6 +43,12 @@ class dataFileIO
                                                const int                     a_cur_step, 
                                                const double                  a_cur_time );
       
+      void writeEMFields( HDF5Handle&             a_handle,
+                    const ElectroMagneticFields&  a_emfield );
+      
+      void writeEMFields_old( HDF5Handle&             a_handle,
+                        const ElectroMagneticFields&  a_emfield );
+      
       void writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
                             HDF5Handle&                   a_handle,
                             HDF5HeaderData&               a_header );
@@ -86,7 +92,14 @@ class dataFileIO
       void writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,
                                 const int                      a_cur_step, 
                                 const double                   a_cur_time );
-
+      
+      void writeCheckpointEMFields( HDF5Handle&             a_handle,
+                              const ElectroMagneticFields&  a_emfield );
+      
+      void writeCheckpointParticles( HDF5Handle&  a_handle,
+                               const PicSpecies&  a_picSpecies,
+                               const int          a_species );
+      
    private:
 
       const DomainGrid& m_mesh;

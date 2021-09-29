@@ -66,6 +66,7 @@ class Simulation
       void loadRestartFile( ParmParse& ppsim );
       void writePlotFile();
       inline void writeHistFile(bool startup_flag);
+      void writeCheckpointFile();
       void setFixedTimeStep(const Real& a_dt);
       void enforceTimeStep(const Real  a_local_dt);
       void preTimeStep();
@@ -78,6 +79,7 @@ class Simulation
 
       Real m_cur_time;
       Real m_max_time;
+      Real m_max_wall_time_hrs;
       
       Real m_new_epsilon;
 
@@ -101,6 +103,15 @@ class Simulation
       bool        m_history;
       int         m_history_interval;
       int         m_last_history;
+      
+      bool        m_checkpoint;
+      int         m_checkpoint_interval;
+      Real        m_checkpoint_time_interval;
+      Real        m_checkpoint_time;
+      int         m_last_checkpoint;
+      std::string m_checkpoint_prefix;
+
+      std::string m_restart_file_name;
 
       int m_fixed_random_seed;
       

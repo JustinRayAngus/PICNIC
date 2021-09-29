@@ -6,6 +6,9 @@
 #include "GridFunctionFactory.H"
 #include "BinFabFactory.H"
 
+#include "CH_HDF5.H"
+#include "ParticleIO.H"
+
 #include "MathUtils.H"
 #include "SpaceUtils.H"
 #include "ParticleUtils.H"
@@ -13,10 +16,12 @@
 #include "NamespaceHeader.H"
 
 PicSpecies::PicSpecies( ParmParse&         a_ppspc,
+                        const int          a_species,
                         const string&      a_name,
                         const MeshInterp&  a_meshInterp,
                         const DomainGrid&  a_mesh )
-   : m_mass(),
+   : m_species(a_species),
+     m_mass(),
      m_charge(),
      m_Uint(0.0),
      m_interpToGrid(CIC),
@@ -48,6 +53,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
 
    if ( procID() == 0 ) {
       cout << "  name = " << m_name << endl;
+      cout << "  number = " << m_species << endl;
       cout << "  mass/me   = " << m_mass << endl;
       cout << "  charge/qe = " << m_charge << endl;
       cout << "  Uint [eV] = " << m_Uint << endl;
@@ -63,18 +69,18 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    const RealVect& meshOrigin(m_mesh.getXmin());
    const int ghosts(m_mesh.ghosts());
 
-   m_stable_dt = meshSpacing[0]; // initialize stable time step
+   m_stable_dt = meshSpacing[0];
 
    // initialize the member LevelDatas
    const IntVect ghostVect = ghosts*IntVect::Unit; 
    
    m_density.define(grids,1,ghostVect);
    m_momentum.define(grids,3,ghostVect);
-   m_energy.define(grids,3,ghostVect); // direction-depenent energy
+   m_energy.define(grids,3,ghostVect); // direction-dependent energy
 
-   m_currentDensity.define(grids,1,ghostVect);           // EdgeDataBox with 1 comp
+   m_currentDensity.define(grids,1,ghostVect);
    if(SpaceDim<3) {
-      m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
+      m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);
    }
    m_chargeDensity.define(grids,1,ghostVect);
    m_chargeDensity_faces.define(grids,1,ghostVect);
@@ -512,11 +518,10 @@ void PicSpecies::binTheParticles()
    }
 }
 
-void PicSpecies::initialize( const CodeUnits&  a_units )
+void PicSpecies::initialize( const CodeUnits&    a_units,
+                             const Real          a_time,
+                             const std::string&  a_restart_file_name )
 {
-   if(!procID()) cout << "Initializing pic species " << m_name  << "..." << endl;
-   int verbosity=0; // using this as a verbosity flag
-   
    // set the normalization constant for the equation of motion
    const Real Escale = a_units.getScale(a_units.ELECTRIC_FIELD);
    const Real Xscale = a_units.getScale(a_units.LENGTH);
@@ -524,6 +529,32 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    const Real cvacSq = Constants::CVAC*Constants::CVAC;
    m_fnorm_const = qom/cvacSq*Escale*Xscale;
 
+   m_volume_scale = a_units.getScale(a_units.VOLUME);
+
+   if(a_restart_file_name.empty()) {
+      initializeFromInputFile(a_units);
+   }
+   else {
+      initializeFromRestartFile(a_time,a_restart_file_name);
+   }
+   
+   int totalParticleCount = m_data.numParticles();
+   if(!procID()) {
+      cout << "Finished initializing pic species " << m_name  << endl;
+      cout << "total particles  = " << totalParticleCount << endl << endl;
+   }
+   
+   // define BCs object for this species
+   int verbosity = 1; 
+   m_species_bc = new PicSpeciesBC( m_name, m_mass, m_mesh, a_units, verbosity );
+
+}
+
+void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
+{
+   if(!procID()) cout << "Initializing pic species " << m_name  << " from input file..." << endl;
+   int verbosity=0;
+   
    // get some mesh info
    const RealVect& dX(m_mesh.getdX());
    const LevelData<FArrayBox>& Xcc(m_mesh.getXcc());
@@ -630,7 +661,6 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
    ////////////////////////////////////////////////////////////////////////////////////////
 
       int totalPartsPerCell = 1;
-      m_volume_scale = a_units.getScale(a_units.VOLUME);
       Real cellVolume = m_volume_scale;
       for (int dir=0; dir<SpaceDim; dir++)
       {
@@ -743,25 +773,37 @@ void PicSpecies::initialize( const CodeUnits&  a_units )
   
    } // end while loop
    
-   int totalParticleCount = m_data.numParticles();
-   if(!procID()) {
-      cout << "Finished initializing pic species " << m_name  << endl;
-      cout << "found " << IC_count << " ICs for this species"  << endl;
-      cout << "total particles  = " << totalParticleCount << endl << endl;
-   }
-   
-   // define BCs object for this species
-   verbosity = 1; 
-   m_species_bc = new PicSpeciesBC( m_name, m_mass, m_mesh, a_units, verbosity );
-   
- 
+}
+
+void PicSpecies::initializeFromRestartFile( const Real          a_time,
+                                            const std::string&  a_restart_file_name )
+{
+   if(!procID()) cout << "Initializing pic species " << m_name  << " from restart file..." << endl;
+
+#ifdef CH_USE_HDF5
+   HDF5Handle handle( a_restart_file_name, HDF5Handle::OPEN_RDONLY );
+
+   // read in the particle data
+   std::stringstream s;
+   s << "species" << m_species; 
+   if(!procID()) cout << s.str() << endl;
+   const std::string group_name = std::string( s.str() + "_data");
+   handle.setGroup(group_name);
+   readParticlesFromHDF( handle, m_data, "particles" );
+   handle.close();
+      
+   m_data.remapOutcast();
+   CH_assert(m_data.isClosed());
+
+#else
+      MayDay::Error("restart only defined with hdf5");
+#endif
+
 }
 
 void PicSpecies::setNumberDensity()
 {
    CH_TIME("PicSpecies::setNumberDensity()");
-    
-   //CH_assert(m_data.isClosed());
     
    const DisjointBoxLayout& grids = m_density.disjointBoxLayout();
    for(DataIterator dit(grids); dit.ok(); ++dit) {

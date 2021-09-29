@@ -10,7 +10,7 @@ qe   = 1.602176634e-19;    % electron charge [C]
 cvac = 2.99792458e8;       % speed of light [m/s]
 amu  = 1.660539066e-27;    % atomic mass unit [kg]
 
-species = 1;
+species = 0;
 rootPath = '../fromQuartz/thermalizationTests/test0/';
 rootPath = '../fromQuartz/thermalizationTests/test1/';
 rootPath = '../fromQuartz/thermalizationTests/test2_oldNorm/';
