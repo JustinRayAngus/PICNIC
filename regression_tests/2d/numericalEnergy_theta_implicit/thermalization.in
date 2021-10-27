@@ -19,6 +19,9 @@ system.iter_max = 6
 system.write_species_charge_density = false
 system.write_species_current_density = false
 
+pic_em_theta_implicit.solver_type = "picard"
+#pic_em_theta_implicit.solver_type = "newton"
+
 #####################################################
 # Time Stepping Definitions
 #####################################################
@@ -34,6 +37,11 @@ simulation.plot_time_interval  = 100.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
+
+history.precision = 5
+history.field_probes = true
+history.species0_probes = true
+history.species1_probes = true
 
 #####################################################
 # Computational Grid Definitions

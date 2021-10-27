@@ -19,14 +19,8 @@ class SpecialOperatorFactory
 {
    public:
 
-      /// Constructor.
-      /**
-       */
       SpecialOperatorFactory() {;}
 
-      /// Destructor.
-      /**
-       */
       ~SpecialOperatorFactory() {;}
 
       /// Create new SpecialOperator object
@@ -36,14 +30,18 @@ class SpecialOperatorFactory
        * routine is responsible for de-allocating the memory.
        */
       inline RefCountedPtr<SpecialOperator> create( ParmParse& pp,
+                                              const DomainGrid&  a_mesh,
+                                              const CodeUnits&  a_units,
                                               const int& verbosity = 0 );
 };
 
 
 inline
 RefCountedPtr<SpecialOperator> SpecialOperatorFactory::create(
-   ParmParse& a_pp,
-   const int& a_verbosity )
+   ParmParse&  a_pp,
+   const DomainGrid&  a_mesh,
+   const CodeUnits&  a_units,
+   const int&  a_verbosity )
 {
    std::string model( "unknown" );
    a_pp.get( "model", model );
@@ -52,7 +50,7 @@ RefCountedPtr<SpecialOperator> SpecialOperatorFactory::create(
 
    RefCountedPtr<SpecialOperator> result(NULL);
    if (model == "piston" || model == "piston" ) {
-      result = RefCountedPtr<SpecialOperator>( new Piston( a_pp, a_verbosity ) );
+      result = RefCountedPtr<SpecialOperator>( new Piston( a_pp, a_mesh, a_units, a_verbosity ) );
    }
    else {
       MayDay::Error( "SpecialOperatorFactory: Unimplemented special operator type selected" );

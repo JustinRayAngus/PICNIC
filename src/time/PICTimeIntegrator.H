@@ -4,7 +4,6 @@
 #include <string>
 #include "REAL.H"
 
-#include "CodeUnits.H"
 #include "PicSpecies.H"
 #include "ElectroMagneticFields.H"
 
@@ -23,12 +22,15 @@ class PICTimeIntegrator
 
     virtual void define( System* const,
                          const PicSpeciesPtrVect&, 
-                         ElectroMagneticFields* const,
-                         const CodeUnits* const ) = 0;
+                         ElectroMagneticFields* const ) = 0;
+
+    virtual void initialize() { }
 
     virtual void preTimeStep( const Real, const Real, const int ) { }
 
     virtual void timeStep( const Real, const Real, const int ) = 0;
+
+    virtual void postTimeStep( const Real, const Real ) { }
 
     virtual PICTIType type() const = 0;
 

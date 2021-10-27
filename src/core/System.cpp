@@ -19,6 +19,8 @@
 System::System( ParmParse&  a_pp )
    :
      m_iter_max(0),
+     m_iter_max_particles(0),
+     m_freeze_particles_jacobian(true),
      m_theta(0.5),
      m_advance_method(PIC_DSMC),
      m_mesh(nullptr),
@@ -67,8 +69,7 @@ System::System( ParmParse&  a_pp )
    }
    m_time_integrator->define( this,
                               m_pic_species_ptr_vect, 
-                              m_electromagneticFields,
-                              m_units );
+                              m_electromagneticFields );
    m_time_integrator->setSolverParams( m_rtol, m_atol, m_iter_max );
 }
 
@@ -135,6 +136,8 @@ void System::initialize( const int           a_cur_step,
          break;
       }
    }
+
+   m_time_integrator->initialize();
 
 }
 
@@ -332,12 +335,24 @@ void System::createEMfields()
    }
    
    ParmParse ppflds( "em_fields" );
+
+   EMVecType em_vec_type;
+   if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
+     em_vec_type = e_only;
+   } else {
+     em_vec_type = e_and_b;
+   }
    
    bool use_fields = false;
    ppflds.query("use",use_fields);
    if(use_fields) {
       bool verbose = true;
-      m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>(new ElectroMagneticFields(ppflds,*m_mesh,*m_units,verbose)); 
+      m_electromagneticFields = RefCountedPtr<ElectroMagneticFields>
+                                  (new ElectroMagneticFields( ppflds,
+                                                              *m_mesh,
+                                                              *m_units,
+                                                              verbose,
+                                                              em_vec_type)  ); 
       if(m_advance_method == PIC_DSMC ) {
          if(!procID()) cout << "advance_method PIC_DSMC cannot be used with electromagnetic fields on" << endl;
          exit(EXIT_FAILURE);
@@ -475,8 +490,8 @@ void System::createSpecialOperators()
      
       if(ppspop.contains("model")) {
          m_use_specialOps = true;
-         m_specialOps = specialOpFactory.create( ppspop, 1 );
-         m_specialOps->updateOp(*m_mesh,*m_units,0.0); // should make an initializeOp() function
+         m_specialOps = specialOpFactory.create( ppspop, *m_mesh, *m_units, 1 );
+         m_specialOps->updateOp(0.0); // should make an initializeOp() function
       } 
       else {
          more_ops = false;
@@ -542,7 +557,29 @@ void System::writeHistFile( const int     a_cur_step,
 {
    CH_TIME("System::writeHistFile()");
    
-   if(a_startup && !procID()) setupHistFile(a_cur_step);
+   if(a_startup) setupHistFile(a_cur_step);
+   
+   // compute the field probes
+   Real energyE_joules, energyB_joules;
+   if(m_field_probes) {
+      energyE_joules = m_electromagneticFields->electricFieldEnergy();
+      energyB_joules = m_electromagneticFields->magneticFieldEnergy();
+   }
+   
+   // compute the species probes
+   const int numSpecies = m_pic_species_ptr_vect.size();
+   std::vector<int> num_particles(numSpecies);
+   std::vector<vector<Real>> global_moments(numSpecies);
+   for( int species=0; species<numSpecies; species++) {
+      if(!m_species_probes[species]) continue;
+      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[species]);
+      num_particles[species] = this_picSpecies->numParticles();
+      this_picSpecies->globalMoments(global_moments.at(species));
+   }
+  
+   //
+   // write probe data to the history file 
+   //
 
    //FILE *histFile;
    std::ofstream histFile;
@@ -551,8 +588,19 @@ void System::writeHistFile( const int     a_cur_step,
       histFile.open("history.txt", std::ios_base::app);
       if(histFile.is_open()) {
          histFile << a_cur_step << " ";
-         histFile << std::setprecision(5) << std::scientific << a_cur_time << " ";
-         //histFile << a_cur_time << " ";
+         histFile << std::setprecision(m_history_precision) << std::scientific << a_cur_time << " ";
+         if(m_field_probes) {
+            histFile << energyE_joules << " ";
+            histFile << energyB_joules << " ";
+         }
+         for( int species=0; species<numSpecies; species++) {
+            if(!m_species_probes[species]) continue;
+            histFile << num_particles[species] << " ";
+            std::vector<Real>& species_moments = global_moments.at(species);
+            for(int mom=0; mom<species_moments.size(); ++mom) {
+               histFile << species_moments.at(mom) << " ";
+            }
+         }
          histFile << "\n";
          histFile.close();
       }
@@ -563,53 +611,123 @@ void System::writeHistFile( const int     a_cur_step,
 void System::setupHistFile(const int a_cur_step) 
 {
    CH_TIME("System::setupHistFile()");
-   if(!procID()) cout << "setting up the history file at step " << a_cur_step << endl << endl;
+   if(!procID()) cout << "setting up the history file at step " << a_cur_step << endl;
 
-   const std::string hf_name = "history.txt"; 
-  
-   if(a_cur_step==0) {
+   std::vector<std::string> probe_names;
+   probe_names.push_back("#0 step number");
+   probe_names.push_back("#1 time [code units]");
 
-      std::ofstream histFile(hf_name,std::ofstream::out);
-      if(histFile.is_open()) {
-         histFile << "#0 step number \n";
-         histFile << "#1 time [code units] \n";
-         histFile.close();
-      }
-      else {
-         cout << "Problem creating/opening history.txt file" << endl;
-      }
-
-   } 
-   else {
-      std::ifstream histFile;
-      std::ofstream histFile_temp;
-      std::string this_line;
-      int this_step;
-      
-      histFile.open(hf_name,std::ifstream::in);
-      histFile_temp.open("history_temp.txt",std::ofstream::out);
-      if(histFile.is_open()) {
-         while(getline(histFile, this_line)) {
-            stringstream ss;
-            ss << this_line;
-            string temp;
-            ss >> temp; // first element is step number
-            if( stringstream(temp) >> this_step && this_step >= a_cur_step ) {
-               break;
-            }
-            else {
-               histFile_temp << this_line; 
-               histFile_temp << "\n"; 
-            }
+   // parse input for different probes to include in the history file
+   ParmParse pphist("history");
+   
+   m_history_precision = 5;
+   pphist.query("precision", m_history_precision);
+   
+   m_field_probes = false;
+   if(!m_electromagneticFields.isNull()) {
+      pphist.query("field_probes", m_field_probes);
+      if(!procID()) cout << "field_probes = " << m_field_probes << endl;
+   }
+ 
+   const int numSpecies = m_pic_species_ptr_vect.size();
+   if(numSpecies>0) { 
+      m_species_probes.resize(numSpecies,false);
+      for (int species=0; species<numSpecies; species++) {
+         stringstream ss;
+         ss << "species" << species << "_probes";
+         if(pphist.contains(ss.str().c_str())) {
+            bool this_boolean; 
+            pphist.get(ss.str().c_str(), this_boolean);
+            m_species_probes[species] = this_boolean;
          }
-         histFile.close();
-         histFile_temp.close();
-         remove(hf_name.c_str());
-         rename("history_temp.txt",hf_name.c_str());
+         if(!procID()) cout << ss.str() << " = " << m_species_probes[species] << endl;
       }
+   }
+
+   if(m_field_probes) {
+      stringstream ss;
+      ss << "#" << probe_names.size() << " electric field energy [Joules]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+      ss << "#" << probe_names.size() << " magnetic field energy [Joules]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+   }
+   
+   for( int species=0; species<numSpecies; species++) {
+      if(!m_species_probes[species]) continue;
+      stringstream ss;
+      ss << "#" << probe_names.size() << " species " << species << ": macro particles";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+      ss << "#" << probe_names.size() << " species " << species << ": mass [kg]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+      ss << "#" << probe_names.size() << " species " << species << ": X-momentum [kg-m/s]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+      ss << "#" << probe_names.size() << " species " << species << ": Y-momentum [kg-m/s]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+      ss << "#" << probe_names.size() << " species " << species << ": Z-momentum [kg-m/s]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+      ss << "#" << probe_names.size() << " species " << species << ": energy [Joules]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+   }
+
+   // setup or restart the history file
+   if(!procID()) {
+
+      const std::string hf_name = "history.txt"; 
+      if(a_cur_step==0) {
+
+         std::ofstream histFile(hf_name,std::ofstream::out);
+         if(histFile.is_open()) {
+            for (auto n=0; n<probe_names.size(); n++) {
+               histFile << probe_names.at(n) << " \n";
+            }
+            histFile.close();
+         }
+         else {
+            cout << "Problem creating/opening history.txt file" << endl;
+         }
+
+      } 
       else {
-         cout << "Problem opening history.txt file on restart" << endl;
+         std::ifstream histFile;
+         std::ofstream histFile_temp;
+         std::string this_line;
+         int this_step;
+      
+         histFile.open(hf_name,std::ifstream::in);
+         histFile_temp.open("history_temp.txt",std::ofstream::out);
+         if(histFile.is_open()) {
+            while(getline(histFile, this_line)) {
+               stringstream ss;
+               ss << this_line;
+               string temp;
+               ss >> temp; // first element is step number
+               if( stringstream(temp) >> this_step && this_step >= a_cur_step ) {
+                  break;
+               }
+               else {
+                  histFile_temp << this_line; 
+                  histFile_temp << "\n"; 
+               }
+            }
+            histFile.close();
+            histFile_temp.close();
+            remove(hf_name.c_str());
+            rename("history_temp.txt",hf_name.c_str());
+         }
+         else {
+            cout << "Problem opening history.txt file on restart" << endl;
+         }
       }
+
+      cout << "finished setting up the history file " << endl << endl;
    }
 
 }
@@ -679,10 +797,13 @@ void System::parseParameters( ParmParse&  a_ppsys )
    if(m_advance_method == PICMC_FULLY_IMPLICIT) m_advance_method = PIC_EM_THETA_IMPLICIT;
    if(m_advance_method == PIC_EM_SEMI_IMPLICIT) {
       a_ppsys.get("iter_max",m_iter_max);
+      a_ppsys.query("iter_max_particles",m_iter_max_particles);
       a_ppsys.query("abs_tol", m_atol);
       a_ppsys.query("rel_tol", m_rtol);
    } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
       a_ppsys.get("iter_max",m_iter_max);
+      a_ppsys.query("iter_max_particles",m_iter_max_particles);
+      a_ppsys.query("freeze_particles_jacobian",m_freeze_particles_jacobian);
       a_ppsys.query("abs_tol", m_atol);
       a_ppsys.query("rel_tol", m_rtol);
       a_ppsys.query("theta_parameter",m_theta);
@@ -696,10 +817,13 @@ void System::parseParameters( ParmParse&  a_ppsys )
       cout << "advance method  = " << m_advance_method << endl;
       if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
          cout << "  iter_max = " << m_iter_max << endl;
+         cout << "  iter_max_particles = " << m_iter_max_particles << endl;
          cout << "  abs_tol  = " << m_atol << endl;
          cout << "  rel_tol  = " << m_rtol << endl;
       } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
          cout << "  iter_max = " << m_iter_max << endl;
+         cout << "  iter_max_particles = " << m_iter_max_particles << endl;
+         cout << "  freeze_particles_jacobian = " << m_freeze_particles_jacobian << endl;
          cout << "  abs_tol  = " << m_atol << endl;
          cout << "  rel_tol  = " << m_rtol << endl;
          cout << "  theta_parameter = " << m_theta << endl; 
@@ -716,38 +840,24 @@ void System::preTimeStep( const Real&  a_cur_time,
 {  
    CH_TIME("System::preTimeStep()");
       
-   Real cnormDt = a_dt*m_units->CvacNorm();
-   Real cnormHalfDt = 0.5*cnormDt;
-
    m_time_integrator->preTimeStep( a_cur_time, a_dt, a_step_number );
 
-   // update old field values
-   if (!m_electromagneticFields.isNull()) {
-      m_electromagneticFields->updateOldElectricField();
-      m_electromagneticFields->updateOldMagneticField();
-   }
-   
    // update old particle values and create inflow particles  
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) {
-         this_picSpecies->createInflowParticles( a_cur_time, cnormDt );
-         this_picSpecies->updateOldParticlePositions();
-      }
-      if(this_picSpecies->forces()) this_picSpecies->updateOldParticleVelocities();
+      this_picSpecies->createInflowParticles( a_cur_time, a_dt );
+      this_picSpecies->updateOldParticlePositions();
+      this_picSpecies->updateOldParticleVelocities();
    }
 
 }
 
-void System::advance( Real&  a_cur_time,
-                      Real&  a_dt,
-                      int&   a_step_number )
+void System::advance( const Real&  a_cur_time,
+                      const Real&  a_dt,
+                      const int&   a_step_number )
 {  
    CH_TIME("System::advance()");
-
    m_time_integrator->timeStep( a_cur_time, a_dt, a_step_number );
-   a_cur_time = a_cur_time + a_dt;
-   a_step_number = a_step_number + 1;
 
 }
 
@@ -874,30 +984,31 @@ void System::scatterParticles( const Real&  a_dt )
 
 }   
 
-void System::postTimeStep( const Real&  a_cur_time,
+void System::postTimeStep( Real&        a_cur_time,
                            const Real&  a_dt,
-                           const int&   a_step_number )
+                           int&         a_step_number )
 {  
    CH_TIME("System::postTimeStep()");
-  
+
+   m_time_integrator->postTimeStep( a_cur_time, a_dt );
+
    // apply special operators
-   Real cnormDt = a_dt*m_units->CvacNorm();
    if(m_specialOps) {
       for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
          PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         m_specialOps->applyOp(*this_picSpecies,*m_mesh,cnormDt);
+         m_specialOps->applyOp(*this_picSpecies,a_dt);
       }
-      m_specialOps->updateOp(*m_mesh,*m_units,cnormDt);
+      m_specialOps->updateOp(a_dt);
    }
    
    // remove particles that have left the physical domain and create new ones
    for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
       PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->motion()) {
-         this_picSpecies->removeOutflowParticles();
-      }
+      this_picSpecies->removeOutflowParticles();
    }
    
+   a_cur_time = a_cur_time + a_dt;
+   a_step_number = a_step_number + 1;
 }
 
 Real System::fieldsDt( const int a_step_number )
@@ -993,5 +1104,300 @@ void System::adaptDt( bool&  a_adapt_dt )
    if(m_advance_method==PIC_EM_SEMI_IMPLICIT) a_adapt_dt = false;
 }
 
+void System::preRHSOp( const ODEVector<System>&  a_U,
+                       const Real                a_dt )
+{  
+  CH_TIME("System::preRHSOp()");
+  
+  CH_assert(!m_electromagneticFields.isNull());
+    
+  // half dt advance of particle positions and velocities
+  // and, if advancing E, compute current density
+  //
+  // xbar = xn + dt/2*vbar
+  // vbar = vn + dt/2*q/m*(E(xbar) + vbar x B(xbar))
+  // Jbar = Sum_sSum_p(qp*S(xbar-xg)*vbar)/dV
+   
+  for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+     auto this_picSpecies(m_pic_species_ptr_vect[s]);
+     this_picSpecies->repositionOutcastsAndApplyForces( *m_electromagneticFields, 
+                                                        a_dt, true );
+     if(m_iter_max_particles>0) {
+        this_picSpecies->advanceParticlesIteratively( *m_electromagneticFields, 
+                                                      a_dt, m_iter_max_particles );
+     }
+     else {
+        this_picSpecies->advancePositions(0.5*a_dt,true);
+        this_picSpecies->interpolateFieldsToParticles( *m_electromagneticFields );
+        this_picSpecies->advanceVelocities( a_dt, true );
+     }
+  }
+  if (m_electromagneticFields->advanceE()) setCurrentDensity();
+
+  return;    
+}
+
+void System::computeRHS( ODEVector<System>&  a_F,
+                   const ODEVector<System>&,
+                   const Real                a_time,
+                   const Real                a_dt,
+                   const EMVecType&          a_vec_type )
+{
+  CH_TIME("System::computeRHS()");
+  
+  const Real cnormDt = a_dt*m_units->CvacNorm();
+  m_electromagneticFields->zeroRHS();
+
+  if (a_vec_type == b_only) {
+
+    m_electromagneticFields->computeRHSMagneticField( a_time, cnormDt );
+    copyBRHSToVec( a_F );
+
+  } else if ( a_vec_type == e_only) {
+
+    m_electromagneticFields->computeRHSElectricField( a_time, cnormDt );
+    copyERHSToVec( a_F );
+
+  } else if ( a_vec_type == e_and_b ) {
+
+    m_electromagneticFields->computeRHSMagneticField( a_time, cnormDt );
+    m_electromagneticFields->computeRHSElectricField( a_time, cnormDt );
+    copyRHSToVec( a_F );
+
+  }
+
+}
+
+void System::computeRHS( ODEVector<System>&  a_F,
+                   const ODEVector<System>&,
+                   const int                 a_block,
+                   const Real                a_time,
+                   const Real                a_dt,
+                   const int )
+{
+  CH_TIME("System::computeRHS() from Picard solver");
+  
+  //m_electromagneticFields->zeroRHS();
+  const Real cnormDt = a_dt*m_units->CvacNorm();
+
+  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
+
+    if (a_block == _EM_PICARD_B_FIELD_BLOCK_) {
+      m_electromagneticFields->computeRHSMagneticField( a_time, cnormDt );
+    } else if (a_block == _EM_PICARD_E_FIELD_BLOCK_) {
+      m_electromagneticFields->computeRHSElectricField( a_time, cnormDt );
+    }
+
+  } else if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
+
+    m_electromagneticFields->computeRHSElectricField( a_time, cnormDt );
+
+  }
+
+  copyRHSToVec( a_F );
+}
+
+void System::updatePhysicalState(  ODEVector<System>&  a_U,
+                          const Real          a_time,
+                          const EMVecType&    a_vec_type )
+{
+  CH_TIME("System::updatePhysicalState()");
+  
+  if (a_vec_type == b_only) {
+    copyBFromVec( a_U );
+    m_electromagneticFields->updateDataMagneticField( a_time );
+    copyBToVec( a_U );
+  } else if (a_vec_type == e_only ) {
+    copyEFromVec( a_U );
+    m_electromagneticFields->updateDataElectricField( a_time );
+    copyEToVec( a_U );
+  } else {
+    copySolutionFromVec( a_U );
+    m_electromagneticFields->updateDataMagneticField( a_time );
+    m_electromagneticFields->updateDataElectricField( a_time );
+    copySolutionToVec( a_U );
+  }
+}
+
+void System::updatePhysicalState( ODEVector<System>&  a_U,
+                            const int                 a_block,
+                            const Real                a_time )
+{
+  CH_TIME("System::updatePhysicalState() from Picard solver");
+
+  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
+
+    if (a_block == _EM_PICARD_B_FIELD_BLOCK_) {
+      int offset = m_electromagneticFields->vecOffsetBField();
+      copyBFromVec( a_U, offset );
+      m_electromagneticFields->updateDataMagneticField( a_time );
+      offset = m_electromagneticFields->vecOffsetBField();
+      copyBToVec( a_U, offset );
+    } else if (a_block == _EM_PICARD_E_FIELD_BLOCK_) {
+      int offset = m_electromagneticFields->vecOffsetEField();
+      copyEFromVec( a_U, offset );
+      m_electromagneticFields->updateDataElectricField( a_time );
+      offset = m_electromagneticFields->vecOffsetEField();
+      copyEToVec( a_U, offset );
+    }
+
+  } else if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
+    int offset = m_electromagneticFields->vecOffsetEField();
+    copyEFromVec( a_U, offset );
+    m_electromagneticFields->updateDataElectricField( a_time );
+    offset = m_electromagneticFields->vecOffsetEField();
+    copyEToVec( a_U, offset );
+  }
+
+}
+
+void System::copyBFromVec(  const ODEVector<System>&  a_vec,
+                            int&                      a_offset )
+{
+  LevelData<FluxBox>& Bfield( m_electromagneticFields->getMagneticField() );
+  a_offset += SpaceUtils::copyToLevelData( Bfield, a_vec.dataAt(a_offset) );
+  if (SpaceDim < 3) {
+    LevelData<FArrayBox>& Bfield_virtual( m_electromagneticFields->getVirtualMagneticField() );
+    a_offset += SpaceUtils::copyToLevelData( Bfield_virtual, a_vec.dataAt(a_offset) );
+  }
+  return;
+}
+
+void System::copyEFromVec( const ODEVector<System>&   a_vec,
+                           int&                       a_offset)
+{
+  //int offset = m_electromagneticFields->vecOffsetEField();
+  LevelData<EdgeDataBox>& Efield( m_electromagneticFields->getElectricField() );
+  a_offset += SpaceUtils::copyToLevelData( Efield, a_vec.dataAt(a_offset) );
+  if (SpaceDim < 3) {
+    LevelData<NodeFArrayBox>& Efield_virtual(m_electromagneticFields->getVirtualElectricField());
+    a_offset += SpaceUtils::copyToLevelData( Efield_virtual, a_vec.dataAt(a_offset) );
+  }
+
+  return;
+}
+
+void System::copySolutionFromVec( const ODEVector<System>& a_vec )
+{
+  CH_TIME("System::copySolutionFromVec()");
+  
+  int offset(0);
+  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
+    copyBFromVec( a_vec, offset );
+  }
+  copyEFromVec( a_vec, offset );
+  return;
+}
+
+void System::copyBToVec(  ODEVector<System>&  a_vec,
+                          int&                a_offset ) const
+{
+  const LevelData<FluxBox>& Bfield( m_electromagneticFields->getMagneticField() );
+  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Bfield );
+  if (SpaceDim < 3) {
+    const LevelData<FArrayBox>& Bfield_virtual( m_electromagneticFields->getVirtualMagneticField() );
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Bfield_virtual );
+  }
+  return;
+}
+
+void System::copyEToVec(  ODEVector<System>&  a_vec,
+                          int&                a_offset ) const
+{
+  //int offset = m_electromagneticFields->vecOffsetEField();
+  const LevelData<EdgeDataBox>& Efield( m_electromagneticFields->getElectricField() );
+  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Efield );
+  if (SpaceDim < 3) {
+    const LevelData<NodeFArrayBox>& Efield_virtual(m_electromagneticFields->getVirtualElectricField());
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Efield_virtual );
+  }
+  return;
+}
+
+void System::copySolutionToVec( ODEVector<System>& a_vec ) const
+{
+  CH_TIME("System::copySolutionToVec()");
+  
+  int offset(0);
+  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
+    copyBToVec( a_vec, offset );
+  }
+  copyEToVec( a_vec, offset );
+  return;
+}
+
+void System::copyBRHSFromVec( const ODEVector<System>&  a_vec,
+                              int&                      a_offset )
+{
+  LevelData<FluxBox>& BfieldRHS( m_electromagneticFields->getMagneticFieldRHS() );
+  a_offset += SpaceUtils::copyToLevelData( BfieldRHS, a_vec.dataAt(a_offset) );
+  if (SpaceDim < 3) {
+    LevelData<FArrayBox>& BfieldRHS_virtual( m_electromagneticFields->getVirtualMagneticFieldRHS() );
+    a_offset += SpaceUtils::copyToLevelData( BfieldRHS_virtual, a_vec.dataAt(a_offset) );
+  }
+  return;
+}
+
+void System::copyERHSFromVec( const ODEVector<System>&  a_vec,
+                              int&                      a_offset )
+{
+  LevelData<EdgeDataBox>& EfieldRHS( m_electromagneticFields->getElectricFieldRHS() );
+  a_offset += SpaceUtils::copyToLevelData( EfieldRHS, a_vec.dataAt(a_offset) );
+  if (SpaceDim < 3) {
+    LevelData<NodeFArrayBox>& EfieldRHS_virtual(m_electromagneticFields->getVirtualElectricFieldRHS());
+    a_offset += SpaceUtils::copyToLevelData( EfieldRHS_virtual, a_vec.dataAt(a_offset) );
+  }
+
+  return;
+}
+
+void System::copyRHSFromVec( const ODEVector<System>& a_vec )
+{
+  CH_TIME("System::copyRHSFromVec()");
+  
+  int offset(0);
+
+  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
+    copyBRHSFromVec( a_vec, offset );
+  }
+  copyERHSFromVec( a_vec, offset );
+  return;
+}
+
+void System::copyBRHSToVec( ODEVector<System>&  a_vec,
+                            int&                a_offset ) const
+{
+  const LevelData<FluxBox>& BfieldRHS( m_electromagneticFields->getMagneticFieldRHS() );
+  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), BfieldRHS );
+  if (SpaceDim < 3) {
+    const LevelData<FArrayBox>& BfieldRHS_virtual( m_electromagneticFields->getVirtualMagneticFieldRHS() );
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), BfieldRHS_virtual );
+  }
+  return;
+}
+
+void System::copyERHSToVec( ODEVector<System>&  a_vec,
+                            int&                a_offset ) const
+{
+  const LevelData<EdgeDataBox>& EfieldRHS( m_electromagneticFields->getElectricFieldRHS() );
+  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), EfieldRHS );
+  if (SpaceDim < 3) {
+    const LevelData<NodeFArrayBox>& EfieldRHS_virtual(m_electromagneticFields->getVirtualElectricFieldRHS());
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), EfieldRHS_virtual );
+  }
+  return;
+}
+
+void System::copyRHSToVec( ODEVector<System>& a_vec ) const
+{
+  CH_TIME("System::copyRHSToVec()");
+  
+  int offset(0);
+  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
+    copyBRHSToVec( a_vec, offset );
+  }
+  copyERHSToVec( a_vec, offset );
+  return;
+}
 
 #include "NamespaceFooter.H"

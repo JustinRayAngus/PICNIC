@@ -50,7 +50,7 @@ InflowBC::InflowBC( const int&             a_bdry_layout_index,
 void InflowBC::apply( List<JustinsParticle>&  a_pList,
                 const FArrayBox&              a_Xec,
                 const Box&                    a_bdry_box,
-                const Real&                   a_dt )
+                const Real&                   a_cnormDt )
 {
    CH_TIME("InflowBC::apply()");
       
@@ -73,7 +73,7 @@ void InflowBC::apply( List<JustinsParticle>&  a_pList,
          BetaPart[m_bdry_dir] = m_beta_VT[m_bdry_dir]*MathUtils::randn() + m_beta_U[m_bdry_dir];
 
          // only go further of the particle makes it into the physical domain
-         Xpart[m_bdry_dir] = Xpart_old[m_bdry_dir] + BetaPart[m_bdry_dir]*a_dt;
+         Xpart[m_bdry_dir] = Xpart_old[m_bdry_dir] + BetaPart[m_bdry_dir]*a_cnormDt;
          if( (m_bdry_side==0 && Xpart[m_bdry_dir]>m_X_bdry) ||
              (m_bdry_side==1 && Xpart[m_bdry_dir]<m_X_bdry) ) {
 
@@ -85,7 +85,7 @@ void InflowBC::apply( List<JustinsParticle>&  a_pList,
             for(int dir=0; dir<SpaceDim; dir++) { 
                if(dir!=m_bdry_dir) {
                   Xpart_old[dir] = local_Xlo[dir] + MathUtils::rand()*m_dX[dir];
-                  Xpart[dir] = Xpart_old[dir] + BetaPart[dir]*a_dt;
+                  Xpart[dir] = Xpart_old[dir] + BetaPart[dir]*a_cnormDt;
                }
             }
             JustinsParticle particle(m_weight, Xpart, BetaPart);

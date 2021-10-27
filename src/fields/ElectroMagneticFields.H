@@ -23,17 +23,23 @@
 
 #include "SpaceUtils.H"
 
+#define _EM_PICARD_B_FIELD_BLOCK_ 0
+#define _EM_PICARD_E_FIELD_BLOCK_ 1
+
 #include "NamespaceHeader.H"
+
+typedef enum{b_only, e_only, e_and_b} EMVecType;
 
 class ElectroMagneticFields
 {
 
 public:
 
-  ElectroMagneticFields( ParmParse&   a_ppfields,
-                   const DomainGrid&  a_mesh,
-                   const CodeUnits&   a_units,
-                   const bool&        a_verbosity );
+  ElectroMagneticFields( ParmParse&,
+                   const DomainGrid&,
+                   const CodeUnits&,
+                   const bool&,
+                   const EMVecType& a = e_and_b);
   
   virtual ~ElectroMagneticFields();
 
@@ -53,18 +59,26 @@ public:
   
   Real stableDt() const { return m_stable_dt; }
 
-  // const references to magnetic field  
   const LevelData<FluxBox>& getMagneticField() const {return m_magneticField;}
+  LevelData<FluxBox>& getMagneticField() {return m_magneticField;}
   const LevelData<FArrayBox>& getVirtualMagneticField() const {return m_magneticField_virtual;}
-  const LevelData<FluxBox>& getMagneticField_old() const {return m_magneticField_old;}
-  const LevelData<FArrayBox>& getVirtualMagneticField_old() const {return m_magneticField_virtual_old;}
-  
-  // const references to electric field  
+  LevelData<FArrayBox>& getVirtualMagneticField() {return m_magneticField_virtual;}
+
   const LevelData<EdgeDataBox>& getElectricField() const {return m_electricField;}
+  LevelData<EdgeDataBox>& getElectricField() {return m_electricField;}
   const LevelData<NodeFArrayBox>& getVirtualElectricField() const {return m_electricField_virtual;}
-  const LevelData<EdgeDataBox>& getElectricField_old() const {return m_electricField_old;}
-  const LevelData<NodeFArrayBox>& getVirtualElectricField_old() const {return m_electricField_virtual_old;}
-  
+  LevelData<NodeFArrayBox>& getVirtualElectricField() {return m_electricField_virtual;}
+
+  const LevelData<FluxBox>& getMagneticFieldRHS() const {return m_magneticField_rhs;}
+  LevelData<FluxBox>& getMagneticFieldRHS() {return m_magneticField_rhs;}
+  const LevelData<FArrayBox>& getVirtualMagneticFieldRHS() const {return m_magneticField_virtual_rhs;}
+  LevelData<FArrayBox>& getVirtualMagneticFieldRHS() {return m_magneticField_virtual_rhs;}
+
+  const LevelData<EdgeDataBox>& getElectricFieldRHS() const {return m_electricField_rhs;}
+  LevelData<EdgeDataBox>& getElectricFieldRHS() {return m_electricField_rhs;}
+  const LevelData<NodeFArrayBox>& getVirtualElectricFieldRHS() const {return m_electricField_virtual_rhs;}
+  LevelData<NodeFArrayBox>& getVirtualElectricFieldRHS() {return m_electricField_virtual_rhs;}
+
   // const references to charge/current density
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
@@ -93,25 +107,13 @@ public:
   const LevelData<FArrayBox>& getDivB() const {return m_divB;}
   
   // advance the fields in time
-  void advanceElectricField( const Real, const Real );
-  void advanceMagneticField( const Real, const Real );
+  void computeRHSElectricField( const Real, const Real );
+  void computeRHSMagneticField( const Real, const Real );
   
-  // convert from half time advance to full advance
-  void advanceMagneticField_2ndHalf( const Real, const Real a_theta=0.5 );
-  void advanceElectricField_2ndHalf( const Real, const Real a_theta=0.5 );
+  // compute field energy
+  Real electricFieldEnergy();
+  Real magneticFieldEnergy();
  
-  // save fields for error calc
-  void saveElectricField();
-  void saveMagneticField();
-  
-  // diff the fields for error calc
-  Real diffElectricField();
-  Real diffMagneticField();
- 
-  // update the saved old field values
-  void updateOldElectricField();
-  void updateOldMagneticField();
-
   // compute the divegence of the fields 
   void setDivB();
   void setDivE();
@@ -121,7 +123,53 @@ public:
   
   bool advanceE() const { return m_advanceE; }
   bool advanceB() const { return m_advanceB; }
- 
+
+  inline void zeroRHS()
+  {
+    SpaceUtils::zero( m_magneticField_rhs );
+    if (SpaceDim<3) SpaceUtils::zero( m_magneticField_virtual_rhs );
+    SpaceUtils::zero( m_electricField_rhs );
+    if (SpaceDim<3) SpaceUtils::zero( m_electricField_virtual_rhs );
+  }
+
+  inline int getVectorSize(const EMVecType& a_type = e_and_b) const
+  {
+    int retval(0);
+    if (a_type == b_only) {
+      retval += m_vec_size_bfield;
+      if (SpaceDim < 3) retval += m_vec_size_bfield_virtual;
+    } else if (a_type == e_only) {
+      retval += m_vec_size_efield;
+      if (SpaceDim < 3) retval += m_vec_size_efield_virtual;
+    } else {
+      retval += m_vec_size_bfield;
+      if (SpaceDim < 3) retval += m_vec_size_bfield_virtual;
+      retval += m_vec_size_efield;
+      if (SpaceDim < 3) retval += m_vec_size_efield_virtual;
+    }
+    return retval;
+  }
+
+  inline int numPicardBlocks() const
+  {
+    return 2;
+  }
+
+  inline int vecOffsetBField() const { return m_vec_offset_bfield; }
+  inline int vecOffsetBFieldVirtual() const { return m_vec_offset_bfield_virtual; }
+  inline int vecOffsetEField() const { return m_vec_offset_efield; }
+  inline int vecOffsetEFieldVirtual() const { return m_vec_offset_efield_virtual; }
+
+  inline void updateDataMagneticField( const Real a_time )
+  {
+    applyBCs_magneticField(a_time);
+  }
+
+  inline void updateDataElectricField( const Real a_time )
+  {
+    applyBCs_electricField(a_time);
+  }
+
 private:
   
   // applyBCs to fields
@@ -143,6 +191,8 @@ private:
   Real m_stable_dt;
   Real m_Jnorm_factor; // mu0*qe*cvac*Xscale/Bscale
   Real m_rhoCnorm_factor; // qe/ep0*Xscale/Escale
+  Real m_energyE_factor; // Escale*Escale*ep0
+  Real m_energyB_factor; // Bscale*Bscale/mu0
   
   const DomainGrid& m_mesh;
   
@@ -151,14 +201,10 @@ private:
   // containers for magnetic field
   LevelData<FluxBox> m_magneticField;          
   LevelData<FArrayBox> m_magneticField_virtual;       // needed for 1D/2D simulations          
-  LevelData<FluxBox> m_magneticField_old;          
-  LevelData<FArrayBox> m_magneticField_virtual_old;       // needed for 1D/2D simulations          
   
   // containers for electric field
   LevelData<EdgeDataBox> m_electricField;          
   LevelData<NodeFArrayBox> m_electricField_virtual;   // needed for 1D/2D simulations
-  LevelData<EdgeDataBox> m_electricField_old;          
-  LevelData<NodeFArrayBox> m_electricField_virtual_old;   // needed for 1D/2D simulations
   
   // containers for charge/current density
   LevelData<EdgeDataBox> m_currentDensity;          
@@ -167,7 +213,7 @@ private:
   
   // containers for curlE
   LevelData<FluxBox> m_curlE;          
-  LevelData<FArrayBox> m_curlE_virtual;       // needed for 1D/2D simulations          
+  LevelData<FArrayBox> m_curlE_virtual;       // needed for 1D/2D simulations
   
   // containers for curlB
   LevelData<EdgeDataBox> m_curlB;          
@@ -187,31 +233,19 @@ private:
   LevelData<NodeFArrayBox> m_rhs0;
   LevelData<EdgeDataBox> m_electricField_correction;
 
-  // Diff arrays for EField
-  LevelData<EdgeDataBox> m_electricField_diff;
-  LevelData<NodeFArrayBox> m_electricField_virtual_diff;
+  // RHS arrays for EField
+  LevelData<EdgeDataBox> m_electricField_rhs;
+  LevelData<NodeFArrayBox> m_electricField_virtual_rhs;
 
-  // Diff arrays for BField
-  LevelData<FluxBox> m_magneticField_diff;
-  LevelData<FArrayBox> m_magneticField_virtual_diff;
+  // RHS arrays for BField
+  LevelData<FluxBox> m_magneticField_rhs;
+  LevelData<FArrayBox> m_magneticField_virtual_rhs;
 
-  inline Real computeEFieldDiffNorm() const
-  {
-    Real retval = SpaceUtils::sumOfSquares(m_electricField_diff);
-    if (SpaceDim<3) {
-      retval += SpaceUtils::sumOfSquares(m_electricField_virtual_diff);
-    }
-    return sqrt(retval);
-  }
-
-  inline Real computeBFieldDiffNorm() const
-  {
-    Real retval = SpaceUtils::sumOfSquares(m_magneticField_diff);
-    if (SpaceDim<3) {
-      retval += SpaceUtils::sumOfSquares(m_magneticField_virtual_diff);
-    }
-    return sqrt(retval);
-  }
+  // Vector offsets and sizes
+  int m_vec_size_bfield, m_vec_size_bfield_virtual;
+  int m_vec_size_efield, m_vec_size_efield_virtual;
+  int m_vec_offset_bfield, m_vec_offset_bfield_virtual;
+  int m_vec_offset_efield, m_vec_offset_efield_virtual;
   
 };
 

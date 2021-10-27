@@ -12,9 +12,9 @@ PicSpeciesBC::PicSpeciesBC( const std::string&  a_species_name,
                             const DomainGrid&   a_mesh,
                             const CodeUnits&    a_units,
                             const int           a_verbosity )
-   : m_mesh(a_mesh),
-     m_species_name(a_species_name),
+   : m_species_name(a_species_name),
      m_species_mass(a_species_mass),
+     m_mesh(a_mesh),
      m_verbosity(a_verbosity)
 {
    // parse the input file
@@ -31,6 +31,7 @@ PicSpeciesBC::~PicSpeciesBC()
    m_bdry_name.resize(0);
    m_bc_type.resize(0);
    m_bc_binary.resize(0); 
+   m_periodic_bc_binary.resize(0); 
    m_outflow_list_vector.resize(0);
    m_inflow_list_vector.resize(0);
 }
@@ -88,12 +89,31 @@ void PicSpeciesBC::parseParameters( ParmParse&  a_pp,
       m_bc_binary[b] = is_bdry_box;
    }
    
+   const BoundaryBoxLayoutPtrVect& periodic_bdry_layout = m_mesh.getPeriodicBoundaryLayout();
+   m_periodic_bc_binary.resize(periodic_bdry_layout.size());
+   for (int b(0); b<periodic_bdry_layout.size(); b++) {
+      const BoundaryBoxLayout& this_bdry_layout( *(periodic_bdry_layout[b]) );
+      const int bdry_dir = this_bdry_layout.dir();
+      const Side::LoHiSide bdry_side( this_bdry_layout.side() );
+  
+      bool is_bdry_box(false); 
+      DataIterator dit(grids);
+      for(dit.begin(); dit.ok(); ++dit) {
+         is_bdry_box |= BCUtils::touchesPhysicalBoundary( domain_box, grids[dit],
+                                                           bdry_dir, bdry_side );
+      }
+      m_periodic_bc_binary[b] = is_bdry_box;
+      if(is_bdry_box) {
+      //   cout << "JRA: periodic_bc: procID = " << procID() << endl;
+      //   cout << "JRA: periodic_bc: dir  = " << bdry_dir << endl;
+      //   cout << "JRA: periodic_bc: side = " << bdry_side << endl;
+      }
+   }
+   
 }
 
 void PicSpeciesBC::printParameters() const
 {
-   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
-   
    if (procID()==0) {
       std::cout << std::endl;
       std::cout << "PicSpeciesBC =======================================" << std::endl;
@@ -143,7 +163,7 @@ void PicSpeciesBC::apply( List<JustinsParticle>&  a_outcast_list,
 }
 
 void PicSpeciesBC::createInflowParticles( const Real&  a_time,
-                                          const Real&  a_dt )
+                                          const Real&  a_cnormDt )
 {
    CH_TIME("PicSpeciesBC::createInflowParticles()");
    
@@ -171,7 +191,7 @@ void PicSpeciesBC::createInflowParticles( const Real&  a_time,
 
          if(m_bc_binary[b]) {
             m_inflow_bc_ptr_vect[b]->apply( inflow_list, this_Xec,
-                                            bdry_box, a_dt );
+                                            bdry_box, a_cnormDt );
          }
 
       }
@@ -221,25 +241,29 @@ void PicSpeciesBC::repositionOutflowParticles( List<JustinsParticle>&  a_outcast
       List<JustinsParticle>&  outflow_list = m_outflow_list_vector[b];
       if(bdry_side==0 && m_bc_binary[b]) { 
          ListIterator<JustinsParticle> lit(outflow_list);
-         for(lit.begin(); lit.ok(); ++lit) {
+         for(lit.begin(); lit.ok();) {
             JustinsParticle& this_particle = lit();
             RealVect& this_x = this_particle.position();
             if(this_x[bdry_dir] < Xmin[bdry_dir]) {
                this_x[bdry_dir] = Xmin[bdry_dir] + 1.0e-4*dX[bdry_dir];
                a_outcast_list.transfer(lit);
-               --lit;
+            }
+            else {
+               ++lit;
             } 
          }
       }
       if(bdry_side==1 && m_bc_binary[b]) { 
          ListIterator<JustinsParticle> lit(outflow_list);
-         for(lit.begin(); lit.ok(); ++lit) {
+         for(lit.begin(); lit.ok();) {
             JustinsParticle& this_particle = lit();
             RealVect& this_x = this_particle.position();
             if(this_x[bdry_dir] >= Xmax[bdry_dir]) {
                this_x[bdry_dir] = Xmax[bdry_dir] - 1.0e-4*dX[bdry_dir]; 
                a_outcast_list.transfer(lit);
-               --lit;
+            } 
+            else {
+               ++lit;
             } 
          }
       }
@@ -276,26 +300,30 @@ void PicSpeciesBC::repositionInflowParticles( ParticleData<JustinsParticle>&  a_
          ListIterator<JustinsParticle> lit(valid_list);
       
          if(bdry_side==0 && m_bc_binary[b]) { 
-            for(lit.begin(); lit.ok(); ++lit) {
+            for(lit.begin(); lit.ok();) {
                JustinsParticle& this_particle = lit();
                const RealVect& this_x_old = this_particle.position_old();
                if(this_x_old[bdry_dir] < Xmin[bdry_dir]) {
                   RealVect& this_x = this_particle.position(); // this_x = Xhalf when this is called
                   this_x[bdry_dir] = 2.0*this_x[bdry_dir] - this_x_old[bdry_dir];
                   inflow_list.transfer(lit);
-                  --lit;
+               } 
+               else {
+                  ++lit;
                } 
             }
          }
          if(bdry_side==1 && m_bc_binary[b]) { 
-            for(lit.begin(); lit.ok(); ++lit) {
+            for(lit.begin(); lit.ok();) {
                JustinsParticle& this_particle = lit();
                const RealVect& this_x_old = this_particle.position_old();
                if(this_x_old[bdry_dir] >= Xmax[bdry_dir]) {
                   RealVect& this_x = this_particle.position(); // this_x = Xhalf when this is called
                   this_x[bdry_dir] = 2.0*this_x[bdry_dir] - this_x_old[bdry_dir]; 
                   inflow_list.transfer(lit);
-                  --lit;
+               } 
+               else {
+                  ++lit;
                } 
             }
          }
@@ -304,6 +332,58 @@ void PicSpeciesBC::repositionInflowParticles( ParticleData<JustinsParticle>&  a_
 
    }
    
+}
+
+void PicSpeciesBC::enforcePeriodicForIterativeSolver( List<JustinsParticle>&  a_list)
+{
+   CH_TIME("PicSpeciesBC::enforcePeriodicForIterativeSolver");
+
+   // WARNING. Do not update Xold here. I originally did this in order for the step 
+   // norm calc to work. However, I get 2D numerical energy test with collisions 
+   // crashing at step 7847 (time step = 0.1). It does not crashes with optimization on,
+   // but don't update Xold here anyway!
+
+   // this function is called from the iterative particle position/velocity solver
+   // used to achieve a converged solution for each particle xp and vp. 
+   // If this is not called, then a situation can occur where the particle lives
+   // on a proc touching the lower boundary, but the old position is at the upper
+   // boundary (or vice-versa). Then, the position update, which occurs before
+   // interpolating the fields to the particle in an iterative loop can have a 
+   // position outside the domain of the proc that the particle lives in and will crash.
+   // Note that remap is not called until after the iterative loop.
+    
+   const RealVect& Xmin(m_mesh.getXmin());
+   const RealVect& Xmax(m_mesh.getXmax());
+   const RealVect& dX(m_mesh.getdX());
+   
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getPeriodicBoundaryLayout();
+   for (int b(0); b<bdry_layout.size(); b++) {
+      if(!m_periodic_bc_binary[b]) continue;
+      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+      const int dir = this_bdry_layout.dir();
+      const int side(this_bdry_layout.side());
+      
+      Real Lbox = Xmax[dir] - Xmin[dir];       
+      if(side==0) {
+         Real Lhi = Xmax[dir] - dX[dir];       
+         ListIterator<JustinsParticle> lit(a_list);
+         for(lit.begin(); lit.ok(); ++lit) {      
+            JustinsParticle& this_particle = lit();
+            RealVect& this_x = this_particle.position();
+            if(this_x[dir] >= Lhi) this_x[dir] = this_x[dir] - Lbox;
+         }
+      }
+      if(side==1) {
+         Real Llo = Xmin[dir] + dX[dir];       
+         ListIterator<JustinsParticle> lit(a_list);
+         for(lit.begin(); lit.ok(); ++lit) {      
+            JustinsParticle& this_particle = lit();
+            RealVect& this_x = this_particle.position();
+            if(this_x[dir] <= Llo) this_x[dir] = this_x[dir] + Lbox;
+         }
+      }
+   }
+
 }
 
 void PicSpeciesBC::enforcePeriodic( List<JustinsParticle>&  a_list,
@@ -321,10 +401,16 @@ void PicSpeciesBC::enforcePeriodic( List<JustinsParticle>&  a_list,
       
       JustinsParticle& this_particle = lit();
       RealVect& this_x = this_particle.position();
+      //RealVect& this_xold = this_particle.position_old();
       
-      if (this_x[a_dir] < a_leftEdge) this_x[a_dir] = this_x[a_dir] + Lbox;
-      if (this_x[a_dir] >= a_rightEdge) this_x[a_dir] = this_x[a_dir] - Lbox;
-
+      if (this_x[a_dir] < a_leftEdge) {
+         this_x[a_dir] = this_x[a_dir] + Lbox;
+         //this_xold[a_dir] = this_xold[a_dir] + Lbox;
+      }
+      if (this_x[a_dir] >= a_rightEdge) {
+         this_x[a_dir] = this_x[a_dir] - Lbox;
+         //this_xold[a_dir] = this_xold[a_dir] - Lbox;
+      }
    }
 
 }

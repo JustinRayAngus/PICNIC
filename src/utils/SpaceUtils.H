@@ -214,6 +214,38 @@ namespace SpaceUtils {
   void localVectorNorm( FArrayBox&,
                   const FArrayBox& );
 
+  inline void zero(  LevelData<FArrayBox>& a_u ) 
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].setVal(0.0);
+    }
+  }
+
+  inline void zero(  LevelData<FluxBox>& a_u ) 
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].setVal(0.0);
+      }
+    }
+  }
+
+  inline void zero(  LevelData<EdgeDataBox>& a_u ) 
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].setVal(0.0);
+      }
+    }
+  }
+
+  inline void zero(  LevelData<NodeFArrayBox>& a_u ) 
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].setVal(0.0);
+    }
+  }
+
   inline
   void copyLevelData( const LevelData<FArrayBox>& a_src,
                       LevelData<FArrayBox>&       a_dst )
@@ -640,6 +672,183 @@ namespace SpaceUtils {
     }
     return;
   }
+
+  inline
+  int copyFromLevelData( Real* a_dst, const LevelData<FArrayBox>& a_src )
+  {
+     int offset(0);
+     auto dbl( a_src.disjointBoxLayout() );
+     for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
+        FArrayBox tmp( dbl[dit], a_src.nComp(), ( a_dst + offset ) );
+        tmp.copy( a_src[dit] );
+        offset += dbl[dit].numPts() * a_src.nComp();
+     }
+     return offset;
+  }
+  
+  inline
+  int copyFromLevelData( Real* a_dst, const LevelData<FluxBox>& a_src )
+  {
+     int offset(0);
+     auto dbl( a_src.disjointBoxLayout() );
+     for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
+        for (int dir=0; dir<SpaceDim; ++dir) {
+           Box box = surroundingNodes(dbl[dit],dir);
+           FArrayBox tmp( box, a_src.nComp(), ( a_dst + offset ) );
+           tmp.copy( a_src[dit][dir] );
+           offset += box.numPts() * a_src.nComp();
+        }
+     }
+     return offset;
+  }
+  
+  inline
+  int copyFromLevelData( Real* a_dst, const LevelData<EdgeDataBox>& a_src )
+  {  
+     int offset(0);
+     auto dbl( a_src.disjointBoxLayout() );
+     for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
+        for (int dir=0; dir<SpaceDim; ++dir) {
+           Box box = dbl[dit];
+           for (int adir=0; adir<SpaceDim; ++adir) {
+              if(adir!=dir) box = surroundingNodes(box,adir);
+           }
+           FArrayBox tmp( box, a_src.nComp(), ( a_dst + offset ) );
+           tmp.copy( a_src[dit][dir] );
+           offset += box.numPts() * a_src.nComp();
+        }
+     }
+     return offset;
+  }
+  
+  inline
+  int copyFromLevelData( Real* a_dst, const LevelData<NodeFArrayBox>& a_src )
+  {
+     int offset(0);
+     auto dbl( a_src.disjointBoxLayout() );
+     for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
+       Box box = surroundingNodes(dbl[dit]);
+       NodeFArrayBox tmp( box, a_src.nComp(), ( a_dst + offset ) );
+       tmp.copy( a_src[dit] );
+       offset += box.numPts() * a_src.nComp();
+     }
+     return offset;
+  }
+  
+  inline
+  int copyToLevelData( LevelData<FArrayBox>& a_dst, const Real* const a_src )
+  {
+     int offset(0);
+     auto dbl( a_dst.disjointBoxLayout() );
+     for (auto dit( a_dst.dataIterator() ); dit.ok(); ++dit) {
+        FArrayBox tmp( dbl[dit], a_dst.nComp(), const_cast<Real*>( a_src + offset ) );
+        a_dst[dit].copy( tmp );
+        offset += dbl[dit].numPts() * a_dst.nComp();
+     }
+     return offset;
+  }
+  
+  inline
+  int copyToLevelData( LevelData<FluxBox>& a_dst, const Real* const a_src )
+  {
+     int offset(0);
+     auto dbl( a_dst.disjointBoxLayout() );
+     for (auto dit( a_dst.dataIterator() ); dit.ok(); ++dit) {
+        for (int dir=0; dir<SpaceDim; ++dir) {
+           Box box = surroundingNodes(dbl[dit],dir);
+           FArrayBox tmp( box, a_dst.nComp(), const_cast<Real*>( a_src + offset ) );
+           a_dst[dit][dir].copy( tmp );
+           offset += box.numPts() * a_dst.nComp();
+        }
+     }
+     return offset;
+  }
+  
+  inline
+  int copyToLevelData( LevelData<EdgeDataBox>& a_dst, const Real* const a_src )
+  {
+     int offset(0);
+     auto dbl( a_dst.disjointBoxLayout() );
+     for (auto dit( a_dst.dataIterator() ); dit.ok(); ++dit) {
+        for (int dir=0; dir<SpaceDim; ++dir) {
+           Box box = dbl[dit];
+           for (int adir=0; adir<SpaceDim; ++adir) {
+              if(adir!=dir) box = surroundingNodes(box,adir);
+           }
+           FArrayBox tmp( box, a_dst.nComp(), const_cast<Real*>( a_src + offset ) );
+           a_dst[dit][dir].copy( tmp );
+           offset += box.numPts() * a_dst.nComp();
+        }
+     }
+     return offset;
+  }
+   
+  inline
+  int copyToLevelData( LevelData<NodeFArrayBox>& a_dst, const Real* const a_src )
+  {
+     int offset(0);
+     auto dbl( a_dst.disjointBoxLayout() );
+     for (auto dit( a_dst.dataIterator() ); dit.ok(); ++dit) {
+       Box box = surroundingNodes(dbl[dit]);
+       NodeFArrayBox tmp( box, a_dst.nComp(), const_cast<Real*>( a_src + offset ) );
+       a_dst[dit].copy( tmp );
+       offset += box.numPts() * a_dst.nComp();
+     }
+     return offset;
+  }
+
+  inline
+  int nDOF( const LevelData<FArrayBox>& a_u )
+  {
+    int retval(0);
+    auto dbl( a_u.disjointBoxLayout() );
+    for (auto dit( dbl.dataIterator() ); dit.ok(); ++dit) {
+      auto box( dbl[dit] );
+      retval += box.numPts() * a_u.nComp();
+    }
+    return retval;
+  }
+  
+  inline
+  int nDOF( const LevelData<FluxBox>& a_u )
+  {
+    int retval(0);
+    auto dbl( a_u.disjointBoxLayout() );
+    for (auto dit( dbl.dataIterator() ); dit.ok(); ++dit) {
+      for (int dir(0); dir < SpaceDim; dir++) {
+        auto box( surroundingNodes( dbl[dit], dir ) );
+        retval += box.numPts() * a_u.nComp();
+      }
+    }
+    return retval;
+  }
+  
+  inline
+  int nDOF( const LevelData<EdgeDataBox>& a_u )
+  {
+    int retval(0);
+    auto dbl( a_u.disjointBoxLayout() );
+    for (auto dit( dbl.dataIterator() ); dit.ok(); ++dit) {
+      for (int dir(0); dir < SpaceDim; dir++) {
+        auto box( enclosedCells( surroundingNodes(dbl[dit]), dir ) );
+        retval += box.numPts() * a_u.nComp();
+      }
+    }
+    return retval;
+  }
+  
+  inline
+  int nDOF( const LevelData<NodeFArrayBox>& a_u )
+  {
+    int retval(0);
+    auto dbl( a_u.disjointBoxLayout() );
+    for (auto dit( dbl.dataIterator() ); dit.ok(); ++dit) {
+      auto box( surroundingNodes(dbl[dit]) );
+      retval += box.numPts() * a_u.nComp();
+    }
+    return retval;
+  }
+  
 }
 
 #include "NamespaceFooter.H"

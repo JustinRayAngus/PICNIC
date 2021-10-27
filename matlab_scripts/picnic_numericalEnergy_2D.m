@@ -28,9 +28,13 @@ rootPath = [testPath,'explicit/noCollisions/longTime/test0_100ppc/']; thisFig = 
 rootPath = [testPath,'explicit/noCollisions/longTime/test0_25ppc_coarseGrid_largerDt/']; thisFig = 4;
 %rootPath = [testPath,'explicit/noCollisions/longTime/test0_25ppc_largerDt/']; thisFig = 5;
 %rootPath = [testPath,'explicit/noCollisions/longTime/test0_25ppc_testing/']; thisFig = 6;
+rootPath = [testPath,'explicit/noCollisions/longTime/test0_100ppc_newFaster/']; thisFig = 6;
 
-rootPath = [testPath,'explicit/noCollisions/test0_newFaster/']; thisFig = 1;
-rootPath = [testPath,'explicit/noCollisions/test0_new_dg/']; thisFig = 2;
+rootPath = [testPath,'explicit/noCollisions/testing_probes/']; thisFig = 6;
+
+
+%rootPath = [testPath,'explicit/noCollisions/test0_newFaster/']; thisFig = 1;
+%rootPath = [testPath,'explicit/noCollisions/test0_new_dg/']; thisFig = 2;
 
 %rootPath = [testPath,'explicit/noCollisions/boxTests/100procs/']; thisFig = 3;
 %rootPath = [testPath,'explicit/noCollisions/boxTests/72procs/']; thisFig = 4;
@@ -41,7 +45,6 @@ rootPath = [testPath,'explicit/noCollisions/test0_new_dg/']; thisFig = 2;
 %rootPath = [testPath,'explicit/noCollisions/boxTests/100procs_noForces/']; thisFig = 7;
 %rootPath = [testPath,'explicit/noCollisions/boxTests/72procs_noForces/']; thisFig = 8;
 
-%rootPath = [testPath,'explicit/withCollisions/test0/']; thisFig = 2;
 %rootPath = [testPath,'explicit/withCollisions/Clog3/test0/']; thisFig = 3;
 %rootPath = [testPath,'explicit/withCollisions/Clog3/test0_refined/']; thisFig = 4;
 %rootPath = [testPath,'explicit/withCollisions/Clog3/test0_smallerDt/']; thisFig = 5;
@@ -100,6 +103,29 @@ rootPath = [testPath,'explicit/noCollisions/test0_new_dg/']; thisFig = 2;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
+%%%   read the history file
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+historyFile = [rootPath,'history.txt'];
+if exist(historyFile,'file')
+    A = importdata(historyFile);
+    histHeader = A.textdata;
+    histData = A.data;
+    time_hist = histData(:,2);
+    energyE_hist = histData(:,3);
+    energyB_hist = histData(:,4);
+    Mass0_hist = histData(:,6);
+    momX0_hist = histData(:,7); momY0_hist = histData(:,8); momZ0_hist = histData(:,9);
+    energy0_hist = histData(:,10);
+    Mass1_hist = histData(:,12);
+    momX1_hist = histData(:,13); momY1_hist = histData(:,14); momZ1_hist = histData(:,15);
+    energy1_hist = histData(:,16);
+    energyTot_hist = energyB_hist+energyE_hist+energy0_hist+energy1_hist;
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
 %%%   read the mesh
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -143,27 +169,34 @@ end
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+loadData = 1;
+
 saveFile = [rootPath,'data.mat'];
 if exist(saveFile,'file')
     
     load(saveFile);
+    if exist('Mass_2','var')
+        delete(saveFile);
+        loadData = 1;
+        disp('old species number found... re-generating data.m file');
+    else
+        loadData = 0;
+    end 
+    
+end
 
-else
+if(loadData)
 
     species_folders = dir([rootPath,'mesh_data/species*']);
     numSpecies = length(species_folders);
 
-    %partList = dir([rootPath,'particle_data/',species_folders(sp).name,'/part*']);
-    momentList = dir([rootPath,'mesh_data/',species_folders(sp).name,'/moment*']);
-
-
-%     momentList = dir([rootPath,'mesh_data/species',num2str(species), ...
-%                                '_data/moments*']);
-    ListLength = length(momentList)
-
+    momentList = dir([rootPath,'mesh_data/',species_folders(sp).name,'/moment*']);    
     fieldList = dir([rootPath,'mesh_data/field_data/field*']);
-    ListLength_fields = length(fieldList);
-    assert(ListLength_fields==ListLength)
+    assert(length(fieldList)==length(momentList));
+    momentList = momentList(1:2:end);
+    fieldList = fieldList(1:2:end);
+    
+    ListLength = length(momentList)
 
     step = zeros(size(fieldList));
     index = zeros(size(fieldList));
@@ -177,6 +210,17 @@ else
     time = zeros(1,iLmax);
     totalParts = zeros(1,iLmax);
     %
+    numberDen_0 = zeros(nX,nZ,iLmax);
+    momentumDenX_0 = zeros(nX,nZ,iLmax);
+    momentumDenY_0 = zeros(nX,nZ,iLmax);
+    momentumDenZ_0 = zeros(nX,nZ,iLmax);
+    energyDenX_0 = zeros(nX,nZ,iLmax);
+    energyDenY_0 = zeros(nX,nZ,iLmax);
+    energyDenZ_0 = zeros(nX,nZ,iLmax);
+    JX_0 = zeros(nX,nZ+1,iLmax);
+    JY_0 = zeros(nX+1,nZ,iLmax);
+    JZ_0 = zeros(nX+1,nZ+1,iLmax);
+    %
     numberDen_1 = zeros(nX,nZ,iLmax);
     momentumDenX_1 = zeros(nX,nZ,iLmax);
     momentumDenY_1 = zeros(nX,nZ,iLmax);
@@ -187,17 +231,6 @@ else
     JX_1 = zeros(nX,nZ+1,iLmax);
     JY_1 = zeros(nX+1,nZ,iLmax);
     JZ_1 = zeros(nX+1,nZ+1,iLmax);
-    %
-    numberDen_2 = zeros(nX,nZ,iLmax);
-    momentumDenX_2 = zeros(nX,nZ,iLmax);
-    momentumDenY_2 = zeros(nX,nZ,iLmax);
-    momentumDenZ_2 = zeros(nX,nZ,iLmax);
-    energyDenX_2 = zeros(nX,nZ,iLmax);
-    energyDenY_2 = zeros(nX,nZ,iLmax);
-    energyDenZ_2 = zeros(nX,nZ,iLmax);
-    JX_2 = zeros(nX,nZ+1,iLmax);
-    JY_2 = zeros(nX+1,nZ,iLmax);
-    JZ_2 = zeros(nX+1,nZ+1,iLmax);
     %
     BX = zeros(nX+1,nZ,iLmax);    curlE_X = zeros(size(BX));
     BY = zeros(nX,nZ+1,iLmax);    curlE_Y = zeros(size(BY));
@@ -213,19 +246,49 @@ else
 
         %%%   reading moments from part file for species 1
         %
-        momentFile_1 = [rootPath,'mesh_data/',species_folders(sp).name, ...
+        momentFile_0 = [rootPath,'mesh_data/',species_folders(sp).name, ...
                  '/',momentList(index(iL)).name];  
-        fileinfo = hdf5info(momentFile_1);
+        fileinfo = hdf5info(momentFile_0);
 
-        SpaceDim = h5readatt(momentFile_1,'/Chombo_global','SpaceDim');
-        time(iL) = h5readatt(momentFile_1,'/species_data','time');
+        SpaceDim = h5readatt(momentFile_0,'/Chombo_global','SpaceDim');
+        time(iL) = h5readatt(momentFile_0,'/species_data','time');
         if(iL==1)
-            time_scale = h5readatt(momentFile_1,'/species_data','time_scale_SI');
+            time_scale = h5readatt(momentFile_0,'/species_data','time_scale_SI');
+            Mass_0 = h5readatt(momentFile_0,'/species_data','mass');
+            Charge_0 = double(h5readatt(momentFile_0,'/species_data','charge'));
+        end
+
+        groupName = '/species_data'; ghosts = 0;
+        data = import2Ddata_singleFile(momentFile_0,groupName,ghosts);
+        numberDen_0(:,:,iL) = squeeze(data.Fcc(:,:,1));            % [1/m^3]
+        momentumDenX_0(:,:,iL) = squeeze(data.Fcc(:,:,2))*me*cvac; % [m/s/m^3]
+        momentumDenY_0(:,:,iL) = squeeze(data.Fcc(:,:,3))*me*cvac; % [m/s/m^3]
+        momentumDenZ_0(:,:,iL) = squeeze(data.Fcc(:,:,4))*me*cvac; % [m/s/m^3]
+        energyDenX_0(:,:,iL) = squeeze(data.Fcc(:,:,5))*me*cvac^2; % [J/m^3]
+        energyDenY_0(:,:,iL) = squeeze(data.Fcc(:,:,6))*me*cvac^2; % [J/m^3]
+        energyDenZ_0(:,:,iL) = squeeze(data.Fcc(:,:,7))*me*cvac^2; % [J/m^3]
+
+        try
+            groupName = '/current_density';
+            data = import2Ddata_singleFile(momentFile_0,groupName,ghosts);
+            JX_0(:,:,iL) = squeeze(data.Fec0(:,:))*qe*cvac;  
+            JY_0(:,:,iL) = squeeze(data.Fec1(:,:))*qe*cvac;     
+
+            groupName = '/virtual_current_density';
+            data = import2Ddata_singleFile(momentFile_0,groupName,ghosts);
+            JZ_0(:,:,iL) = squeeze(data.Fnc(:,:))*qe*cvac;  
+        end
+
+        %%%   reading moments from part file for species 2
+        %
+        momentFile_1 = [rootPath,'mesh_data/',species_folders(sp+1).name, ...
+                 '/',momentList(index(iL)).name];  
+        if(iL==1)
             Mass_1 = h5readatt(momentFile_1,'/species_data','mass');
             Charge_1 = double(h5readatt(momentFile_1,'/species_data','charge'));
         end
 
-        groupName = '/species_data'; ghosts = 0;
+        groupName = '/species_data';
         data = import2Ddata_singleFile(momentFile_1,groupName,ghosts);
         numberDen_1(:,:,iL) = squeeze(data.Fcc(:,:,1));            % [1/m^3]
         momentumDenX_1(:,:,iL) = squeeze(data.Fcc(:,:,2))*me*cvac; % [m/s/m^3]
@@ -241,39 +304,9 @@ else
             JX_1(:,:,iL) = squeeze(data.Fec0(:,:))*qe*cvac;  
             JY_1(:,:,iL) = squeeze(data.Fec1(:,:))*qe*cvac;     
 
-            groupName = '/virtual_current_density';
-            data = import2Ddata_singleFile(momentFile_1,groupName,ghosts);
-            JZ_1(:,:,iL) = squeeze(data.Fnc(:,:))*qe*cvac;  
-        end
-
-        %%%   reading moments from part file for species 2
-        %
-        momentFile_2 = [rootPath,'mesh_data/',species_folders(sp+1).name, ...
-                 '/',momentList(index(iL)).name];  
-        if(iL==1)
-            Mass_2 = h5readatt(momentFile_2,'/species_data','mass');
-            Charge_2 = double(h5readatt(momentFile_2,'/species_data','charge'));
-        end
-
-        groupName = '/species_data';
-        data = import2Ddata_singleFile(momentFile_2,groupName,ghosts);
-        numberDen_2(:,:,iL) = squeeze(data.Fcc(:,:,1));            % [1/m^3]
-        momentumDenX_2(:,:,iL) = squeeze(data.Fcc(:,:,2))*me*cvac; % [m/s/m^3]
-        momentumDenY_2(:,:,iL) = squeeze(data.Fcc(:,:,3))*me*cvac; % [m/s/m^3]
-        momentumDenZ_2(:,:,iL) = squeeze(data.Fcc(:,:,4))*me*cvac; % [m/s/m^3]
-        energyDenX_2(:,:,iL) = squeeze(data.Fcc(:,:,5))*me*cvac^2; % [J/m^3]
-        energyDenY_2(:,:,iL) = squeeze(data.Fcc(:,:,6))*me*cvac^2; % [J/m^3]
-        energyDenZ_2(:,:,iL) = squeeze(data.Fcc(:,:,7))*me*cvac^2; % [J/m^3]
-
-        try
-            groupName = '/current_density';
-            data = import2Ddata_singleFile(momentFile_2,groupName,ghosts);
-            JX_2(:,:,iL) = squeeze(data.Fec0(:,:))*qe*cvac;  
-            JY_2(:,:,iL) = squeeze(data.Fec1(:,:))*qe*cvac;     
-
             groupName = '/virtual_current_density'; 
-            data = import2Ddata_singleFile(momentFile_2,groupName,ghosts);
-            JZ_2(:,:,iL) = squeeze(data.Fnc(:,:))*qe*cvac; 
+            data = import2Ddata_singleFile(momentFile_1,groupName,ghosts);
+            JZ_1(:,:,iL) = squeeze(data.Fnc(:,:))*qe*cvac; 
         end
 
         %
@@ -356,11 +389,11 @@ else
     end
 
     save(saveFile,'time','length_scale','time_scale','Escale','Bscale', ...
-              'Mass_1','Charge_1','Mass_2','Charge_2', ...
-              'numberDen_1','momentumDenX_1','momentumDenY_1','momentumDenZ_1', ...
+              'Mass_0','Charge_0','Mass_1','Charge_1', ...
+              'numberDen_0','momentumDenX_0','momentumDenY_0','momentumDenZ_0', ...
+              'energyDenX_0','energyDenY_0','energyDenZ_0','JX_0','JY_0','JZ_0', ...
+              'numberDen_1','momentumDenX_1','momentumDenY_1','momentumDenZ_1', ...     
               'energyDenX_1','energyDenY_1','energyDenZ_1','JX_1','JY_1','JZ_1', ...
-              'numberDen_2','momentumDenX_2','momentumDenY_2','momentumDenZ_2', ...     
-              'energyDenX_2','energyDenY_2','energyDenZ_2','JX_2','JY_2','JZ_2', ...
               'BX','BY','BZ','EX','EY','EZ','JX','JY','JZ', ...
               'curlE_X','curlE_Y','curlE_Z','curlB_X','curlB_Y','curlB_Z');
           
@@ -476,7 +509,7 @@ Energy_arg1b = zeros(size(time));
 Energy_arg1c = zeros(size(time));
 Energy_arg2 = zeros(size(time));
 dt_sec = dt_sim*time_scale;
-n0 = mean(mean(numberDen_1(:,:,1))); 
+n0 = mean(mean(numberDen_0(:,:,1))); 
 wpe0 = sqrt(n0*qe^2/me/ep0);
 for iL=1:length(time)
     arg1a = (curlB_X(1:nX,1:nZ,iL)).^2 ...
@@ -505,12 +538,12 @@ Energy = Energy_arg1 + Energy_arg2;
 
 %%%   compute the temperature
 %
-velX_1 = momentumDenX_1./numberDen_1/(me*Mass_1);
-velY_1 = momentumDenY_1./numberDen_1/(me*Mass_1);
-velZ_1 = momentumDenZ_1./numberDen_1/(me*Mass_1);
-tempX_1 = 2*(energyDenX_1 - momentumDenX_1.^2./numberDen_1/(me*Mass_1)/2.0)./numberDen_1/qe; % [eV]
-tempY_1 = 2*(energyDenY_1 - momentumDenY_1.^2./numberDen_1/(me*Mass_1)/2.0)./numberDen_1/qe; % [eV]
-tempZ_1 = 2*(energyDenZ_1 - momentumDenZ_1.^2./numberDen_1/(me*Mass_1)/2.0)./numberDen_1/qe; % [eV]
+velX_0 = momentumDenX_0./numberDen_0/(me*Mass_0);
+velY_0 = momentumDenY_0./numberDen_0/(me*Mass_0);
+velZ_0 = momentumDenZ_0./numberDen_0/(me*Mass_0);
+tempX_0 = 2*(energyDenX_0 - momentumDenX_0.^2./numberDen_0/(me*Mass_0)/2.0)./numberDen_0/qe; % [eV]
+tempY_0 = 2*(energyDenY_0 - momentumDenY_0.^2./numberDen_0/(me*Mass_0)/2.0)./numberDen_0/qe; % [eV]
+tempZ_0 = 2*(energyDenZ_0 - momentumDenZ_0.^2./numberDen_0/(me*Mass_0)/2.0)./numberDen_0/qe; % [eV]
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -519,6 +552,14 @@ tempZ_1 = 2*(energyDenZ_1 - momentumDenZ_1.^2./numberDen_1/(me*Mass_1)/2.0)./num
 %%%
 
 nt = length(time);
+numberTot_0 = zeros(1,nt);
+momentumTotX_0 = zeros(1,nt);
+momentumTotY_0 = zeros(1,nt);
+momentumTotZ_0 = zeros(1,nt);
+energyTotX_0 = zeros(1,nt);
+energyTotY_0 = zeros(1,nt);
+energyTotZ_0 = zeros(1,nt);
+%
 numberTot_1 = zeros(1,nt);
 momentumTotX_1 = zeros(1,nt);
 momentumTotY_1 = zeros(1,nt);
@@ -527,16 +568,16 @@ energyTotX_1 = zeros(1,nt);
 energyTotY_1 = zeros(1,nt);
 energyTotZ_1 = zeros(1,nt);
 %
-numberTot_2 = zeros(1,nt);
-momentumTotX_2 = zeros(1,nt);
-momentumTotY_2 = zeros(1,nt);
-momentumTotZ_2 = zeros(1,nt);
-energyTotX_2 = zeros(1,nt);
-energyTotY_2 = zeros(1,nt);
-energyTotZ_2 = zeros(1,nt);
-%
 dV = dX*dZ*length_scale^2;
 for n=1:nt
+    numberTot_0(n) = sum(sum(numberDen_0(:,:,n)))*dV2D_SI;
+    momentumTotX_0(n) = sum(sum(momentumDenX_0(:,:,n)))*dV2D_SI;
+    momentumTotY_0(n) = sum(sum(momentumDenY_0(:,:,n)))*dV2D_SI;    
+    momentumTotZ_0(n) = sum(sum(momentumDenZ_0(:,:,n)))*dV2D_SI;
+    energyTotX_0(n) = sum(sum(energyDenX_0(:,:,n)))*dV2D_SI;
+    energyTotY_0(n) = sum(sum(energyDenY_0(:,:,n)))*dV2D_SI;
+    energyTotZ_0(n) = sum(sum(energyDenZ_0(:,:,n)))*dV2D_SI;
+    %
     numberTot_1(n) = sum(sum(numberDen_1(:,:,n)))*dV2D_SI;
     momentumTotX_1(n) = sum(sum(momentumDenX_1(:,:,n)))*dV2D_SI;
     momentumTotY_1(n) = sum(sum(momentumDenY_1(:,:,n)))*dV2D_SI;    
@@ -544,36 +585,30 @@ for n=1:nt
     energyTotX_1(n) = sum(sum(energyDenX_1(:,:,n)))*dV2D_SI;
     energyTotY_1(n) = sum(sum(energyDenY_1(:,:,n)))*dV2D_SI;
     energyTotZ_1(n) = sum(sum(energyDenZ_1(:,:,n)))*dV2D_SI;
-    %
-    numberTot_2(n) = sum(sum(numberDen_2(:,:,n)))*dV2D_SI;
-    momentumTotX_2(n) = sum(sum(momentumDenX_2(:,:,n)))*dV2D_SI;
-    momentumTotY_2(n) = sum(sum(momentumDenY_2(:,:,n)))*dV2D_SI;    
-    momentumTotZ_2(n) = sum(sum(momentumDenZ_2(:,:,n)))*dV2D_SI;
-    energyTotX_2(n) = sum(sum(energyDenX_2(:,:,n)))*dV2D_SI;
-    energyTotY_2(n) = sum(sum(energyDenY_2(:,:,n)))*dV2D_SI;
-    energyTotZ_2(n) = sum(sum(energyDenZ_2(:,:,n)))*dV2D_SI;
 end
-Energy_species1 = energyTotX_1 + energyTotY_1 + energyTotZ_1; % [Joules]
-Energy_species2 = energyTotX_2 + energyTotY_2 + energyTotZ_2; % [Joules]
+Energy_species0 = energyTotX_0 + energyTotY_0 + energyTotZ_0; % [Joules/m]
+Energy_species1 = energyTotX_1 + energyTotY_1 + energyTotZ_1; % [Joules/m]
 
 
-tempTotX = energyTotX_1 - momentumTotX_1.^2./numberTot_1/(me*Mass_1)/2.0;
-tempTotY = energyTotY_1 - momentumTotY_1.^2./numberTot_1/(me*Mass_1)/2.0;
-tempTotZ = energyTotZ_1 - momentumTotZ_1.^2./numberTot_1/(me*Mass_1)/2.0;
+tempTotX = energyTotX_0 - momentumTotX_0.^2./numberTot_0/(me*Mass_0)/2.0;
+tempTotY = energyTotY_0 - momentumTotY_0.^2./numberTot_0/(me*Mass_0)/2.0;
+tempTotZ = energyTotZ_0 - momentumTotZ_0.^2./numberTot_0/(me*Mass_0)/2.0;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Energy_parts = Energy_species1 + Energy_species2;
+V = nX*nZ*dV2D_SI;  % [m^2]
+E0 = 3*n0*V*100*qe; % [Joules/m]
+Energy_parts = Energy_species0 + Energy_species1;
 Energy_fields = Energy_Efield + Energy_Bfield;
 Energy_total = Energy_parts + Energy_fields;
 
 close(figure(thisFig)); f1=figure(thisFig);
 plot(time,(Energy_total-Energy_total(1))/Energy_total(1),'displayName', ...
            '\DeltaW_t_o_t/W_0'); hold on;
-plot(time,(Energy_species1-Energy_species1(1))/Energy_total(1),'displayName', ...
+plot(time,(Energy_species0-Energy_species0(1))/Energy_total(1),'displayName', ...
            '\DeltaW_e/W_0','color',[0.47 0.67 0.19]); hold on;
-plot(time,(Energy_species2-Energy_species2(1))/Energy_total(1),'displayName', ...
+plot(time,(Energy_species1-Energy_species1(1))/Energy_total(1),'displayName', ...
            '\DeltaW_i/W_0','color',[0.85 0.33 0.10]); hold on;
 plot(time,(Energy_fields-Energy_fields(1))/Energy_total(1),'displayName', ...
            '\DeltaW_E_M/W_0','color',[0.93 0.59 0.13]); hold off;
@@ -616,7 +651,7 @@ lg1=legend('x','y','z','tot'); set(lg1,'location','best');
 %%%   and plot derivative of total energy change
 %%%
 
-TeoT0 = Energy_species1/Energy_species1(2);
+TeoT0 = Energy_species0/Energy_species0(2);
 y = (Energy_total-Energy_total(1))/Energy_total(1);
 dydt = zeros(size(time));
 for n=2:length(time)
@@ -662,22 +697,22 @@ close(figure(88));
 f8=figure(88); set(f8,'position',[316 424 1450 405]);
 
 subplot(1,3,1);
-plot(time,numberTot_1/numberTot_1(1),'displayName','Mass/Mass(t=0)');
+plot(time,numberTot_0/numberTot_0(1),'displayName','Mass/Mass(t=0)');
 xlabel('time [s]'); title('total mass'); ylim([0.999 1.001]);
 legend('show','location','northwest');
 
 subplot(1,3,2);
-plot(time,me*momentumTotX_1,'displayName','x-momentum'); hold on;
-plot(time,me*momentumTotY_1,'displayName','y-momentum'); hold on;
-plot(time,me*momentumTotZ_1,'displayName','z-momentum'); hold off;
+plot(time,me*momentumTotX_0,'displayName','x-momentum'); hold on;
+plot(time,me*momentumTotY_0,'displayName','y-momentum'); hold on;
+plot(time,me*momentumTotZ_0,'displayName','z-momentum'); hold off;
 xlabel('time [s]'); title('total momentum');
 legend('show','location','best');
 
 subplot(1,3,3);
-energyTot = me*(energyTotX_1+energyTotY_1+energyTotZ_1);
-plot(time,me*energyTotX_1,'displayName','x-energy'); hold on;
-plot(time,me*energyTotY_1,'displayName','y-energy'); hold on;
-plot(time,me*energyTotZ_1,'displayName','z-energy'); hold off;
+energyTot = me*(energyTotX_0+energyTotY_0+energyTotZ_0);
+plot(time,me*energyTotX_0,'displayName','x-energy'); hold on;
+plot(time,me*energyTotY_0,'displayName','y-energy'); hold on;
+plot(time,me*energyTotZ_0,'displayName','z-energy'); hold off;
 xlabel('time [s]'); title('total energy [Joules]');
 legend('show','location','best');
 
@@ -688,13 +723,13 @@ legend('show','location','best');
 %%%
 %%%
 
-velXavg = squeeze(mean(velX_1,1)); velXavg = squeeze(mean(velXavg,1));
-velYavg = squeeze(mean(velY_1,1)); velYavg = squeeze(mean(velYavg,1));
-velZavg = squeeze(mean(velZ_1,1)); velZavg = squeeze(mean(velZavg,1));
+velXavg = squeeze(mean(velX_0,1)); velXavg = squeeze(mean(velXavg,1));
+velYavg = squeeze(mean(velY_0,1)); velYavg = squeeze(mean(velYavg,1));
+velZavg = squeeze(mean(velZ_0,1)); velZavg = squeeze(mean(velZavg,1));
 %
-tempXavg = squeeze(mean(tempX_1,1)); tempXavg = squeeze(mean(tempXavg,1));
-tempYavg = squeeze(mean(tempY_1,1)); tempYavg = squeeze(mean(tempYavg,1));
-tempZavg = squeeze(mean(tempZ_1,1)); tempZavg = squeeze(mean(tempZavg,1));
+tempXavg = squeeze(mean(tempX_0,1)); tempXavg = squeeze(mean(tempXavg,1));
+tempYavg = squeeze(mean(tempY_0,1)); tempYavg = squeeze(mean(tempYavg,1));
+tempZavg = squeeze(mean(tempZ_0,1)); tempZavg = squeeze(mean(tempZavg,1));
 
 %
 %%%   compute time vector [s] and nuei*t;

@@ -46,9 +46,6 @@ class dataFileIO
       void writeEMFields( HDF5Handle&             a_handle,
                     const ElectroMagneticFields&  a_emfield );
       
-      void writeEMFields_old( HDF5Handle&             a_handle,
-                        const ElectroMagneticFields&  a_emfield );
-      
       void writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
                             HDF5Handle&                   a_handle,
                             HDF5HeaderData&               a_header );

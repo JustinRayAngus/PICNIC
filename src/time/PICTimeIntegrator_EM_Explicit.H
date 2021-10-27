@@ -2,6 +2,8 @@
 #define _PIC_TIME_INTEGRATOR_EM_EXPLICIT_H_
 
 #include "PICTimeIntegrator.H"
+#include "ODEVector.H"
+
 #define PIC_EM_EXPLICIT "PIC_EM_EXPLICIT"
 #define PICMC_EXPLICIT "PICMC_EXPLICIT"
 
@@ -16,7 +18,6 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
       m_system = nullptr;
       m_particles.clear();
       m_fields = nullptr;
-      m_units = nullptr;
       m_is_defined = false;
     }
 
@@ -25,18 +26,26 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
     virtual 
     void define(  System* const                 a_sys,
                   const PicSpeciesPtrVect&      a_particles,
-                  ElectroMagneticFields* const  a_fields,
-                  const CodeUnits* const        a_units )
+                  ElectroMagneticFields* const  a_fields )
     {
       CH_assert(!isDefined());
 
       m_system = a_sys;
       m_particles = a_particles;
       m_fields = a_fields;
-      m_units = a_units;
+
+      m_E.define(m_fields->getVectorSize(e_only));
+      m_Eold.define(m_E);
+      m_FE.define(m_E);
+
+      m_B.define(m_fields->getVectorSize(b_only));
+      m_Bold.define(m_B);
+      m_FB.define(m_B);
 
       m_is_defined = true;
     }
+
+    virtual void initialize();
 
     inline virtual 
     bool isDefined() const { return m_is_defined; }
@@ -54,7 +63,9 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
     System*                 m_system;
     PicSpeciesPtrVect       m_particles;
     ElectroMagneticFields*  m_fields;
-    const CodeUnits*        m_units;
+
+    ODEVector<System> m_E, m_Eold, m_FE;
+    ODEVector<System> m_B, m_Bold, m_FB;
 
   private:
 

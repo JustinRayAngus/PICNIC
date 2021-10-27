@@ -2,6 +2,10 @@
 #define _PIC_TIME_INTEGRATOR_EM_THETAIMPLICIT_H_
 
 #include "PICTimeIntegrator.H"
+#include "NonlinearSolverLibrary.H"
+#include "ODEVector.H"
+#include "EMResidualFunction.H"
+
 #define PIC_EM_THETA_IMPLICIT "PIC_EM_THETA_IMPLICIT"
 #define PICMC_FULLY_IMPLICIT "PICMC_FULLY_IMPLICIT"
 
@@ -15,33 +19,27 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     {
       m_system = nullptr;
       m_particles.clear();
-      m_fields = nullptr;
-      m_units = nullptr;
 
-      m_rtol = 1e-6;
-      m_atol = 1e-12;
-      m_iter_max = 0;
+      m_nlsolver_type = _NLSOLVER_PICARD_;
+      m_nlsolver = nullptr;
+      m_func = nullptr;
+
       m_theta = 0.5;
       m_is_defined = false;
     }
 
-    virtual ~PICTimeIntegrator_EM_ThetaImplicit() {}
+    virtual ~PICTimeIntegrator_EM_ThetaImplicit() 
+    {
+      delete m_nlsolver;
+      if (m_func) delete m_func;
+    }
 
     virtual 
-    void define( System* const                 a_sys,
-                 const PicSpeciesPtrVect&      a_particles,
-                 ElectroMagneticFields* const  a_fields,
-                 const CodeUnits* const        a_units )
-    {
-      CH_assert(!isDefined());
+    void define( System* const,
+                 const PicSpeciesPtrVect&,
+                 ElectroMagneticFields* const );
 
-      m_system = a_sys;
-      m_particles = a_particles;
-      m_fields = a_fields;
-      m_units = a_units;
-
-      m_is_defined = true;
-    }
+    virtual void initialize();
 
     inline virtual 
     bool isDefined() const { return m_is_defined; }
@@ -49,7 +47,13 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     inline virtual 
     PICTIType type() const { return PIC_EM_THETA_IMPLICIT; }
 
+    inline void preTimeStep( const Real, const Real, const int )
+    {
+      m_Uold = m_U;
+    }
+
     virtual void timeStep( const Real, const Real, const int );
+    virtual void postTimeStep( const Real, const Real );
 
     virtual inline void theta( const Real a_theta ) { m_theta = a_theta; }
 
@@ -57,24 +61,22 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
                                   const Real  a_atol, 
                                   const int   a_iter_max ) 
     { 
-      m_rtol = a_rtol;
-      m_atol = a_atol;
-      m_iter_max = a_iter_max;
+      m_nlsolver->setParams( a_rtol, a_atol, a_iter_max );
     }
 
   protected:
 
     bool m_is_defined;
+    std::string m_nlsolver_type;
 
     System*                 m_system;
     PicSpeciesPtrVect       m_particles;
-    ElectroMagneticFields*  m_fields;
-    const CodeUnits*        m_units;
-
-    Real m_rtol, m_atol;
-    int m_iter_max;
 
     Real m_theta;
+
+    ODEVector<System> m_U, m_Uold;
+    NonlinearFunction<ODEVector<System>, System>* m_func;
+    NonlinearSolver<ODEVector<System>, System>* m_nlsolver;
 
   private:
 

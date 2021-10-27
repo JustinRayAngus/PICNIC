@@ -347,9 +347,8 @@ void Simulation::advance()
    CH_TIMERS("Simulation::advance()");
    CH_TIMER("print_diagnostics",t_print_diagnostcs);
    //const int cout_step_interval = 1;
-   const int cout_step_interval = 10;
+   const int cout_step_interval = 1;
 
-   preTimeStep();
    if (m_verbosity >= 1) {
       if(!procID() && m_cur_step==0) {
          cout << endl;
@@ -360,7 +359,10 @@ void Simulation::advance()
               << ", dt = " << m_cur_dt << endl;
       }
    }
+
+   preTimeStep();
    m_system->advance( m_cur_time, m_cur_dt, m_cur_step );
+   postTimeStep();
 
    clock_t m_now = clock();
    double walltime, walltime_g;
@@ -381,15 +383,14 @@ void Simulation::advance()
       }
    }
    CH_STOP(t_print_diagnostcs);
-
-   postTimeStep();
-
+   
+   writeFiles();
 }
 
 
 void Simulation::finalize()
 {
-  m_solve_end = clock();
+   m_solve_end = clock();
 #ifdef CH_USE_TIMER
    solve_timer->stop();
 #endif
@@ -508,11 +509,9 @@ void Simulation::enforceTimeStep(const Real  a_local_dt)
 }
 
 
-void Simulation::postTimeStep()
+void Simulation::writeFiles()
 {
-   CH_TIMERS("Simulation::postTimeStep()");
-   
-   m_system->postTimeStep( m_cur_step, m_cur_dt, m_cur_time );
+   CH_TIMERS("Simulation::writeFiles()");
    
    if ( m_plot_time_interval>0.0 ) {
       if ( m_cur_time > m_plot_time - m_new_epsilon ) {
@@ -582,6 +581,12 @@ void Simulation::preTimeStep()
 
    m_system->preTimeStep( m_cur_time, m_cur_dt, m_cur_step );
 
+}
+
+void Simulation::postTimeStep()
+{
+  CH_TIMERS("Simulation::postTimeStep()");
+  m_system->postTimeStep( m_cur_time, m_cur_dt, m_cur_step );
 }
 
 #include "NamespaceFooter.H"

@@ -2,6 +2,9 @@
 #define _PIC_TIME_INTEGRATOR_EM_SEMI_IMPLICIT_H_
 
 #include "PICTimeIntegrator.H"
+#include "NonlinearSolverLibrary.H"
+#include "ODEVector.H"
+
 #define PIC_EM_SEMI_IMPLICIT "PIC_EM_SEMI_IMPLICIT"
 #define PICMC_SEMI_IMPLICIT "PICMC_SEMI_IMPLICIT"
 
@@ -15,32 +18,21 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
     {
       m_system = nullptr;
       m_particles.clear();
-      m_fields = nullptr;
-      m_units = nullptr;
-
-      m_rtol = 1e-6;
-      m_atol = 1e-12;
-      m_iter_max = 0;
+      m_nlsolver = nullptr;
       m_is_defined = false;
     }
 
-    virtual ~PICTimeIntegrator_EM_SemiImplicit() {}
+    virtual ~PICTimeIntegrator_EM_SemiImplicit() 
+    {
+      delete m_nlsolver;
+    }
 
     virtual 
-    void define( System* const                 a_sys,
-                 const PicSpeciesPtrVect&      a_particles,
-                 ElectroMagneticFields* const  a_fields,
-                 const CodeUnits* const        a_units )
-    {
-      CH_assert(!isDefined());
+    void define( System* const,
+                 const PicSpeciesPtrVect&,
+                 ElectroMagneticFields* const );
 
-      m_system = a_sys;
-      m_particles = a_particles;
-      m_fields = a_fields;
-      m_units = a_units;
-
-      m_is_defined = true;
-    }
+    virtual void initialize();
 
     inline virtual 
     bool isDefined() const { return m_is_defined; }
@@ -50,14 +42,13 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
 
     virtual void preTimeStep( const Real, const Real, const int );
     virtual void timeStep( const Real, const Real, const int );
+    virtual void postTimeStep( const Real, const Real );
 
     virtual void setSolverParams( const Real  a_rtol, 
                                   const Real  a_atol, 
                                   const int   a_iter_max ) 
     { 
-      m_rtol = a_rtol;
-      m_atol = a_atol;
-      m_iter_max = a_iter_max;
+      m_nlsolver->setParams( a_rtol, a_atol, a_iter_max );
     }
 
   protected:
@@ -66,11 +57,10 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
 
     System*                 m_system;
     PicSpeciesPtrVect       m_particles;
-    ElectroMagneticFields*  m_fields;
-    const CodeUnits*        m_units;
 
-    Real m_rtol, m_atol;
-    int m_iter_max;
+    ODEVector<System> m_E, m_Eold;
+    ODEVector<System> m_B, m_Bold, m_FB;
+    NonlinearSolver<ODEVector<System>, System>* m_nlsolver;
 
   private:
 

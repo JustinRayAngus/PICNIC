@@ -57,8 +57,6 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
 
 void FieldBC::printParameters() const
 {
-   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
-   
    if (procID()==0) {
       std::cout << std::endl;
       std::cout << "FieldBC =======================================" << std::endl;

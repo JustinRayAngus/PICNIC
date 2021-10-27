@@ -45,7 +45,7 @@ class CodeUnits
       
       Real CvacNorm() const { return m_CVAC_NORM; }
       Real NumDenNorm() const { return m_NUM_DEN_NORM; }
-
+     
    private:
 
       Real m_scale[COUNT];

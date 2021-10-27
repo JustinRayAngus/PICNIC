@@ -349,96 +349,6 @@ void dataFileIO::writeEMFields( HDF5Handle&             a_handle,
 
 }
 
-void dataFileIO::writeEMFields_old( HDF5Handle&             a_handle,
-                              const ElectroMagneticFields&  a_emfield )
-{
-   CH_TIME("dataFileIO::writeEMFields_old()");
-   
-   const ProblemDomain& domain(m_mesh.getDomain());
-   HDF5HeaderData header;
-   
-   //
-   // write the magnetic field data
-   //
-   
-   const LevelData<FluxBox>& Bfield  = a_emfield.getMagneticField_old();
-
-   const std::string group2Name = std::string("magnetic_field_old");
-   a_handle.setGroup(group2Name);
-   
-   header.clear();
-   header.m_int["is_fluxbox"] = 1;
-   header.m_int["num_components"] = Bfield.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, Bfield.boxLayout());
-   write(a_handle, Bfield, "data", Bfield.ghostVect());
-   
-   //
-   // write the virtual magnetic field data
-   //
-
-   if(SpaceDim<3) {
-   
-      const LevelData<FArrayBox>& Bfield_virt  = a_emfield.getVirtualMagneticField_old();
-
-      const std::string group3Name = std::string("virtual_magnetic_field_old");
-      a_handle.setGroup(group3Name);
-   
-      header.clear();
-      header.m_int["is_cellbox"] = 1;
-      header.m_int["num_components"] = Bfield_virt.nComp();
-      header.m_box["prob_domain"] = domain.domainBox(); 
-      header.writeToFile(a_handle);
-   
-      write(a_handle, Bfield_virt.boxLayout());
-      write(a_handle, Bfield_virt, "data", Bfield_virt.ghostVect());
-
-   }
-   
-   //
-   // write the electric field data
-   //
-   
-   const LevelData<EdgeDataBox>& Efield  = a_emfield.getElectricField_old();
-
-   const std::string group4Name = std::string("electric_field_old");
-   a_handle.setGroup(group4Name);
-   
-   header.clear();
-   header.m_int["is_edgebox"] = 1;
-   header.m_int["num_components"] = Efield.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, Efield.boxLayout());
-   write(a_handle, Efield, "data", Efield.ghostVect());
-   
-   //
-   // write the virtual electric field data
-   //
-
-   if(SpaceDim<3) {
-   
-      const LevelData<NodeFArrayBox>& Efield_virt  = a_emfield.getVirtualElectricField_old();
-
-      const std::string group5Name = std::string("virtual_electric_field_old");
-      a_handle.setGroup(group5Name);
-   
-      header.clear();
-      header.m_int["is_nodebox"] = 1;
-      header.m_int["num_components"] = Efield_virt.nComp();
-      header.m_box["prob_domain"] = domain.domainBox(); 
-      header.writeToFile(a_handle);
-   
-      write(a_handle, Efield_virt.boxLayout());
-      write(a_handle, Efield_virt, "data", Efield_virt.ghostVect());
-
-   }
-
-}
-
 void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
                                                      const int                     a_cur_step, 
                                                      const double                  a_cur_time )
@@ -1222,8 +1132,6 @@ void dataFileIO::writeCheckpointEMFields( HDF5Handle&             a_handle,
    CH_TIME("dataFileIO::writeCheckpointEMFields()");
 
    writeEMFields( a_handle, a_emfield );
-   writeEMFields_old( a_handle, a_emfield );
-
 }
 
 void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,

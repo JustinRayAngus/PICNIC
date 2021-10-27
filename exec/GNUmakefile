@@ -34,7 +34,8 @@ src_dirs += ../src/special_operators
 src_dirs += ../src/scattering
 src_dirs += ../src/fields
 src_dirs += ../src/poisson
-#src_dirs += ../src/chombo_local_v3p2/box_tools
+src_dirs += ../src/solver
+src_dirs += ../src/time
 
 # input file for 'run' target
 #INPUT = inputs

@@ -27,7 +27,7 @@ public:
    void apply( List<JustinsParticle>&  a_pList,
          const FArrayBox&              a_Xec,
          const Box&                    a_box,
-         const Real&                   a_dt );
+         const Real&                   a_cnormDt );
 
    void printParameters();
   

@@ -1,4 +1,4 @@
-#TEST np=36, timelimit=00:05:00
+#TEST np=16, timelimit=00:05:00
 ######################################################
 # Verbosity and writing Definitions
 #####################################################
@@ -22,6 +22,9 @@ simulation.plot_time_interval  = 5.0e-4
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
+
+history.precision = 5
+history.field_probes = true
 
 #####################################################
 # Computational Grid Definitions

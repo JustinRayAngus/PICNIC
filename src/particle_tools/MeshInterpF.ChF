@@ -205,7 +205,7 @@ c     compute the cell volume and particle density on the grid
 c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dX(idir)*(1.0-stag(idir))) / dx(idir))
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)*(1.0-stag(idir))) / dx(idir))
       enddo
 
 c     loop over all the cells containing this particle cloud,
@@ -337,7 +337,7 @@ c     compute the cell volume and particle density on the grid
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dX(idir)) / dx(idir))
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
       enddo
 
@@ -415,9 +415,17 @@ c
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dX(idir)) / dx(idir))
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
       enddo
+
+c      if(index_stag(1)>iExhi1) then
+c        print*, "JRA: index(0) = ", index(0)
+c        print*, "JRA: index_stag(1) = ", index_stag(1)
+c        print*, "JRA: xp(0) = ", xp(0)
+c        print*, "JRA: xp(1) = ", xp(1)
+c      endif
+
      
 c     loop over all the cells containing this particle cloud,
 c     computing weight and incrementing the force
@@ -500,7 +508,7 @@ c      integer comp
 c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dX(idir)*(1.0-stag(idir))) / dx(idir))
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)*(1.0-stag(idir))) / dx(idir))
       enddo
 
 c     loop over all the cells containing this particle cloud,

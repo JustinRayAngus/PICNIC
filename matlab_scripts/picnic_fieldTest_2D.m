@@ -21,6 +21,23 @@ rootPath = '../fromQuartz/2D/fieldTests/test3_bcs/'; thisFig = 4;
 
 %rootPath = '../fromQuartz/2D/fieldTests/testing_insulator/'; thisFig = 5;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   read the history file
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+historyFile = [rootPath,'history.txt'];
+if exist(historyFile,'file')
+    A = importdata(historyFile);
+    histHeader = A.textdata;
+    histData = A.data;
+    time_hist = histData(:,2);
+    energyE_hist = histData(:,3);
+    energyB_hist = histData(:,4);
+end
+f109 = figure(109); 
+hold on; plot(time_hist,energyE_hist+energyB_hist); box on;
 
 ghosts = 0;
 

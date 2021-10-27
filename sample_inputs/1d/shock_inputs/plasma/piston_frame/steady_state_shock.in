@@ -16,8 +16,8 @@ system.advance_method = "PIC_EM_EXPLICIT"
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 #system.advance_method = "PIC_EM_THETA_IMPLICIT"
 #system.iter_max = 8
-#system.abs_tol = 1.0e-6
-#system.rel_tol = 1.0e-12
+#system.rel_tol = 1.0e-6
+#system.abs_tol = 1.0e-12
 #system.theta_parameter = 1.0 # 1/2<=theta_parameter<=1
 system.write_species_charge_density = false
 system.write_species_current_density = false
@@ -36,7 +36,12 @@ simulation.fixed_dt            = 0.2
 simulation.plot_time_interval  = 2000.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
-simulation.history_interval    = 10
+simulation.history_interval    = 20
+
+history.precision = 5
+history.field_probes = true
+history.species0_probes = true
+history.species1_probes = true
 
 #####################################################
 # Computational Grid Definitions

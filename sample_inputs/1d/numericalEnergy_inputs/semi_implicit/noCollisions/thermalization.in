@@ -14,8 +14,8 @@ simulation.verbosity = 10
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 system.iter_max = 5
-system.abs_tol = 1.0e-7
-system.rel_tol = 1.0e-13
+system.rel_tol = 1.0e-6
+system.abs_tol = 1.0e-12
 
 system.write_species_charge_density = false
 system.write_species_current_density = false
@@ -31,10 +31,15 @@ simulation.max_time            = 2000.0
 #simulation.dt_scatter_interval = 10
 simulation.fixed_dt            = 0.10
 #simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 100.0
+simulation.plot_time_interval  = 200.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
-simulation.history_interval    = 10
+simulation.history_interval    = 20
+
+history.precision = 5
+history.field_probes = true
+history.species0_probes = true
+history.species1_probes = true
 
 #####################################################
 # Computational Grid Definitions
@@ -62,6 +67,8 @@ units.time           = 1.77e-17  # s
 #####################################################
 em_fields.use = true
 em_fields.advance = true
+em_fields.write_rho = true
+em_fields.write_divs = true
 em_fields.write_curls = true
 
 IC.em_fields.magnetic.0.type = "constant"

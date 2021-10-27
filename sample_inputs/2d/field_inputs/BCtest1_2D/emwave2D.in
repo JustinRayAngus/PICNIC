@@ -23,6 +23,9 @@ simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
 
+history.precision = 5
+history.field_probes = true
+
 #####################################################
 # Computational Grid Definitions
 #####################################################

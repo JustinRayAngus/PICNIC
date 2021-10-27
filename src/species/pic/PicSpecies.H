@@ -65,6 +65,8 @@ public:
   virtual Real stableDt() const { return m_stable_dt; }
 
   virtual const std::string& name() const { return m_name; }
+  
+  virtual int numParticles() const { return m_data.numParticles(); }
 
   virtual bool motion() const { return m_motion; }
   virtual bool forces() const { return m_forces; }
@@ -149,22 +151,20 @@ public:
   void repositionInflowParticles(); 
 
   void repositionOutcastsAndApplyForces( const ElectroMagneticFields&   a_em_fields,
-                                         const Real&  a_cnormDt, 
+                                         const Real&  a_dt, 
                                          const bool&  a_byHalfDt );
 
-  void applyForces( List<JustinsParticle>&  a_pList,
-              const Real&  a_cnormDt, 
-              const bool&  a_byHalfDt );
- 
-  // advance particle positions
-  void advancePositions( const Real&  a_cnormDt,
+  void advancePositions( const Real&  a_dt,
                          const bool&  a_intermediate_advance=false );
   void advancePositions_2ndHalf();
 
-  // Boris pusher
-  void advanceVelocities( const Real&  a_cnormDt, 
+  void advanceVelocities( const Real&  a_dt, 
                           const bool&  a_byHalfDt=false );
   void advanceVelocities_2ndHalf();
+
+  void advanceParticlesIteratively( const ElectroMagneticFields&  a_em_fields,
+                                    const Real                    a_dt,
+                                    const int                     a_iter_max );
   
   void removeOutflowParticles();
   
@@ -187,6 +187,8 @@ public:
      inspectBinFab(m_data_binfab_ptr);
   }
   
+  void globalMoments(std::vector<Real>&  a_global_moments) const;
+  
 private:
  
   int  m_species;  // species number identifier 
@@ -200,6 +202,7 @@ private:
   PicSpeciesBC* m_species_bc;  
   std::string m_BC_type_lower, m_BC_type_upper;
 
+  Real m_cvac_norm; 
   Real m_volume_scale; 
   Real m_stable_dt = DBL_MAX; 
   Real m_fnorm_const; // normalization constant for particle force
@@ -234,11 +237,27 @@ private:
   mutable LevelData<NodeFArrayBox> m_chargeDensity_nodes;          
 
   // physical quantities
-  //
   mutable LevelData<FArrayBox> m_temperature; // temperature [eV] at cell center
   mutable LevelData<FArrayBox> m_velocity;    // velocity [m/s] at cell center
 
+  void advancePositions( List<JustinsParticle>&  a_pList,
+                   const Real&  a_cnormDt );
 
+  void stepNormParticleTransfer( List<JustinsParticle>&  a_pList,
+                                 List<JustinsParticle>&  a_temp_pList, 
+                           const Real&                   a_cnormHalfDt, 
+                           const bool                    a_reverse );
+
+  void applyForces( List<JustinsParticle>&  a_pList,
+              const Real&  a_cnormDt, 
+              const bool&  a_byHalfDt );
+
+  void interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
+                               const EdgeDataBox&  a_Efield_inPlane,
+                               const FluxBox&      a_Bfield_inPlane,
+                               const FArrayBox&    a_Efield_virtual,
+                               const FArrayBox&    a_Bfield_virtual );
+ 
   void createMeshInterp();
 
   void inspectBinFab(const LevelData<BinFab<JustinsParticlePtr>>&  a_binfab_ptr);

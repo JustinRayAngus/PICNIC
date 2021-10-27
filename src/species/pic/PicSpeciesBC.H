@@ -33,7 +33,10 @@ class PicSpeciesBC
    void repositionOutflowParticles( List<JustinsParticle>&  a_outcast_list );
    
    void createInflowParticles( const Real&  a_time,
-                               const Real&  a_dt );
+                               const Real&  a_cnormDt );
+      
+   void enforcePeriodicForIterativeSolver( List<JustinsParticle>&  a_list);
+      
    
    protected:
   
@@ -100,6 +103,7 @@ class PicSpeciesBC
       Vector<std::string> m_bdry_name;
       Vector<std::string> m_bc_type;
       Vector<int> m_bc_binary;
+      Vector<int> m_periodic_bc_binary;
    
    private:
       

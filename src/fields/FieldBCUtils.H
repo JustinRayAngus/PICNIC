@@ -370,7 +370,6 @@ namespace FieldBCUtils {
             for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
                const Box fill_box( bdry_grids[dit] );
-               const DataIndex& interior_dit( bdry_layout.dataIndex(dit) );
                
                for (int dir(0); dir<SpaceDim; dir++) {
             
@@ -440,7 +439,6 @@ namespace FieldBCUtils {
             for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
                const Box fill_box( bdry_grids[dit] );
-               const DataIndex& interior_dit( bdry_layout.dataIndex(dit) );
                
                for (int dir(0); dir<SpaceDim; dir++) {
             

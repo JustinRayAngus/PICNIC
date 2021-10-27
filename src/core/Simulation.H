@@ -71,6 +71,7 @@ class Simulation
       void enforceTimeStep(const Real  a_local_dt);
       void preTimeStep();
       void postTimeStep();
+      void writeFiles();
       
       int m_verbosity;
 

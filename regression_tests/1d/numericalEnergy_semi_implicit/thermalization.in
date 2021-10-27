@@ -31,14 +31,19 @@ simulation.fixed_dt            = 0.10
 simulation.plot_time_interval  = 100.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
-simulation.history_interval    = 10
+simulation.history_interval    = 20
+
+history.precision = 5
+history.field_probes = true
+history.species0_probes = true
+history.species1_probes = true
 
 #####################################################
 # Computational Grid Definitions
 #####################################################
 grid.num_cells     = 40
 grid.is_periodic   = 1
-grid.config_decomp = 5
+grid.config_decomp = 10
 grid.geometry      = "cartesian"
 grid.num_ghosts    = 1
 

@@ -90,25 +90,12 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
 
    // set the physical coordinates
    setRealCoords();
+   
+   // set the Jacobian
+   setJacobian();
 
    // define the vector of boundary box layouts for BCs
    defineBoundaryBoxLayout();
-
-   // check the BoundaryBoxLayout()
-   for (int i(0); i<m_domain_bdry_layout.size(); i++) {
-      const BoundaryBoxLayout& bdry_layout( *(m_domain_bdry_layout[i]) );
-      const int& dir( bdry_layout.dir() );
-      const Side::LoHiSide& side( bdry_layout.side() );
-      const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
-      for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-         const Box bdry_box( bdry_grids[dit] );
-         //cout << "JRA: procID() = " << procID() << endl;
-         //cout << "JRA: dir = " << dir << endl;
-         //cout << "JRA: side = " << side << endl;
-         //cout << "JRA: bdry_box = " << bdry_box << endl;
-      }
-   }
-
 }
 
 void DomainGrid::setRealCoords()
@@ -169,6 +156,121 @@ void DomainGrid::setRealCoords()
    
 }
 
+void DomainGrid::setJacobian()
+{
+   IntVect ghostVect = m_ghosts*IntVect::Unit;
+   m_Jcc.define(m_grids,1,ghostVect);
+   m_Jfc.define(m_grids,1,ghostVect);
+   m_Jec.define(m_grids,1,ghostVect);
+   m_Jnc.define(m_grids,1,ghostVect);
+   
+   for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+      m_Jcc[dit].setVal(1.0); 
+      for(int dir=0; dir<SpaceDim; dir++) {
+         m_Jfc[dit][dir].setVal(1.0);
+         m_Jec[dit][dir].setVal(1.0);
+      }
+      m_Jnc[dit].getFab().setVal(1.0); 
+   }
+  
+   // define masked nodal Jacobians used for area/volume integrals  
+ 
+   m_masked_Jfc.define(m_grids,1,IntVect::Zero);
+   m_masked_Jec.define(m_grids,1,IntVect::Zero);
+   m_masked_Jnc.define(m_grids,1,IntVect::Zero);
+
+   // first define via copy
+   for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+      for(int dir=0; dir<SpaceDim; dir++) {
+         m_masked_Jfc[dit][dir].copy(m_Jfc[dit][dir]);
+         m_masked_Jec[dit][dir].copy(m_Jec[dit][dir]);
+      }
+      m_masked_Jnc[dit].getFab().copy(m_Jnc[dit].getFab()); 
+   }
+   
+   // mask the face centered Jacobian
+   for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+      for(int dir=0; dir<SpaceDim; dir++) {
+         Box face_box = m_grids[dit];
+         face_box.surroundingNodes(dir);
+         Box internal_box = face_box;
+         internal_box.grow(dir,-1);
+         
+         FArrayBox mask(face_box,1);
+         mask.setVal(0.5);
+         mask.plus(0.5,internal_box,0,1); 
+
+         m_masked_Jfc[dit][dir].mult(mask);
+      }
+   }
+   
+   // mask the edge centered Jacobian
+   for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+      for(int dir=0; dir<SpaceDim; dir++) {
+         Box edge_box = m_grids[dit];
+         edge_box.surroundingNodes();
+         edge_box.enclosedCells(dir);
+         Box internal_box = edge_box;
+         for (int adir=0; adir<SpaceDim; adir++) {
+            if(adir==dir) continue;
+            internal_box.grow(adir,-1);
+         }
+
+         FArrayBox mask(edge_box,1);
+         if(SpaceDim==1) mask.setVal(1.0);
+         if(SpaceDim==2) {
+            mask.setVal(0.5);
+            mask.plus(0.5,internal_box,0,1); 
+         }
+         if(SpaceDim==3) {
+            mask.setVal(0.25);
+            mask.plus(0.75,internal_box,0,1); 
+         }
+
+         m_masked_Jec[dit][dir].mult(mask);
+      }
+   }
+   
+   // mask the node centered Jacobian
+   for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+      Box node_box = m_grids[dit];
+      node_box.surroundingNodes();
+      Box internal_box = node_box;
+      for (int adir=0; adir<SpaceDim; adir++) internal_box.grow(adir,-1);
+
+      FArrayBox mask(node_box,1);
+      if(SpaceDim==1) {
+         mask.setVal(0.5);
+         mask.plus(0.5,internal_box,0,1);
+      }
+      if(SpaceDim==2) { // corners get 1/4, edges get 1/2
+         mask.setVal(0.25);
+         for(int dir=0; dir<SpaceDim; dir++) {
+            Box node_box0 = node_box;
+            node_box0.grow(dir,-1);
+            mask.plus(0.25,node_box0,0,1);
+         }
+         mask.plus(0.25,internal_box,0,1);
+      }
+      if(SpaceDim==3) { // corners get 1/8, edges get 1/4, faces get 1/2
+         mask.setVal(0.125);
+         for(int dir=0; dir<SpaceDim; dir++) {
+            Box node_box0 = node_box;
+            node_box0.grow(dir,-1);
+            mask.plus(0.125,node_box0,0,1);
+            //
+            Box internal_box0 = internal_box;
+            internal_box0.grow(dir,1);
+            mask.plus(0.125,internal_box0,0,1);
+         }
+         mask.plus(0.125,internal_box,0,1);
+      }
+
+      m_masked_Jnc[dit].getFab().mult(mask);
+   }
+
+}
+
 void DomainGrid::defineBoundaryBoxLayout()
 {
 
@@ -176,7 +278,18 @@ void DomainGrid::defineBoundaryBoxLayout()
    const Box domain_box = m_domain.domainBox();
 
    for(int dir=0; dir<SpaceDim; dir++) {
-      if(!m_domain.isPeriodic(dir)) {
+      if(m_domain.isPeriodic(dir)) {
+         for(SideIterator si; si.ok(); ++si) {
+            Side::LoHiSide side( si() );
+            m_periodic_bdry_layout.push_back(
+            BoundaryBoxLayoutPtr( new BoundaryBoxLayout( m_grids,
+                                                         domain_box,
+                                                         dir,
+                                                         side,
+                                                         ghostVect )));
+         }
+      }
+      else {
          for(SideIterator si; si.ok(); ++si) {
             Side::LoHiSide side( si() );
             m_domain_bdry_layout.push_back(

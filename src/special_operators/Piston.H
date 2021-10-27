@@ -15,20 +15,17 @@ class Piston : public SpecialOperator
 {
    public:
 
-      // Constructor
-      //
-      Piston( ParmParse& a_pp, const int& verbosity )
-         : SpecialOperator(verbosity)
+      Piston( ParmParse&   a_pp, 
+        const DomainGrid&  a_mesh, 
+        const CodeUnits&   a_units, 
+        const int&         a_verbosity )
+         : SpecialOperator(a_mesh, a_units, a_verbosity)
       {
          parseParameters( a_pp );
       }
 
-      // Destructor.
-      //
       virtual ~Piston() {;}
 
-      // Print object parameters.
-      //
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "Piston special operator parameters:" << std::endl;
@@ -38,32 +35,29 @@ class Piston : public SpecialOperator
             std::cout << " piston dtFrac:    " << m_dtFrac  << std::endl;
          }
       }
-      
+
       virtual void applyOp( PicSpecies&  a_picSpecies, 
-                      const DomainGrid&  a_mesh,
-                      const Real&        a_cnormDt ) const
+                      const Real&        a_dt ) const
       {
          CH_TIME("Piston::applyOp()");
+         
+         const Real cnormDt = m_units.CvacNorm()*a_dt;
    
          // This special operator does its own push, so check to make sure the species
          // motion is turned off
-         //
          bool pMotion = a_picSpecies.motion();
          CH_assert(!pMotion);
     
          // get some Grid info
-         //
-         const ProblemDomain& domain(a_mesh.getDomain());
+         const ProblemDomain& domain(m_mesh.getDomain());
    
          // compute domain extent and get total num parts and sim volume
-         //
          const IntVect domainDimensions = domain.size();
-         const RealVect& Xmin(a_mesh.getXmin());
-         const RealVect& Xmax(a_mesh.getXmax());
+         const RealVect& Xmin(m_mesh.getXmin());
+         const RealVect& Xmax(m_mesh.getXmax());
          const RealVect Lbox = Xmax - Xmin; 
    
          // Each proc loops over its own boxes
-         //
          ParticleData<JustinsParticle>& Pdata = a_picSpecies.partData();
          const BoxLayout& BL = Pdata.getBoxes();
          DataIterator dit(BL);
@@ -79,13 +73,12 @@ class Piston : public SpecialOperator
                std::array<Real,3>&  betap = li().velocity(); // actually beta
 
                // update particle position
-               //xp += betap*a_cnormDt;
+               //xp += betap*cnormDt;
                for(int dir=0; dir<SpaceDim; dir++) {
-                  xp[dir] += betap[dir]*a_cnormDt;
+                  xp[dir] += betap[dir]*cnormDt;
                }
 
                // check to see if particle crosses piston boundary
-               //
                if(xp[m_piston_dir]>=m_piston_position) { // specular reflection
                   Real dr = xp[m_piston_dir]-m_piston_position;
                   xp[m_piston_dir] = m_piston_position-dr;
@@ -94,7 +87,6 @@ class Piston : public SpecialOperator
                }
          
                // set particle boundary conditions here for now
-               //
                for(int dir=0; dir<SpaceDim; dir++) {
                   if( domain.isPeriodic(dir) ) {
                      if( xp[dir]<Xmin[dir] ) xp[dir] = xp[dir] + Lbox[dir];
@@ -126,15 +118,14 @@ class Piston : public SpecialOperator
       
       virtual Real specialOpsDt() const { return m_piston_dt; }
  
-      virtual void updateOp( const DomainGrid&  a_mesh,
-                             const CodeUnits&   a_units,
-                             const Real&        a_cnormDt )
+      virtual void updateOp( const Real&  a_dt )
       {
-         const RealVect& dX(a_mesh.getdX());
-         const RealVect& Xmin(a_mesh.getXmin());
+         const Real cnormDt = m_units.CvacNorm()*a_dt;
+         const RealVect& dX(m_mesh.getdX());
+         const RealVect& Xmin(m_mesh.getXmin());
          
          const Real beta_piston = m_piston_velocity/Constants::CVAC;
-         m_piston_position = m_piston_position + a_cnormDt*beta_piston;
+         m_piston_position = m_piston_position + cnormDt*beta_piston;
          if(m_piston_position<dX[m_piston_dir]) {
             m_piston_position = Xmin[m_piston_dir] + dX[m_piston_dir];
             m_piston_velocity = -m_piston_velocity;
@@ -143,7 +134,7 @@ class Piston : public SpecialOperator
          }
 
          // set the time step for piston special op
-         m_piston_dt = m_dtFrac*dX[m_piston_dir]/abs(beta_piston*a_units.CvacNorm());
+         m_piston_dt = m_dtFrac*dX[m_piston_dir]/abs(beta_piston*m_units.CvacNorm());
 
       }
 
@@ -168,13 +159,13 @@ class Piston : public SpecialOperator
             printParameters();
          }
       }
-
+  
       Real m_piston_position;
       Real m_piston_velocity;
       int m_piston_dir;
       Real m_dtFrac=0.5;
       Real m_piston_dt=DBL_MAX;
-
+       
 };
 
 #include "NamespaceFooter.H"

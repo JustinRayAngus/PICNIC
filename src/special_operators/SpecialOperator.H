@@ -17,34 +17,25 @@ class SpecialOperator
 {
    public:
 
-      // Constructor using a database.
-      //
-      SpecialOperator( const int& verbosity );
+      SpecialOperator( const DomainGrid&  a_mesh,
+                       const CodeUnits&   a_units,
+                       const int&         a_verbosity );
    
-      // Destructor.
-      //
       virtual ~SpecialOperator() {;}
 
-      // apply the special operator to passed pic species
-      //
       virtual void applyOp( PicSpecies&  a_picSpecies,
-                      const DomainGrid&  a_mesh,
-                      const Real&        a_time ) const = 0;
+                      const Real&        a_dt ) const = 0;
 
-      // update the special operator
-      //
-      virtual void updateOp( const DomainGrid&  a_mesh,
-                             const CodeUnits&   a_units,
-                             const Real&        a_time ) = 0;
+      virtual void updateOp( const Real&  a_dt ) = 0;
       
       virtual Real specialOpsDt() const = 0;
 
-      // Print object parameters.
-      //
       virtual void printParameters() const = 0;
    
    protected:
    
+      const DomainGrid& m_mesh;
+      const CodeUnits& m_units;
       bool m_verbosity;
   
 };

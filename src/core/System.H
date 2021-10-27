@@ -76,17 +76,142 @@ class System
                         const Real&  a_dt,
                         const int&   a_step_number );
       
-      void advance( Real&  a_cur_time, Real&  a_dt, int&   a_step_number );
+      void advance( const Real&, const Real&, const int& );
 
       void setChargeDensity();
       void setCurrentDensity();
 
       void scatterParticles( const Real&  a_dt );
       
-      void postTimeStep( const Real&  a_cur_time, 
-                         const Real&  a_dt,
-                         const int&   a_step_number );
+      void postTimeStep( Real&, const Real&, int& );
+
+      void preRHSOp( const ODEVector<System>& a_U,
+                     const Real               a_time,
+                     const Real               a_dt,
+                     const bool               a_from_emjacobian,
+                     const EMVecType&         a_type = e_and_b )
+      {
+
+        if (a_type == b_only) {
+          copyBFromVec( a_U );
+          m_electromagneticFields->updateDataMagneticField( a_time );
+        } else if (a_type == e_only ) {
+          copyEFromVec( a_U );
+          m_electromagneticFields->updateDataElectricField( a_time );
+        } else {
+          copySolutionFromVec( a_U );
+          m_electromagneticFields->updateDataMagneticField( a_time );
+          m_electromagneticFields->updateDataElectricField( a_time );
+        }
+        
+        if(a_from_emjacobian && m_freeze_particles_jacobian) return;
+        
+        preRHSOp(a_U, a_dt);
+
+      }
       
+      void preRHSOp( const ODEVector<System>&,
+                     const Real );
+      
+      void computeRHS(  ODEVector<System>&,
+                        const ODEVector<System>&,
+                        const Real,
+                        const Real,
+                        const EMVecType& a_type = e_and_b );
+
+      void computeRHS(  ODEVector<System>&,
+                        const ODEVector<System>&,
+                        const int,
+                        const Real,
+                        const Real,
+                        const int );
+
+      void updatePhysicalState( ODEVector<System>&,
+                          const Real,
+                          const EMVecType& a_type = e_and_b );
+      
+      void updatePhysicalState( ODEVector<System>&,
+                          const int,
+                          const Real );
+
+      void copyBFromVec( const ODEVector<System>& a_vec, int& );
+      void copyEFromVec( const ODEVector<System>& a_vec, int& );
+      void copyBToVec( ODEVector<System>& a_vec, int& ) const;
+      void copyEToVec( ODEVector<System>& a_vec, int& ) const;
+
+      void copyBRHSFromVec( const ODEVector<System>& a_vec, int& );
+      void copyERHSFromVec( const ODEVector<System>& a_vec, int& );
+      void copyBRHSToVec( ODEVector<System>& a_vec, int& ) const;
+      void copyERHSToVec( ODEVector<System>& a_vec, int& ) const;
+
+      void copyBFromVec( const ODEVector<System>& a_vec)
+      {
+        int offset(0);
+        copyBFromVec( a_vec, offset );
+      }
+      void copyEFromVec( const ODEVector<System>& a_vec)
+      {
+        int offset(0);
+        copyEFromVec( a_vec, offset );
+      }
+      void copyBToVec( ODEVector<System>& a_vec ) const
+      {
+        int offset(0);
+        copyBToVec( a_vec, offset );
+      }
+      void copyEToVec( ODEVector<System>& a_vec ) const
+      {
+        int offset(0);
+        copyEToVec( a_vec, offset );
+      }
+
+      void copyBRHSFromVec( const ODEVector<System>& a_vec )
+      {
+        int offset(0);
+        copyBRHSFromVec( a_vec, offset );
+      }
+      void copyERHSFromVec( const ODEVector<System>& a_vec )
+      {
+        int offset(0);
+        copyERHSFromVec( a_vec, offset );
+      }
+      void copyBRHSToVec( ODEVector<System>& a_vec ) const
+      {
+        int offset(0);
+        copyBRHSToVec( a_vec, offset );
+      }
+      void copyERHSToVec( ODEVector<System>& a_vec ) const
+      {
+        int offset(0);
+        copyERHSToVec( a_vec, offset );
+      }
+
+      void copySolutionFromVec( const ODEVector<System>& a_vec );
+      void copySolutionToVec( ODEVector<System>& a_vec) const;
+      void copyRHSFromVec( const ODEVector<System>& a_vec);
+      void copyRHSToVec( ODEVector<System>& a_vec) const;
+      
+      inline int numPicardBlocks() const
+      {
+        return m_electromagneticFields->numPicardBlocks();
+      }
+
+      inline int getVectorSize() const
+      {
+        int retval(0);
+        if (m_advance_method==PIC_EM_SEMI_IMPLICIT) {
+          retval += m_electromagneticFields->getVectorSize(e_only);
+        } else if (m_advance_method==PIC_EM_THETA_IMPLICIT) {
+          retval += m_electromagneticFields->getVectorSize(e_and_b);
+        }
+        return retval;
+      }
+
+      inline int getVectorSize( const EMVecType& a_type ) const
+      {
+        return m_electromagneticFields->getVectorSize(a_type);
+      }
+
    private:
 
       void parseParameters( ParmParse& ppsys );
@@ -110,6 +235,8 @@ class System
       void createSpecialOperators();
       
       int m_iter_max;
+      int m_iter_max_particles;
+      bool m_freeze_particles_jacobian;
       Real m_theta;
      
       PICTIType m_advance_method;
@@ -126,7 +253,11 @@ class System
 
       bool m_writeSpeciesChargeDensity = false;
       bool m_writeSpeciesCurrentDensity = false;
-       
+ 
+      bool m_field_probes;
+      std::vector<bool> m_species_probes;
+      int m_history_precision;      
+
       bool m_verbosity = true;
       bool m_use_scattering = false;
       bool m_use_specialOps = false;

@@ -23,6 +23,8 @@
 #include "Simulation.H"
 #include "MathUtils.H"
 
+#include <random>
+
 #include "UsingNamespace.H"
 
 inline int checkCommandLineArgs( int a_argc, char* a_argv[] )
@@ -58,8 +60,11 @@ int main(int a_argc, char* a_argv[])
    num_procs = 1;
 #endif
 
-   if(rank==0) cout << "PICNIC: number of procs = " << num_procs << endl;
-   if(rank==0) cout << "PICNIC: SpaceDim = " << SpaceDim << endl;
+   if(rank==0) {
+      cout << endl;
+      cout << "PICNIC: number of procs = " << num_procs << endl;
+      cout << "PICNIC: SpaceDim = " << SpaceDim << endl;
+   }
 
    // Check for an input file
    char* inFile = NULL;

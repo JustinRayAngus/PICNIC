@@ -78,9 +78,7 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
    Real box_nuMax=0.0; // for scattering time step calculation
  
    // nu_12 = q1^2*q2^2*n2*Clog/(8*pi*ep0^2*mu^2*Vab^3)
-   Real nu0 = pow(Constants::QE,4.0)/8.0/Constants::PI/pow(Constants::EP0,2.0);
-   Real Vab, nuab;  
-
+   //Real nu0 = pow(Constants::QE,4.0)/8.0/Constants::PI/pow(Constants::EP0,2.0);
    Real cvacSq = Constants::CVAC*Constants::CVAC;
     
    const DisjointBoxLayout& grids = a_numberDensity.disjointBoxLayout();
@@ -147,7 +145,6 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
          
    const Real factor = pow(Constants::QE*m_charge1*Constants::QE*m_charge2/Constants::EP0,2)/Constants::FOURPI; // [Joules-m]
 
-   Real tau;
    Real box_nuMax=0.0; // for scattering time step calculation
    
    Real cvacSq = Constants::CVAC*Constants::CVAC;
@@ -249,8 +246,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
 
    // predefine some variables
    int numCell;
-   Real Teff_eV, tau, numDen, eneDen;
-   Real box_nuMax=0.0;
+   Real numDen;
    std::array<Real,3> deltaU;
  
    // loop over lists in each cell and test shuffle
@@ -408,9 +404,8 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
  
    // predefine some variables
    int numCell1, numCell2, pMax, pMin;
-   Real Teff1_eV, numDen1, eneDen1;
-   Real Teff2_eV, numDen2, eneDen2;
-   Real box_nuMax=0.0;
+   Real numDen1;
+   Real numDen2;
    std::array<Real,3> deltaU;
  
    // loop over lists in each cell and test shuffle
