@@ -1,6 +1,8 @@
 *.o
 *.a
 *_F.H
+*.TVD.v4breakpoints*
+exec/make_*.log
 exec/*.ex
 exec/d/
 exec/f/
