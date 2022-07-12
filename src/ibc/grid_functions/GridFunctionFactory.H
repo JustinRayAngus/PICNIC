@@ -3,8 +3,11 @@
 
 #include "ParmParse.H"
 #include "GridFunction.H"
+#include "DomainGrid.H"
 
 #include "Cosine.H"
+#include "Polar.H"
+#include "Bennett.H"
 #include "Constant.H"
 
 #include "NamespaceHeader.H"
@@ -20,14 +23,8 @@ class GridFunctionFactory
 {
    public:
 
-      /// Constructor.
-      /**
-       */
       GridFunctionFactory() {;}
 
-      /// Destructor.
-      /**
-       */
       ~GridFunctionFactory() {;}
 
       /// Create new GridFunction object
@@ -35,32 +32,39 @@ class GridFunctionFactory
        * Returns a dynamically allocated new GridFunction object of the
        * type indicated in the passed ParmParse database.  The calling
        * routine is responsible for de-allocating the memory.
-       *
-       * @param[in] pp ParmParse database that contains the parameters for
-       *               the new GridFunction object.
-       * @param[in] verbosity Flag to turn on additional levels of output
-       *
-       * The following represents a sample input entry:
-       *
-       * \verbatim
-       * type = "localized"
        */
-      inline RefCountedPtr<GridFunction> create( ParmParse& pp,
-                                                 const int& verbosity = 0 );
+      inline RefCountedPtr<GridFunction> create( ParmParse&   a_pp,
+                                           const DomainGrid&  a_mesh,
+                                           const int          a_verbosity = 0 );
+      
+      inline RefCountedPtr<GridFunction> createZero() 
+      {
+         RefCountedPtr<GridFunction> result(NULL);
+         result = RefCountedPtr<GridFunction>( new Constant( 0.0, 0 ) );
+         return result;
+      }
+
 };
 
 
 inline
 RefCountedPtr<GridFunction> GridFunctionFactory::create(
-   ParmParse& a_pp,
-   const int& a_verbosity )
+         ParmParse&   a_pp,
+   const DomainGrid&  a_mesh,
+   const int          a_verbosity )
 {
    std::string model( "unknown" );
    a_pp.get( "type", model );
 
    RefCountedPtr<GridFunction> result(NULL);
    if (model == "cosine") {
-      result = RefCountedPtr<GridFunction>( new Cosine( a_pp, a_verbosity ) );
+      result = RefCountedPtr<GridFunction>( new Cosine( a_pp, a_mesh, a_verbosity ) );
+   }
+   else if (model == "polar") {
+      result = RefCountedPtr<GridFunction>( new Polar( a_pp, a_verbosity ) );
+   }
+   else if (model == "bennett") {
+      result = RefCountedPtr<GridFunction>( new Bennett( a_pp, a_verbosity ) );
    }
    else if (model == "constant") {
       result = RefCountedPtr<GridFunction>( new Constant( a_pp, a_verbosity ) );
@@ -69,7 +73,7 @@ RefCountedPtr<GridFunction> GridFunctionFactory::create(
       result = RefCountedPtr<GridFunction>( new Constant( 0.0, a_verbosity ) );
    }
    else {
-      MayDay::Error( "GridFunctionFactory: Unimplemented grid function type selected" );
+      MayDay::Error( "GridFunctionFactory: grid function type not implemented" );
    }
    return result;
 }

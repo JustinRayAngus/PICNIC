@@ -46,7 +46,20 @@ class dataFileIO
       void writeEMFields( HDF5Handle&             a_handle,
                     const ElectroMagneticFields&  a_emfield );
       
+      void writeEMFields_old( HDF5Handle&             a_handle,
+                        const ElectroMagneticFields&  a_emfield );
+      
+#ifdef MASS_MATRIX_TEST
+      void writeEMmassMatrices( const ElectroMagneticFields&  a_emfield,
+                                HDF5Handle&                   a_handle,
+                                HDF5HeaderData&               a_header );
+#endif 
+     
       void writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
+                            HDF5Handle&                   a_handle,
+                            HDF5HeaderData&               a_header );
+      
+      void writeEMFieldExB( const ElectroMagneticFields&  a_emfield,
                             HDF5Handle&                   a_handle,
                             HDF5HeaderData&               a_header );
       
@@ -91,6 +104,7 @@ class dataFileIO
                                 const double                   a_cur_time );
       
       void writeCheckpointEMFields( HDF5Handle&             a_handle,
+                              const int                     a_write_old_data,
                               const ElectroMagneticFields&  a_emfield );
       
       void writeCheckpointParticles( HDF5Handle&  a_handle,

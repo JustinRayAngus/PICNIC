@@ -22,8 +22,6 @@ class VariableHardSphere : public Scattering
 {
    public:
 
-      // Constructor
-      //
       VariableHardSphere( ParmParse&  a_pp, 
                     const int&        a_verbosity )
          : Scattering(a_verbosity)
@@ -32,30 +30,22 @@ class VariableHardSphere : public Scattering
          parseParameters( a_pp );
       }
 
-      // Destructor
-      //
       virtual ~VariableHardSphere() {;}
       
-      // return integer identifier of species 1
+      virtual ScatteringType getScatteringType() const { return ELASTIC; }
+      
       virtual int species1() const { return m_sp1; }
       
-      // return integer identifier of species 1
       virtual int species2() const { return m_sp2; }
       
-      // set mean free time
-      //
       virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
                                     const LevelData<FArrayBox>&  a_energyDensity ) const;
       
-      // initialization
-      //
-      virtual void initialize( const DomainGrid&         a_mesh,
-                               const PicSpeciesPtrVect&  a_picSpeciesPtrVect ); 
+      virtual void initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
+                               const DomainGrid&         a_mesh );
 
       virtual Real scatterDt() const { return m_scatter_dt; }
 
-      // Print object parameters.
-      //
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "VariableHardSphere scattering parameters:" << std::endl;
@@ -68,6 +58,12 @@ class VariableHardSphere : public Scattering
          }
       }
       
+      virtual void applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                              const DomainGrid&         a_mesh,
+                              const Real                a_dt_sec ) const;
+      
+   private:
+
       // scatter like species
       virtual void applySelfScattering( PicSpecies&  a_picSpecies, 
                                   const DomainGrid&  a_mesh,
@@ -78,8 +74,6 @@ class VariableHardSphere : public Scattering
                                          PicSpecies&  a_picSpecies2,
                                    const DomainGrid&  a_mesh,
                                    const Real         a_dt_sec ) const;
- 
-   private:
 
       // prohibit copying
       //VariableHardSphere( const Constant& );

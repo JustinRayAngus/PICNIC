@@ -8,29 +8,32 @@
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
 #include "BinFab.H"
-#include "ParticleUtils.H"
+#include "ScatteringUtils.H"
 
 #include "NamespaceHeader.H"
 
 
-void VariableHardSphere::initialize( const DomainGrid&         a_mesh,
-                                     const PicSpeciesPtrVect&  a_picSpeciesPtrVect )
+void VariableHardSphere::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
+                                     const DomainGrid&         a_mesh )
 {
    CH_TIME("VariableHardSphere::initialize()");
 
    int this_sp = m_sp1;
    CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_picSpecies(a_picSpeciesPtrVect[this_sp]);
-   CH_assert(this_picSpecies->scatter()); // assert that collisions are allowed for this species
-   CH_assert(this_picSpecies->charge()==0);      
+   PicSpeciesPtr this_species(a_picSpeciesPtrVect[this_sp]);
+
+   //if(!this_species->scatter()) return;
+   //CH_assert(this_species->scatter()); // assert that collisions are allowed for this species
+
+   CH_assert(this_species->charge()==0);      
    
    if(m_sp1==m_sp2) { // self scattering
 
-      m_species1_name = this_picSpecies->name();
-      m_species2_name = this_picSpecies->name();
+      m_species1_name = this_species->name();
+      m_species2_name = this_species->name();
       
-      m_mass1 = this_picSpecies->mass(); // normalized mass
-      m_mass2 = this_picSpecies->mass(); // normalized mass
+      m_mass1 = this_species->mass(); // normalized mass
+      m_mass2 = this_species->mass(); // normalized mass
  
       // define alpha and Aconst
       //
@@ -49,18 +52,21 @@ void VariableHardSphere::initialize( const DomainGrid&         a_mesh,
    // set the mean free time
    //
    
-   // define references to picSpecies1
-   const LevelData<FArrayBox>& numberDensity1 = this_picSpecies->getNumberDensity(false); // pre-computed
-   const LevelData<FArrayBox>& energyDensity1 = this_picSpecies->getEnergyDensity(true);
+   if(this_species->scatter()) {
    
-   if(m_sp1==m_sp2) {
-      setMeanFreeTime(numberDensity1,energyDensity1);
-   }
-   else {
-      // define references to picSpecies2
-      //const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity(false);
-      //const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity(true);
-      //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+      // define references to picSpecies1
+      const LevelData<FArrayBox>& numberDensity1 = this_species->getNumberDensity(false); // pre-computed
+      const LevelData<FArrayBox>& energyDensity1 = this_species->getEnergyDensity(true);
+   
+      if(m_sp1==m_sp2) {
+         setMeanFreeTime(numberDensity1,energyDensity1);
+      }
+      else {
+         //const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(false);
+         //const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(true);
+         //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+      }
+
    }
 
    if (m_verbosity)  printParameters();
@@ -117,9 +123,9 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
    
    // compute mean free time in physical units [s]
    Real global_nuMax = box_nuMax;
-#ifdef CH_MPI
-   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
-#endif
+//#ifdef CH_MPI
+//   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+//#endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
    
    //const Real tscale = a_units.getScale(a_units.TIME);
@@ -175,13 +181,33 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
    }
    
    Real global_nuMax = box_nuMax;
-#ifdef CH_MPI
-   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
-#endif
+//#ifdef CH_MPI
+//   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+//#endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
 
 }
 */
+
+void VariableHardSphere::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                                    const DomainGrid&         a_mesh,
+                                    const Real                a_dt_sec ) const
+{
+   CH_TIME("VariableHardSphere::applyScattering()");
+      
+   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
+   if(!this_species1->scatter()) return;
+
+   if(m_sp1==m_sp2) {
+      applySelfScattering( *this_species1, a_mesh, a_dt_sec );
+   }
+   else {
+      PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+      if(!this_species2->scatter()) return;
+      applyInterScattering( *this_species1, *this_species2, a_mesh, a_dt_sec );
+   }
+
+}
       
 void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies, 
                                         const DomainGrid&  a_mesh,
@@ -209,7 +235,7 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    Real fourOverAlpha = 4.0/m_alpha;   
    
    std::array<Real,3> deltaU;
-   Real theta, phi; 
+   Real R, costh, sinth, phi; 
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
@@ -329,9 +355,11 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
                numCollisions = numCollisions + 1;
                
                //compute deltaU
-               theta = Constants::TWOPI*MathUtils::rand();
+               R = MathUtils::rand();
+               costh = 1.0 - 2.0*R;
+               sinth = sqrt(1.0 - costh*costh);
                phi = Constants::TWOPI*MathUtils::rand();
-               ParticleUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta,phi);
+               ScatteringUtils::computeDeltaU(deltaU,this_betap1,this_betap2,costh,sinth,phi);
                //deltaU = {0,0,0};
 
                // update particle velocities

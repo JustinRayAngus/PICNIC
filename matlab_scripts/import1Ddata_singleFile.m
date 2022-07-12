@@ -181,16 +181,16 @@ if(isCellBox || isNodeBox)
         thisdata = patchData.proc(m).data;
         i0 = patchData.proc(m).i0 + ig;
         i1 = patchData.proc(m).i1 - ig;
-        data0cc(i0:i1,n) = thisdata(1+ig:end-ig,n);
+        data0cc(i0:i1,:) = thisdata(1+ig:end-ig,:);
     end
 else
     for d=1:SpaceDim
         for m=1:numProcs
-            N = n + nComps*(d-1);
+            N = 1 + nComps*(d-1);
             thisdata = patchData.proc(m).dir(d).data;
             i0 = patchData.proc(m).dir(d).i0 + ig;
             i1 = patchData.proc(m).dir(d).i1 - ig;
-            data0cc(i0:i1,N) = thisdata(1+ig:end-ig,n);
+            data0cc(i0:i1,N:N+nComps-1) = thisdata(1+ig:end-ig,:);
         end
     end
 end

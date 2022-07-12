@@ -1,0 +1,396 @@
+#####################################################
+#
+#  1 Td = 1.0e-17 V-cm^2 = 1.0e-20 kV-cm^2
+#
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+
+system.advance_method = "PIC_EM_EXPLICIT"
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 2
+simulation.max_step            = 1000000000
+simulation.max_time            = 10.0
+#simulation.cfl_number          = 0.5
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 5.0e-3
+#simulation.plot_interval       = 1000
+simulation.dt_scatter_interval = 100 
+simulation.plot_time_interval  = 10.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+history.precision = 8
+history.solver_probes = true
+history.field_probes = true
+history.field_bdry_probes = true
+history.scattering_probes = true
+history.species0_probes = true
+history.species1_probes = true
+history.species2_probes = true
+history.species3_probes = true
+history.species4_probes = true
+history.species5_probes = true
+history.species6_probes = true
+#
+simulation.checkpoint_time_interval = 100.0
+#simulation.restart_file = "checkpoint_data/chk100000.1d.hdf5"
+simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 200
+grid.is_periodic   = 1
+grid.config_decomp = 25
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.0
+grid.X_max = 10.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = false
+em_fields.external_fields = false
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# Species 0
+
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = true
+
+IC.electron.X_min = 1.0
+IC.electron.X_max = 1.05
+IC.electron.use_float_for_weights = true
+IC.electron.parts_per_cell = 5000
+IC.electron.density.type = "constant"
+IC.electron.density.value = 1.00e21 # [number/m^3]
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 1.0 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 1.0 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 1.0 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 1.8728e7 # [m/s]
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+# Species 1 (ground state molecular deuterium)
+
+pic_species.1.name   = "D2X"
+pic_species.1.mass   = 7343.0
+pic_species.1.potential = 0.0
+pic_species.1.charge = 0
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = true
+
+IC.D2X.X_min = 0.0
+IC.D2X.X_max = 10.0
+IC.D2X.use_float_for_weights = true
+IC.D2X.parts_per_cell = 100
+IC.D2X.density.type = "constant"
+IC.D2X.density.value = 0.50e23 # [number/m^3]
+IC.D2X.temperature_0.type = "constant"
+IC.D2X.temperature_0.value = 0.1 # [eV]
+IC.D2X.temperature_1.type = "constant"
+IC.D2X.temperature_1.value = 0.1 # [eV]
+IC.D2X.temperature_2.type = "constant"
+IC.D2X.temperature_2.value = 0.1 # [eV]
+IC.D2X.velocity_0.type = "constant"
+IC.D2X.velocity_0.value = 0.0
+IC.D2X.velocity_1.type = "constant"
+IC.D2X.velocity_1.value = 0.0
+IC.D2X.velocity_2.type = "constant"
+IC.D2X.velocity_2.value = 0.0
+
+# Species 2 (excited state molecular deuterium)
+
+pic_species.2.name   = "D2B"
+pic_species.2.mass   = 7343.0
+pic_species.2.potential = 11.18
+pic_species.2.charge = 0
+pic_species.2.motion = true
+pic_species.2.forces = true
+pic_species.2.scatter = true
+
+IC.D2B.X_min = 0.0
+IC.D2B.X_max = 10.0
+IC.D2B.use_float_for_weights = true
+IC.D2B.parts_per_cell = 100
+IC.D2B.density.type = "constant"
+IC.D2B.density.value = 0.50e23 # [number/m^3]
+IC.D2B.temperature_0.type = "constant"
+IC.D2B.temperature_0.value = 0.1 # [eV]
+IC.D2B.temperature_1.type = "constant"
+IC.D2B.temperature_1.value = 0.1 # [eV]
+IC.D2B.temperature_2.type = "constant"
+IC.D2B.temperature_2.value = 0.1 # [eV]
+IC.D2B.velocity_0.type = "constant"
+IC.D2B.velocity_0.value = 0.0
+IC.D2B.velocity_1.type = "constant"
+IC.D2B.velocity_1.value = 0.0
+IC.D2B.velocity_2.type = "constant"
+IC.D2B.velocity_2.value = 0.0
+
+# Species 3 (molecular deuterium ion)
+
+pic_species.3.name   = "D2ion"
+pic_species.3.mass   = 7342.0
+pic_species.3.potential = 0.0
+pic_species.3.charge = 1
+pic_species.3.motion = true
+pic_species.3.forces = true
+pic_species.3.scatter = true
+
+# Species 4 (ground state atomic deuterium)
+
+pic_species.4.name   = "D1s"
+pic_species.4.mass   = 3671.5
+pic_species.4.charge = 0
+pic_species.4.charge = 0
+pic_species.4.motion = true
+pic_species.4.forces = true
+pic_species.4.scatter = true
+
+# Species 5 (excited state atomic deuterium)
+
+pic_species.5.name   = "D2s2p"
+pic_species.5.mass   = 3671.5
+pic_species.5.charge = 0
+pic_species.5.potential = 10.2
+pic_species.5.motion = true
+pic_species.5.forces = true
+pic_species.5.scatter = true
+
+# Species 6 (atomic deuterium ion)
+
+pic_species.6.name   = "Dion"
+pic_species.6.mass   = 3670.5
+pic_species.6.charge = 1
+pic_species.6.motion = true
+pic_species.6.forces = true
+pic_species.6.scatter = true
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.weight_method = "conservative"
+#scattering.model_search_count_max = 200
+#scattering.coulomb.all = true
+#scattering.coulomb.model = "TA"
+#scattering.coulomb.coulomb_logarithm = 10.0
+
+#
+#   electron impact reactions
+#
+
+scattering.0.model = "MCN"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 1
+scattering.0.angular_scattering = "okhrimovskyy"
+scattering.0.weight_method = "conservative"
+scattering.0.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/eD2X_xsecs_forPICNIC.txt"
+scattering.0.num_exc = 1 # must match that in text file
+scattering.0.exc_species = 2
+scattering.0.num_dis = 4 # must match that in text file
+scattering.0.dis_species1 =  4  4  4  4
+scattering.0.dis_species2 =  4  5  6  6
+scattering.0.dis_species3 = -1 -1  0  0
+scattering.0.num_izn = 1 # must match that in text file
+scattering.0.izn_speciesE = 0
+scattering.0.izn_speciesI = 3
+
+scattering.1.model = "MCN"
+scattering.1.speciesA = 0
+scattering.1.speciesB = 2
+scattering.1.angular_scattering = "okhrimovskyy"
+scattering.1.weight_method = "conservative"
+scattering.1.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/eD2B_xsecs_forPICNIC.txt"
+scattering.1.num_exc = 1 # must match that in text file
+scattering.1.exc_species = 1
+scattering.1.num_dis = 4 # must match that in text file
+scattering.1.dis_species1 =  4  4  4  4
+scattering.1.dis_species2 =  4  5  6  6
+scattering.1.dis_species3 = -1 -1  0  0
+scattering.1.num_izn = 1 # must match that in text file
+scattering.1.izn_speciesE = 0
+scattering.1.izn_speciesI = 3
+
+scattering.2.model = "MCN"
+scattering.2.speciesA = 0
+scattering.2.speciesB = 3
+scattering.2.angular_scattering = "isotropic"
+scattering.2.weight_method = "conservative"
+scattering.2.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/eD2ion_xsecs_forPICNIC.txt"
+scattering.2.no_elastic = true
+#scattering.2.print_cross_sections = true
+scattering.2.num_exc = 0 # must match that in text file
+scattering.2.num_dis = 3 # must match that in text file
+scattering.2.dis_species1 =  4  4  6
+scattering.2.dis_species2 =  4  6  6
+scattering.2.dis_species3 = -1 -1  0
+scattering.2.num_izn = 0 # must match that in text file
+
+scattering.3.model = "MCN"
+scattering.3.speciesA = 0
+scattering.3.speciesB = 4
+scattering.3.angular_scattering = "okhrimovskyy"
+scattering.3.weight_method = "conservative"
+#scattering.3.use_loglog_interpolation = true
+scattering.3.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D1s_xsecs_forPICNIC.txt"
+scattering.3.num_exc = 1 # must match that in text file
+scattering.3.exc_species = 5
+scattering.3.num_dis = 0 # must match that in text file
+scattering.3.num_izn = 1 # must match that in text file
+scattering.3.izn_speciesE = 0
+scattering.3.izn_speciesI = 6
+
+scattering.4.model = "MCN"
+scattering.4.speciesA = 0
+scattering.4.speciesB = 5
+scattering.4.angular_scattering = "okhrimovskyy"
+scattering.4.weight_method = "conservative"
+#scattering.4.use_loglog_interpolation = true
+scattering.4.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D2s2p_xsecs_forPICNIC.txt"
+scattering.4.num_exc = 1 # must match that in text file
+scattering.4.exc_species = 4
+scattering.4.num_dis = 0 # must match that in text file
+scattering.4.num_izn = 1 # must match that in text file
+scattering.4.izn_speciesE = 0
+scattering.4.izn_speciesI = 6
+
+#
+#   elastic reactions
+#
+
+#scattering.5.model = "HS"
+#scattering.5.speciesA = 1
+#scattering.5.speciesB = 1
+
+#scattering.6.model = "HS"
+#scattering.6.speciesA = 2
+#scattering.6.speciesB = 2
+
+#scattering.7.model = "HS"
+#scattering.7.speciesA = 4
+#scattering.7.speciesB = 4
+
+#scattering.8.model = "HS"
+#scattering.8.speciesA = 5
+#scattering.8.speciesB = 5
+
+#scattering.9.model = "HS"
+#scattering.9.speciesA = 1
+#scattering.9.speciesB = 2
+
+#scattering.10.model = "HS"
+#scattering.10.speciesA = 1
+#scattering.10.speciesB = 4
+
+#scattering.11.model = "HS"
+#scattering.11.speciesA = 1
+#scattering.11.speciesB = 5
+
+#scattering.12.model = "HS"
+#scattering.12.speciesA = 2
+#scattering.12.speciesB = 4
+
+#scattering.13.model = "HS"
+#scattering.13.speciesA = 2
+#scattering.13.speciesB = 5
+
+#scattering.14.model = "HS"
+#scattering.14.speciesA = 4
+#scattering.14.speciesB = 5
+
+#
+#   charge exchange reactions
+#
+
+#scattering.15.model = "CEX"
+#scattering.15.speciesA = 3
+#scattering.15.speciesB = 1
+#scattering.15.cross_section_type = "text file"
+#scattering.15.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D2onD2_charge_exchange.txt"
+#scattering.15.weight_method = "conservative"
+
+#scattering.16.model = "CEX"
+#scattering.16.speciesA = 3
+#scattering.16.speciesB = 2
+#scattering.16.cross_section_type = "text file"
+#scattering.16.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D2onD2_charge_exchange.txt"
+#scattering.16.weight_method = "conservative"
+
+#scattering.17.model = "CEX"
+#scattering.17.speciesA = 3
+#scattering.17.speciesB = 4
+#scattering.17.cross_section_type = "text file"
+#scattering.17.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D2onD_charge_exchange.txt"
+#scattering.17.weight_method = "conservative"
+
+#scattering.18.model = "CEX"
+#scattering.18.speciesA = 3
+#scattering.18.speciesB = 5
+#scattering.18.cross_section_type = "text file"
+#scattering.18.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D2onD_charge_exchange.txt"
+#scattering.18.weight_method = "conservative"
+
+#scattering.19.model = "CEX"
+#scattering.19.speciesA = 6
+#scattering.19.speciesB = 1
+#scattering.19.cross_section_type = "text file"
+#scattering.19.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/DonD2_charge_exchange.txt"
+#scattering.19.weight_method = "conservative"
+
+#scattering.20.model = "CEX"
+#scattering.20.speciesA = 6
+#scattering.20.speciesB = 2
+#scattering.20.cross_section_type = "text file"
+#scattering.20.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/DonD2_charge_exchange.txt"
+#scattering.20.weight_method = "conservative"
+
+#scattering.21.model = "CEX"
+#scattering.21.speciesA = 6
+#scattering.21.speciesB = 4
+#scattering.21.cross_section_type = "text file"
+#scattering.21.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/DonD_charge_exchange.txt"
+#scattering.21.weight_method = "conservative"
+
+#scattering.22.model = "CEX"
+#scattering.22.speciesA = 6
+#scattering.22.speciesB = 5
+#scattering.22.cross_section_type = "text file"
+#scattering.22.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/DonD_charge_exchange.txt"
+#scattering.22.weight_method = "conservative"
+
+#####################################################
+

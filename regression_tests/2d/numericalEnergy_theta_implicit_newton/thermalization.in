@@ -15,7 +15,7 @@ simulation.fixed_random_seed = 1983
 #system.advance_method = "PIC_EM_EXPLICIT"
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
-system.iter_max = 6
+system.iter_max = 5
 system.iter_max_particles = 0
 system.freeze_particles_jacobian = true
 system.rel_tol = 1.0e-6
@@ -64,7 +64,7 @@ grid.num_cells     = 40 40
 grid.is_periodic   = 1  1
 grid.config_decomp = 5  5
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 1
+grid.num_ghosts    = 2
 
 grid.X_min = 0.0
 grid.X_max = 10.0 # 10*de0
@@ -85,6 +85,8 @@ units.time           = 1.77e-17  # s
 #####################################################
 em_fields.use = true
 em_fields.advance = true
+em_fields.write_rho = true
+em_fields.write_divs = true
 
 IC.em_fields.magnetic.0.type = "constant"
 IC.em_fields.magnetic.0.value = 0.0

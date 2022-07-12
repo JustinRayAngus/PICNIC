@@ -76,6 +76,7 @@ class Simulation
       int m_verbosity;
 
       int m_cur_step;
+      int m_restart_step;
       int m_max_step;
 
       Real m_cur_time;
@@ -86,12 +87,14 @@ class Simulation
 
       Real m_cur_dt;
       Real m_fixed_dt;
-      Real m_cfl;
       Real m_dt_light;
       Real m_dt_parts;
-      Real m_cfl_scatter;
       Real m_dt_scatter;
+      Real m_dt_specialOps;
+      Real m_cfl;
+      Real m_cfl_scatter;
       int m_dt_scatter_interval;
+      int m_dt_check_interval;
       bool m_adapt_dt;
       static const Real s_DT_EPS;
 

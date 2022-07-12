@@ -1456,6 +1456,42 @@ c     local variables
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
+      subroutine stag_interpolate(
+     &     CHF_BOX[box],
+     &     CHF_CONST_INT[dir],
+     &     CHF_CONST_INT[src_stag],
+     &     CHF_CONST_FRA1[src],
+     &     CHF_FRA1[dst]
+     &     )
+
+c     local variables
+      integer CHF_DDECL[i;j;k]
+      integer CHF_DDECL[ilo;jlo;klo]
+      integer CHF_DDECL[ihi;jhi;khi]
+      double precision dst0
+
+      CHF_DTERM[
+      ilo = CHF_ID(0,dir)*(1-src_stag);
+      jlo = CHF_ID(1,dir)*(1-src_stag);
+      klo = CHF_ID(2,dir)*(1-src_stag)]
+      
+      CHF_DTERM[
+      ihi = CHF_ID(0,dir)*src_stag;
+      jhi = CHF_ID(1,dir)*src_stag;
+      khi = CHF_ID(2,dir)*src_stag]
+
+      CHF_MULTIDO[box; i;j;k]
+
+         dst0 = ( src(CHF_IX[i+ihi;j+jhi;k+khi]) + src(CHF_IX[i-ilo;j-jlo;k-klo]) )/two
+         dst(CHF_IX[i;j;k]) = dst0
+          
+      CHF_ENDDO
+
+      return
+      end
+
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
       subroutine stag_grad_component(
      &     CHF_BOX[box],
      &     CHF_CONST_INT[dir],

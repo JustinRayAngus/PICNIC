@@ -3,7 +3,7 @@
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
    
       subroutine evenodd_bc(
-     &     CHF_FRA[f],
+     &     CHF_FRA1[f],
      &     CHF_BOX[bdrybox],
      &     CHF_CONST_INT[evenodd],
      &     CHF_CONST_INT[stag],
@@ -16,7 +16,6 @@ c
       integer CHF_AUTODECL[ibeg]
       integer CHF_AUTODECL[ng]
       integer isign
-      integer n,d,ng(0:CH_SPACEDIM-1)
 c
       isign = 2*iside-1
 c
@@ -30,7 +29,7 @@ c
       ibeg1 = ibdryboxlo1+CHF_ID(idir,1)*(1-iside)*ng1;
       ibeg2 = ibdryboxlo2+CHF_ID(idir,2)*(1-iside)*ng2]
 c
-      do n=0,nfcomp-1
+c      do n=0,nfcomp-1
       CHF_AUTOMULTIDO[bdrybox;i]
       
          CHF_DTERM[
@@ -38,10 +37,11 @@ c
          is1 = i1 + CHF_ID(idir,1)*(2*(ibeg1-i1)-1-isign*stag);
          is2 = i2 + CHF_ID(idir,2)*(2*(ibeg2-i2)-1-isign*stag)]
 
-         f(CHF_AUTOIX[i],n) = evenodd*f(CHF_AUTOIX[is],n)
+         f(CHF_AUTOIX[i]) = evenodd*f(CHF_AUTOIX[is])
+c         f(CHF_AUTOIX[i],n) = evenodd*f(CHF_AUTOIX[is],n)
 
       CHF_ENDDO
-      enddo
+c      enddo
 
       return
       end
@@ -108,7 +108,7 @@ c
       integer CHF_AUTODECL[ibeg]
       integer CHF_AUTODECL[ng]
       double precision ICbinary0
-      integer ng(0:CH_SPACEDIM-1)
+c      integer ng(0:CH_SPACEDIM-1)
 c
       CHF_DTERM[
       ng0 = CHF_UBOUND[bdrybox;0]-CHF_LBOUND[bdrybox;0]+1;
@@ -148,7 +148,7 @@ c
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc      
    
       subroutine extrap_bc(
-     &     CHF_FRA[f],
+     &     CHF_FRA1[f],
      &     CHF_BOX[bdrybox],
      &     CHF_CONST_INT[idir],
      &     CHF_CONST_INT[iside],
@@ -162,7 +162,6 @@ c
       integer CHF_AUTODECL[ibeg]
       integer CHF_AUTODECL[ng]
       integer isign
-      integer n,d,ng(0:CH_SPACEDIM-1)
 c
       isign = 2*iside-1
 c
@@ -179,7 +178,7 @@ c
       ibeg1 = ibdryboxlo1+CHF_ID(idir,1)*(1-iside)*ng1;
       ibeg2 = ibdryboxlo2+CHF_ID(idir,2)*(1-iside)*ng2]
 c
-      do n=0,nfcomp-1
+c      do n=0,nfcomp-1
       CHF_AUTOMULTIDO[bdrybox;i]
         
         CHF_DTERM[
@@ -193,20 +192,20 @@ c
           ii2 = i2 + CHF_ID(idir,2)*(iside-1)*(2*(i2-ibeg2)+ng2+1)]
 
           if(order.eq.2) then
-             f(CHF_AUTOIX[ii],n) =
-     &                   2*f(CHF_IX[ii0-  iii0;ii1-  iii1;ii2-  iii2],n)
-     &                 - 1*f(CHF_IX[ii0-2*iii0;ii1-2*iii1;ii2-2*iii2],n)
+             f(CHF_AUTOIX[ii]) =
+     &                   2*f(CHF_IX[ii0-  iii0;ii1-  iii1;ii2-  iii2])
+     &                 - 1*f(CHF_IX[ii0-2*iii0;ii1-2*iii1;ii2-2*iii2])
 
           else
-             f(CHF_AUTOIX[ii],n) =
-     &                   4*f(CHF_IX[ii0-  iii0;ii1-  iii1;ii2-  iii2],n)
-     &                 - 6*f(CHF_IX[ii0-2*iii0;ii1-2*iii1;ii2-2*iii2],n)
-     &                 + 4*f(CHF_IX[ii0-3*iii0;ii1-3*iii1;ii2-3*iii2],n)
-     &                 - 1*f(CHF_IX[ii0-4*iii0;ii1-4*iii1;ii2-4*iii2],n)
+             f(CHF_AUTOIX[ii]) =
+     &                   4*f(CHF_IX[ii0-  iii0;ii1-  iii1;ii2-  iii2])
+     &                 - 6*f(CHF_IX[ii0-2*iii0;ii1-2*iii1;ii2-2*iii2])
+     &                 + 4*f(CHF_IX[ii0-3*iii0;ii1-3*iii1;ii2-3*iii2])
+     &                 - 1*f(CHF_IX[ii0-4*iii0;ii1-4*iii1;ii2-4*iii2])
           endif
 
       CHF_ENDDO
-      enddo
+c      enddo
 
       return
       end

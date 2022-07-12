@@ -747,6 +747,29 @@ SpaceUtils::faceInterpolate(  const int         a_dir,
   return;
 }
 
+void
+SpaceUtils::interpolateStag( FArrayBox&  a_dst, 
+                       const Box&        a_dst_box,
+                       const int         a_dst_comp,
+                       const FArrayBox&  a_src,
+                       const int         a_src_comp,
+                       const int         a_dir )
+{
+   // c2 interpolate from cell to node or node to cell 
+
+   const IntVect dst_box_type = a_dst.box().type();
+   const IntVect src_box_type = a_src.box().type();
+   const int src_is_stag = src_box_type[a_dir];
+   CH_assert(dst_box_type[a_dir]!=src_is_stag);  
+   
+   FORT_STAG_INTERPOLATE( CHF_BOX(a_dst_box),
+                          CHF_CONST_INT(a_dir),
+                          CHF_CONST_INT(src_is_stag),
+                          CHF_CONST_FRA1(a_src, a_src_comp),
+                          CHF_FRA1(a_dst, a_dst_comp) );
+
+}
+
 void 
 SpaceUtils::simpleStagGradComp( FArrayBox&  a_dst,
                           const Box&        a_grid_box,
@@ -1137,6 +1160,16 @@ SpaceUtils::copyAndFillGhostCellsSimple(  LevelData<FArrayBox>&       a_var_wg,
 }
 
 void 
+SpaceUtils::inspectFArrayBox( const FArrayBox&  a_F0,
+                              const Box&        a_box,
+                              const int         a_comp )
+{
+   CH_assert(a_comp<a_F0.nComp());
+   FORT_INSPECT_FARRAYBOX( CHF_BOX(a_box), 
+                           CHF_CONST_FRA1(a_F0,a_comp) );
+}
+
+void 
 SpaceUtils::inspectFArrayBox(const LevelData<FArrayBox>&  a_F0,
                              const int                    a_comp, 
                              const int                    a_ghosts )
@@ -1294,7 +1327,6 @@ SpaceUtils::exchangeFluxBox( LevelData<FluxBox>& a_Face )
    DataIterator dit = grids.dataIterator();
 
    // copy to a temporary
-   //
    LevelData<FluxBox> tmp_Face(grids, a_Face.nComp());
    for (dit.begin(); dit.ok(); ++dit) {
       for (int dir=0; dir<SpaceDim; ++dir) { 
@@ -1305,9 +1337,6 @@ SpaceUtils::exchangeFluxBox( LevelData<FluxBox>& a_Face )
    }
 
    // call exchange on passed FluxBox
-   //
-   //const IntVect ghostVect = a_Face.ghostVect();
-   //if(ghostVect!=IntVect::Zero) a_Face.exchange();
    a_Face.exchange();
 
    // now use the original data stored in temp to modify
@@ -1317,22 +1346,17 @@ SpaceUtils::exchangeFluxBox( LevelData<FluxBox>& a_Face )
    // to be the "correct" value
 
    for (dit.begin(); dit.ok(); ++dit) {
-
       FluxBox& thisTemp = tmp_Face[dit];
       FluxBox& thisFace = a_Face[dit];
-
       for (int dir=0; dir<SpaceDim; dir++) {
-        
-         // define a face-centered box on the low-side of this
-         // grid box
          Box loFaceBox=thisTemp[dir].box();
          loFaceBox.setBig(dir,loFaceBox.smallEnd(dir));
-
          copy(thisFace[dir],thisTemp[dir],loFaceBox);
-
-      } // end loop over directions
-
-   } // end loop over grids on this level
+      }
+   }
+ 
+   // exchange again is for the purpose of actual ghost cells (not shared cells)
+   a_Face.exchange();
 
 }
 
@@ -1345,7 +1369,6 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
    DataIterator dit = grids.dataIterator();
 
    // copy to a temporary
-   //
    LevelData<EdgeDataBox> tmp_Edge(grids, a_Edge.nComp());
    for (dit.begin(); dit.ok(); ++dit) {
       for (int dir=0; dir<SpaceDim; ++dir) { 
@@ -1356,7 +1379,6 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
    }
 
    // call exchange on passed EdgeDataBox
-   //
    a_Edge.exchange();
 
    // now use the original data stored in temp to modify
@@ -1368,33 +1390,24 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
    for (dit.begin(); dit.ok(); ++dit) {
       EdgeDataBox& thisTemp = tmp_Edge[dit];
       EdgeDataBox& thisEdge = a_Edge[dit];
-
       for (int dir=0; dir<SpaceDim; dir++) {
-         // define a edge-centered box on the low-side of this
-         // grid box
          for (int dir0=0; dir0<SpaceDim; dir0++) {
              if(dir0!=dir) {
                 Box loEdgeBox=thisTemp[dir].box();
                 loEdgeBox.setBig(dir0,loEdgeBox.smallEnd(dir0));
- 
-                // now copy from temp->Edge on the low edge.
-                // we can be a bit cavalier about this, because
-                // on the edges which are not shared between grids,
-                // exchange shouldn't have changed anything anyway
-                //thisEdge[dir].copy(thisTemp[dir],loEdgeBox);
                 copy(thisEdge[dir],thisTemp[dir],loEdgeBox);
              }
          }
-
-      } // end loop over directions
-
-   } // end loop over grids on this level
+      }
+   }
+   
+   // exchange again is for the purpose of actual ghost cells (not shared cells)
+   a_Edge.exchange();
 
 }
 
 void
-SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node,
-                             const DomainGrid&  a_mesh )
+SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node )
 {
    CH_TIME("SpaceUtils::exchangeNodeFArrayBox()");
   
@@ -1422,7 +1435,7 @@ SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node,
    // now use the original data stored in temp to modify
    // the exchanged Node data such that all shared values are identical
 
-   const ProblemDomain& domain(a_mesh.getDomain()); 
+   const ProblemDomain& domain( grids.physDomain() ); 
    Box domainNodeBox = domain.domainBox();
    domainNodeBox.surroundingNodes();
    const IntVect domainNodeHi = domainNodeBox.bigEnd();
@@ -1515,7 +1528,6 @@ SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node,
    
    // exchange again is for the purpose of actual ghost cells (not shared cells)
    a_Node.exchange();
-
    
 }
 

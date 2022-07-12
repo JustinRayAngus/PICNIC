@@ -44,6 +44,9 @@ class GridFunction
       void assign( LevelData<NodeFArrayBox>&  a_data,
              const DomainGrid&                a_mesh,
              const Real&                      a_time ) const;
+      
+      // return function value at location a_X
+      virtual Real getValue( const RealVect&  a_X ) const = 0;
 
       // Print object parameters.
       virtual void printParameters() const = 0;
@@ -51,7 +54,6 @@ class GridFunction
    protected:
    
       virtual void setPointwise( FArrayBox&   a_dfn,
-                           const DomainGrid&  a_mesh,
                            const FArrayBox&   a_real_coords ) const = 0;
       
       bool m_verbosity;

@@ -53,6 +53,14 @@ public:
   virtual const RealVect& getXmax() const {return m_Xmax;}
  
   virtual const bool axisymmetric() const { return m_axisymmetric; }
+  
+  virtual const bool anticyclic() const { return m_anticyclic; }
+  
+  virtual const std::string geomType() const { return m_geom_type; }
+  
+  virtual const bool writeJacobians() const { return m_write_jacobians; }
+  
+  virtual const bool writeCorrectedJacobians() const { return m_write_corrected_jacobians; }
  
   virtual const int ghosts() const { return m_ghosts; }
   
@@ -85,14 +93,26 @@ public:
   virtual const LevelData<EdgeDataBox>& getMaskedJec() const {return m_masked_Jec;}
   
   virtual const LevelData<NodeFArrayBox>& getMaskedJnc() const {return m_masked_Jnc;}
+  
+  virtual const LevelData<FluxBox>& getCorrectedJfc() const {return m_corrected_Jfc;}
+  
+  virtual const LevelData<EdgeDataBox>& getCorrectedJec() const {return m_corrected_Jec;}
+  
+  virtual const LevelData<NodeFArrayBox>& getCorrectedJnc() const {return m_corrected_Jnc;}
+
 
 private:
   
   bool m_axisymmetric;
+  bool m_anticyclic;
+  bool m_write_jacobians;
+  bool m_write_corrected_jacobians;
   int m_ghosts;
  
   Copier m_forwardCopier; 
   Copier m_reverseCopier; 
+      
+  std::string m_geom_type; 
  
   RealVect m_Xmin, m_Xmax, m_dX;
   double m_mapped_cell_volume;
@@ -118,6 +138,12 @@ private:
   LevelData<FluxBox> m_masked_Jfc;
   LevelData<EdgeDataBox> m_masked_Jec;
   LevelData<NodeFArrayBox> m_masked_Jnc;
+  
+  // corrected Jacobian needed for correct charge and current 
+  // density accumulation in curvilinear coords (see Verboncoeur)
+  LevelData<FluxBox> m_corrected_Jfc;
+  LevelData<EdgeDataBox> m_corrected_Jec;
+  LevelData<NodeFArrayBox> m_corrected_Jnc;
 
   void setRealCoords();
   

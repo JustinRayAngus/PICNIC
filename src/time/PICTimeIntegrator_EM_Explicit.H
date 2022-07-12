@@ -41,11 +41,38 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
       m_B.define(m_fields->getVectorSize(b_only));
       m_Bold.define(m_B);
       m_FB.define(m_B);
+    
+      // parse options for this integrator
+      ParmParse pp("pic_em_explicit");
+
+      // old ordering is not compatible with Boris method for inertia
+      m_old_ordering = true;
+      pp.query("old_ordering", m_old_ordering);
+
+      if(!procID()) {
+         cout << "advance method = PIC_EM_EXPLICIT" << endl;
+         cout << "old ordering = " << m_old_ordering << endl;
+         cout << endl;
+      }
 
       m_is_defined = true;
+      
+      if(m_old_ordering) {
+        for (int s=0; s<m_particles.size(); s++) {
+          auto this_picSpecies(m_particles[s]);
+          bool boris_inertia = this_picSpecies->borisInertia();
+          if(boris_inertia) { 
+            cout << "old ordering is incompatible with Boris method for inertia !!!"  << endl;
+          }
+          CH_assert(!boris_inertia);
+        }
+      }
+    
     }
 
     virtual void initialize();
+    
+    virtual int prepForCheckpoint() const;
 
     inline virtual 
     bool isDefined() const { return m_is_defined; }
@@ -59,6 +86,7 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
   protected:
 
     bool m_is_defined;
+    bool m_old_ordering;
 
     System*                 m_system;
     PicSpeciesPtrVect       m_particles;

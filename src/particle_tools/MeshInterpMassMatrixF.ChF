@@ -1,0 +1,908 @@
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  Deposits particles to mass matrix in 1D using CIC interpolation
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine cic_1d_deposit_mass_matrix(
+     &                       CHF_FRA[sigmaxx],
+     &                       CHF_FRA[sigmaxy],
+     &                       CHF_FRA[sigmaxz],
+     &                       CHF_FRA[sigmayx],
+     &                       CHF_FRA[sigmayy],
+     &                       CHF_FRA[sigmayz],
+     &                       CHF_FRA[sigmazx],
+     &                       CHF_FRA[sigmazy],
+     &                       CHF_FRA[sigmazz],
+     &                       CHF_FRA1[Jtx],
+     &                       CHF_FRA1[Jty],
+     &                       CHF_FRA1[Jtz],
+     &                       CHF_CONST_FRA1[Bgx],
+     &                       CHF_CONST_FRA1[Bgy],
+     &                       CHF_CONST_FRA1[Bgz],
+     &                       CHF_CONST_REALVECT[left_edge],
+     &                       CHF_CONST_REALVECT[dx],
+     &                       CHF_CONST_REALVECT[xp],
+     &                       CHF_CONST_REAL[vpx], 
+     &                       CHF_CONST_REAL[vpy], 
+     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_REAL[qp] ) 
+
+      integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
+      integer idir, xy_comp0, yx_comp0, off_diag_comp, ii_base0
+      REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
+      REAL_T volume, rhop, weight 
+      REAL_T wx_dn, wx_up, wx_dn_stag, wx_up_stag
+      REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+
+      REAL_T alphasSq, BpSq, gammap, arogp
+      Real_T fpxx, fpxy, fpxz
+      Real_T fpyx, fpyy, fpyz
+      Real_T fpzx, fpzy, fpzz
+      
+      REAL_T vpBp, rogp
+      Real_T fpx, fpy, fpz
+      Real_T Bpx, Bpy, Bpz
+
+c     compute the cell volume and particle density on the grid
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+      rhop = qp / volume
+
+c     compute the index of the left most cell/edge that contains this particle cloud
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
+      enddo
+
+c     compute the magnetic field at this particle
+      Bpx = 0.0      
+      Bpy = 0.0      
+      Bpz = 0.0      
+      CHF_DTERM[
+      do ii = index(0), index(0) + 1
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0);
+        do jj = index(1), index(1) + 1
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1);
+          do kk = index(2), index(2) + 1
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2) ]
+
+            CHF_DTERM[ 
+            w0 = 1.d0 - abs(l0 / dx(0));
+            w1 = 1.d0 - abs(l1 / dx(1));
+            w2 = 1.d0 - abs(l2 / dx(2))]
+            
+            CHF_DTERM[ 
+            w0_stag = 1.d0 - abs(l0_stag / dx(0));
+            w1_stag = 1.d0 - abs(l1_stag / dx(1));
+            w2_stag = 1.d0 - abs(l2_stag / dx(2))]
+
+            weight = CHF_DTERM[w0_stag; *w1; *w2]
+            Bpx = Bpx + weight*Bgx(CHF_IX[ii_stag; jj; kk])
+            
+            weight = CHF_DTERM[w0; *w1_stag; *w2]
+            Bpy = Bpy + weight*Bgy(CHF_IX[ii; jj_stag; kk])
+            
+            weight = CHF_DTERM[w0; *w1; *w2_stag]
+            Bpz = Bpz + weight*Bgz(CHF_IX[ii; jj; kk_stag])
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+c     determine how to set comps for xy, xz, yx, and zx components
+      if(index(0)==index_stag(0)) then
+        xy_comp0 = 1
+        yx_comp0 = 2
+      else
+        xy_comp0 = 2
+        yx_comp0 = 1
+      endif
+
+c     compute components of mass matrix kernals to deposit
+      alphasSq = alphas*alphas
+      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
+      gammap = 1.0 + alphasSq*Bpsq
+      rogp = rhop/gammap
+      arogp = alphas*rogp
+
+      fpxx = arogp*(1.0 + alphasSq*Bpx*Bpx)
+      fpxy = arogp*(alphas*Bpz + alphasSq*Bpx*Bpy)
+      fpxz = arogp*(-alphas*Bpy + alphasSq*Bpx*Bpz)
+
+      fpyx = arogp*(-alphas*Bpz + alphasSq*Bpy*Bpx)
+      fpyy = arogp*(1.0 + alphasSq*Bpy*Bpy)
+      fpyz = arogp*(alphas*Bpx + alphasSq*Bpy*Bpz)
+
+      fpzx = arogp*(alphas*Bpy + alphasSq*Bpz*Bpx)
+      fpzy = arogp*(-alphas*Bpx + alphasSq*Bpz*Bpy)
+      fpzz = arogp*(1.0 + alphasSq*Bpz*Bpz)
+      
+c     compute components of Jtilde kernals to deposit
+      fpx = rogp*(vpx - alphas*(Bpy*vpz - Bpz*vpy) + alphasSq*vpBp*Bpx)
+      fpy = rogp*(vpy - alphas*(Bpz*vpx - Bpx*vpz) + alphasSq*vpBp*Bpy)
+      fpz = rogp*(vpz - alphas*(Bpx*vpy - Bpy*vpx) + alphasSq*vpBp*Bpz)
+
+c     loop over all the cells containing this particle cloud,
+c     computing weight and assigning mass
+      CHF_DTERM[
+      do ii = index(0), index(0) + 1
+        ii_base0 = ii-index(0)
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0);
+        do jj = index(1), index(1) + 1
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1);
+          do kk = index(2), index(2) + 1
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2) ]
+
+            CHF_DTERM[ 
+            w0 = 1.d0 - abs(l0 / dx(0));
+            w1 = 1.d0 - abs(l1 / dx(1));
+            w2 = 1.d0 - abs(l2 / dx(2))]
+            
+            CHF_DTERM[ 
+            w0_stag = 1.d0 - abs(l0_stag / dx(0));
+            w1_stag = 1.d0 - abs(l1_stag / dx(1));
+            w2_stag = 1.d0 - abs(l2_stag / dx(2))]
+
+            if(ii.eq.index(0)) then
+               off_diag_comp = 2
+               wx_dn = w0
+               wx_up = 1.0 - w0
+               wx_dn_stag = w0_stag
+               wx_up_stag = 1.0 - w0_stag
+            else
+               off_diag_comp = 0
+            endif
+
+c    deposit particle contribution to x-comp of tensor
+
+            weight = CHF_DTERM[w0; *w1_stag; *w2_stag]
+            sigmaxx(CHF_IX[ii; jj_stag; kk_stag],1) = 
+     &      sigmaxx(CHF_IX[ii; jj_stag; kk_stag],1) + fpxx * weight * weight
+            sigmaxx(CHF_IX[ii; jj_stag; kk_stag],off_diag_comp) = 
+     &      sigmaxx(CHF_IX[ii; jj_stag; kk_stag],off_diag_comp) + fpxx * weight * (1.0-weight)
+            
+            sigmaxy(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0) = 
+     &      sigmaxy(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0) + fpxy * weight * wx_dn_stag
+            sigmaxy(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0+1) = 
+     &      sigmaxy(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0+1) + fpxy * weight * wx_up_stag
+            
+            sigmaxz(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0) = 
+     &      sigmaxz(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0) + fpxz * weight * wx_dn_stag
+            sigmaxz(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0+1) = 
+     &      sigmaxz(CHF_IX[ii; jj_stag; kk_stag],xy_comp0-ii_base0+1) + fpxz * weight * wx_up_stag
+            
+            Jtx(CHF_IX[ii; jj_stag; kk_stag]) = 
+     &      Jtx(CHF_IX[ii; jj_stag; kk_stag]) + fpx * weight
+
+c    deposit particle contribution to y-comp of tensor
+            
+            weight = CHF_DTERM[w0_stag; *w1; *w2_stag]
+            sigmayx(CHF_IX[ii_stag; jj; kk_stag],yx_comp0-ii_base0) = 
+     &      sigmayx(CHF_IX[ii_stag; jj; kk_stag],yx_comp0-ii_base0) + fpyx * weight * wx_dn
+            sigmayx(CHF_IX[ii_stag; jj; kk_stag],yx_comp0-ii_base0+1) = 
+     &      sigmayx(CHF_IX[ii_stag; jj; kk_stag],yx_comp0-ii_base0+1) + fpyx * weight * wx_up
+
+            sigmayy(CHF_IX[ii_stag; jj; kk_stag],1) = 
+     &      sigmayy(CHF_IX[ii_stag; jj; kk_stag],1) + fpyy * weight * weight
+            sigmayy(CHF_IX[ii_stag; jj; kk_stag],off_diag_comp) = 
+     &      sigmayy(CHF_IX[ii_stag; jj; kk_stag],off_diag_comp) + fpyy * weight * (1.0-weight)
+
+            sigmayz(CHF_IX[ii_stag; jj; kk_stag],1) = 
+     &      sigmayz(CHF_IX[ii_stag; jj; kk_stag],1) + fpyz * weight * weight
+            sigmayz(CHF_IX[ii_stag; jj; kk_stag],off_diag_comp) = 
+     &      sigmayz(CHF_IX[ii_stag; jj; kk_stag],off_diag_comp) + fpyz * weight * (1.0-weight)
+            
+            Jty(CHF_IX[ii_stag; jj; kk_stag]) = 
+     &      Jty(CHF_IX[ii_stag; jj; kk_stag]) + fpy * weight
+
+c    deposit particle contribution to z-comp of tensor
+            
+            weight = CHF_DTERM[w0_stag; *w1_stag; *w2]
+            sigmazx(CHF_IX[ii_stag; jj_stag; kk],yx_comp0-ii_base0) = 
+     &      sigmazx(CHF_IX[ii_stag; jj_stag; kk],yx_comp0-ii_base0) + fpzx * weight * wx_dn
+            sigmazx(CHF_IX[ii_stag; jj_stag; kk],yx_comp0-ii_base0+1) = 
+     &      sigmazx(CHF_IX[ii_stag; jj_stag; kk],yx_comp0-ii_base0+1) + fpzx * weight * wx_up
+            
+            sigmazy(CHF_IX[ii_stag; jj_stag; kk],1) = 
+     &      sigmazy(CHF_IX[ii_stag; jj_stag; kk],1) + fpzy * weight * weight
+            sigmazy(CHF_IX[ii_stag; jj_stag; kk],off_diag_comp) = 
+     &      sigmazy(CHF_IX[ii_stag; jj_stag; kk],off_diag_comp) + fpzy * weight * (1.0-weight)
+
+            sigmazz(CHF_IX[ii_stag; jj_stag; kk],1) = 
+     &      sigmazz(CHF_IX[ii_stag; jj_stag; kk],1) + fpzz * weight * weight
+            sigmazz(CHF_IX[ii_stag; jj_stag; kk],off_diag_comp) = 
+     &      sigmazz(CHF_IX[ii_stag; jj_stag; kk],off_diag_comp) + fpzz * weight * (1.0-weight)
+            
+            Jtz(CHF_IX[ii_stag; jj_stag; kk]) = 
+     &      Jtz(CHF_IX[ii_stag; jj_stag; kk]) + fpz * weight
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+      end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  Deposits particles to mass matrix in 1D using CC0 interpolation
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine cc0_1d_deposit_mass_matrix(
+     &                       CHF_FRA[sigmaxx],
+     &                       CHF_FRA[sigmaxy],
+     &                       CHF_FRA[sigmaxz],
+     &                       CHF_FRA[sigmayx],
+     &                       CHF_FRA[sigmayy],
+     &                       CHF_FRA[sigmayz],
+     &                       CHF_FRA[sigmazx],
+     &                       CHF_FRA[sigmazy],
+     &                       CHF_FRA[sigmazz],
+     &                       CHF_FRA1[Jtx],
+     &                       CHF_FRA1[Jty],
+     &                       CHF_FRA1[Jtz],
+     &                       CHF_CONST_FRA1[Bgx],
+     &                       CHF_CONST_FRA1[Bgy],
+     &                       CHF_CONST_FRA1[Bgz],
+     &                       CHF_CONST_REALVECT[left_edge],
+     &                       CHF_CONST_REALVECT[dx],
+     &                       CHF_CONST_REALVECT[xpold],
+     &                       CHF_CONST_REALVECT[xpbar],
+     &                       CHF_CONST_REAL[vpx], 
+     &                       CHF_CONST_REAL[vpy], 
+     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_REAL[qp] ) 
+
+      integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
+      integer idir, xy_comp0, yx_comp0, off_diag_comp
+      REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
+      REAL_T volume, rhop, weight 
+      REAL_T wx_dn_stag, wx_up_stag
+      REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+
+      REAL_T alphasSq, BpSq, gammap, arogp
+      Real_T fpxx, fpxy, fpxz
+      Real_T fpyx, fpyy, fpyz
+      Real_T fpzx, fpzy, fpzz
+      
+      REAL_T vpBp, rogp
+      Real_T fpx, fpy, fpz
+      Real_T Bpx, Bpy, Bpz
+      
+c     maximum of 2 cell crossings allowed
+      integer nn, i0, num_segments
+      integer index_old, index_new, index_min
+      REAL_T dXp(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T Xcell, Deltap_vec(0:2)
+
+c     compute the cell volume and particle density on the grid
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+      rhop = qp / volume
+
+c     compute the index of the left most cell/edge that contains this particle cloud
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
+      enddo
+
+c     compute the magnetic field at this particle
+      Bpx = 0.0      
+      Bpy = 0.0      
+      Bpz = 0.0      
+      CHF_DTERM[
+      do ii = index(0), index(0) + 1
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xpbar(0) + left_edge(0)
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0);
+        do jj = index(1), index(1) + 1
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xpbar(1) + left_edge(1)
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xpbar(1) + left_edge(1);
+          do kk = index(2), index(2) + 1
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xpbar(2) + left_edge(2)
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xpbar(2) + left_edge(2) ]
+
+            CHF_DTERM[ 
+            w0 = 1.d0 - abs(l0 / dx(0));
+            w1 = 1.d0 - abs(l1 / dx(1));
+            w2 = 1.d0 - abs(l2 / dx(2))]
+            
+            CHF_DTERM[ 
+            w0_stag = 1.d0 - abs(l0_stag / dx(0));
+            w1_stag = 1.d0 - abs(l1_stag / dx(1));
+            w2_stag = 1.d0 - abs(l2_stag / dx(2))]
+
+            weight = CHF_DTERM[w0_stag; *w1; *w2]
+            Bpx = Bpx + weight*Bgx(CHF_IX[ii_stag; jj; kk])
+            
+            weight = CHF_DTERM[w0; *w1_stag; *w2]
+            Bpy = Bpy + weight*Bgy(CHF_IX[ii; jj_stag; kk])
+            
+            weight = CHF_DTERM[w0; *w1; *w2_stag]
+            Bpz = Bpz + weight*Bgz(CHF_IX[ii; jj; kk_stag])
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+c     determine how to set comps for xy, xz, yx, and zx components
+      if(index(0)==index_stag(0)) then
+        xy_comp0 = 1
+        yx_comp0 = 2
+      else
+        xy_comp0 = 2
+        yx_comp0 = 1
+      endif
+
+c     compute components of mass matrix kernals to deposit
+      alphasSq = alphas*alphas
+      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
+      gammap = 1.0 + alphasSq*Bpsq
+      rogp = rhop/gammap
+      arogp = alphas*rogp
+
+      fpxx = arogp*(1.0 + alphasSq*Bpx*Bpx)
+      fpxy = arogp*(alphas*Bpz + alphasSq*Bpx*Bpy)
+      fpxz = arogp*(-alphas*Bpy + alphasSq*Bpx*Bpz)
+
+      fpyx = arogp*(-alphas*Bpz + alphasSq*Bpy*Bpx)
+      fpyy = arogp*(1.0 + alphasSq*Bpy*Bpy)
+      fpyz = arogp*(alphas*Bpx + alphasSq*Bpy*Bpz)
+
+      fpzx = arogp*(alphas*Bpy + alphasSq*Bpz*Bpx)
+      fpzy = arogp*(-alphas*Bpx + alphasSq*Bpz*Bpy)
+      fpzz = arogp*(1.0 + alphasSq*Bpz*Bpz)
+      
+c     compute components of Jtilde kernals to deposit
+      fpx = rogp*(vpx - alphas*(Bpy*vpz - Bpz*vpy) + alphasSq*vpBp*Bpx)
+      fpy = rogp*(vpy - alphas*(Bpz*vpx - Bpx*vpz) + alphasSq*vpBp*Bpy)
+      fpz = rogp*(vpz - alphas*(Bpx*vpy - Bpy*vpx) + alphasSq*vpBp*Bpz)
+       
+c     loop over all the cells containing this particle cloud and deposit
+      do ii_stag = index_stag(0), index_stag(0) + 1
+        
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0)
+        w0_stag = 1.d0 - abs(l0_stag / dx(0))
+        weight = w0_stag
+            
+        if(ii_stag.eq.index_stag(0)) then
+          off_diag_comp = 2
+        else
+          off_diag_comp = 0
+        endif
+
+c    deposit particle contribution to y-comp of tensor
+            
+        sigmayy(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmayy(CHF_IX[ii_stag; 0; 0],1) + fpyy * weight * weight
+        sigmayy(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmayy(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpyy * weight * (1.0-weight)
+
+        sigmayz(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmayz(CHF_IX[ii_stag; 0; 0],1) + fpyz * weight * weight
+        sigmayz(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmayz(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpyz * weight * (1.0-weight)
+            
+        Jty(CHF_IX[ii_stag; 0; 0]) = 
+     &  Jty(CHF_IX[ii_stag; 0; 0]) + fpy * weight
+
+c    deposit particle contribution to z-comp of tensor
+            
+        sigmazy(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmazy(CHF_IX[ii_stag; 0; 0],1) + fpzy * weight * weight
+        sigmazy(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmazy(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpzy * weight * (1.0-weight)
+
+        sigmazz(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmazz(CHF_IX[ii_stag; 0; 0],1) + fpzz * weight * weight
+        sigmazz(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmazz(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpzz * weight * (1.0-weight)
+            
+        Jtz(CHF_IX[ii_stag; 0; 0]) = 
+     &  Jtz(CHF_IX[ii_stag; 0; 0]) + fpz * weight
+
+      enddo
+
+cccccccccccccccccccccccc
+c
+c     check for cell crossings and deposit Jx, sigma_x, sigma_yx, and sigma_zx
+c
+cccccccccccccccccccccccc
+
+c     compute the new particle position and dXp
+      do idir = 0, CH_SPACEDIM - 1
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
+        dXp(idir) = xpnew(idir) - xpold(idir)
+      enddo     
+      i0 = 0
+
+c     precompute some weights 
+      l0_stag = xpbar(0) - index_stag(0)*dx(0) - left_edge(0)
+      wx_up_stag = l0_stag/dx(0)
+      wx_dn_stag = 1.d0 - wx_up_stag
+
+c     get index corresponding to cells where xpold, xpbar, and xpnew live
+      index_old = floor((xpold(0) - left_edge(0)) / dx(0))
+      index(i0) = index_stag(i0)
+      index_new = floor((xpnew(0) - left_edge(0)) / dx(0))
+
+c     compute the number of segments
+      num_segments = 1 + ABS(index_new - index_old)
+      index_min = min(index_old,index_new)
+
+      if(num_segments>3) then
+c       do something     
+      endif      
+
+c     pre-define Deltap for each segment
+      Deltap_vec(0) = 0.0
+      Deltap_vec(1) = 1.0
+      Deltap_vec(2) = 0.0
+      if(num_segments .eq. 2) then
+        if(index_min<index(i0)) then
+          Xcell = left_edge(i0) + index_stag(i0)*dx(i0)
+          Deltap_vec(0) = (Xcell - min(xpold(i0),xpnew(i0)))/abs(dXp(i0))
+          Deltap_vec(1) = 1.0 - Deltap_vec(0)
+        else
+          Xcell = left_edge(i0) + (index_stag(i0)+1.0)*dx(i0)
+          Deltap_vec(1) = (Xcell - min(xpold(i0),xpnew(i0)))/abs(dXp(i0))
+          Deltap_vec(2) = 1.0 - Deltap_vec(1)
+        endif
+      endif
+      if(num_segments .eq. 3) then
+        Xcell = left_edge(i0) + index_stag(i0)*dx(i0)
+        Deltap_vec(0) = (Xcell - min(xpold(i0),xpnew(i0)))/abs(dXp(i0))
+        Deltap_vec(1) = dx(i0)/abs(dXp(i0))
+        Deltap_vec(2) = 1.0 - Deltap_vec(0) - Deltap_vec(1)
+      endif
+      
+c     loop over all the segments and deposit
+      do nn = 0, 2
+
+        ii = index(i0) - 1 + nn
+        weight = Deltap_vec(nn)
+
+        if(weight>0.0) then     
+   
+c    conventional deposit for Jtx
+         Jtx(CHF_IX[ii; 0; 0]) = 
+     &   Jtx(CHF_IX[ii; 0; 0]) + fpx * weight
+
+c    deposit particle contribution to xx comps of tensor
+        
+         sigmaxx(CHF_IX[ii; 0; 0],2-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],2-nn) + fpxx * weight * Deltap_vec(0)
+         sigmaxx(CHF_IX[ii; 0; 0],3-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],3-nn) + fpxx * weight * Deltap_vec(1)
+         sigmaxx(CHF_IX[ii; 0; 0],4-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],4-nn) + fpxx * weight * Deltap_vec(2)
+
+c    deposit particle contribution to xy and xz comps of tensor
+
+         sigmaxy(CHF_IX[ii; 0; 0],2-nn) = 
+     &   sigmaxy(CHF_IX[ii; 0; 0],2-nn) + fpxy * weight * wx_dn_stag
+         sigmaxy(CHF_IX[ii; 0; 0],3-nn) = 
+     &   sigmaxy(CHF_IX[ii; 0; 0],3-nn) + fpxy * weight * wx_up_stag
+            
+         sigmaxz(CHF_IX[ii; 0; 0],2-nn) = 
+     &   sigmaxz(CHF_IX[ii; 0; 0],2-nn) + fpxz * weight * wx_dn_stag
+         sigmaxz(CHF_IX[ii; 0; 0],3-nn) = 
+     &   sigmaxz(CHF_IX[ii; 0; 0],3-nn) + fpxz * weight * wx_up_stag
+            
+c    deposit particle contribution to yx and zx comps of tensor
+
+         sigmayx(CHF_IX[index_stag(0); 0; 0],1+nn) = 
+     &   sigmayx(CHF_IX[index_stag(0); 0; 0],1+nn) + fpyx * weight * wx_dn_stag
+         sigmayx(CHF_IX[index_stag(0)+1; 0; 0],nn) = 
+     &   sigmayx(CHF_IX[index_stag(0)+1; 0; 0],nn) + fpyx * weight * wx_up_stag
+            
+         sigmazx(CHF_IX[index_stag(0); 0; 0],1+nn) = 
+     &   sigmazx(CHF_IX[index_stag(0); 0; 0],1+nn) + fpzx * weight * wx_dn_stag
+         sigmazx(CHF_IX[index_stag(0)+1; 0; 0],nn) = 
+     &   sigmazx(CHF_IX[index_stag(0)+1; 0; 0],nn) + fpzx * weight * wx_up_stag
+            
+        endif
+
+      enddo
+
+      end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  Deposits particles to mass matrix in 1D using CC1 interpolation
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine cc1_1d_deposit_mass_matrix(
+     &                       CHF_FRA[sigmaxx],
+     &                       CHF_FRA[sigmaxy],
+     &                       CHF_FRA[sigmaxz],
+     &                       CHF_FRA[sigmayx],
+     &                       CHF_FRA[sigmayy],
+     &                       CHF_FRA[sigmayz],
+     &                       CHF_FRA[sigmazx],
+     &                       CHF_FRA[sigmazy],
+     &                       CHF_FRA[sigmazz],
+     &                       CHF_FRA1[Jtx],
+     &                       CHF_FRA1[Jty],
+     &                       CHF_FRA1[Jtz],
+     &                       CHF_CONST_FRA1[Bgx],
+     &                       CHF_CONST_FRA1[Bgy],
+     &                       CHF_CONST_FRA1[Bgz],
+     &                       CHF_CONST_REALVECT[left_edge],
+     &                       CHF_CONST_REALVECT[dx],
+     &                       CHF_CONST_REALVECT[xpold],
+     &                       CHF_CONST_REALVECT[xpbar],
+     &                       CHF_CONST_REAL[vpx], 
+     &                       CHF_CONST_REAL[vpy], 
+     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_REAL[qp] ) 
+
+      integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
+      integer idir, xy_comp0, yx_comp0, off_diag_comp
+      REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
+      REAL_T volume, rhop, weight 
+      REAL_T wx_dn, wx_up, wx_dn_stag, wx_up_stag, weight_dn, weight_up
+      REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+
+      REAL_T alphasSq, BpSq, gammap, arogp
+      Real_T fpxx, fpxy, fpxz
+      Real_T fpyx, fpyy, fpyz
+      Real_T fpzx, fpzy, fpzz
+      
+      REAL_T vpBp, rogp
+      Real_T fpx, fpy, fpz
+      Real_T Bpx, Bpy, Bpz
+      
+c     maximum of 2 cell crossings allowed
+      integer nn, i0, num_segments, shift
+      integer index_old, index_new, index_min
+      REAL_T dXp(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T Xcell, Deltap_dn_vec(0:2), Deltap_up_vec(0:2), dXp_sub
+
+c     compute the cell volume and particle density on the grid
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+      rhop = qp / volume
+
+c     compute the index of the left most cell/edge that contains this particle cloud
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
+      enddo
+
+c     compute the magnetic field at this particle
+      Bpx = 0.0      
+      Bpy = 0.0      
+      Bpz = 0.0      
+      CHF_DTERM[
+      do ii = index(0), index(0) + 1
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xpbar(0) + left_edge(0)
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0);
+        do jj = index(1), index(1) + 1
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xpbar(1) + left_edge(1)
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xpbar(1) + left_edge(1);
+          do kk = index(2), index(2) + 1
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xpbar(2) + left_edge(2)
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xpbar(2) + left_edge(2) ]
+
+            CHF_DTERM[ 
+            w0 = 1.d0 - abs(l0 / dx(0));
+            w1 = 1.d0 - abs(l1 / dx(1));
+            w2 = 1.d0 - abs(l2 / dx(2))]
+            
+            CHF_DTERM[ 
+            w0_stag = 1.d0 - abs(l0_stag / dx(0));
+            w1_stag = 1.d0 - abs(l1_stag / dx(1));
+            w2_stag = 1.d0 - abs(l2_stag / dx(2))]
+
+            weight = CHF_DTERM[w0_stag; *w1; *w2]
+            Bpx = Bpx + weight*Bgx(CHF_IX[ii_stag; jj; kk])
+            
+            weight = CHF_DTERM[w0; *w1_stag; *w2]
+            Bpy = Bpy + weight*Bgy(CHF_IX[ii; jj_stag; kk])
+            
+            weight = CHF_DTERM[w0; *w1; *w2_stag]
+            Bpz = Bpz + weight*Bgz(CHF_IX[ii; jj; kk_stag])
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+c     determine how to set comps for xy, xz, yx, and zx components
+      if(index(0)==index_stag(0)) then
+        xy_comp0 = 1
+        yx_comp0 = 2
+      else
+        xy_comp0 = 2
+        yx_comp0 = 1
+      endif
+
+c     compute components of mass matrix kernals to deposit
+      alphasSq = alphas*alphas
+      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
+      gammap = 1.0 + alphasSq*Bpsq
+      rogp = rhop/gammap
+      arogp = alphas*rogp
+
+      fpxx = arogp*(1.0 + alphasSq*Bpx*Bpx)
+      fpxy = arogp*(alphas*Bpz + alphasSq*Bpx*Bpy)
+      fpxz = arogp*(-alphas*Bpy + alphasSq*Bpx*Bpz)
+
+      fpyx = arogp*(-alphas*Bpz + alphasSq*Bpy*Bpx)
+      fpyy = arogp*(1.0 + alphasSq*Bpy*Bpy)
+      fpyz = arogp*(alphas*Bpx + alphasSq*Bpy*Bpz)
+
+      fpzx = arogp*(alphas*Bpy + alphasSq*Bpz*Bpx)
+      fpzy = arogp*(-alphas*Bpx + alphasSq*Bpz*Bpy)
+      fpzz = arogp*(1.0 + alphasSq*Bpz*Bpz)
+      
+c     compute components of Jtilde kernals to deposit
+      fpx = rogp*(vpx - alphas*(Bpy*vpz - Bpz*vpy) + alphasSq*vpBp*Bpx)
+      fpy = rogp*(vpy - alphas*(Bpz*vpx - Bpx*vpz) + alphasSq*vpBp*Bpy)
+      fpz = rogp*(vpz - alphas*(Bpx*vpy - Bpy*vpx) + alphasSq*vpBp*Bpz)
+
+c     precompute some weights 
+c      l0_stag = xpbar(0) - index_stag(0)*dx(0) - left_edge(0)
+c      wx_up_stag = l0_stag/dx(0)
+c      wx_dn_stag = 1.d0 - wx_up_stag
+c      l0 = xpbar(0) - (index(0) + 0.5)*dx(0) - left_edge(0)
+c      wx_up = l0/dx(0)
+c      wx_dn = 1.d0 - wx_up
+       
+c     loop over all the cells containing this particle cloud and deposit
+      do ii_stag = index_stag(0), index_stag(0) + 1
+       
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0)
+        w0_stag = 1.d0 - abs(l0_stag / dx(0))
+            
+        if(ii_stag.eq.index_stag(0)) then
+          off_diag_comp = 2
+        else
+          off_diag_comp = 0
+        endif
+
+c    deposit particle contribution to y-comp of tensor
+            
+        weight = w0_stag
+        sigmayy(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmayy(CHF_IX[ii_stag; 0; 0],1) + fpyy * weight * weight
+        sigmayy(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmayy(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpyy * weight * (1.0-weight)
+
+        sigmayz(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmayz(CHF_IX[ii_stag; 0; 0],1) + fpyz * weight * weight
+        sigmayz(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmayz(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpyz * weight * (1.0-weight)
+            
+        Jty(CHF_IX[ii_stag; 0; 0]) = 
+     &  Jty(CHF_IX[ii_stag; 0; 0]) + fpy * weight
+
+c    deposit particle contribution to z-comp of tensor
+            
+        sigmazy(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmazy(CHF_IX[ii_stag; 0; 0],1) + fpzy * weight * weight
+        sigmazy(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmazy(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpzy * weight * (1.0-weight)
+
+        sigmazz(CHF_IX[ii_stag; 0; 0],1) = 
+     &  sigmazz(CHF_IX[ii_stag; 0; 0],1) + fpzz * weight * weight
+        sigmazz(CHF_IX[ii_stag; 0; 0],off_diag_comp) = 
+     &  sigmazz(CHF_IX[ii_stag; 0; 0],off_diag_comp) + fpzz * weight * (1.0-weight)
+            
+        Jtz(CHF_IX[ii_stag; 0; 0]) = 
+     &  Jtz(CHF_IX[ii_stag; 0; 0]) + fpz * weight
+
+      enddo
+
+cccccccccccccccccccccccc
+c
+c     check for cell crossings and deposit Jx, sigma_x, sigma_yx, and sigma_zx
+c
+cccccccccccccccccccccccc
+     
+      if(index(i0) == index_stag(i0)) then
+        shift = 0
+      else
+        shift = 1
+      endif
+
+c     compute the new particle position and dXp
+      do idir = 0, CH_SPACEDIM - 1
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
+        dXp(idir) = abs(xpnew(idir) - xpold(idir))
+      enddo     
+      i0 = 0
+
+c     precompute some weights 
+      l0_stag = xpbar(0) - index_stag(0)*dx(0) - left_edge(0)
+      wx_up_stag = l0_stag/dx(0)
+      wx_dn_stag = 1.d0 - wx_up_stag
+      l0 = xpbar(0) - (index(0) + 0.5)*dx(0) - left_edge(0)
+      wx_up = l0/dx(0)
+      wx_dn = 1.d0 - wx_up
+
+c     get index corresponding to lower left cell center where xpold and xpnew live
+      index_old = floor((xpold(0) - left_edge(0) - 0.5*dx(0)) / dx(0))
+      index_new = floor((xpnew(0) - left_edge(0) - 0.5*dx(0)) / dx(0))
+
+c     compute the number of segments
+      num_segments = 1 + ABS(index_new - index_old)
+      index_min = min(index_old,index_new)
+
+      if(num_segments>3) then
+c       do something     
+        print*, "JRA: num_segments = ", num_segments
+      endif      
+
+c     pre-define Deltap for each segment
+      Deltap_dn_vec(0) = 0.0
+      Deltap_up_vec(0) = 0.0
+      Deltap_dn_vec(1) = wx_dn
+      Deltap_up_vec(1) = wx_up
+      Deltap_dn_vec(2) = 0.0
+      Deltap_up_vec(2) = 0.0
+      if(num_segments .eq. 2) then
+c        print*, "JRA: num_segments = ", num_segments
+c        print*, "JRA: index_stag(i0) = ", index_stag(i0)
+c        print*, "JRA: index(i0) = ", index(i0)
+c        print*, "JRA: index_old = ", index_old
+c        print*, "JRA: index_new = ", index_new
+        if(index_min<index(i0)) then
+          Xcell = left_edge(i0) + (index(i0) + 0.5)*dx(i0)
+          dXp_sub = Xcell - min(xpold(i0),xpnew(i0))
+          Deltap_dn_vec(0) = dXp_sub/dXp(i0)*dXp_sub/2.0/dx(i0)
+          Deltap_up_vec(0) = dXp_sub/dXp(i0) - Deltap_dn_vec(0)
+          dXp_sub = max(xpold(i0),xpnew(i0)) - Xcell
+          Deltap_up_vec(1) = dXp_sub/dXp(i0)*dXp_sub/2.0/dx(i0)
+          Deltap_dn_vec(1) = dXp_sub/dXp(i0) - Deltap_up_vec(1)
+        else
+          Xcell = left_edge(i0) + (index(i0) + 1.5)*dx(i0)
+          dXp_sub = Xcell - min(xpold(i0),xpnew(i0))
+          Deltap_dn_vec(1) = dXp_sub/dXp(i0)*dXp_sub/2.0/dx(i0)
+          Deltap_up_vec(1) = dXp_sub/dXp(i0) - Deltap_dn_vec(1)
+          dXp_sub = max(xpold(i0),xpnew(i0)) - Xcell
+          Deltap_up_vec(2) = dXp_sub/dXp(i0)*dXp_sub/2.0/dx(i0)
+          Deltap_dn_vec(2) = dXp_sub/dXp(i0) - Deltap_up_vec(2)
+        endif
+      endif
+      if(num_segments .eq. 3) then
+c        print*, "JRA: num_segments = ", num_segments
+        Xcell = left_edge(i0) + (index(i0) + 0.5)*dx(i0)
+        dXp_sub = Xcell - min(xpold(i0),xpnew(i0))
+        Deltap_dn_vec(0) = dXp_sub**2/two/dXp(i0)/dx(i0)
+        Deltap_up_vec(0) = dXp_sub/dXp(i0) - Deltap_dn_vec(0)
+        Deltap_up_vec(1) = dx(i0)/dXp(i0)/two
+        Deltap_dn_vec(1) = Deltap_up_vec(1)
+        Xcell = Xcell + dx(i0)
+        dXp_sub = max(xpold(i0),xpnew(i0)) - Xcell
+        Deltap_up_vec(2) = dXp_sub**2/two/dXp(i0)/dx(i0)
+        Deltap_dn_vec(2) = dXp_sub/dXp(i0) - Deltap_up_vec(2)
+      endif
+
+c     loop over all the segments and deposit
+      do nn = 0, 2
+
+        ii = index(i0) - 1 + nn
+        weight_dn = Deltap_dn_vec(nn)
+        weight_up = Deltap_up_vec(nn)
+
+        if((weight_dn + weight_up) .gt. 0.0) then     
+   
+c    conventional deposit for Jtx
+
+         Jtx(CHF_IX[ii; 0; 0]) = 
+     &   Jtx(CHF_IX[ii; 0; 0]) + fpx * weight_dn
+         Jtx(CHF_IX[ii+1; 0; 0]) = 
+     &   Jtx(CHF_IX[ii+1; 0; 0]) + fpx * weight_up
+
+c    deposit particle contribution to xx comps of tensor
+        
+         sigmaxx(CHF_IX[ii; 0; 0],3-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],3-nn) + fpxx * weight_dn * Deltap_dn_vec(0)
+         sigmaxx(CHF_IX[ii; 0; 0],4-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],4-nn) + fpxx * weight_dn * Deltap_dn_vec(1)
+         sigmaxx(CHF_IX[ii; 0; 0],5-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],5-nn) + fpxx * weight_dn * Deltap_dn_vec(2)
+
+         sigmaxx(CHF_IX[ii; 0; 0],4-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],4-nn) + fpxx * weight_dn * Deltap_up_vec(0)
+         sigmaxx(CHF_IX[ii; 0; 0],5-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],5-nn) + fpxx * weight_dn * Deltap_up_vec(1)
+         sigmaxx(CHF_IX[ii; 0; 0],6-nn) = 
+     &   sigmaxx(CHF_IX[ii; 0; 0],6-nn) + fpxx * weight_dn * Deltap_up_vec(2)
+         
+         sigmaxx(CHF_IX[ii+1; 0; 0],2-nn) = 
+     &   sigmaxx(CHF_IX[ii+1; 0; 0],2-nn) + fpxx * weight_up * Deltap_dn_vec(0)
+         sigmaxx(CHF_IX[ii+1; 0; 0],3-nn) = 
+     &   sigmaxx(CHF_IX[ii+1; 0; 0],3-nn) + fpxx * weight_up * Deltap_dn_vec(1)
+         sigmaxx(CHF_IX[ii+1; 0; 0],4-nn) = 
+     &   sigmaxx(CHF_IX[ii+1; 0; 0],4-nn) + fpxx * weight_up * Deltap_dn_vec(2)
+
+         sigmaxx(CHF_IX[ii+1; 0; 0],3-nn) = 
+     &   sigmaxx(CHF_IX[ii+1; 0; 0],3-nn) + fpxx * weight_up * Deltap_up_vec(0)
+         sigmaxx(CHF_IX[ii+1; 0; 0],4-nn) = 
+     &   sigmaxx(CHF_IX[ii+1; 0; 0],4-nn) + fpxx * weight_up * Deltap_up_vec(1)
+         sigmaxx(CHF_IX[ii+1; 0; 0],5-nn) = 
+     &   sigmaxx(CHF_IX[ii+1; 0; 0],5-nn) + fpxx * weight_up * Deltap_up_vec(2)
+
+c    deposit particle contribution to xy and xz comps of tensor
+
+         sigmaxy(CHF_IX[ii; 0; 0],3+shift-nn) =
+     &   sigmaxy(CHF_IX[ii; 0; 0],3+shift-nn) + fpxy * weight_dn * wx_dn_stag
+         sigmaxy(CHF_IX[ii; 0; 0],4+shift-nn) =
+     &   sigmaxy(CHF_IX[ii; 0; 0],4+shift-nn) + fpxy * weight_dn * wx_up_stag
+          
+         sigmaxy(CHF_IX[ii+1; 0; 0],2+shift-nn) =
+     &   sigmaxy(CHF_IX[ii+1; 0; 0],2+shift-nn) + fpxy * weight_up * wx_dn_stag
+         sigmaxy(CHF_IX[ii+1; 0; 0],3+shift-nn) =
+     &   sigmaxy(CHF_IX[ii+1; 0; 0],3+shift-nn) + fpxy * weight_up * wx_up_stag
+
+         sigmaxz(CHF_IX[ii; 0; 0],3+shift-nn) = 
+     &   sigmaxz(CHF_IX[ii; 0; 0],3+shift-nn) + fpxz * weight_dn * wx_dn_stag
+         sigmaxz(CHF_IX[ii; 0; 0],4+shift-nn) = 
+     &   sigmaxz(CHF_IX[ii; 0; 0],4+shift-nn) + fpxz * weight_dn * wx_up_stag
+
+         sigmaxz(CHF_IX[ii+1; 0; 0],2+shift-nn) = 
+     &   sigmaxz(CHF_IX[ii+1; 0; 0],2+shift-nn) + fpxz * weight_up * wx_dn_stag
+         sigmaxz(CHF_IX[ii+1; 0; 0],3+shift-nn) = 
+     &   sigmaxz(CHF_IX[ii+1; 0; 0],3+shift-nn) + fpxz * weight_up * wx_up_stag
+            
+c    deposit particle contribution to yx and zx comps of tensor
+
+         sigmayx(CHF_IX[index_stag(0); 0; 0],2-shift+nn) = 
+     &   sigmayx(CHF_IX[index_stag(0); 0; 0],2-shift+nn) + fpyx * weight_dn * wx_dn_stag
+         sigmayx(CHF_IX[index_stag(0); 0; 0],3-shift+nn) = 
+     &   sigmayx(CHF_IX[index_stag(0); 0; 0],3-shift+nn) + fpyx * weight_up * wx_dn_stag
+
+         sigmayx(CHF_IX[index_stag(0)+1; 0; 0],1-shift+nn) = 
+     &   sigmayx(CHF_IX[index_stag(0)+1; 0; 0],1-shift+nn) + fpyx * weight_dn * wx_up_stag
+         sigmayx(CHF_IX[index_stag(0)+1; 0; 0],2-shift+nn) = 
+     &   sigmayx(CHF_IX[index_stag(0)+1; 0; 0],2-shift+nn) + fpyx * weight_up * wx_up_stag
+         
+         sigmazx(CHF_IX[index_stag(0); 0; 0],2-shift+nn) = 
+     &   sigmazx(CHF_IX[index_stag(0); 0; 0],2-shift+nn) + fpzx * weight_dn * wx_dn_stag
+         sigmazx(CHF_IX[index_stag(0); 0; 0],3-shift+nn) = 
+     &   sigmazx(CHF_IX[index_stag(0); 0; 0],3-shift+nn) + fpzx * weight_up * wx_dn_stag
+
+         sigmazx(CHF_IX[index_stag(0)+1; 0; 0],1-shift+nn) = 
+     &   sigmazx(CHF_IX[index_stag(0)+1; 0; 0],1-shift+nn) + fpzx * weight_dn * wx_up_stag
+         sigmazx(CHF_IX[index_stag(0)+1; 0; 0],2-shift+nn) = 
+     &   sigmazx(CHF_IX[index_stag(0)+1; 0; 0],2-shift+nn) + fpzx * weight_up * wx_up_stag
+            
+        endif
+
+      enddo
+
+      end
+
+

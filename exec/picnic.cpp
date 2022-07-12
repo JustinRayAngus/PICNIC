@@ -8,22 +8,23 @@
  */
 #endif
 
-#include "ParmParse.H"
-//#define CH_SPACE_DIM DIM
+#include <random>
 
 #include "CH_HDF5.H"
+#include "ParmParse.H"
 #include "parstream.H"
 
 #include "DebugDump.H"
 #include "memtrack.H"
-#include "CH_Attach.H"
 #include "FABView.H"
 #include "parstream.H"
 
 #include "Simulation.H"
 #include "MathUtils.H"
 
-#include <random>
+#ifdef CH_MPI
+#include "CH_Attach.H"
+#endif
 
 #include "UsingNamespace.H"
 
@@ -38,67 +39,53 @@ inline int checkCommandLineArgs( int a_argc, char* a_argv[] )
    return 0;
 }
 
-/***************/
+#ifdef with_petsc
+static const char help[] = "PICNIC";
+#endif
 
 // set the mt19937 random generator as global variable 
 std::mt19937 global_rand_gen;
 
 int main(int a_argc, char* a_argv[])
 {
-
 #ifdef CH_MPI
-  MPI_Init(&a_argc,&a_argv);
-  setChomboMPIErrorHandler();
+   // Start MPI
+   MPI_Init( &a_argc, &a_argv );
+   setChomboMPIErrorHandler();
 #endif
 
-   int rank, num_procs;
-#ifdef CH_MPI
-   MPI_Comm_rank(Chombo_MPI::comm, &rank);
-   MPI_Comm_size(Chombo_MPI::comm, &num_procs);
-#else
-   rank = 0;
-   num_procs = 1;
+#ifdef with_petsc
+  PetscInitialize(&a_argc,&a_argv,(char*)0,help);
 #endif
 
-   if(rank==0) {
-      cout << endl;
-      cout << "PICNIC: number of procs = " << num_procs << endl;
-      cout << "PICNIC: SpaceDim = " << SpaceDim << endl;
+   int status = checkCommandLineArgs( a_argc, a_argv );
+
+   if (status==0) {
+
+      if(!procID()) {
+         cout << endl;
+         cout << "PICNIC: number of procs = " << numProc() << endl;
+         cout << "PICNIC: SpaceDim = " << SpaceDim << endl;
+#ifdef MASS_MATRIX_TEST
+         cout << "MASS_MATRIX_TEST flag is defined" << endl;
+#endif
+         cout << "input file = " << a_argv[1] << endl << endl;
+      }
+
+      ParmParse pp( a_argc-2, a_argv+2, NULL, a_argv[1] );
+      Simulation sim( pp ); 
+      while ( sim.notDone() ) sim.advance();
+      sim.finalize();
    }
 
-   // Check for an input file
-   char* inFile = NULL;
-
-   if(a_argc > 1)
-   {
-      inFile = a_argv[1];
-      if(rank==0) cout << "input file = " << inFile << endl << endl;
-   }
-   else
-   {
-      if(rank==0) cout << "Usage: <executable name> <inputfile>" << endl;
-      if(rank==0) cout << "No input file specified" << endl;
-      return -1;
-   }
-
-   // Parse the command line and the input file (if any)
-   ParmParse pp(a_argc-2,a_argv+2,NULL,inFile);
-  
-   // initialize the simulation
-   Simulation sim( pp ); // initialization done in constructor
-
-   // run/finalize the simulation
-   while ( sim.notDone() ) sim.advance();
-   sim.finalize();
+#ifdef with_petsc
+  PetscFinalize();
+#endif
 
 #ifdef CH_MPI
    CH_TIMER_REPORT();
-   //dumpmemoryatexit();
    MPI_Finalize();
 #endif
 
-   return 0;
-
+   return status;
 }
-
-

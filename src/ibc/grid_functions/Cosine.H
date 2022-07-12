@@ -14,13 +14,35 @@ class Cosine : public GridFunction
 {
    public:
 
-      Cosine( ParmParse& pp, const int& verbosity )
-         : GridFunction(verbosity)
+      Cosine( ParmParse&   a_pp, 
+        const DomainGrid&  a_mesh, 
+        const int          a_verbosity )
+         : GridFunction(a_verbosity)
       {
-         parseParameters( pp );
+         parseParameters( a_pp );
+         const RealVect& Xmin = a_mesh.getXmin();  
+         const RealVect& Xmax = a_mesh.getXmax();  
+         m_L = Xmax - Xmin;
       }
 
       virtual ~Cosine() {;}
+      
+      // return function value at location a_X
+      virtual Real getValue( const RealVect&  a_X ) const {
+         
+         Real X0, L0, arg; 
+         Real value = m_amplitude;
+         for (int dir=0; dir<SpaceDim; dir++) {
+            X0 = a_X[dir];
+            L0 = m_L[dir];
+            arg = Constants::TWOPI*m_mode[dir]*X0/L0 + m_phase[dir]*Constants::PI;
+            arg = std::fmod(arg,Constants::TWOPI); // cos(pi/2) != cos(3*pi/2) != cos(5*pi/2)...
+            value = value*cos(arg);
+         }
+         value = value + m_constant;
+         return value;
+
+      }
 
       virtual void printParameters()  const {
          if (procID()==0) {
@@ -64,14 +86,10 @@ class Cosine : public GridFunction
 
       // Set pointwise values at cell centers.
       virtual void setPointwise( FArrayBox&  a_data,
-                           const DomainGrid&  a_mesh,
                            const FArrayBox&  a_real_coords ) const
       {
          // f = C + A \cdot \prod_{i=1}^D \cos(2\pi mode_i x_i / L_i + phi_i*pi)
        
-         const RealVect& Xmin = a_mesh.getXmin();  
-         const RealVect& Xmax = a_mesh.getXmax();  
- 
          a_data.setVal(m_amplitude);
             
          const Box data_box = a_data.box();
@@ -82,7 +100,7 @@ class Cosine : public GridFunction
             ib = bit();
             for (int dir=0; dir<SpaceDim; dir++) {
                X0 = a_real_coords.get(ib,dir);
-               L0 = Xmax[dir] - Xmin[dir];
+               L0 = m_L[dir];
                arg = Constants::TWOPI*m_mode[dir]*X0/L0 + m_phase[dir]*Constants::PI;
                arg = std::fmod(arg,Constants::TWOPI); // cos(pi/2) != cos(3*pi/2) != cos(5*pi/2)...
                value = a_data.get(ib,0);
@@ -98,6 +116,7 @@ class Cosine : public GridFunction
       Real     m_amplitude;
       IntVect  m_mode;
       RealVect m_phase;
+      RealVect m_L;
 
 };
 

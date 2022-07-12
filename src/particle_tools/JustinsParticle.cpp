@@ -64,6 +64,16 @@ void JustinsParticle::define( const Real                 a_weight,
   }
 }
 
+void JustinsParticle::setKillTag()
+{
+  m_kill_tag = 1;
+}
+
+const int& JustinsParticle::killTag() const
+{
+  return m_kill_tag;
+}
+
 void JustinsParticle::setID(const uint64_t a_ID)
 //void JustinsParticle::setID(const Real a_ID)
 {
@@ -277,6 +287,7 @@ Real JustinsParticle::positionVirt(const int a_dir) const
 bool JustinsParticle::operator == (const JustinsParticle& a_p) const
 {
   return ( m_ID        == a_p.m_ID       &&
+           m_kill_tag  == a_p.m_kill_tag &&
            m_weight    == a_p.m_weight   &&
            m_position  == a_p.m_position &&
            m_position_old  == a_p.m_position_old &&
@@ -299,14 +310,14 @@ bool JustinsParticle::operator != (const JustinsParticle& a_p) const
 
 int JustinsParticle::size() const
 {
-  return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
+  return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID)
                            + sizeof(m_position_old) + sizeof(m_pos_virt)
                            //+ sizeof(m_electric_field) + sizeof(m_magnetic_field)
                            + sizeof(m_velocity) + sizeof(m_velocity_old) );
 }
 
 int JustinsParticle::sizeOutput() const
-{ // don't include fields in output
+{ // don't include fields or kill_tag in output
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
                            + sizeof(m_pos_virt)
                            + sizeof(m_velocity) );
@@ -350,7 +361,7 @@ void JustinsParticle::linearOut(void* buf) const
    }
    */
    *buffer = m_ID;
-
+   
 }
 
 // allocated by the caller.
@@ -373,7 +384,7 @@ void JustinsParticle::linearOutOutput(void* buf) const
    }
    
    *buffer = m_ID;
-
+   
 }
 
 // Read a linear (binary) representation of the internal data.

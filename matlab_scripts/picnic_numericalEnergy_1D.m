@@ -64,12 +64,18 @@ if exist(historyFile,'file')
     time_hist = histData(:,2);
     energyE_hist = histData(:,3);
     energyB_hist = histData(:,4);
+    %
+    MacroParts0_hist = histData(:,5);
     Mass0_hist = histData(:,6);
     momX0_hist = histData(:,7); momY0_hist = histData(:,8); momZ0_hist = histData(:,9);
     energy0_hist = histData(:,10);
-    Mass1_hist = histData(:,12);
-    momX1_hist = histData(:,13); momY1_hist = histData(:,14); momZ1_hist = histData(:,15);
-    energy1_hist = histData(:,16);
+    wpdt0_hist = histData(:,11); wcdt0_hist = histData(:,12);
+    %
+    MacroParts1_hist = histData(:,13);
+    Mass1_hist = histData(:,14);
+    momX1_hist = histData(:,15); momY1_hist = histData(:,16); momZ1_hist = histData(:,17);
+    energy1_hist = histData(:,18);
+    wpdt1_hist = histData(:,19); wcdt1_hist = histData(:,20);
     energyTot_hist = energyB_hist+energyE_hist+energy0_hist+energy1_hist;
 end
 

@@ -34,11 +34,37 @@ src_dirs += ../src/special_operators
 src_dirs += ../src/scattering
 src_dirs += ../src/fields
 src_dirs += ../src/poisson
-src_dirs += ../src/solver
+src_dirs += ../src/solver/linear_solvers
+src_dirs += ../src/solver/nonlinear_solvers
+src_dirs += ../src/solver/preconditioner
+src_dirs += ../src/solver/utils
 src_dirs += ../src/time
 
 # input file for 'run' target
 #INPUT = inputs
+
+#########################################################################
+
+# define picnic specific compile time flags here
+#XTRACPPFLAGS += -DMASS_MATRIX_TEST
+
+# if PETSc exists and PETSC_DIR is set in the environment,
+# compile with PETSc
+
+ifdef PETSC_DIR
+
+ifneq ("$(wildcard $(PETSC_DIR))","")
+$(info Found PETSc installation ($(PETSC_DIR)). Compiling with PETSc interface.)
+XTRACPPFLAGS += -Dwith_petsc
+include $(PETSC_DIR)/lib/petsc/conf/variables
+XTRACPPFLAGS += $(PETSC_CC_INCLUDES)
+XTRALIBFLAGS += $(PETSC_LIB) 
+else
+$(info Env var PETSC_DIR is set to $(PETSC_DIR); PETSc not found at this location. Compiling without PETSc interface.)
+endif
+else
+$(info Environment var PETSC_DIR not set. Compiling without PETSc interface.)
+endif
 
 # shared code for building example programs
 include $(CHOMBO_HOME)/mk/Make.example
@@ -46,3 +72,4 @@ include $(CHOMBO_HOME)/mk/Make.example
 # application-specific variables
 
 # application-specific targets
+

@@ -62,10 +62,12 @@ void MeshInterp::depositParticle( FArrayBox&   a_rho,
                        CHF_CONST_REAL(a_weight));
       break;
     case TSC:
-      FORT_TSC_DEPOSIT(CHF_FRA1(a_rho, 0),
+      FORT_TSC_DEPOSIT(CHF_FRA1(a_rho, a_comp),
                        CHF_CONST_REALVECT(a_domainLeftEdge),
                        CHF_CONST_REALVECT(a_dx),
                        CHF_CONST_REALVECT(a_position),
+                       CHF_CONST_INTVECT(a_stag),
+                       CHF_CONST_REAL(a_kernal),
                        CHF_CONST_REAL(a_weight));
       break;
     case W4:

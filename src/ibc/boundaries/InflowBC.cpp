@@ -30,7 +30,7 @@ InflowBC::InflowBC( const int&             a_bdry_layout_index,
    if(m_bdry_side==0) m_X_bdry = Xmin[m_bdry_dir];
    if(m_bdry_side==1) m_X_bdry = Xmax[m_bdry_dir];
 
-   // set the particle weight
+   // set the particle weight (NOT YET MODIFED FOR AXISYMMETRIC GEOMS)
    Real volume_scale = a_units.getScale(a_units.VOLUME);
    Real numDen_scale = a_units.getScale(a_units.NUMBER_DENSITY);
    Real cellVolume = volume_scale;

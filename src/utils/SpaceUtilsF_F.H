@@ -737,6 +737,37 @@ inline void FORTRAN_NAME(inlineFACE_CENTERED_GRAD_COMPONENT, inlineFACE_CENTERED
 }
 #endif  // GUARDFACE_CENTERED_GRAD_COMPONENT 
 
+#ifndef GUARDSTAG_INTERPOLATE 
+#define GUARDSTAG_INTERPOLATE 
+// Prototype for Fortran procedure stag_interpolate ...
+//
+void FORTRAN_NAME( STAG_INTERPOLATE ,stag_interpolate )(
+      CHFp_BOX(box)
+      ,CHFp_CONST_INT(dir)
+      ,CHFp_CONST_INT(src_stag)
+      ,CHFp_CONST_FRA1(src)
+      ,CHFp_FRA1(dst) );
+
+#define FORT_STAG_INTERPOLATE FORTRAN_NAME( inlineSTAG_INTERPOLATE, inlineSTAG_INTERPOLATE)
+#define FORTNT_STAG_INTERPOLATE FORTRAN_NAME( STAG_INTERPOLATE, stag_interpolate)
+
+inline void FORTRAN_NAME(inlineSTAG_INTERPOLATE, inlineSTAG_INTERPOLATE)(
+      CHFp_BOX(box)
+      ,CHFp_CONST_INT(dir)
+      ,CHFp_CONST_INT(src_stag)
+      ,CHFp_CONST_FRA1(src)
+      ,CHFp_FRA1(dst) )
+{
+ CH_TIMELEAF("FORT_STAG_INTERPOLATE");
+ FORTRAN_NAME( STAG_INTERPOLATE ,stag_interpolate )(
+      CHFt_BOX(box)
+      ,CHFt_CONST_INT(dir)
+      ,CHFt_CONST_INT(src_stag)
+      ,CHFt_CONST_FRA1(src)
+      ,CHFt_FRA1(dst) );
+}
+#endif  // GUARDSTAG_INTERPOLATE 
+
 #ifndef GUARDSTAG_GRAD_COMPONENT 
 #define GUARDSTAG_GRAD_COMPONENT 
 // Prototype for Fortran procedure stag_grad_component ...

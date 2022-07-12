@@ -7,35 +7,35 @@
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
 #include "BinFab.H"
-#include "ParticleUtils.H"
+#include "ScatteringUtils.H"
 
 #include "NamespaceHeader.H"
 
 
-void HardSphere::initialize( const DomainGrid&         a_mesh,
-                             const PicSpeciesPtrVect&  a_picSpeciesPtrVect )
+void HardSphere::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
+                             const DomainGrid&         a_mesh )
 {
    CH_TIME("HardSphere::initialize()");
    
    // get pointer to species 1
    CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_picSpecies1(a_picSpeciesPtrVect[m_sp1]);
-   CH_assert(this_picSpecies1->scatter()); // assert that collisions are allowed for this species
-   CH_assert(this_picSpecies1->charge()==0);      
+   PicSpeciesPtr this_species1(a_picSpeciesPtrVect[m_sp1]);
+   //CH_assert(this_species1->scatter()); // assert that collisions are allowed for this species
+   CH_assert(this_species1->charge()==0);      
 
    // get pointer to species 2
    CH_assert(m_sp2<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_picSpecies2(a_picSpeciesPtrVect[m_sp2]);
-   CH_assert(this_picSpecies2->scatter()); // assert that collisions are allowed for this species
-   CH_assert(this_picSpecies2->charge()==0);      
+   PicSpeciesPtr this_species2(a_picSpeciesPtrVect[m_sp2]);
+   //CH_assert(this_species2->scatter()); // assert that collisions are allowed for this species
+   CH_assert(this_species2->charge()==0);      
 
    // set the species names
-   m_species1_name = this_picSpecies1->name();
-   m_species2_name = this_picSpecies2->name();
+   m_species1_name = this_species1->name();
+   m_species2_name = this_species2->name();
 
    // set the species masses
-   m_mass1 = this_picSpecies1->mass();          // species 1 mass / me
-   m_mass2 = this_picSpecies2->mass();          // species 2 mass / me
+   m_mass1 = this_species1->mass();          // species 1 mass / me
+   m_mass2 = this_species2->mass();          // species 2 mass / me
    m_mu = m_mass1*m_mass2/(m_mass1 + m_mass2); // reduced mass
 
    // define the radius of each species if not specified in input file
@@ -55,19 +55,21 @@ void HardSphere::initialize( const DomainGrid&         a_mesh,
    // set the mean free time
    //
    
-   // define references to picSpecies1
-   const bool setMoments = true;
-   const LevelData<FArrayBox>& numberDensity1 = this_picSpecies1->getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity1 = this_picSpecies1->getEnergyDensity(setMoments);
+   if(this_species1->scatter() && this_species2->scatter()) {
    
-   if(m_sp1==m_sp2) {
-      setMeanFreeTime(numberDensity1,energyDensity1);
-   }
-   else {
-      // define references to picSpecies2
-      const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity(setMoments);
-      setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+      const bool setMoments = true;
+      const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
+      const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
+   
+      if(m_sp1==m_sp2) {
+         setMeanFreeTime(numberDensity1,energyDensity1);
+      }
+      else {
+         const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
+         const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
+         setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+      }
+
    }
 
    if (m_verbosity)  printParameters();
@@ -119,9 +121,9 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
    }
    
    Real global_nuMax = box_nuMax;
-#ifdef CH_MPI
-   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
-#endif
+//#ifdef CH_MPI
+//   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+//#endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
 
 }
@@ -174,7 +176,7 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
 
          // compute local local nuMax
          local_nuMax1 = local_numberDensity2*m_sigmaT*local_VTeff1;
-         local_nuMax2 = local_numberDensity1*m_sigmaT*local_VTeff1;
+         local_nuMax2 = local_numberDensity1*m_sigmaT*local_VTeff2;
 
          // update box_nuMax for time step
          box_nuMax = Max(box_nuMax,local_nuMax1);
@@ -184,12 +186,33 @@ void HardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
    }
    
    Real global_nuMax = box_nuMax;
-#ifdef CH_MPI
-   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
-#endif
+//#ifdef CH_MPI
+//   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+//#endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
 
 }
+
+void HardSphere::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                            const DomainGrid&         a_mesh,
+                            const Real                a_dt_sec ) const
+{
+   CH_TIME("HardSphere::applyScattering()");
+      
+   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
+   if(!this_species1->scatter()) return;
+
+   if(m_sp1==m_sp2) {
+      applySelfScattering( *this_species1, a_mesh, a_dt_sec );
+   }
+   else {
+      PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+      if(!this_species2->scatter()) return;
+      applyInterScattering( *this_species1, *this_species2, a_mesh, a_dt_sec );
+   }
+
+}
+      
       
 void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies, 
                                 const DomainGrid&  a_mesh,
@@ -199,6 +222,7 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
  
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
+   JustinsParticle* this_part3_ptr = NULL;  
  
    Real mass = m_mass1;
    Real cvacSq = Constants::CVAC*Constants::CVAC;
@@ -215,7 +239,7 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    Real g12, q12;
    
    std::array<Real,3> deltaU;
-   Real theta, phi; 
+   Real R, costh, sinth, phi; 
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
@@ -270,7 +294,7 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
             local_Nmax_integer = local_Nmax_integer + 1;
          }
          
-         // copy the iterators to a vector in order to randomly selection
+         // copy the iterators to a vector in order to randomly select
          //std::vector<JustinsParticlePtr> vector_part_ptrs;
          vector_part_ptrs.clear();
          vector_part_ptrs.reserve(local_numCell);
@@ -292,37 +316,79 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part_ptrs[random_index1];
             this_part1_ptr = this_part1.getPointer();
-            std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
+            std::array<Real,3>& betap1 = this_part1_ptr->velocity();
+            Real& wp1 = this_part1_ptr->weight();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part_ptrs[random_index2];
             this_part2_ptr = this_part2.getPointer();
-            std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
+            std::array<Real,3>& betap2 = this_part2_ptr->velocity();
+            Real& wp2 = this_part2_ptr->weight();
 
             // compute relative velocity magnitude
             g12 = 0.0;
-            for (int dir=0; dir<3; dir++) {
-               g12 = g12 + pow(this_betap1[dir]-this_betap2[dir],2);
-            }
-            g12 = sqrt(g12)*Constants::CVAC; // relavive velocity [m/s]
+            for (int dir=0; dir<3; dir++) g12 += pow(betap1[dir]-betap2[dir],2);
+            g12 = sqrt(g12)*Constants::CVAC; // relative velocity [m/s]
          
             // determine if the pair collide and then do the collision
             q12 = g12*m_sigmaT/(local_gmax*m_sigmaT);
-            rand_num = MathUtils::rand();
-            if(rand_num<=q12) { // this pair collides
+            Real rand_num2 = MathUtils::rand();
+            if(rand_num2>q12) continue;
 
-               numCollisions = numCollisions + 1;
+            numCollisions = numCollisions + 1;
                
-               //compute deltaU
-               theta = Constants::TWOPI*MathUtils::rand();
-               phi = Constants::TWOPI*MathUtils::rand();
-               ParticleUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta,phi);
-               //deltaU = {0,0,0};
+            //compute deltaU
+            R = MathUtils::rand();
+            costh = 1.0 - 2.0*R;
+            sinth = sqrt(1.0 - costh*costh);
+            phi = Constants::TWOPI*MathUtils::rand();
+            ScatteringUtils::computeDeltaU(deltaU,betap1,betap2,costh,sinth,phi);
+            //deltaU = {0,0,0};
 
-               // update particle velocities
-               for (int dir=0; dir<3; dir++) {
-                  this_betap1[dir] = this_betap1[dir] + 0.5*deltaU[dir];
-                  this_betap2[dir] = this_betap2[dir] - 0.5*deltaU[dir];
+            // update particle velocities
+            if(m_weight_method==CONSERVATIVE && wp1!=wp2) {
+
+               if(local_numCell<3) continue;
+               
+               // get third particle from larger weight particle list
+               int random_index3 = MathUtils::randInt(0, local_numCell-1);
+               while(random_index3==random_index2 || random_index3==random_index1) {
+                  random_index3 = MathUtils::randInt(0,local_numCell-1);
+               }
+               JustinsParticlePtr& this_part3 = vector_part_ptrs[random_index3];
+               this_part3_ptr = this_part3.getPointer();
+               std::array<Real,3>& betap3 = this_part3_ptr->velocity();
+               Real& wp3 = this_part3_ptr->weight();
+
+               if(wp1<wp2) {
+                  // scatter the lower weight particle
+                  for (int dir=0; dir<3; dir++) betap1[dir] += 0.5*deltaU[dir];
+                  std::array<Real,3> betap2p = betap2;
+                  for (int dir=0; dir<3; dir++) betap2p[dir] -= 0.5*deltaU[dir];
+                   
+                  // transform particles 2, 2p, and 3 into two equally-weighted particles such
+                  // that momentum, and direction-dependent energy are conserved
+                  ScatteringUtils::collapseThreeToTwo( betap2, wp2, betap3, wp3, betap2p, wp1 );
+               }
+               else {
+                  // scatter the lower weight particle
+                  std::array<Real,3> betap1p = betap1;
+                  for (int dir=0; dir<3; dir++) betap1p[dir] += 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) betap2[dir] -= 0.5*deltaU[dir];
+                  
+                  // transform particles 1, 1p, and 3 into two equally-weighted particles such
+                  // that momentum, and direction-dependent energy are conserved
+                  ScatteringUtils::collapseThreeToTwo( betap1, wp1, betap3, wp3, betap1p, wp2 );
+               }
+
+            }
+            else {
+               Real rand_num3 = MathUtils::rand();
+               if(rand_num3<=wp2/wp1) {
+                  for (int dir=0; dir<3; dir++) betap1[dir] += 0.5*deltaU[dir];
+               }
+               if(rand_num3<=wp1/wp2) {
+                  for (int dir=0; dir<3; dir++) betap2[dir] -= 0.5*deltaU[dir];
                }
             }
 
@@ -336,8 +402,10 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    
    this_part1_ptr = NULL;
    this_part2_ptr = NULL;
+   this_part3_ptr = NULL;
    delete this_part1_ptr;
    delete this_part2_ptr;
+   delete this_part3_ptr;
    
    // While we are here, update the mean free time
    //setMeanFreeTime(numberDensity,energyDensity);
@@ -357,6 +425,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
    // predefine some pointers to be used below
    JustinsParticle* this_part1_ptr = NULL;  
    JustinsParticle* this_part2_ptr = NULL;  
+   JustinsParticle* this_part3_ptr = NULL;  
    
    // get the assumed fixed cell volume  
    const Real Vc = a_mesh.getMappedCellVolume();
@@ -380,7 +449,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
    Real g12, q12;
    
    std::array<Real,3> deltaU;
-   Real theta, phi; 
+   Real R, costh, sinth, phi; 
  
    Real local_nuMaxDt;
    
@@ -457,7 +526,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
             local_Nmax_integer = local_Nmax_integer + 1;
          }
          
-         // copy the iterators to a vector in order to randomly selection
+         // copy the iterators to a vector in order to randomly select
          vector_part1_ptrs.clear();
          vector_part2_ptrs.clear();
          vector_part1_ptrs.reserve(local_numCell1);
@@ -481,47 +550,96 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part1_ptrs[random_index1];
             this_part1_ptr = this_part1.getPointer();
-            std::array<Real,3>& this_betap1 = this_part1_ptr->velocity();
+            std::array<Real,3>& betap1 = this_part1_ptr->velocity();
+            Real& wp1 = this_part1_ptr->weight();
             
             // get particle data for second particle    
             JustinsParticlePtr& this_part2 = vector_part2_ptrs[random_index2];
             this_part2_ptr = this_part2.getPointer();
-            std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
+            std::array<Real,3>& betap2 = this_part2_ptr->velocity();
+            Real& wp2 = this_part2_ptr->weight();
 
             // compute relative velocity magnitude
             g12 = 0.0;
-            for (int dir=0; dir<3; dir++) g12 = g12 + pow(this_betap1[dir]-this_betap2[dir],2);
+            for (int dir=0; dir<3; dir++) g12 = g12 + pow(betap1[dir]-betap2[dir],2);
             g12 = sqrt(g12)*Constants::CVAC; // relative velocity [m/s]
          
             // determine if the pair collide and then do the collision
             q12 = g12*m_sigmaT/(local_gmax*m_sigmaT);
-            rand_num = MathUtils::rand();
-            if(rand_num<=q12) { // this pair collides
+            Real rand_num2 = MathUtils::rand();
+            if(rand_num2>q12) continue;
 
-               numCollisions = numCollisions + 1;
+            numCollisions = numCollisions + 1;
                
-               //compute deltaU
-               theta = Constants::TWOPI*MathUtils::rand();
-               phi = Constants::TWOPI*MathUtils::rand();
-               ParticleUtils::computeDeltaU(deltaU,this_betap1,this_betap2,theta,phi);
-               //deltaU = {0,0,0};
+            //compute deltaU
+            R = MathUtils::rand();
+            costh = 1.0 - 2.0*R;
+            sinth = sqrt(1.0 - costh*costh);
+            phi = Constants::TWOPI*MathUtils::rand();
+            ScatteringUtils::computeDeltaU(deltaU,betap1,betap2,costh,sinth,phi);
+            //deltaU = {0,0,0};
+            
+            // update particle velocities
+            if(m_weight_method==CONSERVATIVE && wp1!=wp2) {
 
-               // update particle velocities
-               if(W1<=Wmax) {
-                  for (int dir=0; dir<3; dir++) this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
-                  rand_num = MathUtils::rand();
-                  if(rand_num<=W1/Wmax) {
-                     for (int dir=0; dir<3; dir++) this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
+               if(wp1<wp2) {
+
+                  if(local_numCell2<2) continue;
+
+                  // scatter the lower weight particle
+                  for (int dir=0; dir<3; dir++) betap1[dir] += 0.5*deltaU[dir];
+                  std::array<Real,3> betap2p = betap2;
+                  for (int dir=0; dir<3; dir++) betap2p[dir] -= 0.5*deltaU[dir];
+               
+                  // get third particle from larger weight particle list
+                  int random_index3 = MathUtils::randInt(0, local_numCell2-1);
+                  while(random_index3==random_index2) {
+                     random_index3 = MathUtils::randInt(0,local_numCell2-1);
                   }
+                  JustinsParticlePtr& this_part3 = vector_part2_ptrs[random_index3];
+                  this_part3_ptr = this_part3.getPointer();
+                  std::array<Real,3>& betap3 = this_part3_ptr->velocity();
+                  Real& wp3 = this_part3_ptr->weight();
+             
+                  // transform particles 2, 2p, and 3 into two equally-weighted particles such
+                  // that momentum, and direction-dependent energy are conserved
+                  ScatteringUtils::collapseThreeToTwo( betap2, wp2, betap3, wp3, betap2p, wp1 );
+
                }
                else {
-                  rand_num = MathUtils::rand();
-                  if(rand_num<=W2/Wmax) {
-                     for (int dir=0; dir<3; dir++) this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
+
+                  if(local_numCell1<2) continue;
+
+                  // scatter the lower weight particle
+                  std::array<Real,3> betap1p = betap1;
+                  for (int dir=0; dir<3; dir++) betap1p[dir] += 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) betap2[dir] -= 0.5*deltaU[dir];
+               
+                  // get third particle from larger weight particle list
+                  int random_index3 = MathUtils::randInt(0, local_numCell1-1);
+                  while(random_index3==random_index1) {
+                     random_index3 = MathUtils::randInt(0,local_numCell1-1);
                   }
-                  for (int dir=0; dir<3; dir++) this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
+                  JustinsParticlePtr& this_part3 = vector_part1_ptrs[random_index3];
+                  this_part3_ptr = this_part3.getPointer();
+                  std::array<Real,3>& betap3 = this_part3_ptr->velocity();
+                  Real& wp3 = this_part3_ptr->weight();
+                  
+                  // transform particles 1, 1p, and 3 into two equally-weighted particles such
+                  // that momentum, and direction-dependent energy are conserved
+                  ScatteringUtils::collapseThreeToTwo( betap1, wp1, betap3, wp3, betap1p, wp2 );
+
                }
                
+            }
+            else {
+               Real rand_num3 = MathUtils::rand();
+               if(rand_num3<=wp2/wp1) {
+                  for (int dir=0; dir<3; dir++) betap1[dir] +=  m_mu/m_mass1*deltaU[dir];
+               }
+               if(rand_num3<=wp1/wp2) {
+                  for (int dir=0; dir<3; dir++) betap2[dir] -= m_mu/m_mass2*deltaU[dir];
+               }
             }
 
          } // end loop over collisions for this cell
@@ -534,8 +652,10 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
    
    this_part1_ptr = NULL;
    this_part2_ptr = NULL;
+   this_part3_ptr = NULL;
    delete this_part1_ptr;
    delete this_part2_ptr;
+   delete this_part3_ptr;
    
    // While we are here, update the mean free time
    //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);

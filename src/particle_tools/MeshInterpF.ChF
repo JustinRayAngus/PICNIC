@@ -212,16 +212,14 @@ c     loop over all the cells containing this particle cloud,
 c     computing weight and assigning mass
       CHF_DTERM[
       do ii = index(0), index(0) + 1
-        l0 = ii*dx(0) + 0.5d0*dx(0)*(1.0-stag(0)) - xp(0) + left_edge(0);
+        l0 = ii*dx(0) + 0.5d0*dx(0)*(1.0-stag(0)) - xp(0) + left_edge(0)
+        w0 = 1.d0 - abs(l0 / dx(0));
         do jj = index(1), index(1) + 1
-          l1 = jj*dx(1) + 0.5d0*dx(1)*(1.0-stag(1)) - xp(1) + left_edge(1);
+          l1 = jj*dx(1) + 0.5d0*dx(1)*(1.0-stag(1)) - xp(1) + left_edge(1)
+          w1 = 1.d0 - abs(l1 / dx(1));
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2)*(1.0-stag(2)) - xp(2) + left_edge(2)]
-
-            CHF_DTERM[ 
-            w0 = 1.d0 - abs(l0 / dx(0));
-            w1 = 1.d0 - abs(l1 / dx(1));
-            w2 = 1.d0 - abs(l2 / dx(2))]
+            l2 = kk*dx(2) + 0.5d0*dx(2)*(1.0-stag(2)) - xp(2) + left_edge(2)
+            w2 = 1.d0 - abs(l2 / dx(2)) ]
 
             weight = CHF_DTERM[w0; *w1; *w2]
 
@@ -254,9 +252,9 @@ c
 
       integer index(0:CH_SPACEDIM - 1)
       integer idir
-      REAL_T CHF_DDECL[l0;l1;l2;l3;l4;l5]
-      REAL_T weight, CHF_DDECL[w0;w1;w2;w3;w4;w5]
-      integer CHF_DDECL[ii;jj;kk;ll;mm;nn]
+      REAL_T CHF_DDECL[l0;l1;l2]
+      REAL_T weight, CHF_DDECL[w0;w1;w2]
+      integer CHF_DDECL[ii;jj;kk]
 
 c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
@@ -272,35 +270,23 @@ c     computing weight and incrementing the force
         do jj = index(1), index(1) + 1
           l1 = jj*dx(1) + 0.5d0*dx(1) - x(1) + left_edge(1);
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2) - x(2) + left_edge(2);
-            do ll = index(3), index(3) + 1
-              l3 = ll*dx(3) + 0.5d0*dx(3) - x(3) + left_edge(3);
-              do mm = index(4), index(4) + 1
-                l4 = mm*dx(4) + 0.5d0*dx(4) - x(4) + left_edge(4);
-                do nn = index(5), index(5) + 1
-                  l5 = nn*dx(5) + 0.5d0*dx(5) - x(5) + left_edge(5)]
+            l2 = kk*dx(2) + 0.5d0*dx(2) - x(2) + left_edge(2)]
 
             CHF_DTERM[ 
             w0 = 1.d0 - abs(l0 / dx(0));
             w1 = 1.d0 - abs(l1 / dx(1));
-            w2 = 1.d0 - abs(l2 / dx(2));
-            w3 = 1.d0 - abs(l3 / dx(3));
-            w4 = 1.d0 - abs(l4 / dx(4));
-            w5 = 1.d0 - abs(l5 / dx(5))]
+            w2 = 1.d0 - abs(l2 / dx(2))]
 
-            weight = CHF_DTERM[w0; *w1; *w2; *w3; *w4; *w5]
+            weight = CHF_DTERM[w0; *w1; *w2]
 
             do idir = 0, CH_SPACEDIM - 1
 
               particle_field(idir) = particle_field(idir) + 
-     &                 weight * field(CHF_IX[ii; jj; kk; ll; mm; nn], idir)
+     &                 weight * field(CHF_IX[ii; jj; kk], idir)
 
             enddo
 
       CHF_DTERM[
-                enddo;
-              enddo;
-            enddo;
           enddo;
         enddo;
       enddo]
@@ -311,6 +297,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
 c  Deposits particle current density using cloud-in-cell interpolation
 c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
       subroutine cic_deposit_current(
      &                       CHF_FRA1[rhoVx],
@@ -322,18 +309,18 @@ c
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
-     &                       CHF_CONST_REAL[q]) 
+     &                       CHF_CONST_REAL[qp]) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
       integer idir
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
-      REAL_T volume, particle_rho, weight
       REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
-      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+      REAL_T volume, rhop, weight
 
 c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
-      particle_rho = q / volume
+      rhop = qp / volume
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
@@ -341,43 +328,137 @@ c     compute the index of the left most cell/edge that contains this particle c
         index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
       enddo
 
-c     loop over all the cells containing this particle cloud,
-c     computing weight and assigning mass
+c     loop over all the cells containing this cloud and deposit the current
       CHF_DTERM[
       do ii = index(0), index(0) + 1
         l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
         ii_stag = ii-index(0)+index_stag(0)
-        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0);
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0)
+        w0 = 1.d0 - abs(l0 / dx(0))
+        w0_stag = 1.d0 - abs(l0_stag / dx(0));
         do jj = index(1), index(1) + 1
           l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
           jj_stag = jj-index(1)+index_stag(1)
-          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1);
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1)
+          w1 = 1.d0 - abs(l1 / dx(1))
+          w1_stag = 1.d0 - abs(l1_stag / dx(1));
           do kk = index(2), index(2) + 1
             l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
             kk_stag = kk-index(2)+index_stag(2)
-            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2) ]
-
-            CHF_DTERM[ 
-            w0 = 1.d0 - abs(l0 / dx(0));
-            w1 = 1.d0 - abs(l1 / dx(1));
-            w2 = 1.d0 - abs(l2 / dx(2))]
-            
-            CHF_DTERM[ 
-            w0_stag = 1.d0 - abs(l0_stag / dx(0));
-            w1_stag = 1.d0 - abs(l1_stag / dx(1));
-            w2_stag = 1.d0 - abs(l2_stag / dx(2))]
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2)
+            w2 = 1.d0 - abs(l2 / dx(2))
+            w2_stag = 1.d0 - abs(l2_stag / dx(2)) ]
 
             weight = CHF_DTERM[w0; *w1_stag; *w2_stag]
             rhoVx(CHF_IX[ii; jj_stag; kk_stag]) = 
-     &      rhoVx(CHF_IX[ii; jj_stag; kk_stag]) + vpx * particle_rho * weight
+     &      rhoVx(CHF_IX[ii; jj_stag; kk_stag]) + vpx * rhop * weight
             
             weight = CHF_DTERM[w0_stag; *w1; *w2_stag]
             rhoVy(CHF_IX[ii_stag; jj; kk_stag]) = 
-     &      rhoVy(CHF_IX[ii_stag; jj; kk_stag]) + vpy * particle_rho * weight
+     &      rhoVy(CHF_IX[ii_stag; jj; kk_stag]) + vpy * rhop * weight
             
             weight = CHF_DTERM[w0_stag; *w1_stag; *w2]
             rhoVz(CHF_IX[ii_stag; jj_stag; kk]) = 
-     &      rhoVz(CHF_IX[ii_stag; jj_stag; kk]) + vpz * particle_rho * weight
+     &      rhoVz(CHF_IX[ii_stag; jj_stag; kk]) + vpz * rhop * weight
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+      end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  Deposits particle current density using triangular-shaped cloud interpolation
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine tsc_deposit_current(
+     &                       CHF_FRA1[rhoVx],
+     &                       CHF_FRA1[rhoVy],
+     &                       CHF_FRA1[rhoVz],
+     &                       CHF_CONST_REALVECT[left_edge],
+     &                       CHF_CONST_REALVECT[dx],
+     &                       CHF_CONST_REALVECT[xp],
+     &                       CHF_CONST_REAL[vpx], 
+     &                       CHF_CONST_REAL[vpy], 
+     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[qp]) 
+
+      integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+      integer idir
+      REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
+      REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
+      REAL_T volume, rhop, weight
+
+c     compute the cell volume and particle density on the grid
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+      rhop = qp / volume
+
+c     compute the index of the left most cell/edge that contains this particle cloud
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xp(idir) - left_edge(idir) - dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+      enddo
+
+c     loop over all the cells containing this cloud and deposit the current
+      CHF_DTERM[
+      do ii = index(0), index(0) + 2
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
+        if (abs(l0 / dx(0)) .lt. 0.5d0) then 
+          w0 = 0.75d0 - (l0 / dx(0))**2.d0
+        else
+          w0 = 0.5d0 * (1.5d0 - abs(l0 / dx(0)))**2.d0 
+        endif
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0)
+        if (abs(l0_stag / dx(0)) .lt. 0.5d0) then 
+          w0_stag = 0.75d0 - (l0_stag / dx(0))**2.d0
+        else
+          w0_stag = 0.5d0 * (1.5d0 - abs(l0_stag / dx(0)))**2.d0 
+        endif;
+        do jj = index(1), index(1) + 2
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
+          if (abs(l1 / dx(1)) .lt. 0.5d0) then 
+            w1 = 0.75d0 - (l1 / dx(1))**2.d0
+          else
+            w1 = 0.5d0 * (1.5d0 - abs(l1 / dx(1)))**2.d0 
+          endif
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1)
+          if (abs(l1_stag / dx(1)) .lt. 0.5d0) then 
+            w1_stag = 0.75d0 - (l1_stag / dx(1))**2.d0
+          else
+            w1_stag = 0.5d0 * (1.5d0 - abs(l1_stag / dx(1)))**2.d0 
+          endif;
+          do kk = index(2), index(2) + 2
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
+            if (abs(l2 / dx(2)) .lt. 0.5d0) then 
+              w2 = 0.75d0 - (l2 / dx(2))**2.d0
+            else
+              w2 = 0.5d0 * (1.5d0 - abs(l2 / dx(2)))**2.d0 
+            endif
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2)
+            if (abs(l2_stag / dx(2)) .lt. 0.5d0) then 
+              w2_stag = 0.75d0 - (l2_stag / dx(2))**2.d0
+            else
+              w2_stag = 0.5d0 * (1.5d0 - abs(l2_stag / dx(2)))**2.d0 
+            endif ]
+
+            weight = CHF_DTERM[w0; *w1_stag; *w2_stag]
+            rhoVx(CHF_IX[ii; jj_stag; kk_stag]) = 
+     &      rhoVx(CHF_IX[ii; jj_stag; kk_stag]) + vpx * rhop * weight
+            
+            weight = CHF_DTERM[w0_stag; *w1; *w2_stag]
+            rhoVy(CHF_IX[ii_stag; jj; kk_stag]) = 
+     &      rhoVy(CHF_IX[ii_stag; jj; kk_stag]) + vpy * rhop * weight
+            
+            weight = CHF_DTERM[w0_stag; *w1_stag; *w2]
+            rhoVz(CHF_IX[ii_stag; jj_stag; kk]) = 
+     &      rhoVz(CHF_IX[ii_stag; jj_stag; kk]) + vpz * rhop * weight
 
       CHF_DTERM[
           enddo;
@@ -390,6 +471,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
 c  Interpolates EM fields to the particle position using CIC interpolation.
 c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
       subroutine cic_interpolate_fields( CHF_REAL[Epx],
      &                                   CHF_REAL[Epy],
@@ -419,39 +501,26 @@ c     compute the index of the left most cell/edge that contains this particle c
         index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
       enddo
 
-c      if(index_stag(1)>iExhi1) then
-c        print*, "JRA: index(0) = ", index(0)
-c        print*, "JRA: index_stag(1) = ", index_stag(1)
-c        print*, "JRA: xp(0) = ", xp(0)
-c        print*, "JRA: xp(1) = ", xp(1)
-c      endif
-
-     
-c     loop over all the cells containing this particle cloud,
-c     computing weight and incrementing the force
+c     loop over all the cells containing this particle cloud and add to field
       CHF_DTERM[
       do ii = index(0), index(0) + 1
         l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
         ii_stag = ii-index(0)+index_stag(0)
-        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0);
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0)
+        w0 = 1.d0 - abs(l0 / dx(0))
+        w0_stag = 1.d0 - abs(l0_stag / dx(0));
         do jj = index(1), index(1) + 1
           l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
           jj_stag = jj-index(1)+index_stag(1)
-          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1);
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1)
+          w1 = 1.d0 - abs(l1 / dx(1))
+          w1_stag = 1.d0 - abs(l1_stag / dx(1));
           do kk = index(2), index(2) + 1
             l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
             kk_stag = kk-index(2)+index_stag(2)
-            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2) ]
-
-            CHF_DTERM[ 
-            w0 = 1.d0 - abs(l0 / dx(0));
-            w1 = 1.d0 - abs(l1 / dx(1));
-            w2 = 1.d0 - abs(l2 / dx(2))]
-            
-            CHF_DTERM[ 
-            w0_stag = 1.d0 - abs(l0_stag / dx(0));
-            w1_stag = 1.d0 - abs(l1_stag / dx(1));
-            w2_stag = 1.d0 - abs(l2_stag / dx(2))]
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2)
+            w2 = 1.d0 - abs(l2 / dx(2))
+            w2_stag = 1.d0 - abs(l2_stag / dx(2)) ]
 
             weight = CHF_DTERM[w0; *w1_stag; *w2_stag]
             Epx = Epx + weight*Ex(CHF_IX[ii; jj_stag; kk_stag])
@@ -478,6 +547,173 @@ c     computing weight and incrementing the force
 
       end
 
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  Interpolates EM fields to the particle position using TSC interpolation.
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine tsc_interpolate_fields( CHF_REAL[Epx],
+     &                                   CHF_REAL[Epy],
+     &                                   CHF_REAL[Epz],
+     &                                   CHF_REAL[Bpx],
+     &                                   CHF_REAL[Bpy],
+     &                                   CHF_REAL[Bpz],
+     &                                   CHF_CONST_FRA1[Ex],
+     &                                   CHF_CONST_FRA1[Ey],
+     &                                   CHF_CONST_FRA1[Ez],
+     &                                   CHF_CONST_FRA1[Bx],
+     &                                   CHF_CONST_FRA1[By],
+     &                                   CHF_CONST_FRA1[Bz],
+     &                                   CHF_CONST_REALVECT[left_edge],
+     &                                   CHF_CONST_REALVECT[dx],
+     &                                   CHF_CONST_REALVECT[xp] )
+
+      integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM - 1)
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+      integer idir
+      REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
+      REAL_T weight, CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
+
+c     compute the index of the left most cell/edge that contains this particle cloud
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xp(idir) - left_edge(idir) - dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+      enddo
+
+c     loop over all the cells containing this particle cloud and add to field
+      CHF_DTERM[
+      do ii = index(0), index(0) + 2
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
+        if (abs(l0 / dx(0)) .lt. 0.5d0) then 
+          w0 = 0.75d0 - (l0 / dx(0))**2.d0
+        else
+          w0 = 0.5d0 * (1.5d0 - abs(l0 / dx(0)))**2.d0 
+        endif
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0)
+        if (abs(l0_stag / dx(0)) .lt. 0.5d0) then 
+          w0_stag = 0.75d0 - (l0_stag / dx(0))**2.d0
+        else
+          w0_stag = 0.5d0 * (1.5d0 - abs(l0_stag / dx(0)))**2.d0
+        endif;
+        do jj = index(1), index(1) + 2
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
+          if (abs(l1 / dx(1)) .lt. 0.5d0) then 
+            w1 = 0.75d0 - (l1 / dx(1))**2.d0
+          else
+            w1 = 0.5d0 * (1.5d0 - abs(l1 / dx(1)))**2.d0 
+          endif
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1)
+          if (abs(l1_stag / dx(1)) .lt. 0.5d0) then 
+            w1_stag = 0.75d0 - (l1_stag / dx(1))**2.d0
+          else
+            w1_stag = 0.5d0 * (1.5d0 - abs(l1_stag / dx(1)))**2.d0 
+          endif;
+          do kk = index(2), index(2) + 2
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
+            if (abs(l2 / dx(2)) .lt. 0.5d0) then 
+              w2 = 0.75d0 - (l2 / dx(2))**2.d0
+            else
+              w2 = 0.5d0 * (1.5d0 - abs(l2 / dx(2)))**2.d0 
+            endif
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2)
+            if (abs(l2_stag / dx(2)) .lt. 0.5d0) then 
+              w2_stag = 0.75d0 - (l2_stag / dx(2))**2.d0
+            else
+              w2_stag = 0.5d0 * (1.5d0 - abs(l2_stag / dx(2)))**2.d0 
+            endif ]
+
+            weight = CHF_DTERM[w0; *w1_stag; *w2_stag]
+            Epx = Epx + weight*Ex(CHF_IX[ii; jj_stag; kk_stag])
+            
+            weight = CHF_DTERM[w0_stag; *w1; *w2_stag]
+            Epy = Epy + weight*Ey(CHF_IX[ii_stag; jj; kk_stag])
+            
+            weight = CHF_DTERM[w0_stag; *w1_stag; *w2]
+            Epz = Epz + weight*Ez(CHF_IX[ii_stag; jj_stag; kk])
+            
+            weight = CHF_DTERM[w0_stag; *w1; *w2]
+            Bpx = Bpx + weight*Bx(CHF_IX[ii_stag; jj; kk])
+            
+            weight = CHF_DTERM[w0; *w1_stag; *w2]
+            Bpy = Bpy + weight*By(CHF_IX[ii; jj_stag; kk])
+            
+            weight = CHF_DTERM[w0; *w1; *w2_stag]
+            Bpz = Bpz + weight*Bz(CHF_IX[ii; jj; kk_stag])
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+      end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  Interpolates magnetic field to the particle position using CIC interpolation.
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine cic_interpolate_magnetic_field( CHF_REAL[Bpx],
+     &                                           CHF_REAL[Bpy],
+     &                                           CHF_REAL[Bpz],
+     &                                           CHF_CONST_FRA1[Bgx],
+     &                                           CHF_CONST_FRA1[Bgy],
+     &                                           CHF_CONST_FRA1[Bgz],
+     &                                           CHF_CONST_REALVECT[left_edge],
+     &                                           CHF_CONST_REALVECT[dx],
+     &                                           CHF_CONST_REALVECT[xp] )
+
+      integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM - 1)
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+      integer idir
+      REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
+      REAL_T weight, CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
+
+c     compute the index of the left most cell/edge that contains this particle cloud
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
+      enddo
+
+      CHF_DTERM[
+      do ii = index(0), index(0) + 1
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0)
+        w0 = 1.d0 - abs(l0 / dx(0))
+        w0_stag = 1.d0 - abs(l0_stag / dx(0));
+        do jj = index(1), index(1) + 1
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1)
+          w1 = 1.d0 - abs(l1 / dx(1))
+          w1_stag = 1.d0 - abs(l1_stag / dx(1));
+          do kk = index(2), index(2) + 1
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2)
+            w2 = 1.d0 - abs(l2 / dx(2))
+            w2_stag = 1.d0 - abs(l2_stag / dx(2)) ]
+
+            weight = CHF_DTERM[w0_stag; *w1; *w2]
+            Bpx = Bpx + weight*Bgx(CHF_IX[ii_stag; jj; kk])
+            
+            weight = CHF_DTERM[w0; *w1_stag; *w2]
+            Bpy = Bpy + weight*Bgy(CHF_IX[ii; jj_stag; kk])
+            
+            weight = CHF_DTERM[w0; *w1; *w2_stag]
+            Bpz = Bpz + weight*Bgz(CHF_IX[ii; jj; kk_stag])
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+      end
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
@@ -498,12 +734,9 @@ c
      &                                CHF_CONST_REALVECT[xp],
      &                                CHF_CONST_INTVECT[stag] )
 
-      integer index(0:CH_SPACEDIM - 1)
-      integer idir
-c      integer comp
+      integer index(0:CH_SPACEDIM - 1), CHF_DDECL[ii;jj;kk], idir
       REAL_T CHF_DDECL[l0;l1;l2]
       REAL_T weight, CHF_DDECL[w0;w1;w2]
-      integer CHF_DDECL[ii;jj;kk]
 
 c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
@@ -515,21 +748,17 @@ c     loop over all the cells containing this particle cloud,
 c     computing weight and incrementing the force
       CHF_DTERM[
       do ii = index(0), index(0) + 1
-        l0 = ii*dx(0) + 0.5d0*dx(0)*(1.0-stag(0)) - xp(0) + left_edge(0);
+        l0 = ii*dx(0) + 0.5d0*dx(0)*(1.0-stag(0)) - xp(0) + left_edge(0)
+        w0 = 1.d0 - abs(l0 / dx(0));
         do jj = index(1), index(1) + 1
-          l1 = jj*dx(1) + 0.5d0*dx(1)*(1.0-stag(1)) - xp(1) + left_edge(1);
+          l1 = jj*dx(1) + 0.5d0*dx(1)*(1.0-stag(1)) - xp(1) + left_edge(1)
+          w1 = 1.d0 - abs(l1 / dx(1));
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2)*(1.0-stag(2)) - xp(2) + left_edge(2) ]
-
-            CHF_DTERM[ 
-            w0 = 1.d0 - abs(l0 / dx(0));
-            w1 = 1.d0 - abs(l1 / dx(1));
-            w2 = 1.d0 - abs(l2 / dx(2))]
+            l2 = kk*dx(2) + 0.5d0*dx(2)*(1.0-stag(2)) - xp(2) + left_edge(2)
+            w2 = 1.d0 - abs(l2 / dx(2)) ]
 
             weight = CHF_DTERM[w0; *w1; *w2]
-c            do comp = 0, (CHF_NCOMP[field]-1)
             particle_field = particle_field + weight*field(CHF_IX[ii; jj; kk])
-c            enddo
 
       CHF_DTERM[
           enddo;
@@ -554,89 +783,59 @@ c
      &                       CHF_FRA1[rho],
      &                       CHF_CONST_REALVECT[left_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[x],
+     &                       CHF_CONST_REALVECT[xp],
+     &                       CHF_CONST_INTVECT[stag],
+     &                       CHF_CONST_REAL[kernal], 
      &                       CHF_CONST_REAL[q]) 
 
       integer index(0:CH_SPACEDIM - 1)
       integer idir
-      REAL_T volume, CHF_DDECL[l0;l1;l2;l3;l4;l5]
+      REAL_T volume, CHF_DDECL[l0;l1;l2]
       REAL_T particle_rho
-      REAL_T weight, CHF_DDECL[w0;w1;w2;w3;w4;w5]
-      integer CHF_DDECL[ii;jj;kk;ll;mm;nn]
+      REAL_T weight, CHF_DDECL[w0;w1;w2]
+      integer CHF_DDECL[ii;jj;kk]
 
 c     compute the cell volume and particle density on the grid
-      volume = CHF_DTERM[dx(0);*dx(1);*dx(2);*dx(3);*dx(4);*dx(5)]
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
       particle_rho = q / volume
 
 c     compute the index of the cell that contains the LEFT edge of
 c     this particle cloud.
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((x(idir) - left_edge(idir) - 1.0d0*dx(idir)) / dx(idir))
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir) - 0.5d0*dx(idir)*(1.0-stag(idir))) / dx(idir))
       enddo
 
 c     loop over all the cells containing this particle cloud,
 c     computing weight and assigning mass
       CHF_DTERM[
       do ii = index(0), index(0) + 2
-        l0 = ii*dx(0) + 0.5d0*dx(0) - x(0) + left_edge(0);
+        l0 = ii*dx(0) + 0.5d0*dx(0)*(1.0-stag(0)) - xp(0) + left_edge(0)
+        if (abs(l0 / dx(0)) .lt. 0.5d0) then 
+          w0 = 0.75d0 - (l0 / dx(0))**2.d0
+        else
+          w0 = 0.5d0 * (1.5d0 - abs(l0 / dx(0)))**2.d0 
+        endif;
         do jj = index(1), index(1) + 2
-          l1 = jj*dx(1) + 0.5d0*dx(1) - x(1) + left_edge(1);
+          l1 = jj*dx(1) + 0.5d0*dx(1)*(1.0-stag(1)) - xp(1) + left_edge(1)
+          if (abs(l1 / dx(1)) .lt. 0.5d0) then 
+            w1 = 0.75d0 - (l1 / dx(1))**2.d0
+          else
+            w1 = 0.5d0 * (1.5d0 - abs(l1 / dx(1)))**2.d0 
+          endif;
           do kk = index(2), index(2) + 2
-            l2 = kk*dx(2) + 0.5d0*dx(2) - x(2) + left_edge(2);
-            do ll = index(3), index(3) + 2
-              l3 = ll*dx(3) + 0.5d0*dx(3) - x(3) + left_edge(3);
-              do mm = index(4), index(4) + 2
-                l4 = mm*dx(4) + 0.5d0*dx(4) - x(4) + left_edge(4);
-                do nn = index(5), index(5) + 2
-                  l5 = nn*dx(5) + 0.5d0*dx(5) - x(5) + left_edge(5)]
-
-            CHF_DTERM[
-            if (abs(l0 / dx(0)) .lt. 0.5d0) then 
-              w0 = 7.5d-1 - (l0 / dx(0))**2.d0
-            else
-              w0 = 0.5d0 * (1.5d0 - abs(l0 / dx(0)))**2.d0 
-            endif
-            ;
-            if (abs(l1 / dx(1)) .lt. 0.5d0) then 
-              w1 = 7.5d-1 - (l1 / dx(1))**2.d0
-            else
-              w1 = 0.5d0 * (1.5d0 - abs(l1 / dx(1)))**2.d0 
-            endif
-            ;
+            l2 = kk*dx(2) + 0.5d0*dx(2)*(1.0-stag(2)) - xp(2) + left_edge(2)
             if (abs(l2 / dx(2)) .lt. 0.5d0) then 
-              w2 = 7.5d-1 - (l2 / dx(2))**2.d0
+              w2 = 0.75d0 - (l2 / dx(2))**2.d0
             else
               w2 = 0.5d0 * (1.5d0 - abs(l2 / dx(2)))**2.d0 
-            endif
-            ;
-            if (abs(l3 / dx(3)) .lt. 0.5d0) then 
-              w3 = 7.5d-1 - (l3 / dx(3))**2.d0
-            else
-              w3 = 0.5d0 * (1.5d0 - abs(l3 / dx(3)))**2.d0 
-            endif
-            ;
-            if (abs(l4 / dx(4)) .lt. 0.5d0) then 
-              w4 = 7.5d-1 - (l4 / dx(4))**2.d0
-            else
-              w4 = 0.5d0 * (1.5d0 - abs(l4 / dx(4)))**2.d0 
-            endif
-            ;
-            if (abs(l5 / dx(5)) .lt. 0.5d0) then 
-              w5 = 7.5d-1 - (l5 / dx(5))**2.d0
-            else
-              w5 = 0.5d0 * (1.5d0 - abs(l5 / dx(5)))**2.d0 
-            endif                                    
-            ]
+            endif ]
 
-            weight = CHF_DTERM[w0; *w1; *w2; *w3; *w4; *w5]
+            weight = CHF_DTERM[w0; *w1; *w2]
 
-            rho(CHF_IX[ii; jj; kk; ll; mm; nn]) = 
-     &      rho(CHF_IX[ii; jj; kk; ll; mm; nn]) + particle_rho * weight
+            rho(CHF_IX[ii; jj; kk]) = 
+     &      rho(CHF_IX[ii; jj; kk]) + kernal * particle_rho * weight
 
       CHF_DTERM[
-                enddo;
-              enddo;
-            enddo;
           enddo;
         enddo;
       enddo]

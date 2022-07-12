@@ -28,11 +28,17 @@ void PICTimeIntegrator_EM_SemiImplicit::define( System* const             a_sys,
 
 void PICTimeIntegrator_EM_SemiImplicit::initialize()
 {
-  m_system->copySolutionToVec( m_E );
-  m_Eold = m_E;
-
+  m_system->copyEToVec( m_E );
   m_system->copyBToVec( m_B );
-  m_Bold = m_B;
+  m_system->copyEoldToVec( m_Eold );
+  m_system->copyBoldToVec( m_Bold );
+}
+
+int PICTimeIntegrator_EM_SemiImplicit::prepForCheckpoint() const
+{
+  m_system->copyEoldFromVec( m_Eold );
+  m_system->copyBoldFromVec( m_Bold );
+  return 1;
 }
 
 void PICTimeIntegrator_EM_SemiImplicit::preTimeStep(  const Real a_time,
@@ -72,8 +78,10 @@ void PICTimeIntegrator_EM_SemiImplicit::postTimeStep( const Real a_time,
 
   for (int s=0; s<m_particles.size(); s++) {
      auto this_picSpecies(m_particles[s]);
-     this_picSpecies->advancePositions_2ndHalf();
      this_picSpecies->advanceVelocities_2ndHalf();
+     this_picSpecies->advancePositions_2ndHalf();
+     this_picSpecies->applyInertialForces(a_dt,true,true);
+     this_picSpecies->applyBCs(false);
   }
 
   m_E = 2.0*m_E - m_Eold;

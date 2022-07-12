@@ -14,6 +14,7 @@ simulation.fixed_random_seed = 1983
 
 system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 system.iter_max = 5
+system.part_order_swap = true
 system.write_species_charge_density = false
 system.write_species_current_density = false
 
@@ -45,7 +46,7 @@ grid.num_cells     = 40
 grid.is_periodic   = 1
 grid.config_decomp = 10
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 1
+grid.num_ghosts    = 2
 
 grid.X_min = 0.0
 grid.X_max = 10.0 # 10*de0
@@ -64,6 +65,8 @@ units.time           = 1.77e-17  # s
 #####################################################
 em_fields.use = true
 em_fields.advance = true
+em_fields.write_rho = true
+em_fields.write_divs = true
 
 IC.em_fields.magnetic.0.type = "constant"
 IC.em_fields.magnetic.0.value = 0.0
@@ -88,6 +91,9 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = true
+pic_species.0.interp_type_N = "CIC"
+pic_species.0.interp_type_J = "CC0"
+pic_species.0.interp_type_E = "CC0"
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 10.0
@@ -113,6 +119,9 @@ pic_species.1.charge = 1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
+pic_species.1.interp_type_N = "CIC"
+pic_species.1.interp_type_J = "CC0"
+pic_species.1.interp_type_E = "CC0"
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 10.0

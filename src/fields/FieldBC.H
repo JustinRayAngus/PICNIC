@@ -35,6 +35,34 @@ class FieldBC
                 const LevelData<EdgeDataBox>&  a_src,
                 const Real                     a_time );
       
+      void applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
+                        const LevelData<FArrayBox>&    a_B );
+      
+      void applyOnAxisCurlBC( LevelData<NodeFArrayBox>&  a_curlB,
+                        const LevelData<FArrayBox>&      a_B );
+
+      void applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
+                       const LevelData<EdgeDataBox>&    a_E );
+
+      void computeIntSdA( RealVect&                  a_intSdA_lo, 
+                          RealVect&                  a_intSdA_hi,
+                    const LevelData<EdgeDataBox>&    a_E, 
+                    const LevelData<FluxBox>&        a_B,
+                    const LevelData<NodeFArrayBox>&  a_Ev,
+                    const LevelData<FArrayBox>&      a_Bv );
+    
+      void applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
+                     LevelData<NodeFArrayBox>&  a_J_virtual );
+
+      void prepJforBC( LevelData<EdgeDataBox>&  a_Jx,
+                 const LevelData<EdgeDataBox>&  a_Jx0,
+                 const LevelData<EdgeDataBox>&  a_Ex,
+                 const LevelData<NodeFArrayBox>&  a_Ev,
+                 const LevelData<EdgeDataBox>&  a_sigma_xx,
+                 const LevelData<EdgeDataBox>&  a_sigma_xy,
+                 const LevelData<EdgeDataBox>&  a_sigma_xz,
+                 const Real                     a_volume_scale );
+
    protected:
    
       Vector<std::string> m_bdry_name;

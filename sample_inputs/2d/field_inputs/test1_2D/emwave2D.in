@@ -25,6 +25,7 @@ simulation.history_interval    = 10
 
 history.precision = 5
 history.field_probes = true
+history.field_bdry_probes = true
 
 #####################################################
 # Computational Grid Definitions

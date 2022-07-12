@@ -8,8 +8,7 @@ simulation.fixed_random_seed = 1983
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 10
-simulation.max_step            = 100000
+simulation.max_step            = 100
 simulation.max_time            = 5.0e-5
 simulation.cfl_number          = 0.7
 simulation.cfl_scatter         = 0.5
@@ -70,23 +69,23 @@ IC.deuteriumAtom.velocity_1.value = 0.0 # [m/s]
 IC.deuteriumAtom.velocity_2.type = "constant"
 IC.deuteriumAtom.velocity_2.value = 0.0 # [m/s]
 
-IC_2.deuteriumAtom.X_min = 0.5
-IC_2.deuteriumAtom.X_max = 1.0
-IC_2.deuteriumAtom.parts_per_cell = 3000
-IC_2.deuteriumAtom.density.type = "constant"
-IC_2.deuteriumAtom.density.value = 3.0e22 # [number/m^3]
-IC_2.deuteriumAtom.temperature_0.type = "constant"
-IC_2.deuteriumAtom.temperature_0.value = 94.79e-3 # [eV]
-IC_2.deuteriumAtom.temperature_1.type = "constant"
-IC_2.deuteriumAtom.temperature_1.value = 94.79e-3 # [eV]
-IC_2.deuteriumAtom.temperature_2.type = "constant"
-IC_2.deuteriumAtom.temperature_2.value = 94.79e-3 # [eV]
-IC_2.deuteriumAtom.velocity_0.type = "constant"
-IC_2.deuteriumAtom.velocity_0.value = 1.4367e3 # [m/s]
-IC_2.deuteriumAtom.velocity_1.type = "constant"
-IC_2.deuteriumAtom.velocity_1.value = 0.0 # [m/s]
-IC_2.deuteriumAtom.velocity_2.type = "constant"
-IC_2.deuteriumAtom.velocity_2.value = 0.0 # [m/s]
+IC_1.deuteriumAtom.X_min = 0.5
+IC_1.deuteriumAtom.X_max = 1.0
+IC_1.deuteriumAtom.parts_per_cell = 3000
+IC_1.deuteriumAtom.density.type = "constant"
+IC_1.deuteriumAtom.density.value = 3.0e22 # [number/m^3]
+IC_1.deuteriumAtom.temperature_0.type = "constant"
+IC_1.deuteriumAtom.temperature_0.value = 94.79e-3 # [eV]
+IC_1.deuteriumAtom.temperature_1.type = "constant"
+IC_1.deuteriumAtom.temperature_1.value = 94.79e-3 # [eV]
+IC_1.deuteriumAtom.temperature_2.type = "constant"
+IC_1.deuteriumAtom.temperature_2.value = 94.79e-3 # [eV]
+IC_1.deuteriumAtom.velocity_0.type = "constant"
+IC_1.deuteriumAtom.velocity_0.value = 1.4367e3 # [m/s]
+IC_1.deuteriumAtom.velocity_1.type = "constant"
+IC_1.deuteriumAtom.velocity_1.value = 0.0 # [m/s]
+IC_1.deuteriumAtom.velocity_2.type = "constant"
+IC_1.deuteriumAtom.velocity_2.value = 0.0 # [m/s]
 
 BC.deuteriumAtom.dir0_lower.type = inflow_outflow
 BC.deuteriumAtom.dir0_lower.inflow.discrete_samples = 1000

@@ -7,8 +7,9 @@
 
 void BoundaryConditions::setBC( FArrayBox&       a_dst,
                           const Box&             a_boundary_box,
+                          const int              a_comp,
                           const std::string&     a_bc_type,
-                          const int&             a_dir,
+                          const int              a_dir,
                           const Side::LoHiSide&  a_side )
 {
    CH_TIMERS("BoundaryConditions::setBC()");
@@ -17,8 +18,6 @@ void BoundaryConditions::setBC( FArrayBox&       a_dst,
    const IntVect& stag_vect = a_dst.box().type();
    const int& is_stag = stag_vect[a_dir];
 
-   //if(!procID()) cout << "JRA: a_bc_type = " << a_bc_type << endl;  
- 
    const int ISIDE(a_side);
    IntVect ghosts = a_boundary_box.size();
  
@@ -26,7 +25,7 @@ void BoundaryConditions::setBC( FArrayBox&       a_dst,
       int evenodd = 1;
       if(a_bc_type=="even") evenodd = 1;
       if(a_bc_type=="odd") evenodd = -1;
-      FORT_EVENODD_BC( CHF_FRA(a_dst),
+      FORT_EVENODD_BC( CHF_FRA1(a_dst,a_comp),
                        CHF_BOX(a_boundary_box),
                        CHF_CONST_INT(evenodd),
                        CHF_CONST_INT(is_stag),
@@ -35,7 +34,7 @@ void BoundaryConditions::setBC( FArrayBox&       a_dst,
    }
    
    else if (a_bc_type == "zero") {
-      a_dst.setVal(0.0,a_boundary_box,0,a_dst.nComp());
+      a_dst.setVal(0.0,a_boundary_box,a_comp,1);
    }
    
    else if (a_bc_type == "symmetry") {
@@ -51,7 +50,7 @@ void BoundaryConditions::setBC( FArrayBox&       a_dst,
    else { // default is fill ghost cells based on extrap
       int order = 2;
       //int order = 4;
-      FORT_EXTRAP_BC( CHF_FRA(a_dst),
+      FORT_EXTRAP_BC( CHF_FRA1(a_dst,a_comp),
                       CHF_BOX(a_boundary_box),
                       CHF_CONST_INT(a_dir),
                       CHF_CONST_INT(ISIDE),

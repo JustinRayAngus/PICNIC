@@ -53,7 +53,7 @@ grid.num_cells     = 288
 grid.is_periodic   = 0
 grid.config_decomp = 36
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 1
+grid.num_ghosts    = 2
 
 grid.X_min = 0.0
 grid.X_max = 200.0 # [mfpi]

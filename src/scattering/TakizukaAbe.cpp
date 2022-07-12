@@ -7,39 +7,39 @@
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
 #include "BinFab.H"
-#include "ParticleUtils.H"
+#include "ScatteringUtils.H"
 
 #include "NamespaceHeader.H"
 
 
-void TakizukaAbe::initialize( const DomainGrid&         a_mesh,
-                              const PicSpeciesPtrVect&  a_picSpeciesPtrVect )
+void TakizukaAbe::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
+                              const DomainGrid&         a_mesh )
 {
    CH_TIME("TakizukaAbe::initialize()");
    
    // get pointer to species 1 and assert collisions allowed
    CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_picSpecies1(a_picSpeciesPtrVect[m_sp1]);
-   CH_assert(this_picSpecies1->scatter());
+   PicSpeciesPtr this_species1(a_picSpeciesPtrVect[m_sp1]);
+   //CH_assert(this_sSpecies1->scatter());
       
    // get pointer to species 2 and assert collisions allowed
    CH_assert(m_sp2<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_picSpecies2(a_picSpeciesPtrVect[m_sp2]);
-   CH_assert(this_picSpecies2->scatter());
+   PicSpeciesPtr this_species2(a_picSpeciesPtrVect[m_sp2]);
+   //CH_assert(this_species2->scatter());
 
    // set the species names
-   m_species1_name = this_picSpecies1->name();
-   m_species2_name = this_picSpecies2->name();
+   m_species1_name = this_species1->name();
+   m_species2_name = this_species2->name();
    
    // set the species charges and assert they are not neutrals
-   m_charge1 = this_picSpecies1->charge();  // species 1 charge / |qe|
-   m_charge2 = this_picSpecies2->charge();  // species 2 charge / |qe|
+   m_charge1 = this_species1->charge();  // species 1 charge / |qe|
+   m_charge2 = this_species2->charge();  // species 2 charge / |qe|
    CH_assert(m_charge1!=0);
    CH_assert(m_charge2!=0);
 
    // set the species masses
-   m_mass1 = this_picSpecies1->mass();    // species 1 mass / me
-   m_mass2 = this_picSpecies2->mass();    // species 2 mass / me
+   m_mass1 = this_species1->mass();    // species 1 mass / me
+   m_mass2 = this_species2->mass();    // species 2 mass / me
    m_mu = m_mass1*m_mass2/(m_mass1 + m_mass2); // reduced mass
          
    Real cvacSq = Constants::CVAC*Constants::CVAC;
@@ -49,19 +49,21 @@ void TakizukaAbe::initialize( const DomainGrid&         a_mesh,
    // set the mean free time
    //
    
-   // define references to picSpecies1
-   const bool setMoments = true; // It is the job of the caller to make sure the moments are pre-computed
-   const LevelData<FArrayBox>& numberDensity1 = this_picSpecies1->getNumberDensity(setMoments);
-   const LevelData<FArrayBox>& energyDensity1 = this_picSpecies1->getEnergyDensity(setMoments);
+   if(this_species1->scatter() && this_species2->scatter()) {
    
-   if(m_sp1==m_sp2) {
-      setMeanFreeTime(numberDensity1,energyDensity1);
-   }
-   else {
-      // define references to picSpecies2
-      const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity(setMoments);
-      setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+      const bool setMoments = true;
+      const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
+      const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
+   
+      if(m_sp1==m_sp2) {
+         setMeanFreeTime(numberDensity1,energyDensity1);
+      }
+      else {
+         const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
+         const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
+         setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+      }
+
    }
 
    if (m_verbosity)  printParameters();
@@ -118,9 +120,9 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
    }
    
    Real global_nuMax = box_nuMax;
-#ifdef CH_MPI
-   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
-#endif
+//#ifdef CH_MPI
+//   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+//#endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
    
 }
@@ -222,10 +224,30 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
    }
    
    Real global_nuMax = box_nuMax;
-#ifdef CH_MPI
-   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
-#endif
+//#ifdef CH_MPI
+//   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
+//#endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
+
+}
+
+void TakizukaAbe::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                             const DomainGrid&         a_mesh,
+                             const Real                a_dt_sec ) const
+{
+   CH_TIME("TakizukaAbe::applyScattering()");
+      
+   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
+   if(!this_species1->scatter()) return;
+
+   if(m_sp1==m_sp2) {
+      applySelfScattering( *this_species1, a_mesh, a_dt_sec );
+   }
+   else {
+      PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+      if(!this_species2->scatter()) return;
+      applyInterScattering( *this_species1, *this_species2, a_mesh, a_dt_sec );
+   }
 
 }
       
@@ -556,7 +578,7 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    m_sinphi = sin(m_phi);
 
    // define deltaU
-   ParticleUtils::computeDeltaU(a_deltaU,ux,uy,uz,m_costh,m_sinth,m_cosphi,m_sinphi);
+   ScatteringUtils::computeDeltaU(a_deltaU,ux,uy,uz,m_costh,m_sinth,m_cosphi,m_sinphi);
                
 }
 

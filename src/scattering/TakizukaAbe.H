@@ -19,8 +19,6 @@ class TakizukaAbe : public Scattering
 {
    public:
 
-      // Constructor
-      //
       TakizukaAbe( ParmParse&  a_pp, 
                     const int&        a_verbosity )
          : Scattering(a_verbosity)
@@ -30,19 +28,29 @@ class TakizukaAbe : public Scattering
          m_b90_codeToPhys = Constants::QE*Constants::QE/(4.0*Constants::PI*Constants::EP0*Constants::ME); 
          parseParameters( a_pp );
       }
+      
+      TakizukaAbe( const int   a_sp1,
+                   const int   a_sp2,
+                   const Real  a_Clog, 
+                   const int   a_verbosity )
+         : Scattering(a_verbosity)
+      {
+         m_scatter_dt = DBL_MAX;
+         m_b90_codeToPhys = Constants::QE*Constants::QE/(4.0*Constants::PI*Constants::EP0*Constants::ME); 
+         //
+         m_sp1 = a_sp1;
+         m_sp2 = a_sp2;
+         m_Clog = a_Clog; CH_assert(m_Clog>=3.0);
+      }
 
-      // Destructor
-      //
       virtual ~TakizukaAbe() {;}
       
-      // return integer identifier of species 1
+      virtual ScatteringType getScatteringType() const { return COULOMB; }
+      
       virtual int species1() const { return m_sp1; }
       
-      // return integer identifier of species 1
       virtual int species2() const { return m_sp2; }
       
-      // set mean free time
-      //
       virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
                                     const LevelData<FArrayBox>&  a_energyDensity ) const;
 
@@ -51,15 +59,11 @@ class TakizukaAbe : public Scattering
                                     const LevelData<FArrayBox>&  a_numberDensity2,
                                     const LevelData<FArrayBox>&  a_energyDensity2 ) const;
     
-      // initialization
-      //
-      virtual void initialize( const DomainGrid&         a_mesh,
-                               const PicSpeciesPtrVect&  a_picSpeciesPtrVect ); 
+      virtual void initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
+                               const DomainGrid&         a_mesh );
 
       virtual Real scatterDt() const { return m_scatter_dt; }
 
-      // Print object parameters.
-      //
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "TakizukaAbe scattering parameters:" << std::endl;
@@ -69,6 +73,12 @@ class TakizukaAbe : public Scattering
          }
       }
       
+      virtual void applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                              const DomainGrid&         a_mesh,
+                              const Real                a_dt_sec ) const;
+      
+   private:
+
       // scatter like species
       virtual void applySelfScattering( PicSpecies&  a_picSpecies, 
                                   const DomainGrid&  a_mesh,
@@ -80,10 +90,6 @@ class TakizukaAbe : public Scattering
                                    const DomainGrid&  a_mesh,
                                    const Real         a_dt_sec ) const;
  
- 
-   private:
-
-
       void computeDeltaU( std::array<Real,3>&  a_deltaU,
                     const std::array<Real,3>&  a_vp1,
                     const Real                 a_den1,

@@ -11,6 +11,7 @@
 #include "NodeFArrayBox.H"
 
 #include "ElectroMagneticFields.H"
+#include "DomainGrid.H"
 #include "BoundaryBoxLayout.H"
 #include "BoundaryConditions.H"
 #include "InsulatorBC.H"
@@ -62,47 +63,60 @@ namespace FieldBCUtils {
    
    inline
    void setInsulatorConductorBC_Bv( LevelData<FArrayBox>&  a_dst,
+                              const DomainGrid&            a_mesh,
                               const BoundaryBoxLayout&     a_bdry_layout,
                               const InsulatorBC&           a_insulator_bc,
                               const Real                   a_time )
    {
       CH_TIME("FieldBCUtils::setInsulatorConductorBC_Bv()");
          
+      const LevelData<FArrayBox>& Xphys = a_mesh.getXcc();
+      
       const DisjointBoxLayout& bdry_grids( a_bdry_layout.disjointBoxLayout() );
       const LevelData<FArrayBox>& ICbinary = a_insulator_bc.getICbinary_cc();
+      const RealVect& Xmin_insulator = a_insulator_bc.getXmin();
+      const int bdry_dir = a_bdry_layout.dir();
+
       Real bdry_val = a_insulator_bc.getTimeFunctionValue(a_time);
-      
+
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
          const DataIndex& interior_dit( a_bdry_layout.dataIndex(dit) );
          const FArrayBox& this_ICbinary( ICbinary[interior_dit] );
+         const FArrayBox& this_X( Xphys[interior_dit] );
          FArrayBox& this_dst( a_dst[interior_dit] );
         
          // grow fill box to include tranverse ghosts 
          const Box fill_box( bdry_grids[dit] );
          IntVect grow_vect = a_dst.ghostVect();
-         grow_vect[a_bdry_layout.dir()] = 0;
+         grow_vect[bdry_dir] = 0;
          Box insulator_box = grow(fill_box,grow_vect);
            
          // reduce grown fill_box to insulator box
-         getInsulatorBox(insulator_box,this_ICbinary,a_bdry_layout.dir());     
+         getInsulatorBox(insulator_box,this_ICbinary,bdry_dir);     
                
          // extrapolate if 1D to get other comp set
          if(SpaceDim==1) {
             const string extrap_bc_type = "extrapolate";
             BoundaryConditions::setBC( this_dst,
                                        insulator_box,
+                                       1,
                                        extrap_bc_type,
-                                       a_bdry_layout.dir(),
+                                       bdry_dir,
                                        a_bdry_layout.side() );
          }
 
          // set the value in the boundary for the appropriate comp
          const int comp = 0; // this should come from insulator_bc object
          IntVect ib;         // cell index
+         Real local_X;
          BoxIterator bit(insulator_box); // grid indices for boundary box    
          for(bit.begin(); bit.ok(); ++bit) {
             ib = bit();
+            if(a_mesh.axisymmetric()) {
+               local_X = this_X.get(ib,bdry_dir);
+               bdry_val = bdry_val*Xmin_insulator[bdry_dir]/local_X;
+            }
             this_dst.set(ib,comp,bdry_val); // conductor
          }
 
@@ -153,6 +167,7 @@ namespace FieldBCUtils {
             // apply bc for conductor
             BoundaryConditions::setBC( this_dst,
                                        fill_box_grown,
+                                       0,
                                        B_bc_type,
                                        bdry_dir,
                                        a_bdry_layout.side() );
@@ -164,6 +179,7 @@ namespace FieldBCUtils {
             B_bc_type = "extrapolate";
             BoundaryConditions::setBC( this_dst,
                                        insulator_box,
+                                       0,
                                        B_bc_type,
                                        bdry_dir,
                                        a_bdry_layout.side() );
@@ -218,6 +234,7 @@ namespace FieldBCUtils {
             // apply bc for conductor
             BoundaryConditions::setBC( this_dst,
                                        fill_box_grown,
+                                       0,
                                        E_bc_type,
                                        bdry_dir,
                                        a_bdry_layout.side() );
@@ -230,6 +247,7 @@ namespace FieldBCUtils {
                E_bc_type = "extrapolate";
                BoundaryConditions::setBC( this_dst,
                                           insulator_box,
+                                          0,
                                           E_bc_type,
                                           bdry_dir,
                                           a_bdry_layout.side() );
@@ -266,7 +284,9 @@ namespace FieldBCUtils {
          fill_box_grown.surroundingNodes();           
             
          // multiply by ICbinary to set zero on conductor
-         this_dst.mult(this_ICbinary,fill_box_grown,0,0,this_dst.nComp());
+         for (auto n=0; n<this_dst.nComp(); ++n) {
+            this_dst.mult(this_ICbinary,fill_box_grown,0,n,1);
+         }
                
          // dont change value on boundary in setBC()
          const int ISIDE(a_bdry_layout.side());
@@ -275,23 +295,29 @@ namespace FieldBCUtils {
          
          // apply bc for conductor
          string Ev_bc_type = "odd";
-         BoundaryConditions::setBC( this_dst,
-                                    fill_box_grown,
-                                    Ev_bc_type,
-                                    a_bdry_layout.dir(),
-                                    a_bdry_layout.side() );
+         for (int n(0); n<this_dst.nComp(); n++) {
+            BoundaryConditions::setBC( this_dst,
+                                       fill_box_grown,
+                                       n,
+                                       Ev_bc_type,
+                                       a_bdry_layout.dir(),
+                                       a_bdry_layout.side() );
+         }
 
          // reduce grown fill_box to insulator box and setBC in insulator region
          Box insulator_box = fill_box_grown;
          getInsulatorBox(insulator_box,this_ICbinary,a_bdry_layout.dir());     
                   
          Ev_bc_type = "extrapolate";
-         BoundaryConditions::setBC( this_dst,
-                                    insulator_box,
-                                    Ev_bc_type,
-                                    a_bdry_layout.dir(),
-                                    a_bdry_layout.side() );
-      
+         for (int n(0); n<this_dst.nComp(); n++) {
+            BoundaryConditions::setBC( this_dst,
+                                       insulator_box,
+                                       n,
+                                       Ev_bc_type,
+                                       a_bdry_layout.dir(),
+                                       a_bdry_layout.side() );
+         }
+
       } // end loop over boxes
 
    } // end function
@@ -304,20 +330,24 @@ namespace FieldBCUtils {
 
    inline
    void setCellBC( LevelData<FArrayBox>&        a_dst,
-             const BoundaryBoxLayoutPtrVect&    a_all_bdry_layouts,
+             const DomainGrid&                  a_mesh,
              const Vector<std::string>&         a_all_bc_type,
              const RefCountedPtr<InsulatorBC>&  a_insulator_bc,
              const Real                         a_time )
    {
       CH_TIME("FieldBCUtils::setCellBC (virtual magnetic field)");
          
-      for (int b(0); b<a_all_bdry_layouts.size(); b++) {
-         const BoundaryBoxLayout& bdry_layout( *(a_all_bdry_layouts[b]) );
+      const LevelData<FArrayBox>& Jacobian = a_mesh.getJcc();
+
+      const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
+      for (int b(0); b<all_bdry_layouts.size(); b++) {
+         const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
          const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
          const std::string this_bc_type (a_all_bc_type[b]);
          string Bv_bc_type = this_bc_type;
-            
+
          if(this_bc_type=="symmetry") Bv_bc_type = "odd";
+         if(this_bc_type=="axis") Bv_bc_type = "odd";
          if(this_bc_type=="conductor") Bv_bc_type = "even";
          if(this_bc_type=="insulator_conductor") Bv_bc_type = "even";
          if(this_bc_type=="extrapolate_zeroBv") Bv_bc_type = "zero";
@@ -332,16 +362,38 @@ namespace FieldBCUtils {
             IntVect grow_vect = a_dst.ghostVect();
             grow_vect[bdry_layout.dir()] = 0;
             Box fill_box_grown = grow(fill_box,grow_vect);
-            
-            BoundaryConditions::setBC( this_dst,
-                                       fill_box_grown,
-                                       Bv_bc_type,
-                                       bdry_layout.dir(),
-                                       bdry_layout.side() );
+         
+            for (int n(0); n<this_dst.nComp(); n++) {   
+               if(this_bc_type=="axis" && n==1 && a_mesh.axisymmetric()) Bv_bc_type = "even";
+               if(this_bc_type=="conductor" && n==0 && a_mesh.axisymmetric()) {
+                  const FArrayBox& this_Ja( Jacobian[interior_dit] );
+                  FArrayBox JaBy;
+                  JaBy.define(this_dst.box(),0);
+                  JaBy.copy(this_dst,n,0,1);
+                  JaBy.mult(this_Ja,0,0,1);
+                  BoundaryConditions::setBC( JaBy,
+                                             fill_box_grown,
+                                             n,
+                                             Bv_bc_type,
+                                             bdry_layout.dir(),
+                                             bdry_layout.side() );
+                  this_dst.copy(JaBy,fill_box_grown,0,fill_box_grown,n,1);
+                  this_dst.divide(this_Ja,fill_box_grown,0,n,1);
+               }
+               else { 
+                  BoundaryConditions::setBC( this_dst,
+                                             fill_box_grown,
+                                             n,
+                                             Bv_bc_type,
+                                             bdry_layout.dir(),
+                                             bdry_layout.side() );
+               }
+            }
+
          }
 
          if(this_bc_type=="insulator_conductor") { // re-do bcs in insulator region
-            setInsulatorConductorBC_Bv(a_dst,bdry_layout,*a_insulator_bc,a_time);
+            setInsulatorConductorBC_Bv(a_dst,a_mesh,bdry_layout,*a_insulator_bc,a_time);
          }
       
       } // end loop over boundaries
@@ -383,6 +435,10 @@ namespace FieldBCUtils {
                   fill_box_grown.grow(grow_vect);
                      
                   std::string B_bc_type = this_bc_type;
+                  if(this_bc_type=="axis") {
+                     B_bc_type = "even";
+                     if(dir==bdry_layout.dir()) B_bc_type = "odd";
+                  }
                   if(this_bc_type=="symmetry") {
                      B_bc_type = "odd";
                      if(dir==bdry_layout.dir()) B_bc_type = "even";
@@ -403,6 +459,7 @@ namespace FieldBCUtils {
                   } 
                   BoundaryConditions::setBC( this_dst,
                                              fill_box_grown,
+                                             0,
                                              B_bc_type,
                                              bdry_layout.dir(),
                                              bdry_layout.side() );
@@ -453,6 +510,10 @@ namespace FieldBCUtils {
                   fill_box_grown.grow(grow_vect);
                      
                   std::string E_bc_type = this_bc_type;
+                  if(this_bc_type=="axis") {
+                     E_bc_type = "even";
+                     if(dir==bdry_layout.dir()) E_bc_type = "odd";
+                  }
                   if(this_bc_type=="symmetry") {
                      E_bc_type = "odd";
                      if(dir!=bdry_layout.dir()) E_bc_type = "even";
@@ -466,13 +527,14 @@ namespace FieldBCUtils {
                   }
                   if(this_bc_type=="extrapolate_zeroBv") E_bc_type = "extrapolate";
 
-                  if(dir!=bdry_layout.dir()) { // dont change value on face in setBC()
+                  if(dir!=bdry_layout.dir()) { // dont change value on edge in setBC()
                      const int ISIDE(bdry_layout.side());
                      if(ISIDE==0) fill_box_grown.growHi(bdry_layout.dir(),-1);
                      if(ISIDE==1) fill_box_grown.growLo(bdry_layout.dir(),-1);
                   } 
                   BoundaryConditions::setBC( this_dst,
                                              fill_box_grown,
+                                             0,
                                              E_bc_type,
                                              bdry_layout.dir(),
                                              bdry_layout.side() );
@@ -489,15 +551,16 @@ namespace FieldBCUtils {
    
    inline
    void setNodeBC( LevelData<NodeFArrayBox>&  a_dst,
-             const BoundaryBoxLayoutPtrVect&  a_all_bdry_layouts,
+             const DomainGrid&                a_mesh,
              const Vector<std::string>&       a_all_bc_type,
              const RefCountedPtr<InsulatorBC>&  a_insulator_bc,
              const Real                       a_time )
    {
       CH_TIME("FieldBCUtils::setNodeBC (virtual electric field)");
 
-      for (int b(0); b<a_all_bdry_layouts.size(); b++) {
-         const BoundaryBoxLayout& bdry_layout( *(a_all_bdry_layouts[b]) );
+      const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
+      for (int b(0); b<all_bdry_layouts.size(); b++) {
+         const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
          const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
          
          const std::string this_bc_type(a_all_bc_type[b]);
@@ -520,6 +583,10 @@ namespace FieldBCUtils {
       
                std::string Ev_bc_type;
                if(this_bc_type=="symmetry") Ev_bc_type = "even";
+               if(this_bc_type=="axis") {
+                  Ev_bc_type = "even";
+                  if(a_mesh.axisymmetric()) this_dst.setVal(0.0,fill_box_grown,0,1);
+               }
                if(this_bc_type=="conductor") {
                   Ev_bc_type = "odd";
                   this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
@@ -531,11 +598,15 @@ namespace FieldBCUtils {
                if(ISIDE==0) fill_box_grown.growHi(bdry_layout.dir(),-1);
                if(ISIDE==1) fill_box_grown.growLo(bdry_layout.dir(),-1);
             
-               BoundaryConditions::setBC( this_dst,
-                                          fill_box_grown,
-                                          Ev_bc_type,
-                                          bdry_layout.dir(),
-                                          bdry_layout.side() );
+               for (int n(0); n<this_dst.nComp(); n++) {
+                  if(this_bc_type=="axis" && n==0 && a_mesh.axisymmetric()) Ev_bc_type = "odd"; 
+                  BoundaryConditions::setBC( this_dst,
+                                             fill_box_grown,
+                                             n,
+                                             Ev_bc_type,
+                                             bdry_layout.dir(),
+                                             bdry_layout.side() );
+               }
 
             } // end loop over boxes
  

@@ -18,7 +18,7 @@ void GridFunction::assign( LevelData<FArrayBox>&  a_data,
    const LevelData<FArrayBox>& real_coords =  a_mesh.getXcc();
    
    for (DataIterator dit( grids.dataIterator() ); dit.ok(); ++dit) {
-      setPointwise( a_data[dit], a_mesh, real_coords[dit] );
+      setPointwise( a_data[dit], real_coords[dit] );
    }
    //a_data.exchange();
 }
@@ -33,7 +33,7 @@ void GridFunction::assign( LevelData<FluxBox>&  a_data,
    
    for (DataIterator dit( grids.dataIterator() ); dit.ok(); ++dit) {
       FArrayBox& this_data_dir = a_data[dit][a_dir];
-      setPointwise( this_data_dir, a_mesh, real_coords[dit][a_dir] );
+      setPointwise( this_data_dir, real_coords[dit][a_dir] );
    }
    //a_data.exchange();
 
@@ -49,7 +49,7 @@ void GridFunction::assign( LevelData<EdgeDataBox>&  a_data,
    
    for (DataIterator dit( grids.dataIterator() ); dit.ok(); ++dit) {
       FArrayBox& this_data_dir = a_data[dit][a_dir];
-      setPointwise( this_data_dir, a_mesh, real_coords[dit][a_dir] );
+      setPointwise( this_data_dir, real_coords[dit][a_dir] );
    }
    //a_data.exchange();
 
@@ -65,7 +65,7 @@ void GridFunction::assign( LevelData<NodeFArrayBox>&  a_data,
    for (DataIterator dit( grids.dataIterator() ); dit.ok(); ++dit) {
       FArrayBox& this_data = a_data[dit].getFab();
       const FArrayBox& this_real_coords = real_coords[dit].getFab();
-      setPointwise( this_data, a_mesh, this_real_coords );
+      setPointwise( this_data, this_real_coords );
    }
    //a_data.exchange();
 

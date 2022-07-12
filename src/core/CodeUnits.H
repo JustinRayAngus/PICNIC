@@ -34,7 +34,7 @@ class CodeUnits
       
 
       // Constructor.
-      CodeUnits( ParmParse& parm_parse );
+      CodeUnits( ParmParse& parm_parse, const bool axisymmetric );
 
       // Default Destructor.
       ~CodeUnits() {;}
@@ -45,6 +45,7 @@ class CodeUnits
       
       Real CvacNorm() const { return m_CVAC_NORM; }
       Real NumDenNorm() const { return m_NUM_DEN_NORM; }
+      Real wpNorm() const { return m_WP_NORM; }
      
    private:
 
@@ -52,6 +53,7 @@ class CodeUnits
       
       Real m_CVAC_NORM;
       Real m_NUM_DEN_NORM;
+      Real m_WP_NORM;
 
       // Check that the input type is valid.
       void checkType( const CHAR_SCALE& type ) const

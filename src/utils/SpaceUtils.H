@@ -125,6 +125,13 @@ namespace SpaceUtils {
                         const int,
                         const FArrayBox&,
                         FArrayBox& );
+
+  void interpolateStag( FArrayBox&  a_dst, 
+                  const Box&        a_dst_box,
+                  const int         a_dst_comp,
+                  const FArrayBox&  a_src,
+                  const int         a_src_comp,
+                  const int         a_dir );
   
   void simpleStagGradComp( FArrayBox&  a_dst,
                      const Box&        a_grid_box,
@@ -174,6 +181,10 @@ namespace SpaceUtils {
   void copyAndFillGhostCellsSimple( LevelData<FArrayBox>&, 
                                     const LevelData<FArrayBox>& );
   
+  void inspectFArrayBox( const FArrayBox&  a_F0,
+                         const Box&        a_box,
+                         const int         a_comp );
+
   void inspectFArrayBox( const LevelData<FArrayBox>&,
                          const int,
                          const int                   );
@@ -188,8 +199,14 @@ namespace SpaceUtils {
   
   void exchangeEdgeDataBox( LevelData<EdgeDataBox>& );
   
-  void exchangeNodeFArrayBox( LevelData<NodeFArrayBox>&  a_Node,
-                        const DomainGrid&                a_mesh );
+  void exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& );
+
+  inline 
+  void exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_node,
+                              const DomainGrid& )
+  {
+    exchangeNodeFArrayBox( a_node );
+  }
 
   void copyEdgeDataBox( EdgeDataBox&,
                   const EdgeDataBox& );
@@ -691,12 +708,23 @@ namespace SpaceUtils {
   {
      int offset(0);
      auto dbl( a_src.disjointBoxLayout() );
+     auto phys_domain( dbl.physDomain() );
+
      for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
         for (int dir=0; dir<SpaceDim; ++dir) {
+           
            Box box = surroundingNodes(dbl[dit],dir);
-           FArrayBox tmp( box, a_src.nComp(), ( a_dst + offset ) );
-           tmp.copy( a_src[dit][dir] );
-           offset += box.numPts() * a_src.nComp();
+
+           int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+           //bool is_periodic( phys_domain.isPeriodic(dir) );
+           //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
+           if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+
+           for (int n=0; n<a_src.nComp(); n++) {
+              FArrayBox tmp( box, 1, ( a_dst + offset ) );
+              tmp.copy( a_src[dit][dir], box, n, box, 0, 1);
+              offset += box.numPts();
+           }
         }
      }
      return offset;
@@ -707,15 +735,26 @@ namespace SpaceUtils {
   {  
      int offset(0);
      auto dbl( a_src.disjointBoxLayout() );
+     auto phys_domain( dbl.physDomain() );
+
      for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
         for (int dir=0; dir<SpaceDim; ++dir) {
-           Box box = dbl[dit];
+
+           Box box = enclosedCells( surroundingNodes(dbl[dit]), dir );
            for (int adir=0; adir<SpaceDim; ++adir) {
-              if(adir!=dir) box = surroundingNodes(box,adir);
+              if (adir != dir) {
+                 int idir_bdry = phys_domain.domainBox().bigEnd(adir);
+                 //bool is_periodic( phys_domain.isPeriodic(adir) );
+                 //if ((is_periodic) || (box.bigEnd(adir) < idir_bdry)) box.growHi(adir, -1);
+                 if (box.bigEnd(adir) < idir_bdry) box.growHi(adir, -1);
+              }
            }
-           FArrayBox tmp( box, a_src.nComp(), ( a_dst + offset ) );
-           tmp.copy( a_src[dit][dir] );
-           offset += box.numPts() * a_src.nComp();
+
+           for (int n=0; n<a_src.nComp(); n++) {
+              FArrayBox tmp( box, 1, ( a_dst + offset ) );
+              tmp.copy( a_src[dit][dir], box, n, box, 0, 1 );
+              offset += box.numPts();
+           }
         }
      }
      return offset;
@@ -726,11 +765,23 @@ namespace SpaceUtils {
   {
      int offset(0);
      auto dbl( a_src.disjointBoxLayout() );
+     auto phys_domain( dbl.physDomain() );
+
      for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
-       Box box = surroundingNodes(dbl[dit]);
-       NodeFArrayBox tmp( box, a_src.nComp(), ( a_dst + offset ) );
-       tmp.copy( a_src[dit] );
-       offset += box.numPts() * a_src.nComp();
+
+        Box box = surroundingNodes(dbl[dit]);
+        for (int dir=0; dir<SpaceDim; ++dir) {
+           int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+           //bool is_periodic( phys_domain.isPeriodic(dir) );
+           //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
+           if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+        }
+
+        for (int n=0; n<a_src.nComp(); n++) {
+           FArrayBox tmp( box, 1, ( a_dst + offset ) );
+           tmp.copy( a_src[dit].getFab(), box, n, box, 0, 1 );
+           offset += box.numPts();
+        }
      }
      return offset;
   }
@@ -745,6 +796,7 @@ namespace SpaceUtils {
         a_dst[dit].copy( tmp );
         offset += dbl[dit].numPts() * a_dst.nComp();
      }
+     a_dst.exchange();
      return offset;
   }
   
@@ -753,14 +805,26 @@ namespace SpaceUtils {
   {
      int offset(0);
      auto dbl( a_dst.disjointBoxLayout() );
+     auto phys_domain( dbl.physDomain() );
+
      for (auto dit( a_dst.dataIterator() ); dit.ok(); ++dit) {
         for (int dir=0; dir<SpaceDim; ++dir) {
+
            Box box = surroundingNodes(dbl[dit],dir);
-           FArrayBox tmp( box, a_dst.nComp(), const_cast<Real*>( a_src + offset ) );
-           a_dst[dit][dir].copy( tmp );
-           offset += box.numPts() * a_dst.nComp();
+           
+           int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+           //bool is_periodic( phys_domain.isPeriodic(dir) );
+           //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
+           if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+
+           for (int n=0; n<a_dst.nComp(); n++) {
+              FArrayBox tmp( box, 1, const_cast<Real*>( a_src + offset ) );
+              a_dst[dit][dir].copy( tmp, box, 0, box, n, 1 );
+              offset += box.numPts();
+           }
         }
      }
+     exchangeFluxBox( a_dst );
      return offset;
   }
   
@@ -769,17 +833,30 @@ namespace SpaceUtils {
   {
      int offset(0);
      auto dbl( a_dst.disjointBoxLayout() );
+     auto phys_domain( dbl.physDomain() );
+
      for (auto dit( a_dst.dataIterator() ); dit.ok(); ++dit) {
         for (int dir=0; dir<SpaceDim; ++dir) {
-           Box box = dbl[dit];
+
+           Box box = enclosedCells( surroundingNodes(dbl[dit]), dir );
            for (int adir=0; adir<SpaceDim; ++adir) {
-              if(adir!=dir) box = surroundingNodes(box,adir);
+              if (adir != dir) {
+                 int idir_bdry = phys_domain.domainBox().bigEnd(adir);
+                 //bool is_periodic( phys_domain.isPeriodic(adir) );
+                 //if ((is_periodic) || (box.bigEnd(adir) < idir_bdry)) box.growHi(adir, -1);
+                 if (box.bigEnd(adir) < idir_bdry) box.growHi(adir, -1);
+              }
            }
-           FArrayBox tmp( box, a_dst.nComp(), const_cast<Real*>( a_src + offset ) );
-           a_dst[dit][dir].copy( tmp );
-           offset += box.numPts() * a_dst.nComp();
+
+           for (int n=0; n<a_dst.nComp(); n++) {
+              FArrayBox tmp( box, 1, const_cast<Real*>( a_src + offset ) );
+              a_dst[dit][dir].copy( tmp, box, 0, box, n, 1 );
+              offset += box.numPts();
+           }
         }
      }
+
+     exchangeEdgeDataBox(a_dst);
      return offset;
   }
    
@@ -788,12 +865,26 @@ namespace SpaceUtils {
   {
      int offset(0);
      auto dbl( a_dst.disjointBoxLayout() );
+     auto phys_domain( dbl.physDomain() );
+
      for (auto dit( a_dst.dataIterator() ); dit.ok(); ++dit) {
-       Box box = surroundingNodes(dbl[dit]);
-       NodeFArrayBox tmp( box, a_dst.nComp(), const_cast<Real*>( a_src + offset ) );
-       a_dst[dit].copy( tmp );
-       offset += box.numPts() * a_dst.nComp();
+
+        Box box = surroundingNodes(dbl[dit]);
+        for (int dir=0; dir<SpaceDim; ++dir) {
+           int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+           //bool is_periodic( phys_domain.isPeriodic(dir) );
+           //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
+           if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+        }
+
+        for (int n=0; n<a_dst.nComp(); n++) {
+           FArrayBox tmp( box, 1, const_cast<Real*>( a_src + offset ) );
+           a_dst[dit].getFab().copy( tmp, box, 0, box, n, 1 );
+           offset += box.numPts();
+        }
      }
+
+     exchangeNodeFArrayBox( a_dst );
      return offset;
   }
 
@@ -814,9 +905,18 @@ namespace SpaceUtils {
   {
     int retval(0);
     auto dbl( a_u.disjointBoxLayout() );
+    auto phys_domain( dbl.physDomain() );
+
     for (auto dit( dbl.dataIterator() ); dit.ok(); ++dit) {
       for (int dir(0); dir < SpaceDim; dir++) {
-        auto box( surroundingNodes( dbl[dit], dir ) );
+
+        Box box = surroundingNodes(dbl[dit],dir);
+        
+        int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+        //bool is_periodic( phys_domain.isPeriodic(dir) );
+        //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
+        if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+
         retval += box.numPts() * a_u.nComp();
       }
     }
@@ -828,12 +928,25 @@ namespace SpaceUtils {
   {
     int retval(0);
     auto dbl( a_u.disjointBoxLayout() );
+    auto phys_domain( dbl.physDomain() );
+
     for (auto dit( dbl.dataIterator() ); dit.ok(); ++dit) {
       for (int dir(0); dir < SpaceDim; dir++) {
-        auto box( enclosedCells( surroundingNodes(dbl[dit]), dir ) );
+
+        Box box = enclosedCells( surroundingNodes(dbl[dit]), dir );
+        for (int adir=0; adir<SpaceDim; ++adir) {
+           if (adir != dir) {
+              int idir_bdry = phys_domain.domainBox().bigEnd(adir);
+              //bool is_periodic( phys_domain.isPeriodic(adir) );
+              //if ((is_periodic) || (box.bigEnd(adir) < idir_bdry)) box.growHi(adir, -1);
+              if (box.bigEnd(adir) < idir_bdry) box.growHi(adir, -1);
+           }
+        }
+
         retval += box.numPts() * a_u.nComp();
       }
     }
+
     return retval;
   }
   
@@ -842,9 +955,19 @@ namespace SpaceUtils {
   {
     int retval(0);
     auto dbl( a_u.disjointBoxLayout() );
+    auto phys_domain( dbl.physDomain() );
+
     for (auto dit( dbl.dataIterator() ); dit.ok(); ++dit) {
+
       auto box( surroundingNodes(dbl[dit]) );
+      for (int dir=0; dir<SpaceDim; ++dir) {
+        int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+        //bool is_periodic( phys_domain.isPeriodic(dir) );
+        //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
+        if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+      }
       retval += box.numPts() * a_u.nComp();
+
     }
     return retval;
   }

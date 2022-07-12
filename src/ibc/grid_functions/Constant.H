@@ -25,6 +25,11 @@ class Constant : public GridFunction
       }
 
       virtual ~Constant() {;}
+      
+      // return function value at location a_X
+      virtual Real getValue( const RealVect&  a_X ) const {
+         return m_value;
+      }
 
       virtual void printParameters()  const {
          if (procID()==0) {
@@ -50,7 +55,6 @@ class Constant : public GridFunction
 
       // Set pointwise values at cell centers.
       virtual void setPointwise( FArrayBox&   a_data,
-                           const DomainGrid&  a_mesh,
                            const FArrayBox&   a_real_coords ) const
       {
          a_data.setVal(m_value);

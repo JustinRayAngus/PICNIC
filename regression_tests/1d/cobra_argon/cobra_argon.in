@@ -1,0 +1,831 @@
+#TEST np=108, timelimit=00:05:00
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
+
+#system.advance_method = "PIC_EM_EXPLICIT"
+system.advance_method = "PIC_EM_THETA_IMPLICIT"
+system.iter_max = 8
+system.iter_max_particles = 6
+system.freeze_particles_jacobian = false
+system.quasi_freeze_particles_jacobian = true
+system.use_mass_matrices = true
+system.abs_tol = 1.0e-6
+system.rel_tol = 1.0e-12
+#
+#pic_em_theta_implicit.solver_type = "newton"
+pic_em_theta_implicit.solver_type = "petsc"
+pic_em_theta_implicit.pc_update_freq = 1
+jacobian.with_pc = true
+
+newton.verbose = false
+newton.atol = 1.0e-12
+newton.rtol = 1.0e-6
+gmres.verbose = false
+gmres.atol = 1.0e-12
+gmres.rtol = 1.0e-4
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+simulation.max_step            = 30200
+#simulation.max_step            = 1000000000
+simulation.max_time            = 250.0
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 1.0e-3
+#simulation.plot_interval       = 1000
+simulation.dt_scatter_interval = 100 
+simulation.dt_check_interval   = 100 
+simulation.plot_time_interval  = 2.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 200
+
+history.precision = 5
+history.solver_probes = true
+history.field_probes = true
+history.field_bdry_probes = true
+history.scattering_probes = true
+history.species0_probes = true
+history.species1_probes = true
+history.species2_probes = true
+history.species3_probes = true
+history.species4_probes = true
+history.species5_probes = true
+history.species6_probes = true
+history.species7_probes = true
+history.species8_probes = true
+history.species9_probes = true
+history.species10_probes = true
+history.species11_probes = true
+#
+simulation.checkpoint_time_interval = 10.0
+simulation.restart_file = "checkpoint_data/chk030000.1d.hdf5"
+#simulation.wall_time_hrs = 5.95
+simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 432
+grid.is_periodic   = 0
+grid.config_decomp = 108
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.0
+grid.X_max = 3.60
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = true
+em_fields.advance_electric_field = 1 0 1
+em_fields.advance_magnetic_field = 0 1 0
+#em_fields.write_curls = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+BC.em_fields.dir0_lower.type = "symmetry"
+BC.em_fields.dir0_upper.type = "insulator_conductor"
+BC.insulator.dir0_upper.X0_min = 3.60
+BC.insulator.dir0_upper.X0_max = 3.64
+BC.insulator.dir0_upper.time_function.type = "ramp"
+BC.insulator.dir0_upper.time_function.rise_time = 100.0
+BC.insulator.dir0_upper.time_function.amplitude = 1.713e4 # mu0*I/2/pi/Rp0/Bscale
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# Species 0
+
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = true
+
+IC.electron.X_min = 0.0
+IC.electron.X_max = 0.5
+IC.electron.use_float_for_weights = true
+IC.electron.parts_per_cell = 22
+IC.electron.density.type = "constant"
+IC.electron.density.value = 0.22e22 # [number/m^3]
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 1.0 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 1.0 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 1.0 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 0.0
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+IC_1.electron.X_min = 0.5
+IC_1.electron.X_max = 1.0
+IC_1.electron.use_float_for_weights = true
+IC_1.electron.parts_per_cell = 10
+IC_1.electron.density.type = "constant"
+IC_1.electron.density.value = 0.10e22 # [number/m^3]
+IC_1.electron.temperature_0.type = "constant"
+IC_1.electron.temperature_0.value = 1.0 # [eV]
+IC_1.electron.temperature_1.type = "constant"
+IC_1.electron.temperature_1.value = 1.0 # [eV]
+IC_1.electron.temperature_2.type = "constant"
+IC_1.electron.temperature_2.value = 1.0 # [eV]
+IC_1.electron.velocity_0.type = "constant"
+IC_1.electron.velocity_0.value = 0.0
+IC_1.electron.velocity_1.type = "constant"
+IC_1.electron.velocity_1.value = 0.0
+IC_1.electron.velocity_2.type = "constant"
+IC_1.electron.velocity_2.value = 0.0
+
+IC_2.electron.X_min = 1.0
+IC_2.electron.X_max = 1.5
+IC_2.electron.use_float_for_weights = true
+IC_2.electron.parts_per_cell = 25
+IC_2.electron.density.type = "constant"
+IC_2.electron.density.value = 0.25e22 # [number/m^3]
+IC_2.electron.temperature_0.type = "constant"
+IC_2.electron.temperature_0.value = 1.0 # [eV]
+IC_2.electron.temperature_1.type = "constant"
+IC_2.electron.temperature_1.value = 1.0 # [eV]
+IC_2.electron.temperature_2.type = "constant"
+IC_2.electron.temperature_2.value = 1.0 # [eV]
+IC_2.electron.velocity_0.type = "constant"
+IC_2.electron.velocity_0.value = 0.0
+IC_2.electron.velocity_1.type = "constant"
+IC_2.electron.velocity_1.value = 0.0
+IC_2.electron.velocity_2.type = "constant"
+IC_2.electron.velocity_2.value = 0.0
+
+IC_3.electron.X_min = 1.5
+IC_3.electron.X_max = 2.0
+IC_3.electron.use_float_for_weights = true
+IC_3.electron.parts_per_cell = 8
+IC_3.electron.density.type = "constant"
+IC_3.electron.density.value = 0.08e22 # [number/m^3]
+IC_3.electron.temperature_0.type = "constant"
+IC_3.electron.temperature_0.value = 1.0 # [eV]
+IC_3.electron.temperature_1.type = "constant"
+IC_3.electron.temperature_1.value = 1.0 # [eV]
+IC_3.electron.temperature_2.type = "constant"
+IC_3.electron.temperature_2.value = 1.0 # [eV]
+IC_3.electron.velocity_0.type = "constant"
+IC_3.electron.velocity_0.value = 0.0
+IC_3.electron.velocity_1.type = "constant"
+IC_3.electron.velocity_1.value = 0.0
+IC_3.electron.velocity_2.type = "constant"
+IC_3.electron.velocity_2.value = 0.0
+
+IC_4.electron.X_min = 2.0
+IC_4.electron.X_max = 2.5
+IC_4.electron.use_float_for_weights = true
+IC_4.electron.parts_per_cell = 11
+IC_4.electron.density.type = "constant"
+IC_4.electron.density.value = 0.11e22 # [number/m^3]
+IC_4.electron.temperature_0.type = "constant"
+IC_4.electron.temperature_0.value = 1.0 # [eV]
+IC_4.electron.temperature_1.type = "constant"
+IC_4.electron.temperature_1.value = 1.0 # [eV]
+IC_4.electron.temperature_2.type = "constant"
+IC_4.electron.temperature_2.value = 1.0 # [eV]
+IC_4.electron.velocity_0.type = "constant"
+IC_4.electron.velocity_0.value = 0.0
+IC_4.electron.velocity_1.type = "constant"
+IC_4.electron.velocity_1.value = 0.0
+IC_4.electron.velocity_2.type = "constant"
+IC_4.electron.velocity_2.value = 0.0
+
+IC_5.electron.X_min = 2.5
+IC_5.electron.X_max = 3.0
+IC_5.electron.use_float_for_weights = true
+IC_5.electron.parts_per_cell = 10
+IC_5.electron.density.type = "constant"
+IC_5.electron.density.value = 0.10e22 # [number/m^3]
+IC_5.electron.temperature_0.type = "constant"
+IC_5.electron.temperature_0.value = 1.0 # [eV]
+IC_5.electron.temperature_1.type = "constant"
+IC_5.electron.temperature_1.value = 1.0 # [eV]
+IC_5.electron.temperature_2.type = "constant"
+IC_5.electron.temperature_2.value = 1.0 # [eV]
+IC_5.electron.velocity_0.type = "constant"
+IC_5.electron.velocity_0.value = 0.0
+IC_5.electron.velocity_1.type = "constant"
+IC_5.electron.velocity_1.value = 0.0
+IC_5.electron.velocity_2.type = "constant"
+IC_5.electron.velocity_2.value = 0.0
+
+IC_6.electron.X_min = 3.0
+IC_6.electron.X_max = 3.5
+IC_6.electron.use_float_for_weights = true
+IC_6.electron.parts_per_cell = 12
+IC_6.electron.density.type = "constant"
+IC_6.electron.density.value = 0.12e22 # [number/m^3]
+IC_6.electron.temperature_0.type = "constant"
+IC_6.electron.temperature_0.value = 1.0 # [eV]
+IC_6.electron.temperature_1.type = "constant"
+IC_6.electron.temperature_1.value = 1.0 # [eV]
+IC_6.electron.temperature_2.type = "constant"
+IC_6.electron.temperature_2.value = 1.0 # [eV]
+IC_6.electron.velocity_0.type = "constant"
+IC_6.electron.velocity_0.value = 0.0
+IC_6.electron.velocity_1.type = "constant"
+IC_6.electron.velocity_1.value = 0.0
+IC_6.electron.velocity_2.type = "constant"
+IC_6.electron.velocity_2.value = 0.0
+
+BC.electron.dir0_lower.type = "symmetry"
+BC.electron.dir0_upper.type = "outflow"
+
+# Species 1
+
+pic_species.1.name   = "argonI"
+pic_species.1.mass   = 72821.0
+pic_species.1.charge = 0
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = true
+
+IC.argonI.X_min = 0.0
+IC.argonI.X_max = 0.5
+IC.argonI.use_float_for_weights = true
+IC.argonI.parts_per_cell = 198
+IC.argonI.density.type = "constant"
+IC.argonI.density.value = 1.98e22 # [number/m^3]
+IC.argonI.temperature_0.type = "constant"
+IC.argonI.temperature_0.value = 0.1 # [eV]
+IC.argonI.temperature_1.type = "constant"
+IC.argonI.temperature_1.value = 0.1 # [eV]
+IC.argonI.temperature_2.type = "constant"
+IC.argonI.temperature_2.value = 0.1 # [eV]
+IC.argonI.velocity_0.type = "constant"
+IC.argonI.velocity_0.value = 0.0
+IC.argonI.velocity_1.type = "constant"
+IC.argonI.velocity_1.value = 0.0
+IC.argonI.velocity_2.type = "constant"
+IC.argonI.velocity_2.value = 0.0
+
+IC_1.argonI.X_min = 0.5
+IC_1.argonI.X_max = 1.0
+IC_1.argonI.use_float_for_weights = true
+IC_1.argonI.parts_per_cell = 95
+IC_1.argonI.density.type = "constant"
+IC_1.argonI.density.value = 0.95e22 # [number/m^3]
+IC_1.argonI.temperature_0.type = "constant"
+IC_1.argonI.temperature_0.value = 0.1 # [eV]
+IC_1.argonI.temperature_1.type = "constant"
+IC_1.argonI.temperature_1.value = 0.1 # [eV]
+IC_1.argonI.temperature_2.type = "constant"
+IC_1.argonI.temperature_2.value = 0.1 # [eV]
+IC_1.argonI.velocity_0.type = "constant"
+IC_1.argonI.velocity_0.value = 0.0
+IC_1.argonI.velocity_1.type = "constant"
+IC_1.argonI.velocity_1.value = 0.0
+IC_1.argonI.velocity_2.type = "constant"
+IC_1.argonI.velocity_2.value = 0.0
+
+IC_2.argonI.X_min = 1.0
+IC_2.argonI.X_max = 1.5
+IC_2.argonI.use_float_for_weights = true
+IC_2.argonI.parts_per_cell = 230
+IC_2.argonI.density.type = "constant"
+IC_2.argonI.density.value = 2.30e22 # [number/m^3]
+IC_2.argonI.temperature_0.type = "constant"
+IC_2.argonI.temperature_0.value = 0.1 # [eV]
+IC_2.argonI.temperature_1.type = "constant"
+IC_2.argonI.temperature_1.value = 0.1 # [eV]
+IC_2.argonI.temperature_2.type = "constant"
+IC_2.argonI.temperature_2.value = 0.1 # [eV]
+IC_2.argonI.velocity_0.type = "constant"
+IC_2.argonI.velocity_0.value = 0.0
+IC_2.argonI.velocity_1.type = "constant"
+IC_2.argonI.velocity_1.value = 0.0
+IC_2.argonI.velocity_2.type = "constant"
+IC_2.argonI.velocity_2.value = 0.0
+
+IC_3.argonI.X_min = 1.5
+IC_3.argonI.X_max = 2.0
+IC_3.argonI.use_float_for_weights = true
+IC_3.argonI.parts_per_cell = 74
+IC_3.argonI.density.type = "constant"
+IC_3.argonI.density.value = 0.74e22 # [number/m^3]
+IC_3.argonI.temperature_0.type = "constant"
+IC_3.argonI.temperature_0.value = 0.1 # [eV]
+IC_3.argonI.temperature_1.type = "constant"
+IC_3.argonI.temperature_1.value = 0.1 # [eV]
+IC_3.argonI.temperature_2.type = "constant"
+IC_3.argonI.temperature_2.value = 0.1 # [eV]
+IC_3.argonI.velocity_0.type = "constant"
+IC_3.argonI.velocity_0.value = 0.0
+IC_3.argonI.velocity_1.type = "constant"
+IC_3.argonI.velocity_1.value = 0.0
+IC_3.argonI.velocity_2.type = "constant"
+IC_3.argonI.velocity_2.value = 0.0
+
+IC_4.argonI.X_min = 2.0
+IC_4.argonI.X_max = 2.5
+IC_4.argonI.use_float_for_weights = true
+IC_4.argonI.parts_per_cell = 105
+IC_4.argonI.density.type = "constant"
+IC_4.argonI.density.value = 1.05e22 # [number/m^3]
+IC_4.argonI.temperature_0.type = "constant"
+IC_4.argonI.temperature_0.value = 0.1 # [eV]
+IC_4.argonI.temperature_1.type = "constant"
+IC_4.argonI.temperature_1.value = 0.1 # [eV]
+IC_4.argonI.temperature_2.type = "constant"
+IC_4.argonI.temperature_2.value = 0.1 # [eV]
+IC_4.argonI.velocity_0.type = "constant"
+IC_4.argonI.velocity_0.value = 0.0
+IC_4.argonI.velocity_1.type = "constant"
+IC_4.argonI.velocity_1.value = 0.0
+IC_4.argonI.velocity_2.type = "constant"
+IC_4.argonI.velocity_2.value = 0.0
+
+IC_5.argonI.X_min = 2.5
+IC_5.argonI.X_max = 3.0
+IC_5.argonI.use_float_for_weights = true
+IC_5.argonI.parts_per_cell = 91
+IC_5.argonI.density.type = "constant"
+IC_5.argonI.density.value = 0.91e22 # [number/m^3]
+IC_5.argonI.temperature_0.type = "constant"
+IC_5.argonI.temperature_0.value = 0.1 # [eV]
+IC_5.argonI.temperature_1.type = "constant"
+IC_5.argonI.temperature_1.value = 0.1 # [eV]
+IC_5.argonI.temperature_2.type = "constant"
+IC_5.argonI.temperature_2.value = 0.1 # [eV]
+IC_5.argonI.velocity_0.type = "constant"
+IC_5.argonI.velocity_0.value = 0.0
+IC_5.argonI.velocity_1.type = "constant"
+IC_5.argonI.velocity_1.value = 0.0
+IC_5.argonI.velocity_2.type = "constant"
+IC_5.argonI.velocity_2.value = 0.0
+
+IC_6.argonI.X_min = 3.0
+IC_6.argonI.X_max = 3.5
+IC_6.argonI.use_float_for_weights = true
+IC_6.argonI.parts_per_cell = 30
+IC_6.argonI.density.type = "constant"
+IC_6.argonI.density.value = 0.30e22 # [number/m^3]
+IC_6.argonI.temperature_0.type = "constant"
+IC_6.argonI.temperature_0.value = 0.1 # [eV]
+IC_6.argonI.temperature_1.type = "constant"
+IC_6.argonI.temperature_1.value = 0.1 # [eV]
+IC_6.argonI.temperature_2.type = "constant"
+IC_6.argonI.temperature_2.value = 0.1 # [eV]
+IC_6.argonI.velocity_0.type = "constant"
+IC_6.argonI.velocity_0.value = 0.0
+IC_6.argonI.velocity_1.type = "constant"
+IC_6.argonI.velocity_1.value = 0.0
+IC_6.argonI.velocity_2.type = "constant"
+IC_6.argonI.velocity_2.value = 0.0
+
+BC.argonI.dir0_lower.type = "symmetry"
+BC.argonI.dir0_upper.type = "outflow"
+
+# Species 2
+
+pic_species.2.name   = "argonII"
+pic_species.2.mass   = 72820.0
+pic_species.2.charge = 1
+pic_species.2.motion = true
+pic_species.2.forces = true
+pic_species.2.scatter = true
+
+IC.argonII.X_min = 0.0
+IC.argonII.X_max = 0.5
+IC.argonII.use_float_for_weights = true
+IC.argonII.parts_per_cell = 22
+IC.argonII.density.type = "constant"
+IC.argonII.density.value = 0.22e22 # [number/m^3]
+IC.argonII.temperature_0.type = "constant"
+IC.argonII.temperature_0.value = 1.0 # [eV]
+IC.argonII.temperature_1.type = "constant"
+IC.argonII.temperature_1.value = 1.0 # [eV]
+IC.argonII.temperature_2.type = "constant"
+IC.argonII.temperature_2.value = 1.0 # [eV]
+IC.argonII.velocity_0.type = "constant"
+IC.argonII.velocity_0.value = 0.0
+IC.argonII.velocity_1.type = "constant"
+IC.argonII.velocity_1.value = 0.0
+IC.argonII.velocity_2.type = "constant"
+IC.argonII.velocity_2.value = 0.0
+
+IC_1.argonII.X_min = 0.5
+IC_1.argonII.X_max = 1.0
+IC_1.argonII.use_float_for_weights = true
+IC_1.argonII.parts_per_cell = 10
+IC_1.argonII.density.type = "constant"
+IC_1.argonII.density.value = 0.10e22 # [number/m^3]
+IC_1.argonII.temperature_0.type = "constant"
+IC_1.argonII.temperature_0.value = 1.0 # [eV]
+IC_1.argonII.temperature_1.type = "constant"
+IC_1.argonII.temperature_1.value = 1.0 # [eV]
+IC_1.argonII.temperature_2.type = "constant"
+IC_1.argonII.temperature_2.value = 1.0 # [eV]
+IC_1.argonII.velocity_0.type = "constant"
+IC_1.argonII.velocity_0.value = 0.0
+IC_1.argonII.velocity_1.type = "constant"
+IC_1.argonII.velocity_1.value = 0.0
+IC_1.argonII.velocity_2.type = "constant"
+IC_1.argonII.velocity_2.value = 0.0
+
+IC_2.argonII.X_min = 1.0
+IC_2.argonII.X_max = 1.5
+IC_2.argonII.use_float_for_weights = true
+IC_2.argonII.parts_per_cell = 25
+IC_2.argonII.density.type = "constant"
+IC_2.argonII.density.value = 0.25e22 # [number/m^3]
+IC_2.argonII.temperature_0.type = "constant"
+IC_2.argonII.temperature_0.value = 1.0 # [eV]
+IC_2.argonII.temperature_1.type = "constant"
+IC_2.argonII.temperature_1.value = 1.0 # [eV]
+IC_2.argonII.temperature_2.type = "constant"
+IC_2.argonII.temperature_2.value = 1.0 # [eV]
+IC_2.argonII.velocity_0.type = "constant"
+IC_2.argonII.velocity_0.value = 0.0
+IC_2.argonII.velocity_1.type = "constant"
+IC_2.argonII.velocity_1.value = 0.0
+IC_2.argonII.velocity_2.type = "constant"
+IC_2.argonII.velocity_2.value = 0.0
+
+IC_3.argonII.X_min = 1.5
+IC_3.argonII.X_max = 2.0
+IC_3.argonII.use_float_for_weights = true
+IC_3.argonII.parts_per_cell = 8
+IC_3.argonII.density.type = "constant"
+IC_3.argonII.density.value = 0.08e22 # [number/m^3]
+IC_3.argonII.temperature_0.type = "constant"
+IC_3.argonII.temperature_0.value = 1.0 # [eV]
+IC_3.argonII.temperature_1.type = "constant"
+IC_3.argonII.temperature_1.value = 1.0 # [eV]
+IC_3.argonII.temperature_2.type = "constant"
+IC_3.argonII.temperature_2.value = 1.0 # [eV]
+IC_3.argonII.velocity_0.type = "constant"
+IC_3.argonII.velocity_0.value = 0.0
+IC_3.argonII.velocity_1.type = "constant"
+IC_3.argonII.velocity_1.value = 0.0
+IC_3.argonII.velocity_2.type = "constant"
+IC_3.argonII.velocity_2.value = 0.0
+
+IC_4.argonII.X_min = 2.0
+IC_4.argonII.X_max = 2.5
+IC_4.argonII.use_float_for_weights = true
+IC_4.argonII.parts_per_cell = 11
+IC_4.argonII.density.type = "constant"
+IC_4.argonII.density.value = 0.11e22 # [number/m^3]
+IC_4.argonII.temperature_0.type = "constant"
+IC_4.argonII.temperature_0.value = 1.0 # [eV]
+IC_4.argonII.temperature_1.type = "constant"
+IC_4.argonII.temperature_1.value = 1.0 # [eV]
+IC_4.argonII.temperature_2.type = "constant"
+IC_4.argonII.temperature_2.value = 1.0 # [eV]
+IC_4.argonII.velocity_0.type = "constant"
+IC_4.argonII.velocity_0.value = 0.0
+IC_4.argonII.velocity_1.type = "constant"
+IC_4.argonII.velocity_1.value = 0.0
+IC_4.argonII.velocity_2.type = "constant"
+IC_4.argonII.velocity_2.value = 0.0
+
+IC_5.argonII.X_min = 2.5
+IC_5.argonII.X_max = 3.0
+IC_5.argonII.use_float_for_weights = true
+IC_5.argonII.parts_per_cell = 10
+IC_5.argonII.density.type = "constant"
+IC_5.argonII.density.value = 0.10e22 # [number/m^3]
+IC_5.argonII.temperature_0.type = "constant"
+IC_5.argonII.temperature_0.value = 1.0 # [eV]
+IC_5.argonII.temperature_1.type = "constant"
+IC_5.argonII.temperature_1.value = 1.0 # [eV]
+IC_5.argonII.temperature_2.type = "constant"
+IC_5.argonII.temperature_2.value = 1.0 # [eV]
+IC_5.argonII.velocity_0.type = "constant"
+IC_5.argonII.velocity_0.value = 0.0
+IC_5.argonII.velocity_1.type = "constant"
+IC_5.argonII.velocity_1.value = 0.0
+IC_5.argonII.velocity_2.type = "constant"
+IC_5.argonII.velocity_2.value = 0.0
+
+IC_6.argonII.X_min = 3.0
+IC_6.argonII.X_max = 3.5
+IC_6.argonII.use_float_for_weights = true
+IC_6.argonII.parts_per_cell = 12
+IC_6.argonII.density.type = "constant"
+IC_6.argonII.density.value = 0.12e22 # [number/m^3]
+IC_6.argonII.temperature_0.type = "constant"
+IC_6.argonII.temperature_0.value = 1.0 # [eV]
+IC_6.argonII.temperature_1.type = "constant"
+IC_6.argonII.temperature_1.value = 1.0 # [eV]
+IC_6.argonII.temperature_2.type = "constant"
+IC_6.argonII.temperature_2.value = 1.0 # [eV]
+IC_6.argonII.velocity_0.type = "constant"
+IC_6.argonII.velocity_0.value = 0.0
+IC_6.argonII.velocity_1.type = "constant"
+IC_6.argonII.velocity_1.value = 0.0
+IC_6.argonII.velocity_2.type = "constant"
+IC_6.argonII.velocity_2.value = 0.0
+
+BC.argonII.dir0_lower.type = "symmetry"
+BC.argonII.dir0_upper.type = "outflow"
+
+# Species 3
+
+pic_species.3.name   = "argonIII"
+pic_species.3.mass   = 72819.0
+pic_species.3.charge = 2
+pic_species.3.motion = true
+pic_species.3.forces = true
+pic_species.3.scatter = true
+
+BC.argonIII.dir0_lower.type = "symmetry"
+BC.argonIII.dir0_upper.type = "outflow"
+
+# Species 4
+
+pic_species.4.name   = "argonIV"
+pic_species.4.mass   = 72818.0
+pic_species.4.charge = 3
+pic_species.4.motion = true
+pic_species.4.forces = true
+pic_species.4.scatter = true
+
+BC.argonIV.dir0_lower.type = "symmetry"
+BC.argonIV.dir0_upper.type = "outflow"
+
+# Species 5
+
+pic_species.5.name   = "argonV"
+pic_species.5.mass   = 72817.0
+pic_species.5.charge = 4
+pic_species.5.motion = true
+pic_species.5.forces = true
+pic_species.5.scatter = true
+
+BC.argonV.dir0_lower.type = "symmetry"
+BC.argonV.dir0_upper.type = "outflow"
+
+# Species 6
+
+pic_species.6.name   = "argonVI"
+pic_species.6.mass   = 72816.0
+pic_species.6.charge = 5
+pic_species.6.motion = true
+pic_species.6.forces = true
+pic_species.6.scatter = true
+
+BC.argonVI.dir0_lower.type = "symmetry"
+BC.argonVI.dir0_upper.type = "outflow"
+
+# Species 7
+
+pic_species.7.name   = "argonVII"
+pic_species.7.mass   = 72815.0
+pic_species.7.charge = 6
+pic_species.7.motion = true
+pic_species.7.forces = true
+pic_species.7.scatter = true
+
+BC.argonVII.dir0_lower.type = "symmetry"
+BC.argonVII.dir0_upper.type = "outflow"
+
+# Species 8
+
+pic_species.8.name   = "argonVIII"
+pic_species.8.mass   = 72814.0
+pic_species.8.charge = 7
+pic_species.8.motion = true
+pic_species.8.forces = true
+pic_species.8.scatter = true
+
+BC.argonVIII.dir0_lower.type = "symmetry"
+BC.argonVIII.dir0_upper.type = "outflow"
+
+# Species 9
+
+pic_species.9.name   = "argonIX"
+pic_species.9.mass   = 72813.0
+pic_species.9.charge = 8
+pic_species.9.motion = true
+pic_species.9.forces = true
+pic_species.9.scatter = true
+
+BC.argonIX.dir0_lower.type = "symmetry"
+BC.argonIX.dir0_upper.type = "outflow"
+
+# Species 10
+
+pic_species.10.name   = "argonX"
+pic_species.10.mass   = 72812.0
+pic_species.10.charge = 9
+pic_species.10.motion = true
+pic_species.10.forces = true
+pic_species.10.scatter = true
+
+BC.argonX.dir0_lower.type = "symmetry"
+BC.argonX.dir0_upper.type = "outflow"
+
+# Species 11
+
+pic_species.11.name   = "argonXI"
+pic_species.11.mass   = 72811.0
+pic_species.11.charge = 10
+pic_species.11.motion = true
+pic_species.11.forces = true
+pic_species.11.scatter = true
+
+BC.argonXI.dir0_lower.type = "symmetry"
+BC.argonXI.dir0_upper.type = "outflow"
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.coulomb.all = true
+scattering.coulomb.model = "TA"
+scattering.coulomb.coulomb_logarithm = 10.0
+
+#
+#   elastic reactions
+#
+
+scattering.0.model = "ELA"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 1
+scattering.0.angular_scattering = "okhrimovskyy"
+scattering.0.cross_section_type = "text file"
+#scattering.0.print_cross_sections = true
+#scattering.0.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_elastic.txt"
+scattering.0.file_name = "./cross_sections/argon_elastic.txt"
+#scattering.0.use_loglog_interpolation = true
+
+scattering.1.model = "HS"
+scattering.1.speciesA = 1
+scattering.1.speciesB = 1
+
+scattering.2.model = "CEX"
+scattering.2.speciesA = 2
+scattering.2.speciesB = 1
+scattering.2.cross_section_type = "text file"
+#scattering.2.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_charge_exchange.txt"
+scattering.2.file_name = "./cross_sections/argon_charge_exchange.txt"
+
+#
+#   ionization reactions
+#
+
+scattering.3.model = "IZN"
+scattering.3.speciesA = 0
+scattering.3.speciesB = 1
+scattering.3.speciesE = 0
+scattering.3.speciesI = 2
+scattering.3.potential = 15.80 # [eV]
+scattering.3.angular_scattering = "isotropic"
+scattering.3.energy_sharing = "zero"
+scattering.3.cross_section_type = "text file"
+scattering.3.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_ionization.txt"
+#scattering.3.cross_section_type = "Lotz"
+#scattering.3.Lotz.a = 4.0e-18 # [m^2]
+#scattering.3.Lotz.b = 0.75
+#scattering.3.Lotz.c = 0.46
+#scattering.3.Lotz.xi = 8
+
+scattering.4.model = "IZN"
+scattering.4.speciesA = 0
+scattering.4.speciesB = 2
+scattering.4.speciesE = 0
+scattering.4.speciesI = 3
+scattering.4.potential = 27.6 # [eV]
+scattering.4.cross_section_type = "Lotz"
+scattering.4.Lotz.a = 4.0e-18 # [m^2]
+scattering.4.Lotz.b = 0.75
+scattering.4.Lotz.c = 0.46
+scattering.4.Lotz.xi = 7
+
+scattering.5.model = "IZN"
+scattering.5.speciesA = 0
+scattering.5.speciesB = 3
+scattering.5.speciesE = 0
+scattering.5.speciesI = 4
+scattering.5.potential = 40.7 # [eV]
+scattering.5.cross_section_type = "Lotz"
+scattering.5.Lotz.a = 4.0e-18 # [m^2]
+scattering.5.Lotz.b = 0.75
+scattering.5.Lotz.c = 0.46
+scattering.5.Lotz.xi = 6
+
+scattering.6.model = "IZN"
+scattering.6.speciesA = 0
+scattering.6.speciesB = 4
+scattering.6.speciesE = 0
+scattering.6.speciesI = 5
+scattering.6.potential = 59.6 # [eV]
+scattering.6.cross_section_type = "Lotz"
+scattering.6.Lotz.a = 4.0e-18 # [m^2]
+scattering.6.Lotz.b = 0.75
+scattering.6.Lotz.c = 0.46
+scattering.6.Lotz.xi = 5
+
+scattering.7.model = "IZN"
+scattering.7.speciesA = 0
+scattering.7.speciesB = 5
+scattering.7.speciesE = 0
+scattering.7.speciesI = 6
+scattering.7.potential = 74.8 # [eV]
+scattering.7.cross_section_type = "Lotz"
+scattering.7.Lotz.a = 4.0e-18 # [m^2]
+scattering.7.Lotz.b = 0.75
+scattering.7.Lotz.c = 0.46
+scattering.7.Lotz.xi = 4
+
+scattering.8.model = "IZN"
+scattering.8.speciesA = 0
+scattering.8.speciesB = 6
+scattering.8.speciesE = 0
+scattering.8.speciesI = 7
+scattering.8.potential = 91.3 # [eV]
+scattering.8.cross_section_type = "Lotz"
+scattering.8.Lotz.a = 4.0e-18 # [m^2]
+scattering.8.Lotz.b = 0.75
+scattering.8.Lotz.c = 0.46
+scattering.8.Lotz.xi = 3
+
+scattering.9.model = "IZN"
+scattering.9.speciesA = 0
+scattering.9.speciesB = 7
+scattering.9.speciesE = 0
+scattering.9.speciesI = 8
+scattering.9.potential = 124.4 # [eV]
+scattering.9.cross_section_type = "Lotz"
+scattering.9.Lotz.a = 4.0e-18 # [m^2]
+scattering.9.Lotz.b = 0.75
+scattering.9.Lotz.c = 0.46
+scattering.9.Lotz.xi = 2
+
+scattering.10.model = "IZN"
+scattering.10.speciesA = 0
+scattering.10.speciesB = 8
+scattering.10.speciesE = 0
+scattering.10.speciesI = 9
+scattering.10.potential = 143.5 # [eV]
+scattering.10.cross_section_type = "Lotz"
+scattering.10.Lotz.a = 4.0e-18 # [m^2]
+scattering.10.Lotz.b = 0.75
+scattering.10.Lotz.c = 0.46
+scattering.10.Lotz.xi = 1
+
+scattering.11.model = "IZN"
+scattering.11.speciesA = 0
+scattering.11.speciesB = 9
+scattering.11.speciesE = 0
+scattering.11.speciesI = 10
+scattering.11.potential = 422.6 # [eV]
+scattering.11.cross_section_type = "Lotz"
+scattering.11.Lotz.a = 4.0e-18 # [m^2]
+scattering.11.Lotz.b = 0.75
+scattering.11.Lotz.c = 0.46
+scattering.11.Lotz.xi = 8
+
+scattering.12.model = "IZN"
+scattering.12.speciesA = 0
+scattering.12.speciesB = 10
+scattering.12.speciesE = 0
+scattering.12.speciesI = 11
+scattering.12.potential = 479.8 # [eV]
+scattering.12.cross_section_type = "Lotz"
+scattering.12.Lotz.a = 4.0e-18 # [m^2]
+scattering.12.Lotz.b = 0.75
+scattering.12.Lotz.c = 0.46
+scattering.12.Lotz.xi = 7
+
+#####################################################
+

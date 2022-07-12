@@ -26,6 +26,13 @@ class PicSpeciesBC
          const bool&                   a_intermediate_advance,
          const Real&                   a_time );
    
+   void applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
+                  LevelData<NodeFArrayBox>&  a_J_virtual );
+
+   void applyToRho( LevelData<FArrayBox>&  a_Rho );
+   void applyToRho( LevelData<FluxBox>&  a_Rho );
+   void applyToRho( LevelData<NodeFArrayBox>&  a_Rho );
+   
    void removeOutflowParticles();
    
    void repositionInflowParticles( ParticleData<JustinsParticle>&  a_data );
@@ -35,9 +42,6 @@ class PicSpeciesBC
    void createInflowParticles( const Real&  a_time,
                                const Real&  a_cnormDt );
       
-   void enforcePeriodicForIterativeSolver( List<JustinsParticle>&  a_list);
-      
-   
    protected:
   
       void enforcePeriodic( List<JustinsParticle>&  a_list,
@@ -61,6 +65,8 @@ class PicSpeciesBC
                  const Real&                   a_rightEdge,
                  const bool&                   a_intermediate_advance );
       
+      void axis( List<JustinsParticle>&  a_list,
+           const int                     a_dir );
       
       void symmetry_Lo( List<JustinsParticle>&  a_list,
                   const int&                    a_dir,

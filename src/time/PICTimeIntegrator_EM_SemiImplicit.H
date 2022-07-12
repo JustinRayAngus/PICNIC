@@ -33,6 +33,8 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
                  ElectroMagneticFields* const );
 
     virtual void initialize();
+    
+    virtual int prepForCheckpoint() const;
 
     inline virtual 
     bool isDefined() const { return m_is_defined; }

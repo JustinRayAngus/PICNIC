@@ -47,7 +47,7 @@ grid.num_cells     = 512 512
 grid.is_periodic   = 1 1
 grid.config_decomp = 16 16
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 1
+grid.num_ghosts    = 2
 
 grid.X_min = 0.0
 grid.X_max = 10.0 # 10*de0

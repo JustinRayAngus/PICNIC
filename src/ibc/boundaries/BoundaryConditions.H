@@ -14,8 +14,9 @@ namespace BoundaryConditions {
 
    void setBC( FArrayBox&       a_this_soln,
          const Box&             a_boundary_box,
+         const int              a_comp,
          const std::string&     a_bc_type,
-         const int&             a_dir,
+         const int              a_dir,
          const Side::LoHiSide&  a_side );
 
    void setDirichletBC( FArrayBox&             a_this_soln,

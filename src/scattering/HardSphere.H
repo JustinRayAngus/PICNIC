@@ -23,28 +23,24 @@ class HardSphere : public Scattering
 {
    public:
 
-      // Constructor
-      //
-      HardSphere( ParmParse&  a_pp, 
-                    const int&        a_verbosity )
-         : Scattering(a_verbosity)
+      HardSphere( ParmParse&    a_pp, 
+            const WeightMethod  a_weight_method,
+            const int           a_verbosity )
+         : Scattering(a_verbosity),
+           m_weight_method(a_weight_method)
       {
          m_scatter_dt = DBL_MAX;
          parseParameters( a_pp );
       }
 
-      // Destructor
-      //
       virtual ~HardSphere() {;}
       
-      // return integer identifier of species 1
+      virtual ScatteringType getScatteringType() const { return ELASTIC; }
+      
       virtual int species1() const { return m_sp1; }
       
-      // return integer identifier of species 1
       virtual int species2() const { return m_sp2; }
       
-      // set mean free time
-      //
       virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
                                     const LevelData<FArrayBox>&  a_energyDensity ) const; 
       
@@ -53,15 +49,11 @@ class HardSphere : public Scattering
                                     const LevelData<FArrayBox>&  a_numberDensity2,
                                     const LevelData<FArrayBox>&  a_energyDensity2 ) const;
     
-      // initialization
-      //
-      virtual void initialize( const DomainGrid&         a_mesh,
-                               const PicSpeciesPtrVect&  a_picSpeciesPtrVect ); 
+      virtual void initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
+                               const DomainGrid&         a_mesh );
 
       virtual Real scatterDt() const { return m_scatter_dt; }
 
-      // Print object parameters.
-      //
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "HardSphere scattering parameters:" << std::endl;
@@ -69,10 +61,18 @@ class HardSphere : public Scattering
             std::cout << "  species B name:          " << m_species2_name << std::endl;
             std::cout << "  species 1 radius [m]:    " << m_r1 << std::endl;
             std::cout << "  species 2 radius [m]:    " << m_r2 << std::endl;
-            std::cout << "  sigmaT = pi(r1+r2)^2:    " << m_sigmaT << std::endl << std::endl;
+            std::cout << "  sigmaT = pi(r1+r2)^2:    " << m_sigmaT << std::endl;
+            std::cout << "  weight method:           " << m_weight_method << std::endl;
+            std::cout << endl;
          }
       }
       
+      virtual void applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                              const DomainGrid&         a_mesh,
+                              const Real                a_dt_sec ) const;
+      
+   private:
+
       // scatter like species
       virtual void applySelfScattering( PicSpecies&  a_picSpecies, 
                                   const DomainGrid&  a_mesh,
@@ -83,9 +83,6 @@ class HardSphere : public Scattering
                                          PicSpecies&  a_picSpecies2,
                                    const DomainGrid&  a_mesh,
                                    const Real         a_dt_sec ) const;
- 
- 
-   private:
 
       // prohibit copying
       //HardSphere( const Constant& );
@@ -98,11 +95,29 @@ class HardSphere : public Scattering
          a_pp.get( "speciesB", m_sp2 );
          a_pp.query( "radius1", m_r1 );
          a_pp.query( "radius2", m_r2 );
+        
+         // look for specified method for A and B having different weights
+         std::string weight_method;
+         a_pp.query("weight_method",weight_method);
+         if(!weight_method.empty()) {
+           if(weight_method=="PROBABILISTIC" || weight_method=="probabilistic") {
+             m_weight_method = PROBABILISTIC;
+           }
+           else if(weight_method=="CONSERVATIVE" || weight_method=="conservative") {
+             m_weight_method = CONSERVATIVE;
+           }
+           else {
+              cout << "weight_method = " << weight_method << endl;
+              MayDay::Error( "HardSphere: invalid weight_method" );
+           }
+         }
+
       }
 
       std::string m_species1_name;
       std::string m_species2_name;
       mutable Real m_scatter_dt; // (mean free time)
+      WeightMethod m_weight_method;
       int m_sp1;     // species 1 identifier
       int m_sp2;     // species 2 identifier
       Real m_mass1;  // species 1 mass / electron mass

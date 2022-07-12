@@ -1,0 +1,179 @@
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+
+system.advance_method = "PIC_EM_EXPLICIT"
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 200
+simulation.max_step            = 1000000000
+simulation.max_time            = 200.0
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 5.0e-2
+#simulation.plot_interval       = 1000
+simulation.dt_scatter_interval = 1000 
+simulation.plot_time_interval  = 10.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 100
+
+history.precision = 8
+history.solver_probes = true
+history.field_probes = true
+history.field_bdry_probes = true
+history.scattering_probes = true
+history.species0_probes = true
+history.species1_probes = true
+history.species2_probes = true
+#
+simulation.checkpoint_time_interval = 50.0
+#simulation.restart_file = "checkpoint_data/chk200000.1d.hdf5"
+simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 400
+grid.is_periodic   = 1
+grid.config_decomp = 50
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = false
+em_fields.external_fields = true
+
+em_fields.external.magnetic.0.type = "constant"
+em_fields.external.magnetic.0.value = 0.0
+em_fields.external.magnetic.1.type = "constant"
+em_fields.external.magnetic.1.value = 0.0
+em_fields.external.magnetic.2.type = "constant"
+em_fields.external.magnetic.2.value = 0.0
+
+em_fields.external.electric.0.type = "constant"
+em_fields.external.electric.0.value = 1.0
+em_fields.external.electric.1.type = "constant"
+em_fields.external.electric.1.value = 0.0
+em_fields.external.electric.2.type = "constant"
+em_fields.external.electric.2.value = 0.0
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# Species 0
+
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = true
+
+# Species 1
+
+pic_species.1.name   = "argonI"
+pic_species.1.mass   = 72821.0
+pic_species.1.charge = 0
+pic_species.1.motion = false
+pic_species.1.forces = true
+pic_species.1.scatter = true
+
+IC.argonI.X_min = 0.0
+IC.argonI.X_max = 1.0
+IC.argonI.use_float_for_weights = true
+IC.argonI.parts_per_cell = 100
+IC.argonI.density.type = "constant"
+IC.argonI.density.value = 1.00e23 # [number/m^3]
+IC.argonI.temperature_0.type = "constant"
+IC.argonI.temperature_0.value = 0.1 # [eV]
+IC.argonI.temperature_1.type = "constant"
+IC.argonI.temperature_1.value = 0.1 # [eV]
+IC.argonI.temperature_2.type = "constant"
+IC.argonI.temperature_2.value = 0.1 # [eV]
+IC.argonI.velocity_0.type = "constant"
+IC.argonI.velocity_0.value = 0.0
+IC.argonI.velocity_1.type = "constant"
+IC.argonI.velocity_1.value = 0.0
+IC.argonI.velocity_2.type = "constant"
+IC.argonI.velocity_2.value = 0.0
+
+# Species 2
+
+pic_species.2.name   = "argonII"
+pic_species.2.mass   = 72820.0
+pic_species.2.charge = 1
+pic_species.2.motion = true
+pic_species.2.forces = true
+pic_species.2.scatter = true
+
+IC.argonII.X_min = 0.1
+IC.argonII.X_max = 0.1025
+IC.argonII.use_float_for_weights = true
+IC.argonII.parts_per_cell = 5000
+IC.argonII.density.type = "constant"
+IC.argonII.density.value = 1.00e17 # [number/m^3]
+IC.argonII.temperature_0.type = "constant"
+IC.argonII.temperature_0.value = 1.0 # [eV]
+IC.argonII.temperature_1.type = "constant"
+IC.argonII.temperature_1.value = 1.0 # [eV]
+IC.argonII.temperature_2.type = "constant"
+IC.argonII.temperature_2.value = 1.0 # [eV]
+IC.argonII.velocity_0.type = "constant"
+IC.argonII.velocity_0.value = 0.0
+IC.argonII.velocity_1.type = "constant"
+IC.argonII.velocity_1.value = 0.0
+IC.argonII.velocity_2.type = "constant"
+IC.argonII.velocity_2.value = 0.0
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+#
+#   elastic reactions
+#
+
+scattering.0.model = "ELA"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 1
+#scattering.0.angular_scattering = "isotropic"
+scattering.0.angular_scattering = "okhrimovskyy"
+scattering.0.cross_section_type = "text file"
+scattering.0.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_elastic_norunaway.txt"
+scattering.0.weight_method = "conservative"
+#scattering.0.use_loglog_interpolation = true
+
+scattering.1.model = "HS"
+scattering.1.speciesA = 1
+scattering.1.speciesB = 1
+
+scattering.2.model = "CEX"
+scattering.2.speciesA = 2
+scattering.2.speciesB = 1
+scattering.2.cross_section_type = "text file"
+scattering.2.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_charge_exchange.txt"
+scattering.2.weight_method = "conservative"
+#scattering.2.use_loglog_interpolation = true
+
+#####################################################
+

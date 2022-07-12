@@ -13,7 +13,8 @@ inline void getPosDefUnit(
    a_val = val;
 }
 
-CodeUnits::CodeUnits( ParmParse& a_parm_parse )
+CodeUnits::CodeUnits( ParmParse& a_parm_parse,
+                const bool       a_axisymmetric )
 {
    // Fundamental Characteristic Scales
    ParmParse ppunits( "units" );
@@ -22,22 +23,19 @@ CodeUnits::CodeUnits( ParmParse& a_parm_parse )
    getPosDefUnit( m_scale[LENGTH],         "length",         ppunits );
    getPosDefUnit( m_scale[TIME],           "time",           ppunits );
 
-   if(SpaceDim==1) {
-      m_scale[AREA] = m_scale[LENGTH];
-   }
-   else {
-      m_scale[AREA] = m_scale[LENGTH]*m_scale[LENGTH];
-   }
-
-   if(SpaceDim==1) m_scale[VOLUME] = m_scale[LENGTH];
-   if(SpaceDim==2) m_scale[VOLUME] = m_scale[AREA];
-   if(SpaceDim==3) m_scale[VOLUME] = m_scale[AREA]*m_scale[LENGTH];
+   m_scale[VOLUME] = m_scale[LENGTH];
+   for (int dir=1; dir<SpaceDim; dir++) m_scale[VOLUME] *= m_scale[LENGTH]; 
+   if(a_axisymmetric) m_scale[VOLUME] *= m_scale[LENGTH];   
+   
+   m_scale[AREA] = m_scale[VOLUME]/m_scale[LENGTH];
    
    CH_assert(m_scale[NUMBER_DENSITY]==1.0);
    CH_assert(m_scale[TEMPERATURE]==1.0);
    
    m_NUM_DEN_NORM = m_scale[VOLUME]*m_scale[NUMBER_DENSITY];
    m_CVAC_NORM = Constants::CVAC*m_scale[TIME]/m_scale[LENGTH];
+
+   m_WP_NORM = Constants::QE*sqrt(m_scale[NUMBER_DENSITY]/Constants::EP0/Constants::ME)*m_scale[TIME];
 
    // Universal Constants
    //Real pi = Constants::PI;

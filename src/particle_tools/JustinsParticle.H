@@ -60,6 +60,11 @@ public:
   // retrieve const. reference ID
   const uint64_t& ID() const;
   //const Real& ID() const;
+  
+  void setKillTag();
+  
+  // retrieve reference to kill tag
+  const int& killTag() const;
 
   /// set particle weight
   void setWeight(const Real a_weight);
@@ -196,6 +201,7 @@ protected:
 
   uint64_t m_ID;
   //Real     m_ID;
+  int      m_kill_tag = 0;
   Real     m_weight;
   std::array<Real,3> m_velocity;
   std::array<Real,3> m_electric_field;

@@ -1,0 +1,142 @@
+#TEST np=1, timelimit=00:05:00
+#####################################################
+# Verbosity Definitions
+#####################################################
+simulation.verbosity = 10
+
+system.advance_method = "PIC_EM_EXPLICIT"
+pic_em_explicit.old_ordering = false
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 1
+simulation.max_step            = 100000
+simulation.max_time            = 5.0
+#simulation.cfl_number          = 0.565
+#simulation.cfl_scatter         = 0.001
+simulation.fixed_dt            = 0.001
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 0.50
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 4  4 
+grid.is_periodic   = 0  1
+grid.config_decomp = 1  1
+grid.geometry      = "cyl_RZ"
+#grid.geometry      = "cartesian"
+grid.num_ghosts    = 1
+
+grid.X_min = 0.0
+grid.X_max = 2.0
+grid.Z_min = -2.0
+grid.Z_max = 2.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 0.01  # m
+units.time           = 1.0e-7  # s
+
+#####################################################
+# Fields Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = false
+
+em_fields.external_fields = true
+em_fields.external.magnetic.0.type = "constant"
+em_fields.external.magnetic.0.value = 0.0
+em_fields.external.magnetic.1.type = "constant"
+em_fields.external.magnetic.1.value = 0.0
+em_fields.external.magnetic.2.type = "bennett"
+em_fields.external.magnetic.2.A = 1.0
+em_fields.external.magnetic.2.a = 1.0
+
+em_fields.external.electric.0.type = "constant"
+em_fields.external.electric.0.value = 0.0
+em_fields.external.electric.1.type = "constant"
+em_fields.external.electric.1.value = 0.0
+em_fields.external.electric.2.type = "constant"
+em_fields.external.electric.2.value = 0.0
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# use boris method for inertia
+
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = false
+pic_species.0.use_axisymmetric_boris = true
+
+electron.particle.0.weight = 1.0
+electron.particle.0.position = 0.025 1.725
+electron.particle.0.velocity = -4.2e5 0.0 1.0e5
+
+electron.particle.1.weight = 1.0
+electron.particle.1.position = 0.75 1.025
+electron.particle.1.velocity = 4.2e5 0.0 1.0e5
+
+BC.electron.dir0_lower.type = "axis"
+BC.electron.dir0_upper.type = "symmetry"
+
+# use non-boris method for inertia with 2 iterations
+
+pic_species.1.name   = "electron1"
+pic_species.1.mass   = 1.0
+pic_species.1.charge = -1
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = false
+pic_species.1.use_axisymmetric_boris = false
+pic_species.1.axisymmetric_iter_max = 2
+
+electron1.particle.0.weight = 1.0
+electron1.particle.0.position = 0.025 1.725
+electron1.particle.0.velocity = -4.2e5 0.0 1.0e5
+
+electron1.particle.1.weight = 1.0
+electron1.particle.1.position = 0.75 1.025
+electron1.particle.1.velocity = 4.2e5 0.0 1.0e5
+
+BC.electron1.dir0_lower.type = "axis"
+BC.electron1.dir0_upper.type = "symmetry"
+
+# use non-boris method for inertia with 6 iterations
+
+pic_species.2.name   = "electron2"
+pic_species.2.mass   = 1.0
+pic_species.2.charge = -1
+pic_species.2.motion = true
+pic_species.2.forces = true
+pic_species.2.scatter = false
+pic_species.2.use_axisymmetric_boris = false
+pic_species.2.axisymmetric_iter_max = 6
+
+electron2.particle.0.weight = 1.0
+electron2.particle.0.position = 0.025 1.725
+electron2.particle.0.velocity = -4.2e5 0.0 1.0e5
+
+electron2.particle.1.weight = 1.0
+electron2.particle.1.position = 0.75 1.025
+electron2.particle.1.velocity = 4.2e5 0.0 1.0e5
+
+BC.electron2.dir0_lower.type = "axis"
+BC.electron2.dir0_upper.type = "symmetry"
+
+#####################################################
+
+

@@ -17,11 +17,13 @@
 #include "Vector.H"
 #include "RealVect.H"
 #include "MeshInterpF_F.H"
+#include "MeshInterpChargeConservingF_F.H"
+#include "MeshInterpMassMatrixF_F.H"
 
 #include "NamespaceHeader.H"
 
 typedef enum {density, momentum, energy, heatFlux} MomentType;
-typedef enum {NGP, CIC, TSC, W4} InterpType;
+typedef enum {UNKNOWN, NGP, CIC, TSC, W4, CC0, CC1} InterpType;
 
 /**
    This class is used for handling the interaction between the particles and the mesh
@@ -59,10 +61,23 @@ public:
                  const InterpType&  a_interpType ) const;
   
   template <class P>
-  void depositCurrent1D( FArrayBox&   a_rhoVx,
-                         FArrayBox&   a_rhoVvirt,
-                   const List<P>&     a_particleList,
-                   const InterpType&  a_interpType ) const;
+  void depositMassMatrices( FArrayBox&   a_sigma_xx,
+                            FArrayBox&   a_sigma_xy,
+                            FArrayBox&   a_sigma_xz,
+                            FArrayBox&   a_sigma_yx,
+                            FArrayBox&   a_sigma_yy,
+                            FArrayBox&   a_sigma_yz,
+                            FArrayBox&   a_sigma_zx,
+                            FArrayBox&   a_sigma_zy,
+                            FArrayBox&   a_sigma_zz,
+                            FArrayBox&   a_Jx,
+                            FArrayBox&   a_Jv,
+                      const FArrayBox&   a_Bx,
+                      const FArrayBox&   a_Bv,
+                      const int          a_qs,
+                      const Real         a_alphas,
+                      const List<P>&     a_particleList,
+                      const InterpType&  a_interpType ) const;
   
   template <class P>
   void depositVelocity( FArrayBox&   a_rhoV,
@@ -91,12 +106,10 @@ public:
                             const InterpType&  a_interpType ) const;
   
   template <class P>
-  void interpolateEMfieldsToPart1D( List<P>&     a_particleList,
-                              const FArrayBox&   a_Ex,
-                              const FArrayBox&   a_Evirt,
-                              const FArrayBox&   a_Bx,
-                              const FArrayBox&   a_Bvirt,
-                              const InterpType&  a_interpType ) const;
+  void interpolateBfieldsToPart1D( List<P>&     a_particleList,
+                             const FArrayBox&   a_Bx,
+                             const FArrayBox&   a_Bvirt,
+                             const InterpType&  a_interpType ) const;
 
   template <class P>
   void interpolateEfieldToPart( List<P>&     a_particleList,
@@ -131,8 +144,77 @@ public:
    void setWeightFromGridProfile( List<P>&    a_particleList,
                             const FArrayBox&  a_density,
                             const Real        a_partsPerCell ) const;
-    
+  
+  //
+  //
+  //
+  
+  template <class P>
+  void depositCurrent_testing( FArrayBox&   a_rhoVx,
+                               FArrayBox&   a_rhoVy,
+                               FArrayBox&   a_rhoVz,
+                         const List<P>&     a_particleList,
+                         const InterpType&  a_interpType ) const;
+
+  template <class P>
+  void interpolateEMfieldsToPart_testing( List<P>&     a_particleList,
+                              const FArrayBox&   a_Ex,
+                              const FArrayBox&   a_Ey,
+                              const FArrayBox&   a_Ez,
+                              const FArrayBox&   a_Bx,
+                              const FArrayBox&   a_By,
+                              const FArrayBox&   a_Bz,
+                              const InterpType&  a_interpType ) const;
+
 private:
+  
+  template <class P>
+  void interpolateEMfieldsToPart_CIC( List<P>&     a_particleList,
+                                const FArrayBox&   a_Ex,
+                                const FArrayBox&   a_Ey,
+                                const FArrayBox&   a_Ez,
+                                const FArrayBox&   a_Bx,
+                                const FArrayBox&   a_By,
+                                const FArrayBox&   a_Bz ) const;
+  
+  template <class P>
+  void interpolateBfieldsToPart_CIC( List<P>&     a_particleList,
+                               const FArrayBox&   a_Bx,
+                               const FArrayBox&   a_By,
+                               const FArrayBox&   a_Bz ) const;
+
+  template <class P>
+  void interpolateEfieldDirToPart_CIC( List<P>&     a_particleList,
+                                 const FArrayBox&   a_E,
+                                 const int          a_dir,
+                                 const int          a_comp=0 ) const;
+  
+  template <class P>
+  void interpolateEMfieldsToPart_TSC( List<P>&     a_particleList,
+                                const FArrayBox&   a_Ex,
+                                const FArrayBox&   a_Ey,
+                                const FArrayBox&   a_Ez,
+                                const FArrayBox&   a_Bx,
+                                const FArrayBox&   a_By,
+                                const FArrayBox&   a_Bz ) const;
+  template <class P>
+  void interpolateEToPart_CC0( List<P>&    a_particleList,
+                         const FArrayBox&  a_Ex ) const;
+  
+  template <class P>
+  void interpolateEToPart_CC0( List<P>&    a_particleList,
+                         const FArrayBox&  a_Ex,
+                         const FArrayBox&  a_Ey,
+                         const FArrayBox&  a_Ez ) const;
+  
+  template <class P>
+  void interpolateEToPart_CC1( List<P>&    a_particleList,
+                         const FArrayBox&  a_Ex ) const;
+  
+  template <class P>
+  void interpolateEToPart_CC1( List<P>&    a_particleList,
+                         const FArrayBox&  a_Ex,
+                         const FArrayBox&  a_Ey ) const;
   
   /// a wrapper function that deposits the contribution of a single 
   //  particle to the specified moment using the 

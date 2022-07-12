@@ -176,6 +176,7 @@ namespace InsulatorBCUtils {
 
       const DisjointBoxLayout& bdry_grids( a_bdry_layout.disjointBoxLayout() );
       const LevelData<NodeFArrayBox>& Xphys_nc = a_mesh.getXnc();
+      const RealVect& dX = a_mesh.getdX();
 
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
@@ -192,13 +193,15 @@ namespace InsulatorBCUtils {
          BoxIterator bit(fill_box_grown); // grid indices for boundary box    
          IntVect ib;         // cell index
          RealVect local_Xnc; // cell center coords at cell index
+         Real deltaX;        // error range
          for(bit.begin(); bit.ok(); ++bit) {
             ib = bit();
             Real this_val = 1.0;
             for(int dir=0; dir<SpaceDim; dir++) {
+               deltaX = dX[dir]*1.0e-8; // testing to prevent round-off errors below
                local_Xnc[dir] = Xphys_nc[interior_dit].getFab().get(ib,dir);
-               if(local_Xnc[dir]>a_Xmax_insulator[dir] || 
-                  local_Xnc[dir]<a_Xmin_insulator[dir]) {
+               if(local_Xnc[dir]>a_Xmax_insulator[dir]+deltaX || 
+                  local_Xnc[dir]<a_Xmin_insulator[dir]-deltaX) {
                   this_val = 0.0;
                } 
             } 

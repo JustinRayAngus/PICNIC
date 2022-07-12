@@ -1,0 +1,205 @@
+#####################################################
+#TEST np=35, timelimit=00:05:00
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+
+###   initial plasma parameter:
+###   N1 = 1.0e17/cm^3, T = 1.00 eV, R = 1.5 cm
+###   1/wpe = 5.61e-5 ns
+###   de = cvac/wpe =  0.0017 cm
+###
+###   planar pinch driven by B field associated with
+###   200 kA current: B = mu*I/2/pi/R = 2.667 Tesla
+###   1/wce = 2.13e-3 ns
+
+simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
+
+#system.advance_method = "PIC_EM_EXPLICIT"
+system.advance_method = "PIC_EM_THETA_IMPLICIT"
+system.iter_max = 8
+system.iter_max_particles = 6
+system.freeze_particles_jacobian = false
+system.quasi_freeze_particles_jacobian = true
+system.use_mass_matrices = true
+system.abs_tol = 1.0e-6
+system.rel_tol = 1.0e-12
+#
+#pic_em_theta_implicit.solver_type = "newton"
+pic_em_theta_implicit.solver_type = "petsc"
+pic_em_theta_implicit.pc_update_freq = 1
+jacobian.with_pc = true
+
+newton.verbose = false
+newton.atol = 1.0e-12
+newton.rtol = 1.0e-6
+gmres.verbose = false
+gmres.atol = 1.0e-12
+gmres.rtol = 1.0e-4
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+simulation.max_step            = 200
+#simulation.max_step            = 1000000000
+simulation.max_time            = 220.0 # 1.35*t0
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 4.0e-4
+#simulation.plot_interval       = 1000
+simulation.dt_scatter_interval = 100 
+simulation.plot_time_interval  = 1.1
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 100
+
+history.precision = 5
+history.solver_probes = true
+history.field_probes = true
+history.field_bdry_probes = true
+history.species0_probes = true
+history.species1_probes = true
+#
+simulation.checkpoint_time_interval = 11.0
+#simulation.restart_file = "checkpoint_data/chk000500.1d.hdf5"
+#simulation.wall_time_hrs = 5.95
+simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 385
+grid.is_periodic   = 0
+grid.config_decomp = 35
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.0
+grid.X_max = 1.54
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = true
+em_fields.advance_electric_field = 1 0 1
+em_fields.advance_magnetic_field = 0 1 0
+#em_fields.write_curls = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+BC.em_fields.dir0_lower.type = "symmetry"
+BC.em_fields.dir0_upper.type = "insulator_conductor"
+BC.insulator.dir0_upper.X0_min = 1.54
+BC.insulator.dir0_upper.X0_max = 1.60
+BC.insulator.dir0_upper.time_function.type = "ramp"
+BC.insulator.dir0_upper.time_function.rise_time = 8.1541 # t0/20 = u0/Rp0/20
+BC.insulator.dir0_upper.time_function.amplitude = 7.9944e3 # By(x=x0_max)
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# Species 0
+
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = true
+
+IC.electron.X_min = 0.0
+IC.electron.X_max = 1.5
+IC.electron.parts_per_cell = 100
+IC.electron.density.type = "constant"
+IC.electron.density.value = 1.0e23 # [number/m^3]
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 1.0 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 1.0 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 1.0 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 0.0
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+BC.electron.dir0_lower.type = "symmetry"
+BC.electron.dir0_upper.type = "outflow"
+
+# Species 1
+
+pic_species.1.name   = "deuterium"
+pic_species.1.mass   = 3670.5
+pic_species.1.charge = 1
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = true
+
+IC.deuterium.X_min = 0.0
+IC.deuterium.X_max = 1.5
+IC.deuterium.parts_per_cell = 100
+IC.deuterium.density.type = "constant"
+IC.deuterium.density.value = 1.0e23 # [number/m^3]
+IC.deuterium.temperature_0.type = "constant"
+IC.deuterium.temperature_0.value = 1.0 # [eV]
+IC.deuterium.temperature_1.type = "constant"
+IC.deuterium.temperature_1.value = 1.0 # [eV]
+IC.deuterium.temperature_2.type = "constant"
+IC.deuterium.temperature_2.value = 1.0 # [eV]
+IC.deuterium.velocity_0.type = "constant"
+IC.deuterium.velocity_0.value = 0.0
+IC.deuterium.velocity_1.type = "constant"
+IC.deuterium.velocity_1.value = 0.0
+IC.deuterium.velocity_2.type = "constant"
+IC.deuterium.velocity_2.value = 0.0
+
+BC.deuterium.dir0_lower.type = "symmetry"
+BC.deuterium.dir0_upper.type = "outflow"
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.0.model = "TA"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 0
+scattering.0.coulomb_logarithm = 10.0
+
+scattering.1.model = "TA"
+scattering.1.speciesA = 1
+scattering.1.speciesB = 1
+scattering.1.coulomb_logarithm = 10.0
+
+scattering.2.model = "TA"
+scattering.2.speciesA = 1
+scattering.2.speciesB = 0
+scattering.2.coulomb_logarithm = 10.0
+
+#####################################################
+
