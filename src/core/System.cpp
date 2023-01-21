@@ -17,67 +17,78 @@
 
 System::System( ParmParse&  a_pp )
    :
-     m_iter_max(0),
-     m_iter_max_particles(0),
-     m_part_order_swap(false),
-     m_freeze_particles_jacobian(true),
-     m_quasi_freeze_particles_jacobian(false),
-     m_use_mass_matrices(false),
-     m_theta(0.5),
      m_advance_method(PIC_DSMC),
      m_mesh(nullptr),
      m_units(nullptr),
      m_dataFile(nullptr),
-     m_meshInterp(nullptr),
+     m_pic_species(nullptr),
      m_scattering(nullptr),
      m_verbosity(0),
      m_use_specialOps(false),
-     m_rtol(1e-6),
-     m_atol(1e-12),
      m_time_integrator(nullptr)
 {
    ParmParse ppsys("system");
    parseParameters(ppsys);
 
-   //m_units = new CodeUnits( ppsys );
-   //if(!procID()) m_units->printParameters( procID() );
- 
-   createProblemDomain();          // create the problem domain
+   createProblemDomain();
   
    DisjointBoxLayout grids;
-   getDisjointBoxLayout( grids );  // define the disjointBoxLayout
+   getDisjointBoxLayout( grids );
    
    // initialize the coordinates and grid
    ParmParse ppgrid( "grid" );
    m_mesh = new DomainGrid( ppgrid, m_num_ghosts, m_domain, grids ); 
    
    m_units = new CodeUnits( ppsys, m_mesh->axisymmetric() );
-   if(!procID()) m_units->printParameters( procID() );
+   m_units->printParameters();
 
    m_dataFile = new dataFileIO( ppsys, *m_mesh, *m_units );
      
-   createMeshInterp();
-
-   createState( a_pp );
+   createState();
    
-   m_scattering = new ScatteringInterface( *m_units, m_pic_species_ptr_vect ); 
+   m_scattering = new ScatteringInterface( *m_units, m_pic_species->getPtrVect() ); 
 
    createSpecialOperators();
 
+   m_implicit_advance = false;
+   bool em_advance = false;
    if(m_advance_method == PIC_DSMC) {
      m_time_integrator = new PICTimeIntegrator_DSMC;
    } else if(m_advance_method == PIC_EM_EXPLICIT) {
      m_time_integrator = new PICTimeIntegrator_EM_Explicit;
+     em_advance = true;
    } else if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
      m_time_integrator = new PICTimeIntegrator_EM_SemiImplicit;
+     m_implicit_advance = true;
+     em_advance = true;
    } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
      m_time_integrator = new PICTimeIntegrator_EM_ThetaImplicit;
-     dynamic_cast<PICTimeIntegrator_EM_ThetaImplicit*>(m_time_integrator)->theta(m_theta);
+     m_implicit_advance = true;
+     em_advance = true;
+   }
+   else {
+      if(!procID()) { 
+         cout << "EXIT FAILURE!!!" << endl;
+         cout << "m_advance_method = " << m_advance_method;
+         cout << " is not a valid option" << endl;
+         cout << " valid options: " << PIC_DSMC << ", ";
+         cout <<  PIC_EM_EXPLICIT << ", ";
+         cout <<  PIC_EM_SEMI_IMPLICIT << ", ";
+         cout <<  PIC_EM_THETA_IMPLICIT << " " << endl;
+      }
+      exit(EXIT_FAILURE);
+   }
+   if(em_advance && m_emfields.isNull()) {
+      if(!procID()) { 
+         cout << "EXIT FAILURE!!!" << endl;
+         cout << "m_advance_method = " << m_advance_method;
+         cout << " requires em_fields.use = true" << endl << endl;
+      }
+      exit(EXIT_FAILURE);
    }
    m_time_integrator->define( this,
-                              m_pic_species_ptr_vect, 
+                              m_pic_species->getPtrVect(), 
                               m_emfields ); // m_emfields can't be NULL for implicit solvers
-   m_time_integrator->setSolverParams( m_rtol, m_atol, m_iter_max );
 }
 
 System::~System()
@@ -86,72 +97,8 @@ System::~System()
    delete m_mesh;
    delete m_units;
    delete m_dataFile;
-   if(m_meshInterp!=NULL) {
-      delete m_meshInterp;
-      m_meshInterp = NULL;
-   }
+   delete m_pic_species;
    delete m_scattering;
-}
-
-void System::initialize( const int           a_cur_step,
-                         const Real          a_cur_time,
-                         const std::string&  a_restart_file_name )
-{
-   CH_TIME("System::initialize()");
-   
-   // read restart file
-   if(!a_restart_file_name.empty()) {
-      readCheckpointFile( a_restart_file_name );
-   }
-
-   // initialize the pic species
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      this_picSpecies->initialize(*m_units,a_cur_time,a_restart_file_name);
-   }
-   
-   // initialize the scattering operators
-    
-   // set moments for initial mean free path calculation
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->scatter()) {
-         this_picSpecies->binTheParticles();
-         this_picSpecies->setNumberDensity();
-         this_picSpecies->setEnergyDensity();
-      }
-   }
-   m_scattering->initialize( m_pic_species_ptr_vect, *m_mesh, a_restart_file_name );
-      
-   // initialize the electromagnetic fields
-   if (!m_emfields.isNull()) {
-      m_emfields->initialize(a_cur_time,a_restart_file_name);
-      setChargeDensity();
-      setCurrentDensity();
-   }
-     
-   // assert that m_emfields is not NULL if using forces 
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->forces()) {
-         CH_assert(!m_emfields.isNull());
-         break;
-      }
-   }
-
-   m_time_integrator->initialize();
-   
-   // need to get time step from restart file to initialize MassMatrix 
-   // for PC on restart (maybe better to do this in time integrator?) 
-   if(m_use_mass_matrices && !a_restart_file_name.empty()) {
-     HDF5Handle handle( a_restart_file_name, HDF5Handle::OPEN_RDONLY );
-     HDF5HeaderData header;
-     header.readFromFile( handle );
-     Real a_cur_dt   = header.m_real["cur_dt"];
-     handle.close();
-     setMassMatrices( a_cur_dt );
-   }
-
 }
 
 void System::createProblemDomain()
@@ -298,31 +245,10 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
 
 }
 
-
-void System::createMeshInterp()
-{
-   CH_TIME("System::createMeshInterp()");
-
-   // get some mesh information
-   const ProblemDomain& domain(m_mesh->getDomain()); 
-   const RealVect& meshSpacing(m_mesh->getdX());
-   const RealVect& meshOrigin(m_mesh->getXmin());
-  
-   if(m_meshInterp!=NULL) {
-      delete m_meshInterp;
-   }
-   
-   m_meshInterp = static_cast<MeshInterp*> (new MeshInterp( domain.domainBox(),
-                                                            meshSpacing,
-                                                            meshOrigin ));
-
-}
-
-
-void System::createState( ParmParse&  a_pp )
+void System::createState()
 {
 
-   createPICspecies();
+   m_pic_species = new PicSpeciesInterface( *m_units, *m_mesh );
 
    createEMfields();
 
@@ -354,29 +280,8 @@ void System::createEMfields()
                                                               *m_mesh,
                                                               *m_units,
                                                               verbose,
-                                                              em_vec_type)  ); 
+                                                              em_vec_type )); 
       
-      // number of components for mass matrices depends on particle weighting scheme.
-      // I don't like having this here.... Also need to check that all charged 
-      // particles are using the same weighting scheme ...
-      bool init_mass_matrices = false;
-      if (m_use_mass_matrices) init_mass_matrices = true;
-#ifdef MASS_MATRIX_TEST
-      CH_assert(!m_use_mass_matrices);
-      init_mass_matrices = true;
-#endif
-      if (init_mass_matrices) {
-         InterpType sp_interp = UNKNOWN;
-         for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-            PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-            if(this_picSpecies->charge() == 0) continue;
-            InterpType this_interp = this_picSpecies->getInterpType();
-            if(sp_interp==UNKNOWN) sp_interp = this_interp;
-            else CH_assert(sp_interp==this_interp);
-         }
-         m_emfields->initializeMassMatrices(sp_interp, m_use_mass_matrices);
-      }
-
       if(m_advance_method == PIC_DSMC ) {
          if(!procID()) cout << "advance_method PIC_DSMC cannot be used with electromagnetic fields on" << endl;
          exit(EXIT_FAILURE);
@@ -390,61 +295,13 @@ void System::createEMfields()
 
 }
 
-
-void System::createPICspecies()
-{
-   // Create all PIC species
-   
-   if(!procID()) {
-      cout << "Creating PIC species..." << endl << endl;
-   }
-
-   bool more_vars(true);
-   int species;
-   while(more_vars) { // look for pic species...
- 
-      species = m_pic_species_ptr_vect.size();
-
-      stringstream s;
-      s << "pic_species." << species; 
-
-      ParmParse ppspc( s.str().c_str() );
-     
-      string name;
-      if(ppspc.contains("name")) {
-         ppspc.get("name",name);
-      } 
-      else {
-         more_vars = false;
-      }
-   
-      if(more_vars) {
-      
-         // Create the pic species object
-         PicSpecies* picSpecies = new PicSpecies( ppspc, species, name, *m_meshInterp, *m_mesh );
-
-         // Add the new pic species object to the vector of pointers to PicSpecies
-         m_pic_species_ptr_vect.push_back(PicSpeciesPtr(picSpecies));
-
-      }
-
-   }
-
-   if(!procID()) {
-      cout << "Finished creating " << m_pic_species_ptr_vect.size() << " PIC species" << endl << endl;
-   }
-
-}
-
 void System::createSpecialOperators()
 {
    // Create the vector of special operator (pointers)
    
    SpecialOperatorFactory  specialOpFactory;
    
-   if(!procID()) {
-      cout << "Adding special operators..." << endl;
-   }
+   if(!procID()) cout << "Adding special operators..." << endl;
 
    bool more_ops(true);
    string name0;
@@ -468,13 +325,40 @@ void System::createSpecialOperators()
    
    }
 
-   if(!procID()) {
-      cout << "Done adding special operators" << endl << endl;
-   }
+   if(!procID()) cout << "Done adding special operators" << endl << endl;
 
 
 }
 
+void System::initialize( const int           a_cur_step,
+                         const Real          a_cur_time,
+                         const std::string&  a_restart_file_name )
+{
+   CH_TIME("System::initialize()");
+   
+   // read restart file
+   if(!a_restart_file_name.empty()) {
+      readCheckpointFile( a_restart_file_name );
+   }
+
+   // initialize the pic species
+   m_pic_species->initialize( *m_units, m_implicit_advance, a_cur_time, a_restart_file_name );
+   
+   // initialize the scattering operators
+   m_scattering->initialize( m_pic_species->getPtrVect(), *m_mesh, a_restart_file_name );
+      
+   // initialize the electromagnetic fields
+   if(m_emfields.isNull()) {CH_assert(!m_pic_species->forces());}
+   else {
+      setChargeDensity();
+      m_emfields->initialize(a_cur_time,a_restart_file_name);
+      m_pic_species->setCurrentDensity();
+      setCurrentDensity();
+   }
+     
+   m_time_integrator->initialize(a_restart_file_name);
+   
+}
 
 void System::writePlotFile( const int     a_cur_step,
                             const double  a_cur_time,
@@ -484,44 +368,20 @@ void System::writePlotFile( const int     a_cur_step,
    
    if (!m_emfields.isNull()) {
       if(m_emfields->writeRho()) setChargeDensity();
-      if(m_emfields->writeExB()) {
-         m_emfields->setPoyntingFlux();
-      }
+      if(m_emfields->writeExB()) m_emfields->setPoyntingFlux();
       if(m_emfields->writeDivs()) {
          m_emfields->setDivE();
          m_emfields->setDivB();
       }
       m_dataFile->writeElectroMagneticFieldsDataFile( *m_emfields,
+#ifdef MASS_MATRIX_TEST
+                                                      *m_pic_species,
+#endif
                                                       a_cur_step, a_cur_time ); 
    }
 
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
+   m_dataFile->writePicSpecies( *m_pic_species, a_cur_step, a_cur_time);
 
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-  
-      this_picSpecies->setNumberDensity();
-      this_picSpecies->setMomentumDensity();
-      this_picSpecies->setEnergyDensity();
-
-      if(this_picSpecies->charge() == 0) {
-         m_dataFile->writeNeutralSpeciesDataFile( *this_picSpecies, 
-                                                  s, a_cur_step, a_cur_time );
-      }
-      else {
-         if(m_writeSpeciesChargeDensity) {
-            this_picSpecies->setChargeDensity();      
-            this_picSpecies->setChargeDensityOnFaces(); 
-            this_picSpecies->setChargeDensityOnNodes(); 
-         }     
-         if(m_writeSpeciesCurrentDensity) this_picSpecies->setCurrentDensity();      
-         m_dataFile->writeChargedSpeciesDataFile( *this_picSpecies, 
-                                                  s, a_cur_step, a_cur_time,
-                                                  m_writeSpeciesChargeDensity,
-                                                  m_writeSpeciesCurrentDensity );
-      }
-
-   }
-   
 }
 
 void System::writeHistFile( const int   a_cur_step,
@@ -538,7 +398,7 @@ void System::writeHistFile( const int   a_cur_step,
    int l_total_iter=0, nl_total_iter=0;
    int l_last_iter=0, nl_iter=0;
    Real nl_abs_res=0.0, nl_rel_res=0.0;
-   if(m_solver_probes && !a_startup) {
+   if(m_solver_probes) {
       m_time_integrator->getConvergenceParams( l_exit_status, l_last_iter, l_total_iter,
                                               nl_exit_status, nl_iter, nl_total_iter,
                                               nl_abs_res, nl_rel_res );
@@ -562,18 +422,23 @@ void System::writeHistFile( const int   a_cur_step,
    }
    
    // compute the species probes
-   const int numSpecies = m_pic_species_ptr_vect.size();
+   const int numSpecies = m_pic_species->numSpecies();
    std::vector<int> num_particles(numSpecies);
    std::vector<vector<Real>> global_moments(numSpecies);
+   std::vector<vector<Real>> bdry_moments(numSpecies);
+   std::vector<vector<Real>> species_solver(numSpecies);
    std::vector<Real> max_wpdt(numSpecies);
    std::vector<Real> max_wcdt(numSpecies);
-   for( int species=0; species<numSpecies; species++) {
-      if(!m_species_probes[species]) continue;
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[species]);
-      num_particles[species] = this_picSpecies->numParticles();
-      this_picSpecies->globalMoments(global_moments.at(species));
-      max_wpdt.at(species) = this_picSpecies->max_wpdt(*m_units,a_cur_dt);
-      max_wcdt.at(species) = max_wc0dt*abs(this_picSpecies->charge())/this_picSpecies->mass();
+   PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+   for( int sp=0; sp<numSpecies; sp++) {
+      if(!m_species_probes[sp]) continue;
+      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
+      num_particles[sp] = species->numParticles();
+      species->globalMoments(global_moments.at(sp));
+      if(m_species_bdry_probes) species->bdryMoments(bdry_moments.at(sp));
+      max_wpdt.at(sp) = species->max_wpdt(*m_units,a_cur_dt);
+      max_wcdt.at(sp) = max_wc0dt*abs(species->charge())/species->mass();
+      if(m_species_solver_probes) species->picardParams(species_solver.at(sp));
    }
    
    //
@@ -619,15 +484,31 @@ void System::writeHistFile( const int   a_cur_step,
             histFile << energyIzn_joules << " ";
             histFile << energyExc_joules << " ";
          }
-         for( int species=0; species<numSpecies; species++) {
-            if(!m_species_probes[species]) continue;
-            histFile << num_particles[species] << " ";
-            std::vector<Real>& species_moments = global_moments.at(species);
+         for( int sp=0; sp<numSpecies; sp++) {
+            if(!m_species_probes[sp]) continue;
+            histFile << num_particles[sp] << " ";
+            std::vector<Real>& species_moments = global_moments.at(sp);
             for(int mom=0; mom<species_moments.size(); ++mom) {
                histFile << species_moments.at(mom) << " ";
             }
-            histFile << max_wpdt.at(species) << " ";
-            histFile << max_wcdt.at(species) << " ";
+            histFile << max_wpdt.at(sp) << " ";
+            histFile << max_wcdt.at(sp) << " ";
+            if(m_species_bdry_probes) {
+               std::vector<Real>& this_bdry_moment = bdry_moments.at(sp);
+               const int num_per_dir = this_bdry_moment.size()/SpaceDim;
+               for(int dir=0; dir<SpaceDim; ++dir) { 
+                  if(m_is_periodic[dir]) continue;
+                  for(int mom=0; mom<num_per_dir; ++mom) {
+                     histFile << this_bdry_moment.at(mom+dir*num_per_dir) << " ";
+                  }
+               }
+            }
+            if(m_species_solver_probes) {
+               std::vector<Real>& this_species_solver = species_solver.at(sp);
+               for(int its=0; its<this_species_solver.size(); ++its) {
+                  histFile << this_species_solver.at(its) << " ";
+               }
+            }
          }
          histFile << "\n";
          histFile.close();
@@ -674,7 +555,7 @@ void System::setupHistFile(const int a_cur_step)
    pphist.query("scattering_probes", m_scattering_probes);
    if(!procID()) cout << "scattering_probes = " << m_scattering_probes << endl;
  
-   const int numSpecies = m_pic_species_ptr_vect.size();
+   const int numSpecies = m_pic_species->numSpecies();
    if(numSpecies>0) { 
       m_species_probes.resize(numSpecies,false);
       for (int species=0; species<numSpecies; species++) {
@@ -687,6 +568,12 @@ void System::setupHistFile(const int a_cur_step)
          }
          if(!procID()) cout << ss.str() << " = " << m_species_probes[species] << endl;
       }
+      m_species_bdry_probes = false;
+      pphist.query("species_bdry_probes", m_species_bdry_probes);
+      if(!procID()) cout << "species_bdry_probes = " << m_species_bdry_probes << endl;
+      m_species_solver_probes = false;
+      pphist.query("species_solver_probes", m_species_solver_probes);
+      if(!procID()) cout << "species_solver_probes = " << m_species_solver_probes << endl;
    }
    
    if(m_solver_probes) {
@@ -783,6 +670,79 @@ void System::setupHistFile(const int a_cur_step)
       ss << "#" << probe_names.size() << " species " << species << ": max wc*dt";
       probe_names.push_back(ss.str()); 
       ss.str(std::string());
+      if(m_species_bdry_probes) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         if(m_is_periodic[dir]) continue;
+         stringstream ss;
+         ss << "#" << probe_names.size() << " species " << species << ": mass out from lo-side, dir = " << dir << " [kg]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": mass out from hi-side, dir = " << dir << " [kg]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": energy out from lo-side, dir = " << dir << " [Joules]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": energy out from hi-side, dir = " << dir << " [Joules]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": mass in from lo-side, dir = " << dir << " [kg]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": mass in from hi-side, dir = " << dir << " [kg]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": energy in from lo-side, dir = " << dir << " [Joules]";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": energy in from hi-side, dir = " << dir << " [Joules]";
+         probe_names.push_back(ss.str()); 
+      }
+      }
+      if(m_species_solver_probes) {
+         ss << "#" << probe_names.size() << " species " << species << ": avg picard its";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " species " << species << ": max avg picard its";
+         probe_names.push_back(ss.str()); 
+         ss.str(std::string());
+      }
    }
    
    // setup or restart the history file
@@ -867,10 +827,32 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
    }
 
    // write the particle data
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      m_dataFile->writeCheckpointParticles( a_handle, *this_picSpecies, s );
+   m_dataFile->writeCheckpointPicSpecies( a_handle,  *m_pic_species);
+   
+   // write solver probes
+   int l_exit_status=0, nl_exit_status=0;
+   int l_total_iter=0, nl_total_iter=0;
+   int l_last_iter=0, nl_iter=0;
+   Real nl_abs_res=0.0, nl_rel_res=0.0;
+   if(m_solver_probes) {
+      m_time_integrator->getConvergenceParams( l_exit_status, l_last_iter, l_total_iter,
+                                              nl_exit_status, nl_iter, nl_total_iter,
+                                              nl_abs_res, nl_rel_res );
    }
+   header.clear();
+   const std::string solverGroup = std::string("solver");
+   a_handle.setGroup(solverGroup);
+
+   header.m_int["l_exit_status"] = l_exit_status;
+   header.m_int["l_last_iter"] = l_last_iter;
+   header.m_int["l_total_iter"] = l_total_iter;
+   header.m_int["nl_exit_status"] = nl_exit_status;
+   header.m_int["nl_iter"] = nl_iter;
+   header.m_int["nl_total_iter"] = nl_total_iter;
+   header.m_real["nl_abs_res"] = nl_abs_res;
+   header.m_real["nl_rel_res"] = nl_rel_res;
+
+   header.writeToFile( a_handle );
 
 }
 
@@ -897,233 +879,99 @@ void System::readCheckpointFile( const std::string&  a_chkpt_fname )
 void System::parseParameters( ParmParse&  a_ppsys )
 {
    a_ppsys.query("advance_method", m_advance_method);
+   if(m_advance_method == "DSMC") m_advance_method = PIC_DSMC;
    if(m_advance_method == PICMC_EXPLICIT) m_advance_method = PIC_EM_EXPLICIT;
    if(m_advance_method == PICMC_SEMI_IMPLICIT) m_advance_method = PIC_EM_SEMI_IMPLICIT;
    if(m_advance_method == PICMC_FULLY_IMPLICIT) m_advance_method = PIC_EM_THETA_IMPLICIT;
-   if(m_advance_method == PIC_EM_SEMI_IMPLICIT) {
-      a_ppsys.get("iter_max",m_iter_max);
-      a_ppsys.query("iter_max_particles",m_iter_max_particles);
-      a_ppsys.query("part_order_swap",m_part_order_swap);
-      a_ppsys.query("abs_tol", m_atol);
-      a_ppsys.query("rel_tol", m_rtol);
-   } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
-      a_ppsys.get("iter_max",m_iter_max);
-      a_ppsys.query("iter_max_particles",m_iter_max_particles);
-      a_ppsys.query("part_order_swap",m_part_order_swap);
-      a_ppsys.query("freeze_particles_jacobian",m_freeze_particles_jacobian);
-      a_ppsys.query("quasi_freeze_particles_jacobian",m_quasi_freeze_particles_jacobian);
-      if(m_quasi_freeze_particles_jacobian) m_freeze_particles_jacobian=false;
-      a_ppsys.query("use_mass_matrices",m_use_mass_matrices);
-      if(m_use_mass_matrices) {
-         m_freeze_particles_jacobian = false;
-         m_part_order_swap = true; // for now, so smoke tests don't fail...
-      }
-      a_ppsys.query("abs_tol", m_atol);
-      a_ppsys.query("rel_tol", m_rtol);
-      a_ppsys.query("theta_parameter",m_theta);
-      CH_assert(m_theta>=0.5 && m_theta<=1.0);
-   }
 
-   a_ppsys.query("write_species_charge_density", m_writeSpeciesChargeDensity);
-   a_ppsys.query("write_species_current_density", m_writeSpeciesCurrentDensity);
- 
-   if(!procID()) {
-      cout << "advance method  = " << m_advance_method << endl;
-      if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
-         cout << "  iter_max = " << m_iter_max << endl;
-         cout << "  iter_max_particles = " << m_iter_max_particles << endl;
-         cout << "  part_order_swap = " << m_part_order_swap << endl;
-         cout << "  abs_tol  = " << m_atol << endl;
-         cout << "  rel_tol  = " << m_rtol << endl;
-      } else if(m_advance_method == PIC_EM_THETA_IMPLICIT) {
-         cout << "  iter_max = " << m_iter_max << endl;
-         cout << "  iter_max_particles = " << m_iter_max_particles << endl;
-         cout << "  part_order_swap = " << m_part_order_swap << endl;
-         cout << "  freeze_particles_jacobian = " << m_freeze_particles_jacobian << endl;
-         cout << "  quasi_freeze_particles_jacobian = " << m_quasi_freeze_particles_jacobian << endl;
-         cout << "  use_mass_matrices = " << m_use_mass_matrices<< endl;
-         cout << "  abs_tol  = " << m_atol << endl;
-         cout << "  rel_tol  = " << m_rtol << endl;
-         cout << "  theta_parameter = " << m_theta << endl; 
-      }
-      cout << "write species charge density  = " << m_writeSpeciesChargeDensity << endl;
-      cout << "write species current density = " << m_writeSpeciesCurrentDensity << endl << endl;
-   }
+   if(!procID()) cout << "advance method  = " << m_advance_method << endl << endl;
  
 }
 
-void System::preTimeStep( const Real&  a_cur_time,
-                          const Real&  a_dt,
-                          const int&   a_step_number )
+void System::preTimeStep( const Real  a_time,
+                          const Real  a_dt,
+                          const int   a_step_number )
 {  
    CH_TIME("System::preTimeStep()");
-      
-   m_time_integrator->preTimeStep( a_cur_time, a_dt, a_step_number );
-
-   // update old particle values and create inflow particles  
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      this_picSpecies->createInflowParticles( a_cur_time, a_dt );
-      this_picSpecies->updateOldParticlePositions();
-      this_picSpecies->updateOldParticleVelocities();
-   }
-
+   m_time_integrator->preTimeStep( a_time, a_dt, a_step_number );
 }
 
-void System::advance( const Real&  a_cur_time,
-                      const Real&  a_dt,
-                      const int&   a_step_number )
+void System::timeStep( const Real  a_cur_time,
+                       const Real  a_dt,
+                       const int   a_step_number )
 {  
-   CH_TIME("System::advance()");
+   CH_TIME("System::timeStep()");
    m_time_integrator->timeStep( a_cur_time, a_dt, a_step_number );
+}
 
+void System::postTimeStep( Real&        a_cur_time,
+                           const Real&  a_dt,
+                           int&         a_step_number )
+{  
+   CH_TIME("System::postTimeStep()");
+   
+   if(!m_emfields.isNull()) m_emfields->postTimeStep( a_dt );
+
+   m_time_integrator->postTimeStep( a_cur_time, a_dt );
+
+   // apply special operators
+   if(m_specialOps) {
+      m_specialOps->applyOp(m_pic_species->getPtrVect(),a_dt);
+      m_specialOps->updateOp(a_dt);
+   }
+   
+   m_pic_species->postTimeStep();
+   
+   a_cur_time = a_cur_time + a_dt;
+   a_step_number = a_step_number + 1;
+   m_nonlinear_iter = 0;
 }
 
 void System::setChargeDensity()
 {
    CH_TIME("System::setChargeDensity()");
-   const DisjointBoxLayout& grids(m_mesh->getDBL());
  
-   LevelData<NodeFArrayBox>& chargeDensity = m_emfields->getChargeDensity();
+   // set the pic charge density
+   m_pic_species->setChargeDensityOnNodes();
+   const LevelData<NodeFArrayBox>& pic_rho = m_pic_species->getChargeDensityOnNodes();
    
-   // set the charge density to zero
+   // add it to the total charge density
+   LevelData<NodeFArrayBox>& rho = m_emfields->getChargeDensity();
+   const DisjointBoxLayout& grids(m_mesh->getDBL());
    for(DataIterator dit(grids); dit.ok(); ++dit) {
-      FArrayBox& this_rho_nodes = chargeDensity[dit].getFab();
-      this_rho_nodes.setVal(0.0);
-   }
-
-   // loop over all pic species and add the charge density 
-   for (int s=0; s<m_pic_species_ptr_vect.size(); ++s) {
-      const PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      int this_charge = this_picSpecies->charge();
-      if(this_charge != 0) {
-
-         this_picSpecies->setChargeDensityOnNodes();
-         const LevelData<NodeFArrayBox>& species_rho = this_picSpecies->getChargeDensityOnNodes();
-         for(DataIterator dit(grids); dit.ok(); ++dit) {
-            const FArrayBox& this_species_rho = species_rho[dit].getFab();
-            FArrayBox& this_rho = chargeDensity[dit].getFab();
-            this_rho.plus(this_species_rho,0,0,chargeDensity.nComp());
-         }
-
-      }
+      FArrayBox& this_rho = rho[dit].getFab();
+      const FArrayBox& this_pic_rho = pic_rho[dit].getFab();
+      this_rho.copy(this_pic_rho,0,0,rho.nComp());
    }
 
 }
 
-void System::setCurrentDensity()
+void System::setCurrentDensity( const bool  a_from_explicit_solver )
 {
    CH_TIME("System::setCurrentDensity()");
-   const DisjointBoxLayout& grids(m_mesh->getDBL());
- 
-   LevelData<EdgeDataBox>&  currentDensity = m_emfields->getCurrentDensity();
-   LevelData<NodeFArrayBox>&  currentDensity_virtual = m_emfields->getVirtualCurrentDensity();
    
-   // set the current density member to zero
+   // set the pic species current density
+   if(m_advance_method==PIC_EM_EXPLICIT) m_pic_species->setCurrentDensity( true );
+   const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
+   const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
+   
+   // add (copy) it to the total current density used to advance E
+   LevelData<EdgeDataBox>& J = m_emfields->getCurrentDensity();
+   LevelData<NodeFArrayBox>& Jv = m_emfields->getVirtualCurrentDensity();
+   const DisjointBoxLayout& grids(m_mesh->getDBL());
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       for (int dir=0; dir<SpaceDim; dir++) {
-         currentDensity[dit][dir].setVal(0.0);
+         FArrayBox& this_J = J[dit][dir];
+         const FArrayBox& this_pic_J = pic_J[dit][dir];
+         this_J.copy(this_pic_J);
       }
-      if(SpaceDim<3) {
-         FArrayBox& this_Jv_nodes = currentDensity_virtual[dit].getFab();
-         this_Jv_nodes.setVal(0.0);
-      }
+#if CH_SPACEDIM<3
+      FArrayBox& this_Jv = Jv[dit].getFab();
+      const FArrayBox& this_pic_Jv = pic_Jv[dit].getFab();
+      this_Jv.copy(this_pic_Jv,0,0,Jv.nComp());
+#endif
    }
 
-   // loop over all pic species and add the current density 
-   for (int s=0; s<m_pic_species_ptr_vect.size(); ++s) {
-      const PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      int this_charge = this_picSpecies->charge();
-      if(this_charge != 0) {
-
-         this_picSpecies->setCurrentDensity();
-         const LevelData<EdgeDataBox>& species_J = this_picSpecies->getCurrentDensity();
-         for(DataIterator dit(grids); dit.ok(); ++dit) {
-            for (int dir=0; dir<SpaceDim; dir++) {
-               const FArrayBox& this_species_Jdir = species_J[dit][dir];
-               currentDensity[dit][dir].plus(this_species_Jdir,0,0,1);
-            }
-         }
-         if(SpaceDim<3) {
-            const LevelData<NodeFArrayBox>& species_Jv = this_picSpecies->getCurrentDensity_virtual();
-            for(DataIterator dit(grids); dit.ok(); ++dit) {
-               const FArrayBox& this_species_Jv = species_Jv[dit].getFab();
-               FArrayBox& this_Jv = currentDensity_virtual[dit].getFab();
-               this_Jv.plus(this_species_Jv,0,0,currentDensity_virtual.nComp());
-               //if(!procID()) SpaceUtils::inspectFArrayBox( this_Jv, this_Jv.box(), 1);
-            }
-         }
-
-      }
-   }
-
-   // call exchange 
-   // JRA 1-13-22
-   // When I call exchange for virtual J here, the numerical energy regression test 
-   // that uses jfnk fails. However, when using jfnk it is possible that a machine-level
-   // difference can grow into a tolerance-level difference
-   //SpaceUtils::exchangeEdgeDataBox(currentDensity);
-   //if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(currentDensity_virtual);
-
-}
-
-void System::setMassMatrices( const Real  a_dt )
-{
-   CH_TIME("System::setMassMatrices()");
-   CH_assert(SpaceDim==1); // only works for 1D so for
-   
-   LevelData<EdgeDataBox>&  Jtilde = m_emfields->getJtilde();
-   LevelData<NodeFArrayBox>&  Jtildev = m_emfields->getVirtualJtilde();
-   //
-   LevelData<EdgeDataBox>&  sigma_xx = m_emfields->getSigmaxx();
-   LevelData<EdgeDataBox>&  sigma_xy = m_emfields->getSigmaxy();
-   LevelData<EdgeDataBox>&  sigma_xz = m_emfields->getSigmaxz();
-   LevelData<NodeFArrayBox>&  sigma_yx = m_emfields->getSigmayx();
-   LevelData<NodeFArrayBox>&  sigma_yy = m_emfields->getSigmayy();
-   LevelData<NodeFArrayBox>&  sigma_yz = m_emfields->getSigmayz();
-   LevelData<NodeFArrayBox>&  sigma_zx = m_emfields->getSigmazx();
-   LevelData<NodeFArrayBox>&  sigma_zy = m_emfields->getSigmazy();
-   LevelData<NodeFArrayBox>&  sigma_zz = m_emfields->getSigmazz();
-   
-   // set all to zero
-   SpaceUtils::zero( Jtilde );
-   SpaceUtils::zero( Jtildev );
-   //
-   SpaceUtils::zero( sigma_xx );
-   SpaceUtils::zero( sigma_xy );
-   SpaceUtils::zero( sigma_xz );
-   SpaceUtils::zero( sigma_yx );
-   SpaceUtils::zero( sigma_yy );
-   SpaceUtils::zero( sigma_yz );
-   SpaceUtils::zero( sigma_zx );
-   SpaceUtils::zero( sigma_zy );
-   SpaceUtils::zero( sigma_zz );
-
-   // loop over all pic species and add their contribution 
-   for (int s=0; s<m_pic_species_ptr_vect.size(); ++s) {
-      const PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      this_picSpecies->accumulateMassMatrices( sigma_xx, sigma_xy, sigma_xz,
-                                               sigma_yx, sigma_yy, sigma_yz,
-                                               sigma_zx, sigma_zy, sigma_zz, 
-                                               Jtilde, Jtildev, *m_emfields, a_dt );
-   }
-   
-   // add ghost cells to valid cells
-   LDaddEdgeOp<EdgeDataBox> addEdgeOp;
-   Jtilde.exchange( Jtilde.interval(), m_mesh->reverseCopier(), addEdgeOp );
-   sigma_xx.exchange( sigma_xx.interval(), m_mesh->reverseCopier(), addEdgeOp );
-   sigma_xy.exchange( sigma_xy.interval(), m_mesh->reverseCopier(), addEdgeOp );
-   sigma_xz.exchange( sigma_xz.interval(), m_mesh->reverseCopier(), addEdgeOp );
-
-   LDaddNodeOp<NodeFArrayBox> addNodeOp;
-   Jtildev.exchange( Jtildev.interval(), m_mesh->reverseCopier(), addNodeOp );
-   sigma_yx.exchange( sigma_yx.interval(), m_mesh->reverseCopier(), addNodeOp );
-   sigma_yy.exchange( sigma_yy.interval(), m_mesh->reverseCopier(), addNodeOp );
-   sigma_yz.exchange( sigma_yz.interval(), m_mesh->reverseCopier(), addNodeOp );
-   sigma_zx.exchange( sigma_zx.interval(), m_mesh->reverseCopier(), addNodeOp );
-   sigma_zy.exchange( sigma_zy.interval(), m_mesh->reverseCopier(), addNodeOp );
-   sigma_zz.exchange( sigma_zz.interval(), m_mesh->reverseCopier(), addNodeOp );
-   
 }
 
 void System::scatterParticles( const Real&  a_dt )
@@ -1135,49 +983,10 @@ void System::scatterParticles( const Real&  a_dt )
    const Real tscale = m_units->getScale(m_units->TIME);
    const Real dt_sec = a_dt*tscale;      
 
-   // prepare all species to be scattered for scattering
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      if(this_picSpecies->scatter()) {
-         this_picSpecies->binTheParticles();
-         this_picSpecies->setNumberDensity();
-      }
-   }
-
-   m_scattering->applyScattering( m_pic_species_ptr_vect, *m_mesh, dt_sec );
+   m_pic_species->prepForScatter();
+   m_scattering->applyScattering( m_pic_species->getPtrVect(), *m_mesh, dt_sec );
    
 }   
-
-void System::postTimeStep( Real&        a_cur_time,
-                           const Real&  a_dt,
-                           int&         a_step_number )
-{  
-   CH_TIME("System::postTimeStep()");
-   
-   if(!m_emfields.isNull()) {
-      m_emfields->postTimeStep( a_dt );
-   }
-
-   m_time_integrator->postTimeStep( a_cur_time, a_dt );
-
-   // apply special operators
-   if(m_specialOps) {
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) { // loop over pic species
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         m_specialOps->applyOp(*this_picSpecies,a_dt);
-      }
-      m_specialOps->updateOp(a_dt);
-   }
-   
-   // remove particles that have left the physical domain and create new ones
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      this_picSpecies->removeOutflowParticles();
-   }
-   
-   a_cur_time = a_cur_time + a_dt;
-   a_step_number = a_step_number + 1;
-}
 
 Real System::fieldsDt( const int a_step_number )
 {
@@ -1189,40 +998,21 @@ Real System::fieldsDt( const int a_step_number )
    return fldsDt;
 }
 
-
 Real System::partsDt( const int a_step_number )
 {
-
-   Real stableDt = DBL_MAX;
-   for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-      PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-      this_picSpecies->setStableDt(*m_units);
-      stableDt = min(stableDt,this_picSpecies->stableDt());
-   }
-  
-   return stableDt;
-
+   Real partsDt = DBL_MAX;
+   partsDt = m_pic_species->courantDt();
+   return partsDt;
 }
-
 
 Real System::scatterDt( const int a_step_number )
 {
-   CH_TIME("System::scatterDt()");
 
    Real scatterDt = DBL_MAX;
    
    if(m_scattering->numScatter()>0) {
 
-      // compute the density and energy moments for mean free time calculation
-      for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-         PicSpeciesPtr this_picSpecies(m_pic_species_ptr_vect[s]);
-         if(this_picSpecies->scatter()) {
-            this_picSpecies->setNumberDensity();
-            this_picSpecies->setEnergyDensity();
-         }
-      }
-      
-      scatterDt = m_scattering->scatterDt( m_pic_species_ptr_vect );
+      scatterDt = m_scattering->scatterDt( m_pic_species->getPtrVect() );
  
       // convert to code units
       const Real tscale = m_units->getScale(m_units->TIME);
@@ -1233,7 +1023,6 @@ Real System::scatterDt( const int a_step_number )
    return scatterDt;
 
 }
-
 
 Real System::specialOpsDt( const int a_step_number )
 {
@@ -1254,86 +1043,25 @@ void System::adaptDt( bool&  a_adapt_dt )
 
 void System::preRHSOp( const ODEVector<System>&  a_U,
                        const Real                a_dt,
+                       const int                 a_nonlinear_iter,
                        const bool                a_from_emjacobian )
 {  
   CH_TIME("System::preRHSOp()");
+
+  m_pic_species->preRHSOp( a_from_emjacobian, *m_emfields, a_dt, m_nonlinear_iter );
+
+  setCurrentDensity();
+
+  // a_nonlinear_iter when using Petsc comes here with zero twice, and passing it
+  // to m_pic_species->preRHSOp() doesn't work with new usage of this parameter
+
+  //if(!a_from_emjacobian && !procID()) {
+     //cout << "JRA: m_nonlinear_iter = " << m_nonlinear_iter << endl;
+     //cout << "JRA: a_nonlinear_iter = " << a_nonlinear_iter << endl << endl;
+  //}
   
-  CH_assert(!m_emfields.isNull());
-    
-  // half dt advance of particle positions and velocities
-  // and, if advancing E, compute current density
-  //
-  // xbar = xn + dt/2*vbar
-  // vbar = vn + dt/2*q/m*(E(xbar) + vbar x B(xbar))
-  // Jbar = Sum_sSum_p(qp*S(xbar-xg)*vbar)/dV
- 
-  if(a_from_emjacobian) { // called from linear stage of jfnk
+  if(!a_from_emjacobian) m_nonlinear_iter += 1;
 
-     if (m_use_mass_matrices) {
-
-        m_emfields->computeJfromMassMatrices();
-
-     }
-     else {
-
-        CH_assert(m_iter_max_particles>0);
-        for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-           auto this_picSpecies(m_pic_species_ptr_vect[s]);
-           if (m_quasi_freeze_particles_jacobian) { // freeze particle positions during linear stage
-              this_picSpecies->interpolateFieldsToParticles( *m_emfields );
-              this_picSpecies->addExternalFieldsToParticles( *m_emfields ); 
-              this_picSpecies->advanceVelocities( a_dt, true );
-           }
-           else {
-              this_picSpecies->repositionOutcastsAndApplyForces( *m_emfields, 
-                                                                 a_dt, true );
-              this_picSpecies->advanceParticlesIteratively( *m_emfields, a_dt, 
-                                                            m_part_order_swap, 
-                                                            m_iter_max_particles );
-           }
-        }
-        if (m_emfields->advanceE()) setCurrentDensity();
-#ifdef MASS_MATRIX_TEST
-        setMassMatrices( a_dt );
-        m_emfields->computeJfromMassMatrices();
-#endif
-     }
-
-  }
-  else { // called from nonlinear stage of jfnk or from picard solver
-  
-     for (int s=0; s<m_pic_species_ptr_vect.size(); s++) {
-        auto this_picSpecies(m_pic_species_ptr_vect[s]);
-        this_picSpecies->repositionOutcastsAndApplyForces( *m_emfields, 
-                                                           a_dt, true );
-        if(m_iter_max_particles>0) {
-           this_picSpecies->advanceParticlesIteratively( *m_emfields, a_dt, 
-                                                         m_part_order_swap, 
-                                                         m_iter_max_particles );
-        }
-        else {
-           this_picSpecies->advanceParticles( *m_emfields, a_dt,
-                                              m_part_order_swap ); 
-        }
-     }
-     
-     if (m_emfields->advanceE()) {
-        if(m_use_mass_matrices) {
-           setMassMatrices( a_dt );
-           m_emfields->computeJfromMassMatrices();
-        }
-        else {
-           setCurrentDensity();
-#ifdef MASS_MATRIX_TEST
-           setMassMatrices( a_dt );
-           m_emfields->computeJfromMassMatrices();
-#endif
-        }
-     }
-
-  }
-
-  return;    
 }
 
 void System::computeRHS( ODEVector<System>&  a_F,

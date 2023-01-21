@@ -39,7 +39,7 @@ class CodeUnits
       // Default Destructor.
       ~CodeUnits() {;}
 
-      void printParameters( const int a_procID ) const;
+      void printParameters() const;
 
       Real getScale( const CHAR_SCALE& type ) const { checkType( type ); return m_scale[type]; }
       

@@ -1,6 +1,7 @@
 #include "PicSpeciesBC.H"
 #include "LoHiSide.H"
 #include "BCUtils.H"
+#include "FieldBCUtils.H"
 
 #include "CodeUnits.H"
 
@@ -22,6 +23,7 @@ PicSpeciesBC::PicSpeciesBC( const std::string&  a_species_name,
    ParmParse pp(pp_prefix.c_str());
    parseParameters(pp,a_units);
 
+   zeroDeltas();
    if(m_verbosity) printParameters();
 
 }
@@ -49,11 +51,13 @@ void PicSpeciesBC::parseParameters( ParmParse&  a_pp,
    m_inflow_bc_ptr_vect.resize(bdry_layout.size());
 
    for (int b(0); b<bdry_layout.size(); b++) {
+
       const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
       m_bdry_name[b] = this_bdry_layout.name();
       std::string prefix( a_pp.prefix() );
       prefix += "." + m_bdry_name[b];
       ParmParse fpp( prefix.c_str() );
+
       m_bc_type[b] = "outflow";
       if( fpp.contains("type") ) {
          fpp.query( "type", m_bc_type[b] );
@@ -67,7 +71,17 @@ void PicSpeciesBC::parseParameters( ParmParse&  a_pp,
                                                 m_species_name, m_species_mass, m_mesh, a_units );
             m_inflow_bc_ptr_vect[b] = InflowBCPtr(inflow_bc);
          }
+         if(m_bc_type[b]=="axis" && !m_mesh.axisymmetric()) m_bc_type[b] = "symmetry";
       }
+   
+      // below is needed for charge-conserving interp      
+      if(m_bc_type[b]=="inflow_outflow" || m_bc_type[b]=="outflow") {
+         const int bdry_dir = this_bdry_layout.dir();
+         const int bdry_side(this_bdry_layout.side());
+         if(bdry_side==0) m_isOutflowBC_lo[bdry_dir] = 1;
+         if(bdry_side==1) m_isOutflowBC_hi[bdry_dir] = 1;
+      }
+
    }
    
    // check if this processor includes physical boundaries
@@ -104,11 +118,11 @@ void PicSpeciesBC::parseParameters( ParmParse&  a_pp,
                                                            bdry_dir, bdry_side );
       }
       m_periodic_bc_binary[b] = is_bdry_box;
-      if(is_bdry_box) {
+      //if(is_bdry_box) {
       //   cout << "JRA: periodic_bc: procID = " << procID() << endl;
       //   cout << "JRA: periodic_bc: dir  = " << bdry_dir << endl;
       //   cout << "JRA: periodic_bc: side = " << bdry_side << endl;
-      }
+      //}
    }
    
 }
@@ -139,15 +153,31 @@ void PicSpeciesBC::apply( List<JustinsParticle>&  a_outcast_list,
    const RealVect& Xmin(m_mesh.getXmin());
    const RealVect& Xmax(m_mesh.getXmax());
 
-   // first enforce periodic BCs
+   // first, enforce periodic BCs
    for (int dir(0); dir<SpaceDim; dir++) {
       if(domain.isPeriodic(dir)) {
+         // should be using m_periodic_bc_binary here...
          enforcePeriodic( a_outcast_list, dir, Xmin[dir], Xmax[dir]); 
       }
    }
    
-   // second, loop over non-periodic boundaries and apply BCs
+   // second, loop over non-periodic boundaries and apply symmetry BCs
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   for (int b(0); b<bdry_layout.size(); b++) {
+      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+      const int bdry_dir = this_bdry_layout.dir();
+      const int bdry_side(this_bdry_layout.side());
+      const std::string this_bc = m_bc_type[b];
+      if(bdry_side==0 && m_bc_binary[b]) {
+         if(this_bc=="axis") axis( a_outcast_list, bdry_dir );
+         if(this_bc=="symmetry") symmetry_Lo( a_outcast_list, bdry_dir, Xmin[bdry_dir] );
+      }
+      if(bdry_side==1 && m_bc_binary[b]) {
+         if(this_bc=="symmetry") symmetry_Hi( a_outcast_list, bdry_dir, Xmax[bdry_dir] );
+      }
+   }
+   
+   // third, loop over non-periodic boundaries again and apply inflow/outflow BCs
    for (int b(0); b<bdry_layout.size(); b++) {
       const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
       const int bdry_dir = this_bdry_layout.dir();
@@ -155,10 +185,24 @@ void PicSpeciesBC::apply( List<JustinsParticle>&  a_outcast_list,
       const std::string this_bc = m_bc_type[b];
       List<JustinsParticle>& inflow_list = m_inflow_list_vector[b];
       List<JustinsParticle>& outflow_list = m_outflow_list_vector[b];
-      if(bdry_side==0 && m_bc_binary[b]) applyBC_Lo( a_outcast_list, inflow_list, outflow_list,
-                                                     this_bc, bdry_dir, Xmin[bdry_dir], a_intermediate_advance);      
-      if(bdry_side==1 && m_bc_binary[b]) applyBC_Hi( a_outcast_list, inflow_list, outflow_list,
-                                                     this_bc, bdry_dir, Xmax[bdry_dir], a_intermediate_advance);      
+      if(bdry_side==0 && m_bc_binary[b]) {
+         if(this_bc=="outflow") {
+            outflow_Lo( a_outcast_list, outflow_list, bdry_dir, Xmin[bdry_dir] );
+         }
+         if(this_bc=="inflow_outflow") {
+            outflow_Lo( a_outcast_list, outflow_list, bdry_dir, Xmin[bdry_dir] );
+            inflow_Lo( a_outcast_list, inflow_list, bdry_dir, Xmin[bdry_dir], a_intermediate_advance );
+         }
+      }
+      if(bdry_side==1 && m_bc_binary[b]) {
+         if(this_bc=="outflow") {
+            outflow_Hi( a_outcast_list, outflow_list, bdry_dir, Xmax[bdry_dir] );
+         }
+         if(this_bc=="inflow_outflow") {
+            outflow_Hi( a_outcast_list, outflow_list, bdry_dir, Xmax[bdry_dir] );
+            inflow_Hi( a_outcast_list, inflow_list, bdry_dir, Xmax[bdry_dir], a_intermediate_advance );
+         }
+      }
    }
    
 }
@@ -168,94 +212,17 @@ void PicSpeciesBC::applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
 {
    CH_TIME("PicSpeciesBC::applyToJ()");
  
-   // currently this is only used for symmetry boundaries. The contribution of the
-   // current density from the mirror particles across the symmetry boundary are
-   // not accounted for when J is computed (only particles inside physical domain
-   // are used in J calc). For J parallel to a symmetry boundary, we multiply by
-   // a factor of 2 on the physical boundary (higher-order shape functions are not
-   // considered yet). For J perp to a symmetry boundary, we subtract off J in the
-   // corresonding ghost cell across the symmetry boundary.
-  
-   // loop over non-periodic boundaries and apply BCs to J
-   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
-   for (int b(0); b<bdry_layout.size(); b++) {
+   FieldBCUtils::applyToJ_PIC( a_J_inPlane,
+                               a_J_virtual, 
+                               m_mesh,
+                               m_bc_type );
 
-      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
-      const int bdry_dir = this_bdry_layout.dir();
-      const int bdry_side(this_bdry_layout.side());
-      const std::string this_bc = m_bc_type[b];
-
-      if(this_bc=="symmetry" || this_bc=="axis") {
-      
-         for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-
-            const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-            const Box bdry_box( bdry_grids[dit] );
-            for (int dir(0); dir<SpaceDim; dir++) {
-          
-               // convert cell bdry box to a edge bdry box
-               Box edge_box = surroundingNodes(bdry_box);
-               edge_box.enclosedCells(dir);
-
-               // collapse edge_box to 1 cell thick in bdry_dir direction                  
-               if(bdry_side==0) edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir));
-               if(bdry_side==1) edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir));
-                  
-               // adjust J in cells near boundary appropriately to account for
-               // mirror particles across symmetry boundary
-               FArrayBox& this_J( a_J_inPlane[interior_dit][dir] );
-               if(dir==bdry_dir) {
-                  Box dst_box = edge_box;
-                  Box src_box = edge_box;
-                  const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
-                  for (int n=0; n<nG; n++) {
-                     if(bdry_side==0) dst_box.shift(bdry_dir,1);
-                     if(bdry_side==1) dst_box.shift(bdry_dir,-1);
-                     this_J.minus(this_J,src_box,dst_box,0,0,1);
-                     if(bdry_side==0) src_box.shift(bdry_dir,-1);
-                     if(bdry_side==1) src_box.shift(bdry_dir,1);
-                  }
-
-               }
-               else { // work exactly on bdry only
-                  // would need to modify this if using higher-order particle shape functions
-                  if(!m_mesh.axisymmetric()) this_J.mult(2.0,edge_box,0,this_J.nComp());
-               }
-               
-            }
-           
-            if(SpaceDim<3 && !m_mesh.axisymmetric()) {
-                       
-               // convert cell bdry box to a node bdry box
-               Box node_box = surroundingNodes(bdry_box);
-
-               // collapse node_box to 1 cell thick in bdry_dir direction                  
-               if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
-               if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
-
-               // would need to modify this if using higher-order 
-               // particle shape functions
-               FArrayBox& this_J( a_J_virtual[interior_dit].getFab() );
-               this_J.mult(2.0,node_box,0,this_J.nComp());
-            }
-            
-         }
-
-      }
-   }
-   
 }
 
 void PicSpeciesBC::applyToRho( LevelData<FArrayBox>&  a_Rho )
 {
    CH_TIME("PicSpeciesBC::applyToRho() (cells)");
  
-   // currently this is only used for symmetry boundaries. The contribution of the
-   // density from the mirror particles across the symmetry boundary are
-   // not accounted for when rho is computed (only particles inside physical domain
-   // are used in rho calc). 
-  
    // loop over non-periodic boundaries and apply BCs to Rho
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
    for (int b(0); b<bdry_layout.size(); b++) {
@@ -266,37 +233,27 @@ void PicSpeciesBC::applyToRho( LevelData<FArrayBox>&  a_Rho )
       const int bdry_side(this_bdry_layout.side());
       const std::string this_bc = m_bc_type[b];
 
-      if(this_bc=="symmetry" || this_bc=="axis") {
       
-         for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+      for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
 
-            const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-            const Box bdry_box( bdry_grids[dit] );
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+         const Box bdry_box( bdry_grids[dit] );
           
-            // collapse cell_box to 1 cell thick in bdry_dir direction                  
-            Box cell_box = bdry_box;
-            if(bdry_side==0) cell_box.setSmall(bdry_dir,cell_box.bigEnd(bdry_dir));
-            if(bdry_side==1) cell_box.setBig(bdry_dir,cell_box.smallEnd(bdry_dir));
+         // collapse cell_box to 1 cell thick in bdry_dir direction                  
+         Box cell_box = bdry_box;
+         if(bdry_side==0) cell_box.setSmall(bdry_dir,cell_box.bigEnd(bdry_dir));
+         if(bdry_side==1) cell_box.setBig(bdry_dir,cell_box.smallEnd(bdry_dir));
                   
-            // adjust Rho in cells near boundary appropriately to account for
-            // mirror particles across symmetry boundary
-            FArrayBox& this_Rho = a_Rho[interior_dit];
-            Box dst_box = cell_box;
-            Box src_box = cell_box;
-            const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
-            for(int n=0; n<nG; n++) {
-               if(bdry_side==0) dst_box.shift(bdry_dir,1);
-               if(bdry_side==1) dst_box.shift(bdry_dir,-1);
-               if(m_mesh.axisymmetric()) {
-                  this_Rho.minus(this_Rho,src_box,dst_box,0,0,1);
-               } 
-               else {
-                  this_Rho.plus(this_Rho,src_box,dst_box,0,0,1);
-               }
-               if(bdry_side==0) src_box.shift(bdry_dir,-1);
-               if(bdry_side==1) src_box.shift(bdry_dir,1);
-            }
-
+         FArrayBox& this_Rho = a_Rho[interior_dit];
+         Box dst_box = cell_box;
+         Box src_box = cell_box;
+         const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+         for(int n=0; n<nG; n++) {
+            if(bdry_side==0) dst_box.shift(bdry_dir,1);
+            if(bdry_side==1) dst_box.shift(bdry_dir,-1);
+               this_Rho.plus(this_Rho,src_box,dst_box,0,0,1);
+            if(bdry_side==0) src_box.shift(bdry_dir,-1);
+            if(bdry_side==1) src_box.shift(bdry_dir,1);
          }
 
       }
@@ -309,11 +266,6 @@ void PicSpeciesBC::applyToRho( LevelData<FluxBox>&  a_Rho )
 {
    CH_TIME("PicSpeciesBC::applyToRho() (faces)");
  
-   // currently this is only used for symmetry boundaries. The contribution of the
-   // density from the mirror particles across the symmetry boundary are
-   // not accounted for when rho is computed (only particles inside physical domain
-   // are used in rho calc). 
-  
    // loop over non-periodic boundaries and apply BCs to Rho
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
    for (int b(0); b<bdry_layout.size(); b++) {
@@ -324,57 +276,45 @@ void PicSpeciesBC::applyToRho( LevelData<FluxBox>&  a_Rho )
       const int bdry_side(this_bdry_layout.side());
       const std::string this_bc = m_bc_type[b];
 
-      if(this_bc=="symmetry" || this_bc=="axis") {
-      
-         for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+      for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
 
-            const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-            const Box bdry_box( bdry_grids[dit] );
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+         const Box bdry_box( bdry_grids[dit] );
+         const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
           
-            for (int dir(0); dir<SpaceDim; dir++) {
+         for (int dir(0); dir<SpaceDim; dir++) {
             
-               // collapse face_box to 1 cell thick in bdry_dir direction                  
-               Box face_box = surroundingNodes(bdry_box,dir);
-               if(bdry_side==0) face_box.setSmall(bdry_dir,face_box.bigEnd(bdry_dir));
-               if(bdry_side==1) face_box.setBig(bdry_dir,face_box.smallEnd(bdry_dir));
+            // collapse face_box to 1 cell thick in bdry_dir direction                  
+            Box face_box = surroundingNodes(bdry_box,dir);
+            if(bdry_side==0) face_box.setSmall(bdry_dir,face_box.bigEnd(bdry_dir));
+            if(bdry_side==1) face_box.setBig(bdry_dir,face_box.smallEnd(bdry_dir));
                   
-               // adjust Rho in cells near boundary appropriately to account for
-               // mirror particles across symmetry boundary
-               FArrayBox& this_Rho( a_Rho[interior_dit][dir] );
-               if(dir!=bdry_dir) {
-                  Box dst_box = face_box;
-                  Box src_box = face_box;
-                  const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
-                  for (int n=0; n<nG; n++) {
-                     if(bdry_side==0) dst_box.shift(bdry_dir,1);
-                     if(bdry_side==1) dst_box.shift(bdry_dir,-1);
-                     if(m_mesh.axisymmetric() && this_bc=="axis") {
-                        this_Rho.minus(this_Rho,src_box,dst_box,0,0,1);
-                     }
-                     else { 
-                        this_Rho.plus(this_Rho,src_box,dst_box,0,0,1);
-                     }
-                     if(bdry_side==0) src_box.shift(bdry_dir,-1);
-                     if(bdry_side==1) src_box.shift(bdry_dir,1);
-                  }
+            FArrayBox& this_Rho( a_Rho[interior_dit][dir] );
+            if(dir!=bdry_dir) { // cell centered
+               Box dst_box = face_box;
+               Box src_box = face_box;
+               for (int n=0; n<nG; n++) {
+                  if(bdry_side==0) dst_box.shift(bdry_dir,1);
+                  if(bdry_side==1) dst_box.shift(bdry_dir,-1);
+                  this_Rho.plus(this_Rho,src_box,dst_box,0,0,1);
+                  if(bdry_side==0) src_box.shift(bdry_dir,-1);
+                  if(bdry_side==1) src_box.shift(bdry_dir,1);
                }
-               else { // work exactly on bdry only
-                  // would need to modify this if using higher-order 
-                  // particle shape functions
-                  if(m_mesh.axisymmetric() && this_bc=="axis") {
-                     // do nothing
-                  }
-                  else {
-                     this_Rho.mult(2.0,face_box,0,this_Rho.nComp());
-                  }
-               }
-               
             }
-                  
+            else { // node centered
+               if(this_bc!="axis") this_Rho.mult(2.0,face_box,0,this_Rho.nComp());
+               Box dst_box = face_box;
+               Box src_box = face_box;
+               for(int n=0; n<nG; n++) {
+                  dst_box.shift(bdry_dir,1 - 2*bdry_side);
+                  src_box.shift(bdry_dir,2*bdry_side - 1);
+                  this_Rho.plus(this_Rho,src_box,dst_box,0,0,this_Rho.nComp());
+               }
+            }
          }
-
+               
       }
-
+                  
    }
    
 }
@@ -383,11 +323,13 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
 {
    CH_TIME("PicSpeciesBC::applyToRho() (nodes)");
  
-   // currently this is only used for symmetry boundaries. The contribution of the
-   // density from the mirror particles across the symmetry boundary are
-   // not accounted for when rho is computed (only particles inside physical domain
-   // are used in rho calc). 
-  
+   // The particles near a boundary will have some rho deposited to the ghost cells.
+   // This rho is added back to the interior. For symmetry boundaries, this is equivalent
+   // to the rho that would come from mirror particles across the boundary. For other BCs,
+   // adding the rho deposited to the ghost cells back to the interior amounts to using
+   // a lower-order scheme near the boundary is makes is such that interior rho is conserved.
+   // Right on the boundary, a factor of 2 is way to account for a 1/2 factor in dV.
+
    // loop over non-periodic boundaries and apply BCs to Rho
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
    for (int b(0); b<bdry_layout.size(); b++) {
@@ -398,25 +340,25 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
       const int bdry_side(this_bdry_layout.side());
       const std::string this_bc = m_bc_type[b];
 
-      if(this_bc=="symmetry" || this_bc=="axis") {
-      
-         for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+      for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
 
-            const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-            const Box bdry_box( bdry_grids[dit] );
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+         const Box bdry_box( bdry_grids[dit] );
           
-            // collapse node_box to 1 cell thick in bdry_dir direction                  
-            Box node_box = surroundingNodes(bdry_box);
-            if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
-            if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
+         // collapse node_box to 1 cell thick in bdry_dir direction                  
+         Box node_box = surroundingNodes(bdry_box);
+         if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
+         if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
                
-            FArrayBox& this_Rho( a_Rho[interior_dit].getFab() );
-            if(m_mesh.axisymmetric() && this_bc=="axis") {
-               // do nothing
-            }
-            else {
-               this_Rho.mult(2.0,node_box,0,this_Rho.nComp());
-            }   
+         FArrayBox& this_Rho( a_Rho[interior_dit].getFab() );
+         if(this_bc!="axis") this_Rho.mult(2.0,node_box,0,this_Rho.nComp());
+         Box dst_box = node_box;
+         Box src_box = node_box;
+         const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+         for(int n=0; n<nG; n++) {
+            dst_box.shift(bdry_dir,1 - 2*bdry_side);
+            src_box.shift(bdry_dir,2*bdry_side - 1);
+            this_Rho.plus(this_Rho,src_box,dst_box,0,0,this_Rho.nComp());
          }
 
       }
@@ -426,7 +368,8 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
 }
 
 void PicSpeciesBC::createInflowParticles( const Real&  a_time,
-                                          const Real&  a_cnormDt )
+                                          const Real&  a_cnormDt,
+                                          const ParticleData<JustinsParticle>&  a_data )
 {
    CH_TIME("PicSpeciesBC::createInflowParticles()");
    
@@ -447,22 +390,24 @@ void PicSpeciesBC::createInflowParticles( const Real&  a_time,
             
          const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
          const FArrayBox& this_Xec( Xphys_ec[interior_dit][bdry_dir] );
+         const ListBox<JustinsParticle>& this_listbox = a_data[interior_dit];
+         const List<JustinsParticle>& valid_list = this_listbox.listItems();
         
          Box bdry_box = bdry_grids[dit];
          if(bdry_side==0) bdry_box.setSmall(bdry_dir,bdry_box.bigEnd(bdry_dir));
          if(bdry_side==1) bdry_box.setBig(bdry_dir,bdry_box.smallEnd(bdry_dir));
 
          if(m_bc_binary[b]) {
-            m_inflow_bc_ptr_vect[b]->apply( inflow_list, this_Xec,
-                                            bdry_box, a_cnormDt );
+            m_inflow_bc_ptr_vect[b]->apply( inflow_list, valid_list, this_Xec,
+                                            bdry_box, a_time, a_cnormDt );
          }
 
       }
    }
        
 }
-   
-void PicSpeciesBC::removeOutflowParticles()
+
+void PicSpeciesBC::removeOutflowParticles( )
 {
    CH_TIME("PicSpeciesBC::removeOutflowParticles()");
    
@@ -477,20 +422,48 @@ void PicSpeciesBC::removeOutflowParticles()
       const int bdry_side(this_bdry_layout.side());
       const std::string this_bc = m_bc_type[b];
       List<JustinsParticle>&  outflow_list = m_outflow_list_vector[b];
-      if(bdry_side==0 && m_bc_binary[b]) remove_Lo(outflow_list,bdry_dir,Xmin[bdry_dir]);
-      if(bdry_side==1 && m_bc_binary[b]) remove_Hi(outflow_list,bdry_dir,Xmax[bdry_dir]);
+      if(bdry_side==0 && m_bc_binary[b]) remove_Lo( outflow_list, bdry_dir, Xmin[bdry_dir] );
+      if(bdry_side==1 && m_bc_binary[b]) remove_Hi( outflow_list, bdry_dir, Xmax[bdry_dir] );
       CH_assert(outflow_list.length()==0); 
    }
    
 }
+
+void PicSpeciesBC::zeroDeltas( )
+{
+   for(int dir=0; dir<SpaceDim; dir++) {
+      m_delta_MassOut_lo[dir] = 0.0;
+      m_delta_MassOut_hi[dir] = 0.0;
+      m_delta_MomXOut_lo[dir] = 0.0;
+      m_delta_MomXOut_hi[dir] = 0.0;
+      m_delta_MomYOut_lo[dir] = 0.0;
+      m_delta_MomYOut_lo[dir] = 0.0;
+      m_delta_MomZOut_hi[dir] = 0.0;
+      m_delta_MomZOut_hi[dir] = 0.0;
+      m_delta_EnergyOut_lo[dir] = 0.0; 
+      m_delta_EnergyOut_hi[dir] = 0.0; 
+      //
+      m_delta_MassIn_lo[dir] = 0.0;
+      m_delta_MassIn_hi[dir] = 0.0;
+      m_delta_MomXIn_lo[dir] = 0.0;
+      m_delta_MomXIn_hi[dir] = 0.0;
+      m_delta_MomYIn_lo[dir] = 0.0;
+      m_delta_MomYIn_lo[dir] = 0.0;
+      m_delta_MomZIn_hi[dir] = 0.0;
+      m_delta_MomZIn_hi[dir] = 0.0;
+      m_delta_EnergyIn_lo[dir] = 0.0; 
+      m_delta_EnergyIn_hi[dir] = 0.0; 
+   }
+}   
 
 void PicSpeciesBC::repositionOutflowParticles( List<JustinsParticle>&  a_outcast_list )
 {
    CH_TIME("PicSpeciesBC::repositionOutflowParticles()");
    
    // This is only called during iterative particle advance for implicit schemes.
-   // loop over non-periodic boundaries and reposition particles that are out of bounds
-   // to be just inside the physical domain   
+   // loop over non-periodic boundaries and reposition outflow particles that are 
+   // out of bounds to be just inside the physical domain and move them to the
+   // outcast list.   
 
    const RealVect& Xmin(m_mesh.getXmin());
    const RealVect& Xmax(m_mesh.getXmax());
@@ -534,60 +507,64 @@ void PicSpeciesBC::repositionOutflowParticles( List<JustinsParticle>&  a_outcast
    
 }
 
-void PicSpeciesBC::repositionInflowParticles( ParticleData<JustinsParticle>&  a_data )
+void PicSpeciesBC::injectInflowParticles( ParticleData<JustinsParticle>&  a_data )
 {
-   CH_TIME("PicSpeciesBC::repositionInflowParticles()");
-   
-   // This is only called during iterative particle advance for implicit schemes.
-   // loop over non-periodic boundaries and move particles that have their
-   // old position out of bounds (inflow particles) back to the inflow list
-
-   const RealVect& Xmin(m_mesh.getXmin());
-   const RealVect& Xmax(m_mesh.getXmax());
-
+   CH_TIME("PicSpeciesBC::injectInflowParticles()");
+ 
+   // this is used by iterative implicit solvers to inject all inflow particles
+   // at the beginning of the time step
+ 
+   // will need to modify this for 2D if the spatial region along the
+   // boundary is covered by multiple boxes per processor, in which case
+   // a position check transverse to the boundary is needed to put the
+   // particle in the correct box
+ 
+   // loop over non-periodic boundaries and inject inflow particles
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
    for (int b(0); b<bdry_layout.size(); b++) {
       
+      const std::string this_bc = m_bc_type[b];
+      if(this_bc!="inflow_outflow") continue;
+      if(!m_bc_binary[b]) continue;
+
       List<JustinsParticle>& inflow_list = m_inflow_list_vector[b];
+      ListIterator<JustinsParticle> lit(inflow_list);
       
       const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
       const int bdry_dir = this_bdry_layout.dir();
       const int bdry_side(this_bdry_layout.side());
       
+      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
          const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-         ListBox<JustinsParticle>& box_list = a_data[interior_dit];
-         List<JustinsParticle>& valid_list = box_list.listItems();
-         ListIterator<JustinsParticle> lit(valid_list);
-      
-         if(bdry_side==0 && m_bc_binary[b]) { 
+         ListBox<JustinsParticle>& this_listbox = a_data[interior_dit];
+         List<JustinsParticle>& valid_list = this_listbox.listItems();
+
+         if(bdry_side==0) {
             for(lit.begin(); lit.ok();) {
-               JustinsParticle& this_particle = lit();
-               const RealVect& this_x_old = this_particle.position_old();
-               if(this_x_old[bdry_dir] < Xmin[bdry_dir]) {
-                  RealVect& this_x = this_particle.position(); // this_x = Xhalf when this is called
-                  this_x[bdry_dir] = 2.0*this_x[bdry_dir] - this_x_old[bdry_dir];
-                  inflow_list.transfer(lit);
-               } 
-               else {
-                  ++lit;
-               } 
+               const Real& wp = lit().weight();
+               //const std::array<Real,3>& vp = lit().velocity(); // actually beta
+               const std::array<Real,3>& vp = lit().velocity_old(); // actually beta
+               m_delta_MassIn_lo[bdry_dir] += wp;
+               m_delta_MomXIn_lo[bdry_dir] += wp*vp[0];
+               m_delta_MomYIn_lo[bdry_dir] += wp*vp[1];
+               m_delta_MomZIn_lo[bdry_dir] += wp*vp[2];
+               m_delta_EnergyIn_lo[bdry_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
+               valid_list.transfer(lit);
             }
          }
-         if(bdry_side==1 && m_bc_binary[b]) { 
+         if(bdry_side==1) {
             for(lit.begin(); lit.ok();) {
-               JustinsParticle& this_particle = lit();
-               const RealVect& this_x_old = this_particle.position_old();
-               if(this_x_old[bdry_dir] >= Xmax[bdry_dir]) {
-                  RealVect& this_x = this_particle.position(); // this_x = Xhalf when this is called
-                  this_x[bdry_dir] = 2.0*this_x[bdry_dir] - this_x_old[bdry_dir]; 
-                  inflow_list.transfer(lit);
-               } 
-               else {
-                  ++lit;
-               } 
+               const Real& wp = lit().weight();
+               //const std::array<Real,3>& vp = lit().velocity(); // actually beta
+               const std::array<Real,3>& vp = lit().velocity_old(); // actually beta
+               m_delta_MassIn_hi[bdry_dir] += wp;
+               m_delta_MomXIn_hi[bdry_dir] += wp*vp[0];
+               m_delta_MomYIn_hi[bdry_dir] += wp*vp[1];
+               m_delta_MomZIn_hi[bdry_dir] += wp*vp[2];
+               m_delta_EnergyIn_hi[bdry_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
+               valid_list.transfer(lit);
             }
          }
 
@@ -595,6 +572,113 @@ void PicSpeciesBC::repositionInflowParticles( ParticleData<JustinsParticle>&  a_
 
    }
    
+}
+
+void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDensity,
+                                          LevelData<NodeFArrayBox>&  a_currentDensity_virtual, 
+                                    const MeshInterp&                a_meshInterp, 
+                                    const InterpType                 a_interpJToGrid )
+{
+   CH_TIME("PicSpeciesBC::depositInflowOutflowJ()");
+   
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   for (int b(0); b<bdry_layout.size(); b++) {
+      
+      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
+
+      List<JustinsParticle>&  outflow_list = m_outflow_list_vector[b];
+      List<JustinsParticle>&  inflow_list = m_inflow_list_vector[b];
+   
+      for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+      
+         EdgeDataBox& J_inPlane = a_currentDensity[interior_dit];
+#if CH_SPACEDIM<3
+         FArrayBox& J_virtual = a_currentDensity_virtual[interior_dit].getFab();
+#endif
+         // deposit outflow particles
+         a_meshInterp.depositCurrent( J_inPlane[0],
+#if CH_SPACEDIM>=2
+                                      J_inPlane[1],
+#else
+                                      J_virtual,
+#endif
+#if CH_SPACEDIM==3
+                                      J_inPlane[2],
+#else
+                                      J_virtual,
+#endif
+                                      outflow_list,
+                                      a_interpJToGrid );
+
+         // deposit inflow particles
+         a_meshInterp.depositCurrent( J_inPlane[0],
+#if CH_SPACEDIM>=2
+                                      J_inPlane[1],
+#else
+                                      J_virtual,
+#endif
+#if CH_SPACEDIM==3
+                                      J_inPlane[2],
+#else
+                                      J_virtual,
+#endif
+                                      inflow_list,
+                                      a_interpJToGrid );
+
+      } 
+      
+   }
+     
+}
+
+void PicSpeciesBC::depositInflowJ( LevelData<EdgeDataBox>&    a_inflowJ,
+                                   LevelData<NodeFArrayBox>&  a_inflowJ_virtual, 
+                             const MeshInterp&                a_meshInterp, 
+                             const Real                       a_cnormDt )
+{
+   CH_TIME("PicSpeciesBC::depositInflowJ()");
+   
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   for (int b(0); b<bdry_layout.size(); b++) {
+      
+      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
+      const int bdry_dir = this_bdry_layout.dir();
+      const int bdry_side(this_bdry_layout.side());
+
+      List<JustinsParticle>&  inflow_list = m_inflow_list_vector[b];
+   
+      for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+      
+         EdgeDataBox& J_inPlane = a_inflowJ[interior_dit];
+#if CH_SPACEDIM<3
+         FArrayBox& J_virtual = a_inflowJ_virtual[interior_dit].getFab();
+#endif
+
+         // deposit inflow particles
+         a_meshInterp.depositInflowCurrent( J_inPlane[0],
+#if CH_SPACEDIM>=2
+                                            J_inPlane[1],
+#else
+                                            J_virtual,
+#endif
+#if CH_SPACEDIM==3
+                                            J_inPlane[2],
+#else
+                                            J_virtual,
+#endif
+                                            inflow_list,
+                                            bdry_dir, 
+                                            bdry_side,
+                                            a_cnormDt );
+
+      } 
+      
+   }
+
 }
 
 void PicSpeciesBC::enforcePeriodic( List<JustinsParticle>&  a_list,
@@ -622,58 +706,6 @@ void PicSpeciesBC::enforcePeriodic( List<JustinsParticle>&  a_list,
          this_x[a_dir] = this_x[a_dir] - Lbox;
          this_xold[a_dir] = this_xold[a_dir] - Lbox;
       }
-   }
-
-}
-
-void PicSpeciesBC::applyBC_Lo( List<JustinsParticle>&  a_outcast_list,
-                               List<JustinsParticle>&  a_inflow_list,
-                               List<JustinsParticle>&  a_outflow_list,
-                         const std::string&            a_bc_type,
-                         const int&                    a_dir,
-                         const Real&                   a_leftEdge,
-                         const bool&                   a_intermediate_advance )
-{
-
-   CH_TIME("PicSpeciesBC::applyBC_Lo");
-   
-   if(a_bc_type=="axis") {
-      if(m_mesh.axisymmetric()) axis(a_outcast_list,a_dir);
-      else symmetry_Lo(a_outcast_list,a_dir,a_leftEdge);
-   }
-   if(a_bc_type=="symmetry") {
-      symmetry_Lo(a_outcast_list,a_dir,a_leftEdge);
-   }
-   if(a_bc_type=="outflow") {
-      outflow_Lo(a_outcast_list,a_outflow_list,a_dir,a_leftEdge);
-   }
-   if(a_bc_type=="inflow_outflow") {
-      outflow_Lo(a_outcast_list,a_outflow_list,a_dir,a_leftEdge);
-      inflow_Lo(a_outcast_list,a_inflow_list,a_dir,a_leftEdge,a_intermediate_advance);
-   }
-
-}
-
-void PicSpeciesBC::applyBC_Hi( List<JustinsParticle>&  a_outcast_list,
-                               List<JustinsParticle>&  a_inflow_list,
-                               List<JustinsParticle>&  a_outflow_list,
-                         const std::string&            a_bc_type,
-                         const int&                    a_dir,
-                         const Real&                   a_rightEdge,
-                         const bool&                   a_intermediate_advance )
-{
-
-   CH_TIME("PicSpeciesBC::applyBC_Hi");
-   
-   if(a_bc_type=="symmetry") {
-      symmetry_Hi(a_outcast_list,a_dir,a_rightEdge);
-   }
-   if(a_bc_type=="outflow") {
-      outflow_Hi(a_outcast_list,a_outflow_list,a_dir,a_rightEdge);
-   }
-   if(a_bc_type=="inflow_outflow") {
-      outflow_Hi(a_outcast_list,a_outflow_list,a_dir,a_rightEdge);
-      inflow_Hi(a_outcast_list,a_inflow_list,a_dir,a_rightEdge,a_intermediate_advance);
    }
 
 }
@@ -834,35 +866,51 @@ void PicSpeciesBC::inflow_Lo( List<JustinsParticle>&  a_outcast_list,
    ListIterator<JustinsParticle> lit(a_inflow_list);
       
    if(a_intermediate_advance) {
-   
+
       for(lit.begin(); lit.ok();) {
-         JustinsParticle& this_particle = lit();
-         RealVect& this_xp= this_particle.position();
-         Real this_xp_dir = this_xp[a_dir];
-         Real this_xp_dir_old = this_particle.position_old(a_dir);
-         Real this_xp_dir_half = (this_xp_dir + this_xp_dir_old)/2.0;
-         if(this_xp_dir_half >= a_leftEdge) {
-            this_xp[a_dir] = this_xp_dir_half;
+         const JustinsParticle& this_particle = lit();
+         const RealVect& this_xp = this_particle.position();
+         if(this_xp[a_dir] >= a_leftEdge) {
+            const Real& wp = lit().weight();
+            const std::array<Real,3>& vpold = lit().velocity_old();
+            m_delta_MassIn_lo[a_dir] += wp;
+            m_delta_MomXIn_lo[a_dir] += wp*vpold[0];
+            m_delta_MomYIn_lo[a_dir] += wp*vpold[1];
+            m_delta_MomZIn_lo[a_dir] += wp*vpold[2];
+            m_delta_EnergyIn_lo[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
             a_outcast_list.transfer(lit); // this updates iterator
          }
-         else {
-            ++lit;
-         }
+         else ++lit; // should never be here
       }   
 
    }
    else {
       
       for(lit.begin(); lit.ok();) {
+         
+         // convert vpbar and xpbar to vpnew and xpnew 
          JustinsParticle& this_particle = lit();
-         RealVect& this_xp= this_particle.position();
-         Real this_xp_dir = this_xp[a_dir];
-         if(this_xp_dir >= a_leftEdge) {
+         RealVect& xp = this_particle.position();
+         std::array<Real,3>& vp = lit().velocity();
+         const RealVect& xpold = this_particle.position_old();
+         const std::array<Real,3>& vpold = lit().velocity_old();
+         for(int n=0; n<SpaceDim; n++) xp[n] = 2.0*xp[n] - xpold[n];
+         for(int n=0; n<3; n++) vp[n] = 2.0*vp[n] - vpold[n];
+        
+         // update probes and transfer to outcast_list 
+         if(xp[a_dir] >= a_leftEdge) {
+            const Real& wp = lit().weight();
+            m_delta_MassIn_lo[a_dir] += wp;
+            m_delta_MomXIn_lo[a_dir] += wp*vpold[0];
+            m_delta_MomYIn_lo[a_dir] += wp*vpold[1];
+            m_delta_MomZIn_lo[a_dir] += wp*vpold[2];
+            m_delta_EnergyIn_lo[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
             a_outcast_list.transfer(lit); // this updates iterator
          }
-         else {
-            ++lit;
+         else { // possible to be here when using sub-orbit model for inflow particles
+            a_inflow_list.remove(lit); // this updates iterator
          }
+
       }   
 
    }
@@ -882,18 +930,19 @@ void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
    
       ListIterator<JustinsParticle> lit(a_inflow_list);
       for(lit.begin(); lit.ok();) {
-         JustinsParticle& this_particle = lit();
-         RealVect& this_xp= this_particle.position();
-         Real this_xp_dir = this_xp[a_dir];
-         Real this_xp_dir_old = this_particle.position_old(a_dir);
-         Real this_xp_dir_half = (this_xp_dir + this_xp_dir_old)/2.0;
-         if(this_xp_dir_half < a_rightEdge) {
-            this_xp[a_dir] = this_xp_dir_half;
+         const JustinsParticle& this_particle = lit();
+         const RealVect& this_xp = this_particle.position();
+         if(this_xp[a_dir] < a_rightEdge) {
+            const Real& wp = lit().weight();
+            const std::array<Real,3>& vpold = lit().velocity_old();
+            m_delta_MassIn_hi[a_dir] += wp;
+            m_delta_MomXIn_hi[a_dir] += wp*vpold[0];
+            m_delta_MomYIn_hi[a_dir] += wp*vpold[1];
+            m_delta_MomZIn_hi[a_dir] += wp*vpold[2];
+            m_delta_EnergyIn_hi[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
             a_outcast_list.transfer(lit); // this updates iterator
          }
-         else {
-            ++lit;
-         }
+         else ++lit;
       }   
 
    }
@@ -901,15 +950,30 @@ void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
       
       ListIterator<JustinsParticle> lit(a_inflow_list);
       for(lit.begin(); lit.ok();) {
+
+         // convert vpbar and xpbar to vpnew and xpnew 
          JustinsParticle& this_particle = lit();
-         RealVect& this_xp= this_particle.position();
-         Real this_xp_dir = this_xp[a_dir];
-         if(this_xp_dir < a_rightEdge) {
+         RealVect& xp = this_particle.position();
+         std::array<Real,3>& vp = lit().velocity();
+         const RealVect& xpold = this_particle.position_old();
+         const std::array<Real,3>& vpold = lit().velocity_old();
+         for(int n=0; n<SpaceDim; n++) xp[n] = 2.0*xp[n] - xpold[n];
+         for(int n=0; n<3; n++) vp[n] = 2.0*vp[n] - vpold[n];
+
+         // update probes and transfer to outcast_list 
+         if(xp[a_dir] < a_rightEdge) {
+            const Real& wp = lit().weight();
+            m_delta_MassIn_hi[a_dir] += wp;
+            m_delta_MomXIn_hi[a_dir] += wp*vpold[0];
+            m_delta_MomYIn_hi[a_dir] += wp*vpold[1];
+            m_delta_MomZIn_hi[a_dir] += wp*vpold[2];
+            m_delta_EnergyIn_hi[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
             a_outcast_list.transfer(lit); // this updates iterator
          }
-         else {
-            ++lit;
+         else { // possible to be here when using sub-orbit model for inflow particles
+            a_inflow_list.remove(lit); // this updates iterator
          }
+
       }   
 
    }
@@ -917,8 +981,8 @@ void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
 }
 
 void PicSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
-                        const int&                    a_dir,
-                        const Real&                   a_leftEdge )
+                        const int                     a_dir,
+                        const Real                    a_leftEdge )
 {
 
    CH_TIME("PicSpeciesBC::remove_Lo");
@@ -929,6 +993,13 @@ void PicSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
       JustinsParticle& this_particle = lit();
       RealVect& this_x = this_particle.position();
       if(this_x[a_dir] < a_leftEdge) {
+         const Real& wp = lit().weight();
+         const std::array<Real,3>& vp = lit().velocity(); // actually beta
+         m_delta_MassOut_lo[a_dir] += wp;
+         m_delta_MomXOut_lo[a_dir] += wp*vp[0];
+         m_delta_MomYOut_lo[a_dir] += wp*vp[1];
+         m_delta_MomZOut_lo[a_dir] += wp*vp[2];
+         m_delta_EnergyOut_lo[a_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
          a_list.remove(lit); // this updates iterator
       }
       else {
@@ -940,8 +1011,8 @@ void PicSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
 }
 
 void PicSpeciesBC::remove_Hi( List<JustinsParticle>&  a_list,
-                        const int&                    a_dir,
-                        const Real&                   a_rightEdge )
+                        const int                     a_dir,
+                        const Real                    a_rightEdge )
 {
 
    CH_TIME("PicSpeciesBC::remove_Hi");
@@ -952,6 +1023,13 @@ void PicSpeciesBC::remove_Hi( List<JustinsParticle>&  a_list,
       JustinsParticle& this_particle = lit();
       RealVect& this_x = this_particle.position();
       if(this_x[a_dir] >= a_rightEdge) {
+         const Real& wp = lit().weight();
+         const std::array<Real,3>& vp = lit().velocity(); // actually beta
+         m_delta_MassOut_hi[a_dir] += wp;
+         m_delta_MomXOut_hi[a_dir] += wp*vp[0];
+         m_delta_MomYOut_hi[a_dir] += wp*vp[1];
+         m_delta_MomZOut_hi[a_dir] += wp*vp[2];
+         m_delta_EnergyOut_hi[a_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
          a_list.remove(lit); // this updates iterator
       }
       else {

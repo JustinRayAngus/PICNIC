@@ -52,23 +52,35 @@ class FieldBC
                     const LevelData<FArrayBox>&      a_Bv );
     
       void applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
-                     LevelData<NodeFArrayBox>&  a_J_virtual );
+                     LevelData<NodeFArrayBox>&  a_J_virtual ) const;
 
-      void prepJforBC( LevelData<EdgeDataBox>&  a_Jx,
-                 const LevelData<EdgeDataBox>&  a_Jx0,
-                 const LevelData<EdgeDataBox>&  a_Ex,
+#if CH_SPACEDIM==1
+      void prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
+                       LevelData<NodeFArrayBox>&  a_Jv,
+                 const LevelData<EdgeDataBox>&    a_Jx0,
+                 const LevelData<NodeFArrayBox>&  a_Jv0,
+                 const LevelData<EdgeDataBox>&    a_Ex,
                  const LevelData<NodeFArrayBox>&  a_Ev,
-                 const LevelData<EdgeDataBox>&  a_sigma_xx,
-                 const LevelData<EdgeDataBox>&  a_sigma_xy,
-                 const LevelData<EdgeDataBox>&  a_sigma_xz,
-                 const Real                     a_volume_scale );
+                 const LevelData<EdgeDataBox>&    a_sigma_xx,
+                 const LevelData<EdgeDataBox>&    a_sigma_xy,
+                 const LevelData<EdgeDataBox>&    a_sigma_xz,
+                 const LevelData<NodeFArrayBox>&  a_sigma_yx,
+                 const LevelData<NodeFArrayBox>&  a_sigma_yy,
+                 const LevelData<NodeFArrayBox>&  a_sigma_yz,
+                 const LevelData<NodeFArrayBox>&  a_sigma_zx,
+                 const LevelData<NodeFArrayBox>&  a_sigma_zy,
+                 const LevelData<NodeFArrayBox>&  a_sigma_zz,
+                 const Real                       a_volume_scale ) const;
+#endif
 
    protected:
    
       Vector<std::string> m_bdry_name;
       Vector<std::string> m_bc_type;
-   
-      RefCountedPtr<InsulatorBC> m_InsulatorBC;
+      bool m_conservative_wall; // if true, E for insulator/conductor BCs will be set
+                                // such that energy is conserved  
+ 
+      Vector<RefCountedPtr<InsulatorBC>> m_InsulatorBC;
    
    private:
   

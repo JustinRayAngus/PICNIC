@@ -12,10 +12,6 @@ simulation.fixed_random_seed = 1983
 ###   taui0 = 1.04e-15 s
 
 system.advance_method = "PIC_EM_EXPLICIT"
-#system.advance_method = "PIC_EM_SEMI_IMPLICIT"
-#system.advance_method = "PIC_EM_THETA_IMPLICIT"
-system.write_species_charge_density = false
-system.write_species_current_density = false
 
 #####################################################
 # Time Stepping Definitions

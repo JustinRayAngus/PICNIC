@@ -8,18 +8,17 @@
 #include "ParmParse.H"
 #include "CH_HDF5.H"
 
-#include "PicSpecies.H"
 #include "dataFileIO.H"
 
 #include "ProblemDomain.H"
 #include "DisjointBoxLayout.H"
 #include "DomainGrid.H"
 #include "CodeUnits.H"
-#include "SpecialOperator.H"
-#include "ElectroMagneticFields.H"
-#include "ScatteringInterface.H"
 
-#include "MeshInterp.H"
+#include "PicSpeciesInterface.H"
+#include "ScatteringInterface.H"
+#include "ElectroMagneticFields.H"
+#include "SpecialOperator.H"
 
 #include "PICTimeIntegratorLibrary.H"
 
@@ -63,7 +62,7 @@ class System
       void readCheckpointFile( const std::string&  a_chkpt_fname );
       
       bool useParts() {
-         if (m_pic_species_ptr_vect.size()>0) return true;
+         if (m_pic_species->numSpecies()>0) return true;
          else return false;
       }
 
@@ -84,23 +83,24 @@ class System
       
       void adaptDt( bool&  a_adapt_dt );
 
-      void preTimeStep( const Real&  a_cur_time, 
-                        const Real&  a_dt,
-                        const int&   a_step_number );
+      void preTimeStep( const Real  a_time, 
+                        const Real  a_dt,
+                        const int   a_step_number );
       
-      void advance( const Real&, const Real&, const int& );
-
-      void setChargeDensity();
-      void setCurrentDensity();
-      void setMassMatrices( const Real  a_dt );
-
-      void scatterParticles( const Real&  a_dt );
-      
+      void timeStep( const Real, const Real, const int );
       void postTimeStep( Real&, const Real&, int& );
 
+      void setChargeDensity();
+      void setCurrentDensity( const bool  a_from_explicit_solver = false );
+
+      void scatterParticles( const Real&  a_dt );
+    
+      void DefineECSemiImpFlag() { m_ec_semi_implicit = true; }
+      
       void preRHSOp( const ODEVector<System>& a_U,
                      const Real               a_time,
                      const Real               a_dt,
+                     const int                a_nlinear_it,
                      const bool               a_from_emjacobian,
                      const EMVecType&         a_type = e_and_b )
       {
@@ -117,16 +117,21 @@ class System
           m_emfields->applyBCs_electricField( a_time );
         }
         
-        if(a_from_emjacobian && m_freeze_particles_jacobian) return;
-        
-        preRHSOp(a_U, a_dt, a_from_emjacobian);
+        if(m_ec_semi_implicit) {
+          if(m_nonlinear_iter>1 && !a_from_emjacobian) {
+            m_pic_species->postNewtonUpdate( *m_emfields, a_time, a_dt);
+          }
+          else preRHSOp(a_U, a_dt, a_nlinear_it, a_from_emjacobian);
+        }
+        else preRHSOp(a_U, a_dt, a_nlinear_it, a_from_emjacobian);
 
       }
       
       void preRHSOp( const ODEVector<System>&,
                      const Real, 
+                     const int,
                      const bool a_from_emjacobian=false);
-      
+
       void computeRHS(  ODEVector<System>&,
                         const ODEVector<System>&,
                         const Real,
@@ -260,8 +265,21 @@ class System
 
         a_Pmat.setToIdentityMatrix();
         const Real cnormDt = a_dt*m_units->CvacNorm();
+        const LevelData<EdgeDataBox>&  sigma_xx = m_pic_species->getSigmaxx();
+#if CH_SPACEDIM==1
+        const LevelData<NodeFArrayBox>&  sigma_yy = m_pic_species->getSigmayy();
+#endif
+        const LevelData<NodeFArrayBox>&  sigma_zz = m_pic_species->getSigmazz();
+        bool use_mm = m_pic_species->useMassMatrices();
+        if(sigma_xx.isDefined()==0) use_mm = false; // there is a call here before mm defined
         m_emfields->assemblePrecondMatrix( a_Pmat,
-                                            cnormDt );
+                                           use_mm,
+                                           sigma_xx, 
+#if CH_SPACEDIM==1
+                                           sigma_yy, 
+#endif                                     
+                                           sigma_zz,
+                                           cnormDt );
         a_Pmat.finalAssembly();
         //a_Pmat.writeToFile("pc_matrix.txt",1);
       }
@@ -281,48 +299,38 @@ class System
       
       void setupHistFile( const int  a_cur_step );
       
-      void createMeshInterp();
-
-      void createState( ParmParse& ppsys );
-   
-      void createPICspecies();
+      void createState();
       
       void createEMfields();
       
       void createSpecialOperators();
 
-      int m_iter_max;
-      int m_iter_max_particles;
-      bool m_part_order_swap;
-      bool m_freeze_particles_jacobian;
-      bool m_quasi_freeze_particles_jacobian;
-      bool m_use_mass_matrices;
-      Real m_theta;
-     
       PICTIType m_advance_method;
+      bool m_implicit_advance;
 
       DomainGrid* m_mesh;
       CodeUnits*  m_units;
       dataFileIO* m_dataFile;
-      MeshInterp* m_meshInterp;
+      PicSpeciesInterface* m_pic_species;
       ScatteringInterface* m_scattering;
      
-      PicSpeciesPtrVect m_pic_species_ptr_vect;
       RefCountedPtr<ElectroMagneticFields> m_emfields;
       RefCountedPtr<SpecialOperator> m_specialOps;
 
-      bool m_writeSpeciesChargeDensity = false;
-      bool m_writeSpeciesCurrentDensity = false;
- 
       bool m_solver_probes;
       bool m_field_probes;
       bool m_scattering_probes;
       std::vector<bool> m_species_probes;
       bool m_field_bdry_probes;
+      bool m_species_bdry_probes;
+      bool m_species_solver_probes;
       int m_history_precision;      
 
       bool m_verbosity;
       bool m_use_specialOps;
+
+      int m_nonlinear_iter = 0;
+      bool m_ec_semi_implicit = false;
 
       // problem domain 
       ProblemDomain     m_domain;
@@ -330,8 +338,6 @@ class System
       std::vector<int>  m_num_cells;
       std::vector<bool> m_is_periodic;
       std::vector<int>  m_config_decomp;
-
-      Real m_rtol, m_atol;
 
       PICTimeIntegrator* m_time_integrator;
 };

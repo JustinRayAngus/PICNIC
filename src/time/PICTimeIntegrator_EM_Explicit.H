@@ -44,18 +44,11 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
     
       // parse options for this integrator
       ParmParse pp("pic_em_explicit");
-
-      // old ordering is not compatible with Boris method for inertia
       m_old_ordering = true;
       pp.query("old_ordering", m_old_ordering);
 
-      if(!procID()) {
-         cout << "advance method = PIC_EM_EXPLICIT" << endl;
-         cout << "old ordering = " << m_old_ordering << endl;
-         cout << endl;
-      }
-
       m_is_defined = true;
+      printParams();
       
       if(m_old_ordering) {
         for (int s=0; s<m_particles.size(); s++) {
@@ -70,13 +63,24 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
     
     }
 
-    virtual void initialize();
+    inline
+    virtual void printParams() const
+    {
+      if(procID()>0) return;
+      cout << "================== Time Solver ==================" << endl;
+      cout << "advance method = PIC_EM_EXPLICIT" << endl;
+      cout << "old ordering = " << m_old_ordering << endl;
+      cout << "=================================================" << endl;
+      cout << endl;
+    }
+
+    virtual void initialize( const std::string&  a_restart_file_name );
     
     virtual int prepForCheckpoint() const;
 
     inline virtual 
     bool isDefined() const { return m_is_defined; }
-
+    
     inline virtual 
     PICTIType type() const { return PIC_EM_EXPLICIT; }
 

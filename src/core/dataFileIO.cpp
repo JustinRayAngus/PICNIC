@@ -581,7 +581,150 @@ void dataFileIO::writeEMFields_old( HDF5Handle&             a_handle,
 
 }
 
+void dataFileIO::writeMassMatrices( HDF5Handle&           a_handle,
+                              const PicSpeciesInterface&  a_pic_species )
+{
+   CH_TIME("dataFileIO::writeMassMatrices()");
+   
+   const ProblemDomain& domain(m_mesh.getDomain());
+   HDF5HeaderData header;
+  
+   // write sigmaxx
+   const LevelData<EdgeDataBox>& sigmaxx  = a_pic_species.getSigmaxx();
+   const std::string groupName = std::string("sigmaxx");
+   a_handle.setGroup(groupName);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = sigmaxx.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmaxx.boxLayout());
+   write(a_handle, sigmaxx, "data", sigmaxx.ghostVect());
+   
+   // write sigmaxy
+   const LevelData<EdgeDataBox>& sigmaxy  = a_pic_species.getSigmaxy();
+   const std::string group2Name = std::string("sigmaxy");
+   a_handle.setGroup(group2Name);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = sigmaxy.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmaxy.boxLayout());
+   write(a_handle, sigmaxy, "data", sigmaxy.ghostVect());
+   
+   // write sigmaxz
+   const LevelData<EdgeDataBox>& sigmaxz  = a_pic_species.getSigmaxz();
+   const std::string group3Name = std::string("sigmaxz");
+   a_handle.setGroup(group3Name);
+   
+   header.clear();
+   header.m_int["is_edgebox"] = 1;
+   header.m_int["num_components"] = sigmaxz.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmaxz.boxLayout());
+   write(a_handle, sigmaxz, "data", sigmaxz.ghostVect());
+  
+#if CH_SPACEDIM==1
+   // write sigmayx
+   const LevelData<NodeFArrayBox>& sigmayx = a_pic_species.getSigmayx();
+   const std::string group4Name = std::string("sigmayx");
+   a_handle.setGroup(group4Name);
+   
+   header.clear();
+   header.m_int["is_nodebox"] = 1;
+   header.m_int["num_components"] = sigmayx.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmayx.boxLayout());
+   write(a_handle, sigmayx, "data", sigmayx.ghostVect());
+   
+   // write sigmayy
+   const LevelData<NodeFArrayBox>& sigmayy = a_pic_species.getSigmayy();
+   const std::string group5Name = std::string("sigmayy");
+   a_handle.setGroup(group5Name);
+   
+   header.clear();
+   header.m_int["is_nodebox"] = 1;
+   header.m_int["num_components"] = sigmayy.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmayy.boxLayout());
+   write(a_handle, sigmayy, "data", sigmayy.ghostVect());
+   
+   // write sigmayz
+   const LevelData<NodeFArrayBox>& sigmayz = a_pic_species.getSigmayz();
+   const std::string group6Name = std::string("sigmayz");
+   a_handle.setGroup(group6Name);
+   
+   header.clear();
+   header.m_int["is_nodebox"] = 1;
+   header.m_int["num_components"] = sigmayz.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmayz.boxLayout());
+   write(a_handle, sigmayz, "data", sigmayz.ghostVect());
+#endif
+
+#if CH_SPACEDIM<3
+   // write sigmazx
+   const LevelData<NodeFArrayBox>& sigmazx = a_pic_species.getSigmazx();
+   const std::string group7Name = std::string("sigmazx");
+   a_handle.setGroup(group7Name);
+   
+   header.clear();
+   header.m_int["is_nodebox"] = 1;
+   header.m_int["num_components"] = sigmazx.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmazx.boxLayout());
+   write(a_handle, sigmazx, "data", sigmazx.ghostVect());
+   
+   // write sigmazy
+   const LevelData<NodeFArrayBox>& sigmazy = a_pic_species.getSigmazy();
+   const std::string group8Name = std::string("sigmazy");
+   a_handle.setGroup(group8Name);
+   
+   header.clear();
+   header.m_int["is_nodebox"] = 1;
+   header.m_int["num_components"] = sigmazy.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmazy.boxLayout());
+   write(a_handle, sigmazy, "data", sigmazy.ghostVect());
+   
+   // write sigmazz
+   const LevelData<NodeFArrayBox>& sigmazz = a_pic_species.getSigmazz();
+   const std::string group9Name = std::string("sigmazz");
+   a_handle.setGroup(group9Name);
+   
+   header.clear();
+   header.m_int["is_nodebox"] = 1;
+   header.m_int["num_components"] = sigmazz.nComp();
+   header.m_box["prob_domain"] = domain.domainBox(); 
+   header.writeToFile(a_handle);
+   
+   write(a_handle, sigmazz.boxLayout());
+   write(a_handle, sigmazz, "data", sigmazz.ghostVect());
+#endif
+
+}
+
 void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
+#ifdef MASS_MATRIX_TEST
+                                                     const PicSpeciesInterface&    a_pic_species,
+#endif
                                                      const int                     a_cur_step, 
                                                      const double                  a_cur_time )
 {
@@ -698,14 +841,15 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    
       }
    }
+
+#ifdef MASS_MATRIX_TEST
+   writeMassMatricesTest( handle, header, a_pic_species );
+#endif
    
    //
    // write the div/curl of the fields
    //
 
-#ifdef MASS_MATRIX_TEST
-   writeEMmassMatrices( a_emfield, handle, header );
-#endif
    if(a_emfield.writeRho()) writeEMFieldRho( a_emfield, handle, header );
    if(a_emfield.writeExB()) writeEMFieldExB( a_emfield, handle, header );
    if(a_emfield.writeDivs()) writeEMFieldDivs( a_emfield, handle, header );
@@ -723,11 +867,11 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
 }
 
 #ifdef MASS_MATRIX_TEST
-void dataFileIO::writeEMmassMatrices( const ElectroMagneticFields&  a_emfield,
-                                      HDF5Handle&                   a_handle,
-                                      HDF5HeaderData&               a_header )
+void dataFileIO::writeMassMatricesTest( HDF5Handle&           a_handle,
+                                        HDF5HeaderData&       a_header,
+                                  const PicSpeciesInterface&  a_pic_species )
 {
-   CH_TIME("dataFileIO::writeEMmassMatrices()");
+   CH_TIME("dataFileIO::writeMassMatricesTest()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
 
    const ProblemDomain& domain(m_mesh.getDomain());
@@ -735,7 +879,7 @@ void dataFileIO::writeEMmassMatrices( const ElectroMagneticFields&  a_emfield,
    //
    // write J from mass matriex
    //
-   const LevelData<EdgeDataBox>& Jtest = a_emfield.getJtest();
+   const LevelData<EdgeDataBox>& Jtest = a_pic_species.getJtest();
    
    const std::string group6Name = std::string("current_density_test");
    a_handle.setGroup(group6Name);
@@ -753,7 +897,7 @@ void dataFileIO::writeEMmassMatrices( const ElectroMagneticFields&  a_emfield,
    //
    //
 
-   const LevelData<NodeFArrayBox>& Jtestv  = a_emfield.getVirtualJtest();
+   const LevelData<NodeFArrayBox>& Jtestv  = a_pic_species.getVirtualJtest();
 
    const std::string groupName = std::string("current_density_virtual_test");
    a_handle.setGroup(groupName);
@@ -1050,6 +1194,44 @@ void dataFileIO::writeEMFieldPotential( const ElectroMagneticFields&  a_emfield,
    
    write(a_handle, E_corr.boxLayout());
    write(a_handle, E_corr, "data", E_corr.ghostVect());
+
+}
+
+void dataFileIO::writePicSpecies( const PicSpeciesInterface&  a_pic_species,
+                                  const int                   a_step,
+                                  const double                a_time )
+{
+   CH_TIME("dataFileIO::writePicSpecies()");
+
+   const bool writeSpeciesRho = a_pic_species.writeSpeciesRho();
+   const bool writeSpeciesJ = a_pic_species.writeSpeciesJ();
+
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species.getPtrVect();
+   for (int sp=0; sp<pic_species_ptr_vect.size(); sp++) {
+
+      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
+      species->setNumberDensity();
+      species->setMomentumDensity();
+      species->setEnergyDensity();
+
+      if(species->charge() == 0) {
+         writeNeutralSpeciesDataFile( *species, sp,
+                                      a_step, a_time );
+      }
+      else {
+         if(writeSpeciesRho) {
+            species->setChargeDensity();
+            species->setChargeDensityOnFaces();
+            species->setChargeDensityOnNodes();
+         }
+         if(writeSpeciesJ) species->setCurrentDensity();
+         writeChargedSpeciesDataFile( *species, sp,
+                                      a_step, a_time,
+                                      writeSpeciesRho,
+                                      writeSpeciesJ );
+      }
+
+   }
 
 }
 
@@ -1483,6 +1665,23 @@ void dataFileIO::writeCheckpointEMFields( HDF5Handle&             a_handle,
    if( a_write_old_data > 0 ) { // needed for time schemes with fields staggered in time
       writeEMFields_old( a_handle, a_emfield );
    }
+
+}
+
+void dataFileIO::writeCheckpointPicSpecies( HDF5Handle&           a_handle,
+                                      const PicSpeciesInterface&  a_pic_species )
+{
+   CH_TIME("dataFileIO::writeCheckpointPicSpecies()");
+
+   bool use_mm = a_pic_species.useMassMatrices();
+   if(use_mm) writeMassMatrices( a_handle, a_pic_species );
+
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species.getPtrVect();
+   for (int sp=0; sp<pic_species_ptr_vect.size(); sp++) {
+      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
+      writeCheckpointParticles( a_handle, *species, sp );
+   }
+
 }
 
 void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
@@ -1511,7 +1710,55 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
    headerParts.m_int["charge"] = a_picSpecies.charge();
    headerParts.m_real["Uint"]  = a_picSpecies.Uint();
    headerParts.m_box["prob_domain"] = domain.domainBox();
-   
+      
+   const RealVect& massOut_lo = a_picSpecies.getMassOut_lo();
+   const RealVect& massOut_hi = a_picSpecies.getMassOut_hi();
+   const RealVect& momXOut_lo = a_picSpecies.getMomXOut_lo();
+   const RealVect& momXOut_hi = a_picSpecies.getMomXOut_hi();
+   const RealVect& momYOut_lo = a_picSpecies.getMomYOut_lo();
+   const RealVect& momYOut_hi = a_picSpecies.getMomYOut_hi();
+   const RealVect& momZOut_lo = a_picSpecies.getMomZOut_lo();
+   const RealVect& momZOut_hi = a_picSpecies.getMomZOut_hi();
+   const RealVect& energyOut_lo = a_picSpecies.getEnergyOut_lo();
+   const RealVect& energyOut_hi = a_picSpecies.getEnergyOut_hi();
+      
+   const RealVect& massIn_lo = a_picSpecies.getMassIn_lo();
+   const RealVect& massIn_hi = a_picSpecies.getMassIn_hi();
+   const RealVect& momXIn_lo = a_picSpecies.getMomXIn_lo();
+   const RealVect& momXIn_hi = a_picSpecies.getMomXIn_hi();
+   const RealVect& momYIn_lo = a_picSpecies.getMomYIn_lo();
+   const RealVect& momYIn_hi = a_picSpecies.getMomYIn_hi();
+   const RealVect& momZIn_lo = a_picSpecies.getMomZIn_lo();
+   const RealVect& momZIn_hi = a_picSpecies.getMomZIn_hi();
+   const RealVect& energyIn_lo = a_picSpecies.getEnergyIn_lo();
+   const RealVect& energyIn_hi = a_picSpecies.getEnergyIn_hi();
+
+   for(int dir=0; dir<SpaceDim; dir++) {         
+      if(domain.isPeriodic(dir)) continue;
+      std::string dirstr = std::to_string(dir);
+      headerParts.m_real["massOut_lo"+dirstr] = massOut_lo[dir];
+      headerParts.m_real["massOut_hi"+dirstr] = massOut_hi[dir];
+      headerParts.m_real["momXOut_lo"+dirstr] = momXOut_lo[dir];
+      headerParts.m_real["momXOut_hi"+dirstr] = momXOut_hi[dir];
+      headerParts.m_real["momYOut_lo"+dirstr] = momYOut_lo[dir];
+      headerParts.m_real["momYOut_hi"+dirstr] = momYOut_hi[dir];
+      headerParts.m_real["momZOut_lo"+dirstr] = momZOut_lo[dir];
+      headerParts.m_real["momZOut_hi"+dirstr] = momZOut_hi[dir];
+      headerParts.m_real["energyOut_lo"+dirstr] = energyOut_lo[dir];
+      headerParts.m_real["energyOut_hi"+dirstr] = energyOut_hi[dir];
+      
+      headerParts.m_real["massIn_lo"+dirstr] = massIn_lo[dir];
+      headerParts.m_real["massIn_hi"+dirstr] = massIn_hi[dir];
+      headerParts.m_real["momXIn_lo"+dirstr] = momXIn_lo[dir];
+      headerParts.m_real["momXIn_hi"+dirstr] = momXIn_hi[dir];
+      headerParts.m_real["momYIn_lo"+dirstr] = momYIn_lo[dir];
+      headerParts.m_real["momYIn_hi"+dirstr] = momYIn_hi[dir];
+      headerParts.m_real["momZIn_lo"+dirstr] = momZIn_lo[dir];
+      headerParts.m_real["momZIn_hi"+dirstr] = momZIn_hi[dir];
+      headerParts.m_real["energyIn_lo"+dirstr] = energyIn_lo[dir];
+      headerParts.m_real["energyIn_hi"+dirstr] = energyIn_hi[dir];
+   } 
+
    // write the header 
    headerParts.writeToFile(a_handle);
  

@@ -2,6 +2,7 @@
 #define _INFLOWBC_H_
 
 #include "DomainGrid.H"
+#include "TimeFunction.H"
 #include "CodeUnits.H"
 #include "JustinsParticle.H"
 
@@ -24,10 +25,12 @@ public:
 
    const int& getBoundaryIndex() const {return m_bdry_layout_index;}
    
-   void apply( List<JustinsParticle>&  a_pList,
+   void apply( List<JustinsParticle>&  a_inflow_pList,
+         const List<JustinsParticle>&  a_valid_pList,
          const FArrayBox&              a_Xec,
          const Box&                    a_box,
-         const Real&                   a_cnormDt );
+         const Real                    a_time,
+         const Real                    a_cnormDt );
 
    void printParameters();
   
@@ -43,16 +46,19 @@ private:
    RealVect m_dX;
    Real m_X_bdry;
 
-   std::string m_species_name;
-
    Real m_density;
    std::array<Real,3> m_velocity;
    std::array<Real,3> m_temperature;
    std::array<Real,3> m_beta_VT;
    std::array<Real,3> m_beta_U;
-   
+  
+   bool m_impose_neumann_density;
    int m_discrete_samples;
    Real m_weight;
+   
+   RefCountedPtr<TimeFunction> m_timeFunction;
+   
+   std::string m_species_name;
    
 };
 

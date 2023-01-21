@@ -3,11 +3,29 @@
 
 #include "NamespaceHeader.H"
 
+void PICTimeIntegrator_DSMC::preTimeStep( const Real a_time,
+                                          const Real a_dt,
+                                          const int )
+{  
+  CH_TIME("PICTimeIntegrator_DSMC::preTimeStep()");
+  
+  // update old particle values and create inflow particles  
+  for (int s=0; s<m_particles.size(); s++) {
+    auto this_picSpecies(m_particles[s]);
+    this_picSpecies->updateOldParticlePositions();
+    this_picSpecies->updateOldParticleVelocities();
+    this_picSpecies->createInflowParticles( a_time, a_dt );
+    //this_picSpecies->injectInflowParticles();
+  }
+     
+  return;
+}
+
 void PICTimeIntegrator_DSMC::timeStep( const Real a_time,
                                        const Real a_dt,
                                        const int )
 {  
-  CH_TIME("System::advance_DSMC()");
+  CH_TIME("PICTimeIntegrator_DSMC::timeStep()");
   
   // explicit advance of particle positions 
   // + inertial forces

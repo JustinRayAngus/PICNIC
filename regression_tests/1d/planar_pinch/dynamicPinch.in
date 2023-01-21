@@ -18,14 +18,11 @@ simulation.fixed_random_seed = 1983
 
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
-system.iter_max = 8
-system.iter_max_particles = 6
-system.freeze_particles_jacobian = false
-system.quasi_freeze_particles_jacobian = true
-system.use_mass_matrices = true
-system.abs_tol = 1.0e-6
-system.rel_tol = 1.0e-12
-#
+
+pic_species.iter_max_particles = 6
+pic_species.quasi_freeze_particles_jacobian = true
+pic_species.use_mass_matrices = true
+
 #pic_em_theta_implicit.solver_type = "newton"
 pic_em_theta_implicit.solver_type = "petsc"
 pic_em_theta_implicit.pc_update_freq = 1
@@ -34,6 +31,7 @@ jacobian.with_pc = true
 newton.verbose = false
 newton.atol = 1.0e-12
 newton.rtol = 1.0e-6
+
 gmres.verbose = false
 gmres.atol = 1.0e-12
 gmres.rtol = 1.0e-4
@@ -130,6 +128,11 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = true
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "CC1"
+pic_species.0.interp_type_E = "CC1"
+pic_species.0.interp_bc_check = false
+pic_species.0.deposit_outflow_J = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 1.5
@@ -160,6 +163,11 @@ pic_species.1.charge = 1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
+pic_species.1.interp_type_N = "TSC"
+pic_species.1.interp_type_J = "CC1"
+pic_species.1.interp_type_E = "CC1"
+pic_species.1.interp_bc_check = false
+pic_species.1.deposit_outflow_J = true
 
 IC.deuterium.X_min = 0.0
 IC.deuterium.X_max = 1.5

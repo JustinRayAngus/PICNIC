@@ -88,9 +88,26 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       return m_is_Defined; 
     }
 
-    void setParams( const double, 
-                    const double, 
-                    const int ) { }
+    inline void getParams( double&  a_rtol,
+                           double&  a_atol,
+                           int&     a_maxits )
+    {
+      a_rtol = m_newton_rtol;
+      a_atol = m_newton_atol;
+      a_maxits = m_newton_maxits;
+    }
+    
+    void printParams( ) const
+    {
+       if(procID()>0) return;
+       cout << " Petsc SNES solver parameters: " << endl;
+       cout << "   newton_atol   = " << m_newton_atol << endl;
+       cout << "   newton_rtol   = " << m_newton_rtol << endl;
+       cout << "   newton_maxits = " << m_newton_maxits << endl;
+       cout << "   gmres_atol   = " << m_gmres_atol << endl;
+       cout << "   gmres_rtol   = " << m_gmres_rtol << endl;
+       cout << "   gmres_maxits = " << m_gmres_maxits << endl;
+    }
      
     virtual void verbose( const bool  a_verbose ) 
     { /*
@@ -131,6 +148,11 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
     inline void curIteration(int a_iter)
     {
       m_iter = a_iter;
+    }
+    
+    inline void norm0(double a_nl_norm0)
+    {
+      m_nl_norm0 = a_nl_norm0;
     }
 
     inline bool PCMatAvailable() const
@@ -178,7 +200,7 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
        a_l_total_iter = m_count_lin;
        a_nl_total_iter = m_count;
        a_nl_abs_res = (Real)nl_norm;
-       a_nl_rel_res = 0.0; // nl_norm/nl_norm0;
+       a_nl_rel_res = (Real)nl_norm/m_nl_norm0;
     }
 
   protected:
@@ -212,6 +234,7 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
   private:
     
     mutable int m_count, m_count_lin;
+    mutable double m_nl_norm0;
     
 };
 
@@ -221,6 +244,8 @@ static PetscErrorCode RHSFunction(  SNES  solver,
                                     Vec   a_F, 
                                     void* ctxt  )
 {
+  CH_TIME("PetscErrorCode::RHSFunction()");
+
   PetscSNESWrapper<T,Ops>* context 
       = (PetscSNESWrapper<T,Ops>*) ctxt;
   NonlinearFunction<T,Ops>* func( context->getFunction() );
@@ -228,6 +253,12 @@ static PetscErrorCode RHSFunction(  SNES  solver,
   int its;
   SNESGetIterationNumber( solver, &its );
   context->curIteration(its);
+
+  if(its==0) {
+     PetscReal nl_norm;
+     SNESGetFunctionNorm( solver, &nl_norm);
+     context->norm0(nl_norm);
+  }
 
   context->cpAppVecFromPetsc( a_Y, context->m_U );
   func->evalFunction( context->m_F, context->m_U, its );
@@ -243,6 +274,8 @@ static PetscErrorCode JacobianFunction( SNES  a_solver,
                                         Mat   a_P, 
                                         void* ctxt  )
 {
+  CH_TIME("PetscErrorCode::JacobianFunction()");
+  
   PetscSNESWrapper<T,Ops> *context 
       = (PetscSNESWrapper<T,Ops>*) ctxt;
 
@@ -275,6 +308,8 @@ static PetscErrorCode applyJacobian( Mat a_A,
                                      Vec a_Y, 
                                      Vec a_F )
 {
+  CH_TIME("PetscErrorCode::applyJacobian()");
+
   PetscSNESWrapper<T,Ops> *context;
   MatShellGetContext(a_A,&context);
   NonlinearFunction<T,Ops>* func( context->getFunction() );

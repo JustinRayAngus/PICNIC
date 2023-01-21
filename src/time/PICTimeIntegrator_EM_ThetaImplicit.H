@@ -27,6 +27,7 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
       m_theta = 0.5;
       m_pc_update_freq = INT_MAX;
       m_is_defined = false;
+      m_ec_semi_implicit = false;
     }
 
     virtual ~PICTimeIntegrator_EM_ThetaImplicit() 
@@ -39,8 +40,10 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     void define( System* const,
                  const PicSpeciesPtrVect&,
                  ElectroMagneticFields* const );
+    
+    virtual void printParams() const;
 
-    virtual void initialize();
+    virtual void initialize( const std::string&  a_restart_file_name );
     
     inline virtual 
     bool isDefined() const { return m_is_defined; }
@@ -65,26 +68,21 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
          this_verbosity = true;
       }
       m_nlsolver->verbose(this_verbosity);
+  
+      // update old particle values and create inflow particles  
+      for (int s=0; s<m_particles.size(); s++) {
+        auto this_picSpecies(m_particles[s]);
+        this_picSpecies->updateOldParticlePositions();
+        this_picSpecies->updateOldParticleVelocities();
+        this_picSpecies->createInflowParticles( a_time, a_dt );
+        this_picSpecies->injectInflowParticles();
+      }
 
     }
 
     virtual void timeStep( const Real, const Real, const int );
     virtual void postTimeStep( const Real, const Real );
 
-    virtual inline void theta( const Real a_theta ) { m_theta = a_theta; }
-
-    virtual void setSolverParams( const Real  a_rtol, 
-                                  const Real  a_atol, 
-                                  const int   a_iter_max ) 
-    { 
-      if( (m_nlsolver_type == _NLSOLVER_PICARD_) && (a_iter_max % 2 == 0) ) {
-         cout << "WARNING!!! iter_max = " << a_iter_max << endl;
-         cout << "theta_implicit time advance with picard solver " << endl;
-         cout << "may not work properly with even iter_max " << endl;
-      } 
-      m_nlsolver->setParams( a_rtol, a_atol, a_iter_max );
-    }
-    
     virtual void getConvergenceParams( int&   a_l_exit_status,
                                        int&   a_l_last_iter, 
                                        int&   a_l_total_iter, 
@@ -97,13 +95,25 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
        m_nlsolver->getConvergenceParams( a_l_exit_status, a_l_last_iter, a_l_total_iter, 
                                          a_nl_exit_status, a_nl_iter, a_nl_total_iter, 
                                          a_nl_abs_res, a_nl_rel_res );
+       a_l_total_iter += m_last_l_total_iter;
+       a_nl_total_iter += m_last_nl_total_iter;
+       if(a_nl_exit_status==0) { // hack to set probes correct on restart
+         a_l_exit_status = m_last_l_exit_status;
+         a_l_last_iter = m_last_l_last_iter;
+         a_nl_exit_status = m_last_nl_exit_status;
+         a_nl_iter = m_last_nl_iter;
+         a_nl_abs_res = m_last_nl_abs_res; 
+         a_nl_rel_res = m_last_nl_rel_res;
+       } 
     }
 
   protected:
 
     bool m_is_defined;
+    bool m_ec_semi_implicit;
     mutable bool m_restart_pc_update_flag = true; // kluge to update pc on restart...
     std::string m_nlsolver_type;
+
 
     System*                 m_system;
     PicSpeciesPtrVect       m_particles;
@@ -117,6 +127,16 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     int m_pc_update_freq;
 
   private:
+
+    // below are needed for solver probes on restart
+    int m_last_l_exit_status=0; 
+    int m_last_nl_exit_status=0;
+    int m_last_l_total_iter=0; 
+    int m_last_nl_total_iter=0;
+    int m_last_l_last_iter=0; 
+    int m_last_nl_iter=0;
+    Real m_last_nl_abs_res=0.0; 
+    Real m_last_nl_rel_res=0.0;
 
 };
 

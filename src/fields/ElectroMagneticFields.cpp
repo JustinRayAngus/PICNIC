@@ -1,6 +1,6 @@
 #include <array>
 #include <cmath>
-#include "Constants.H"
+#include "PicnicConstants.H"
 #include "BoxIterator.H"
 #include "CH_HDF5.H"
 #include "MathUtils.H"
@@ -16,12 +16,12 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
                                         const EMVecType&    a_vec_type )
     : m_verbosity(a_verbosity),
       m_use_poisson(false),
+      m_enforce_gauss_startup(false),
       m_external_fields(false),
       m_writeDivs(false),
       m_writeCurls(false),
       m_writeRho(false),
       m_writeExB(false),
-      m_use_mass_matrices(false),
       m_mesh(a_mesh),
       m_field_bc(NULL),
       m_vec_size_bfield(0),
@@ -119,25 +119,6 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    a_ppflds.query( "external_fields", m_external_fields );
    if(m_external_fields) initExternalFields();
 
-   if(!procID()) {
-      cout << " m_Jnorm_factor = " << m_Jnorm_factor << endl;
-      cout << " advance fields = " << m_advance << endl;
-      if(m_advance) {
-         cout << " advance_E = " << m_advanceE_comp[0] << " " 
-                                 << m_advanceE_comp[1] << " " 
-                                 << m_advanceE_comp[2] << endl;
-         cout << " advance_B = " << m_advanceB_comp[0] << " " 
-                                 << m_advanceB_comp[1] << " " 
-                                 << m_advanceB_comp[2] << endl;
-      }
-      cout << " external fields = " << m_external_fields << endl;
-      cout << " write curls = " << m_writeCurls << endl;
-      cout << " write divs  = " << m_writeDivs << endl;
-      cout << " write rho  = " << m_writeRho << endl;
-      cout << " write ExB  = " << m_writeExB << endl;
-      cout << " stable dt = " << m_stable_dt << endl << endl;
-   }
-   
    //
    // define the member LevelDatas
    //
@@ -171,11 +152,6 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    if(SpaceDim<3) m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
    m_chargeDensity.define(grids,1,IntVect::Zero);
 
-#ifdef MASS_MATRIX_TEST
-   m_currentDensity_TEST.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
-   if(SpaceDim<3) m_currentDensity_virtual_TEST.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
-#endif
-   
    // define the curlE containers
    m_curlE.define(grids,1,IntVect::Zero);     // FluxBox with 1 comp
    if(SpaceDim<3) {
@@ -211,7 +187,8 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    
    // define poisson solver
    a_ppflds.query( "use_poisson", m_use_poisson );
-   if(m_use_poisson) {
+   a_ppflds.query( "enforce_gauss_startup", m_enforce_gauss_startup );
+   if(m_use_poisson || m_enforce_gauss_startup) {
 
       // parse the input file for the poisson solver
       getPoissonParameters(m_poisson_params, m_mesh);
@@ -246,6 +223,27 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
       m_bottomSolver.m_verbosity = 1;
       nodeDefineSolver(m_poisson_solver, vectGrids, m_bottomSolver, m_poisson_params); 
    
+   }
+   
+   if(!procID()) {
+      cout << " m_Jnorm_factor = " << m_Jnorm_factor << endl;
+      cout << " advance fields = " << m_advance << endl;
+      if(m_advance) {
+         cout << " advance_E = " << m_advanceE_comp[0] << " " 
+                                 << m_advanceE_comp[1] << " " 
+                                 << m_advanceE_comp[2] << endl;
+         cout << " advance_B = " << m_advanceB_comp[0] << " " 
+                                 << m_advanceB_comp[1] << " " 
+                                 << m_advanceB_comp[2] << endl;
+      }
+      cout << " use poisson = " << m_use_poisson << endl;
+      cout << " enforce gauss startup = " << m_enforce_gauss_startup << endl;
+      cout << " external fields = " << m_external_fields << endl;
+      cout << " write curls = " << m_writeCurls << endl;
+      cout << " write divs  = " << m_writeDivs << endl;
+      cout << " write rho  = " << m_writeRho << endl;
+      cout << " write ExB  = " << m_writeExB << endl;
+      cout << " stable dt = " << m_stable_dt << endl << endl;
    }
    
    m_vec_size_bfield = SpaceUtils::nDOF( m_magneticField );
@@ -307,59 +305,6 @@ ElectroMagneticFields::~ElectroMagneticFields()
       delete m_rhs_vector[n];
    }
 
-}
-
-void ElectroMagneticFields::initializeMassMatrices( const InterpType  a_interp_type, 
-                                                    const bool        a_use_mass_matrices )
-{
-   CH_TIME("ElectroMagneticFields::initializeMassMatrices()");
-
-   const DisjointBoxLayout& grids(m_mesh.getDBL());
-   const int ghosts(m_mesh.ghosts());
-   const IntVect ghostVect = ghosts*IntVect::Unit; 
-   
-   m_use_mass_matrices = a_use_mass_matrices;
-
-   int num_xx_comps = 3;
-   int num_xy_comps = 4;
-   //if(a_interp_type==CIC) num_xx_comps = 3; 
-   if(a_interp_type==CC0) {
-      num_xx_comps = 5;
-   }
-   if(a_interp_type==CC1) {
-      num_xx_comps = 7; 
-      num_xy_comps = 6; 
-   }
-
-   m_Jtilde.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
-   m_Jtilde_virtual.define(grids,2,ghostVect); // NodeFArrayBox
-   
-   m_sigma_xx.define(grids,num_xx_comps,ghostVect);
-   m_sigma_xy.define(grids,num_xy_comps,ghostVect);
-   m_sigma_xz.define(grids,num_xy_comps,ghostVect);
-   
-   m_sigma_yx.define(grids,num_xy_comps,ghostVect);
-   m_sigma_yy.define(grids,3,ghostVect);
-   m_sigma_yz.define(grids,3,ghostVect);
-
-   m_sigma_zx.define(grids,num_xy_comps,ghostVect);
-   m_sigma_zy.define(grids,3,ghostVect);
-   m_sigma_zz.define(grids,3,ghostVect);
-   
-   // set all to zero (effects PC for initial step... bug?)
-   SpaceUtils::zero( m_Jtilde );
-   SpaceUtils::zero( m_Jtilde_virtual );
-   //
-   SpaceUtils::zero( m_sigma_xx );
-   SpaceUtils::zero( m_sigma_xy );
-   SpaceUtils::zero( m_sigma_xz );
-   SpaceUtils::zero( m_sigma_yx );
-   SpaceUtils::zero( m_sigma_yy );
-   SpaceUtils::zero( m_sigma_yz );
-   SpaceUtils::zero( m_sigma_zx );
-   SpaceUtils::zero( m_sigma_zy );
-   SpaceUtils::zero( m_sigma_zz );
-   
 }
 
 void ElectroMagneticFields::initialize( const Real          a_cur_time,
@@ -464,6 +409,8 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
       // apply BCs to initial profiles
       applyBCs_electricField(a_cur_time);
       applyBCs_magneticField(a_cur_time);
+      
+      if(m_enforce_gauss_startup) enforceGaussLaw( a_cur_time );
    
       // initialize old values by copy
       for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -528,14 +475,14 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
       handle.setGroup("electric_field");
       read(handle, m_electricField, "data", grids);
    
+#if CH_SPACEDIM<3
       // read in the virtual field data
-      if(SpaceDim<3) {
-         handle.setGroup("virtual_magnetic_field");
-         read(handle, m_magneticField_virtual, "data", grids);
+      handle.setGroup("virtual_magnetic_field");
+      read(handle, m_magneticField_virtual, "data", grids);
       
-         handle.setGroup("virtual_electric_field");
-         read(handle, m_electricField_virtual, "data", grids);
-      }
+      handle.setGroup("virtual_electric_field");
+      read(handle, m_electricField_virtual, "data", grids);
+#endif
 
       //
       //  read in the old field data if it exist
@@ -554,9 +501,7 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
             }
          }   
       }
-      else {
-         read(handle, m_magneticField_old, "data", grids);
-      }
+      else read(handle, m_magneticField_old, "data", grids);
 
       // read in the old electric field data
       group_id = handle.setGroup("electric_field_old");
@@ -569,37 +514,31 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
             }
          }   
       }
-      else {
-         read(handle, m_electricField_old, "data", grids);
-      }
+      else read(handle, m_electricField_old, "data", grids);
    
+#if CH_SPACEDIM<3
       // read in the old virtual field data
-      if(SpaceDim<3) {
-         group_id = handle.setGroup("virtual_magnetic_field_old");
-         if(group_id<0) { // group not found, initialize by copy   
-            for(DataIterator dit(grids); dit.ok(); ++dit) {
-               FArrayBox& Bv_old = m_magneticField_virtual_old[dit];
-               const Box& cell_box = Bv_old.box();
-               Bv_old.copy(m_magneticField_virtual[dit],cell_box);
-            }
-         }
-         else {
-            read(handle, m_magneticField_virtual_old, "data", grids);
-         }
- 
-         group_id = handle.setGroup("virtual_electric_field_old");
-         if(group_id<0) { // group not found, initialize by copy   
-            for(DataIterator dit(grids); dit.ok(); ++dit) {
-               FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
-               const Box& node_box = Ev_old.box();
-               Ev_old.copy(m_electricField_virtual[dit].getFab(),node_box);
-            }
-         }
-         else {
-            read(handle, m_electricField_virtual_old, "data", grids);
+      group_id = handle.setGroup("virtual_magnetic_field_old");
+      if(group_id<0) { // group not found, initialize by copy   
+         for(DataIterator dit(grids); dit.ok(); ++dit) {
+            FArrayBox& Bv_old = m_magneticField_virtual_old[dit];
+            const Box& cell_box = Bv_old.box();
+            Bv_old.copy(m_magneticField_virtual[dit],cell_box);
          }
       }
-  
+      else read(handle, m_magneticField_virtual_old, "data", grids);
+ 
+      group_id = handle.setGroup("virtual_electric_field_old");
+      if(group_id<0) { // group not found, initialize by copy   
+         for(DataIterator dit(grids); dit.ok(); ++dit) {
+            FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
+            const Box& node_box = Ev_old.box();
+            Ev_old.copy(m_electricField_virtual[dit].getFab(),node_box);
+         }
+      }
+      else read(handle, m_electricField_virtual_old, "data", grids);
+#endif     
+ 
       handle.close();
 
 #else
@@ -714,12 +653,12 @@ void ElectroMagneticFields::computeRHSElectricField(  const Real a_time,
   CH_TIME("ElectroMagneticFields::computeRHSElectricField()");
     
   setCurlB();
-  solvePoisson(a_time);
-  
-  SpaceUtils::zero( m_electricField_rhs );
-  if (SpaceDim<3) SpaceUtils::zero( m_electricField_virtual_rhs );
+  if(m_use_poisson) enforceGaussLaw( a_time );
 
-  if (!advanceE()) return;
+  SpaceUtils::zero( m_electricField_rhs );
+  if(SpaceDim<3) SpaceUtils::zero( m_electricField_virtual_rhs );
+
+  if(!advanceE()) return;
 
   auto grids(m_mesh.getDBL());
 
@@ -814,125 +753,6 @@ void ElectroMagneticFields::applyBCs_magneticField( const Real  a_time )
 
 }
   
-void ElectroMagneticFields::computeJfromMassMatrices()
-{
-   CH_TIME("ElectroMagneticFields::computeJfromMassMatrices()");
-   CH_assert(SpaceDim==1); // only works for 1D so far...
-   
-   if (!advanceE()) return;
-
-#ifdef MASS_MATRIX_TEST
-   LevelData<EdgeDataBox>& this_Jx = m_currentDensity_TEST;
-   LevelData<NodeFArrayBox>& this_Jv = m_currentDensity_virtual_TEST;
-#else
-   LevelData<EdgeDataBox>& this_Jx = m_currentDensity;
-   LevelData<NodeFArrayBox>& this_Jv = m_currentDensity_virtual;
-#endif      
-
-   // this calculation requires 2 ghost cells for cic
-   const int nG = m_mesh.ghosts();
-   CH_assert(nG>=2);
-
-   const DisjointBoxLayout& grids(m_mesh.getDBL());
-
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      
-      Box node_box = surroundingNodes(grids[dit]);
-      
-      FArrayBox& Jx = this_Jx[dit][0];
-      FArrayBox& Jv = this_Jv[dit].getFab();      
-      const FArrayBox& Ex = m_electricField[dit][0];
-      const FArrayBox& Ev = m_electricField_virtual[dit].getFab();
-      const FArrayBox& Jx0 = m_Jtilde[dit][0];
-      const FArrayBox& Jv0 = m_Jtilde_virtual[dit].getFab();
-
-      //
-      // compute Jx = Jx0 + sigma*E
-      //
-
-      const FArrayBox& sigxx = m_sigma_xx[dit][0];      
-      const FArrayBox& sigxy = m_sigma_xy[dit][0];      
-      const FArrayBox& sigxz = m_sigma_xz[dit][0];
-
-      Box edge_box0 = enclosedCells(node_box,0);
-      FORT_COMPUTE_JX_FROM_MASS_MATRIX( CHF_BOX(edge_box0),
-                                        CHF_CONST_FRA(sigxx),
-                                        CHF_CONST_FRA(sigxy),
-                                        CHF_CONST_FRA(sigxz),
-                                        CHF_CONST_FRA1(Ex,0),
-                                        CHF_CONST_FRA1(Ev,0),
-                                        CHF_CONST_FRA1(Ev,1),
-                                        CHF_CONST_FRA1(Jx0,0),
-                                        CHF_FRA1(Jx,0) );
-      Jx.mult(1.0/m_volume_scale);
-
-      //
-      // compute Jy = Jy0 + sigma*E
-      //
-
-      const FArrayBox& sigyx = m_sigma_yx[dit].getFab();
-      const FArrayBox& sigyy = m_sigma_yy[dit].getFab();
-      const FArrayBox& sigyz = m_sigma_yz[dit].getFab();
-      
-      FORT_COMPUTE_JY_FROM_MASS_MATRIX( CHF_BOX(node_box),
-                                        CHF_CONST_FRA(sigyx),
-                                        CHF_CONST_FRA(sigyy),
-                                        CHF_CONST_FRA(sigyz),
-                                        CHF_CONST_FRA1(Ex,0),
-                                        CHF_CONST_FRA1(Ev,0),
-                                        CHF_CONST_FRA1(Ev,1),
-                                        CHF_CONST_FRA1(Jv0,0),
-                                        CHF_FRA1(Jv,0) );
-      Jv.mult(1.0/m_volume_scale,0,1);
-
-      //
-      // compute Jz = Jz0 + sigma*E
-      //
-
-      const FArrayBox& sigzx = m_sigma_zx[dit].getFab();
-      const FArrayBox& sigzy = m_sigma_zy[dit].getFab();
-      const FArrayBox& sigzz = m_sigma_zz[dit].getFab();
-      
-      FORT_COMPUTE_JZ_FROM_MASS_MATRIX( CHF_BOX(node_box),
-                                        CHF_CONST_FRA(sigzx),
-                                        CHF_CONST_FRA(sigzy),
-                                        CHF_CONST_FRA(sigzz),
-                                        CHF_CONST_FRA1(Ex,0),
-                                        CHF_CONST_FRA1(Ev,0),
-                                        CHF_CONST_FRA1(Ev,1),
-                                        CHF_CONST_FRA1(Jv0,1),
-                                        CHF_FRA1(Jv,1) );
-      Jv.mult(1.0/m_volume_scale,1,1);
-
-   }
-   
-   // apply BC to J (needed for symmetry/axis BCs)
-   m_field_bc->prepJforBC( this_Jx, m_Jtilde,
-                           m_electricField, m_electricField_virtual,
-                           m_sigma_xx, m_sigma_xy, m_sigma_xz,
-                           m_volume_scale);
-   m_field_bc->applyToJ( this_Jx, this_Jv );
-   
-   // divide by Jacobian after doing exchange (Corrected Jacobian does not have ghosts) 
-   const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
-   const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      for (int dir=0; dir<SpaceDim; ++dir) {
-         this_Jx[dit][dir].divide(Jec[dit][dir],0,0,1);
-      }
-      for (int comp=0; comp<this_Jv.nComp(); ++comp) {
-         this_Jv[dit].getFab().divide(Jnc[dit].getFab(),0,comp,1);
-      }
-   }
-
-   // numerical energy test will heat after 600 wpedt when using PC and
-   // not calling exchange here (for virtual J only actually)... 
-   // Not sure why exchange is needed here for PC to work correctly...
-   SpaceUtils::exchangeEdgeDataBox(this_Jx);
-   if(SpaceDim<3) SpaceUtils::exchangeNodeFArrayBox(this_Jv);
-
-}
-
 void ElectroMagneticFields::postTimeStep( const Real  a_dt )
 {
    CH_TIME("ElectroMagneticFields::postTimeStep()");
@@ -1089,11 +909,10 @@ Real ElectroMagneticFields::electricFieldEnergy() const
 {
   CH_TIME("ElectroMagneticFields::electricFieldEnergy()");
   const DisjointBoxLayout& grids(m_mesh.getDBL());
-  
-  const LevelData<NodeFArrayBox>& masked_Ja_nc(m_mesh.getMaskedJnc());
-  const LevelData<EdgeDataBox>& masked_Ja_ec(m_mesh.getMaskedJec());
  
   Real energyE_local = 0.0;
+
+  const LevelData<EdgeDataBox>& masked_Ja_ec(m_mesh.getMaskedJec());
   for(DataIterator dit(grids); dit.ok(); ++dit) {
     for(int dir=0; dir<SpaceDim; dir++) {
       Box edge_box = grids[dit];
@@ -1108,20 +927,21 @@ Real ElectroMagneticFields::electricFieldEnergy() const
     }
   }
   
-  if(SpaceDim<3) {
-    for(DataIterator dit(grids); dit.ok(); ++dit) {
-      Box node_box = grids[dit];
-      node_box.surroundingNodes();
+#if CH_SPACEDIM<3
+  const LevelData<NodeFArrayBox>& masked_Ja_nc(m_mesh.getMaskedJnc());
+  for(DataIterator dit(grids); dit.ok(); ++dit) {
+    Box node_box = grids[dit];
+    node_box.surroundingNodes();
 
-      const FArrayBox& this_E  = m_electricField_virtual[dit].getFab();
-      const FArrayBox& this_Ja = masked_Ja_nc[dit].getFab();
-      for(int n=0; n<this_E.nComp(); n++) {
-        for (BoxIterator bit(node_box); bit.ok(); ++bit) {
-          energyE_local += this_E(bit(),n)*this_E(bit(),n)*this_Ja(bit(),0);
-        }
+    const FArrayBox& this_E  = m_electricField_virtual[dit].getFab();
+    const FArrayBox& this_Ja = masked_Ja_nc[dit].getFab();
+    for(int n=0; n<this_E.nComp(); n++) {
+      for (BoxIterator bit(node_box); bit.ok(); ++bit) {
+        energyE_local += this_E(bit(),n)*this_E(bit(),n)*this_Ja(bit(),0);
       }
     }
   }
+#endif
   
   energyE_local = energyE_local*m_energyE_factor; // [Joules]
   
@@ -1144,11 +964,10 @@ Real ElectroMagneticFields::magneticFieldEnergy() const
 {
   CH_TIME("ElectroMagneticFields::magneticFieldEnergy()");
   const DisjointBoxLayout& grids(m_mesh.getDBL());
-
-  const LevelData<FArrayBox>& Ja_cc(m_mesh.getJcc());
-  const LevelData<FluxBox>& masked_Ja_fc(m_mesh.getMaskedJfc());
  
   Real energyB_local = 0.0;
+  
+  const LevelData<FluxBox>& masked_Ja_fc(m_mesh.getMaskedJfc());
   for(DataIterator dit(grids); dit.ok(); ++dit) {
     for(int dir=0; dir<SpaceDim; dir++) {
       Box face_box = grids[dit];
@@ -1162,19 +981,20 @@ Real ElectroMagneticFields::magneticFieldEnergy() const
     }
   }
   
-  if(SpaceDim<3) {
-    for(DataIterator dit(grids); dit.ok(); ++dit) {
-      Box cell_box = grids[dit];
+#if CH_SPACEDIM<3
+  const LevelData<FArrayBox>& Ja_cc(m_mesh.getJcc());
+  for(DataIterator dit(grids); dit.ok(); ++dit) {
+    Box cell_box = grids[dit];
 
-      const FArrayBox& this_B  = m_magneticField_virtual[dit];
-      const FArrayBox& this_Ja = Ja_cc[dit];
-      for(int n=0; n<this_B.nComp(); n++) {
-        for (BoxIterator bit(cell_box); bit.ok(); ++bit) {
-          energyB_local += this_B(bit(),n)*this_B(bit(),n)*this_Ja(bit(),0);
-        }
+    const FArrayBox& this_B  = m_magneticField_virtual[dit];
+    const FArrayBox& this_Ja = Ja_cc[dit];
+    for(int n=0; n<this_B.nComp(); n++) {
+      for (BoxIterator bit(cell_box); bit.ok(); ++bit) {
+        energyB_local += this_B(bit(),n)*this_B(bit(),n)*this_Ja(bit(),0);
       }
     }
   }
+#endif
    
   energyB_local = energyB_local*m_energyB_factor; // [Joules]
 
@@ -1629,19 +1449,23 @@ void ElectroMagneticFields::setDivB()
    
 }
 
-void ElectroMagneticFields::solvePoisson( const Real&  a_time )
+void ElectroMagneticFields::enforceGaussLaw( const Real  a_time )
+{
+   CH_TIME("ElectroMagneticFields::enforceGaussLaw()");
+
+   solvePoisson( a_time );
+   correctElectricField();
+
+}
+
+void ElectroMagneticFields::solvePoisson( const Real  a_time )
 {
    CH_TIME("ElectroMagneticFields::solvePoisson()");
 
-   if (!advanceE()) return;
-   if (!usePoisson()) return;
-
    setDivE();
 
-   //
    // 1) solve for correction potential: nabla^2(phi) = div(E) - rhoC/ep0
    // 2) compute the correction field:   E_corr = -nabla(phi)
-   //
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const int ghosts(m_mesh.ghosts());
@@ -1702,7 +1526,6 @@ void ElectroMagneticFields::solvePoisson( const Real&  a_time )
    }
    SpaceUtils::exchangeEdgeDataBox(m_electricField_correction);
 
-   correctElectricField();
 }
 
 void ElectroMagneticFields::correctElectricField()
@@ -1722,8 +1545,14 @@ void ElectroMagneticFields::correctElectricField()
 
 }   
    
-void ElectroMagneticFields::assemblePrecondMatrix(  BandedMatrix& a_P,
-                                                    const Real    a_cnormDt )
+void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_P,
+                                             const bool                       a_use_mass_matrices,
+                                             const LevelData<EdgeDataBox>&    a_sigma_xx,
+#if CH_SPACEDIM==1
+                                             const LevelData<NodeFArrayBox>&  a_sigma_yy,
+#endif
+                                             const LevelData<NodeFArrayBox>&  a_sigma_zz,
+                                             const Real                       a_cnormDt )
 {
   CH_TIME("ElectroMagneticFields::assemblePrecondMatrix()");
 
@@ -1736,10 +1565,15 @@ void ElectroMagneticFields::assemblePrecondMatrix(  BandedMatrix& a_P,
   auto phys_domain( grids.physDomain() );
   const int ghosts(m_mesh.ghosts());
   const RealVect& dX(m_mesh.getdX());
-            
+        
   const Real sig_normC = a_cnormDt/m_volume_scale*m_Jnorm_factor;
-  int diag_comp; 
-  if(m_use_mass_matrices) diag_comp = (m_sigma_xx.nComp()-1)/2;
+  int diag_comp_inPlane, diag_comp_virtual; 
+  if(a_use_mass_matrices) {
+     diag_comp_inPlane = (a_sigma_xx.nComp()-1)/2;
+#if CH_SPACEDIM<3
+     diag_comp_virtual = (a_sigma_zz.nComp()-1)/2;
+#endif
+  }
 
   for (auto dit( grids.dataIterator() ); dit.ok(); ++dit) {
 
@@ -1825,7 +1659,7 @@ void ElectroMagneticFields::assemblePrecondMatrix(  BandedMatrix& a_P,
         int ix = 0;
         icols[ix] = pc; 
         vals[ix] = 1.0;
-        if(m_use_mass_matrices) vals[ix] += sig_normC*m_sigma_xx[dit][0].get(ic,diag_comp);
+        if(a_use_mass_matrices) vals[ix] += sig_normC*a_sigma_xx[dit][dir].get(ic,diag_comp_inPlane);
         ix++;
         
         // JRA testing...
@@ -1837,7 +1671,7 @@ void ElectroMagneticFields::assemblePrecondMatrix(  BandedMatrix& a_P,
         int pL = (int) pmap(iL, 0);
         if (pL >= 0) {
           icols[ix] = pL;
-          vals[ix] = sig_normC*m_sigma_xx[dit][0].get(ic,diag_comp-1);
+          vals[ix] = sig_normC*a_sigma_xx[dit][0].get(ic,diag_comp_inPlane-1);
           ix++;
         }
         
@@ -1847,7 +1681,7 @@ void ElectroMagneticFields::assemblePrecondMatrix(  BandedMatrix& a_P,
         //if (pR <= pMax) { ?
         if (pR < pMax) { ?
           icols[ix] = pR;
-          vals[ix] = sig_normC*m_sigma_xx[dit][0].get(ic,diag_comp+1);
+          vals[ix] = sig_normC*a_sigma_xx[dit][0].get(ic,diag_comp_inPlane+1);
           ix++;
         }
         */
@@ -2046,8 +1880,13 @@ void ElectroMagneticFields::assemblePrecondMatrix(  BandedMatrix& a_P,
 
             icols[ix] = pc; 
             vals[ix] = 1.0;
-            if(n==0 && m_use_mass_matrices) vals[ix] += sig_normC*m_sigma_yy[dit].getFab().get(ic,1);
-            if(n==1 && m_use_mass_matrices) vals[ix] += sig_normC*m_sigma_zz[dit].getFab().get(ic,1);
+#if CH_SPACEDIM==1
+            if(n==0 && a_use_mass_matrices) vals[ix] += sig_normC*a_sigma_yy[dit].getFab().get(ic,diag_comp_virtual);
+            if(n==1 && a_use_mass_matrices) vals[ix] += sig_normC*a_sigma_zz[dit].getFab().get(ic,diag_comp_virtual);
+#endif
+#if CH_SPACEDIM==2
+            if(n==0 && a_use_mass_matrices) vals[ix] += sig_normC*a_sigma_zz[dit].getFab().get(ic,diag_comp_virtual);
+#endif
             ix++;
     
             if (SpaceDim == 1) {

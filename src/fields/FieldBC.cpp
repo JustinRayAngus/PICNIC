@@ -8,7 +8,8 @@
 
 FieldBC::FieldBC( const DomainGrid&  a_mesh,
                   const int          a_verbosity )
-   : m_mesh(a_mesh),
+   : m_conservative_wall(false),
+     m_mesh(a_mesh),
      m_verbosity(a_verbosity)
 {
    // parse the input file
@@ -24,6 +25,7 @@ FieldBC::~FieldBC()
 {
    m_bdry_name.resize(0);
    m_bc_type.resize(0);
+   m_InsulatorBC.resize(0);
 }
 
 void FieldBC::parseParameters( ParmParse&  a_pp )
@@ -31,7 +33,10 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
    m_bc_type.resize(bdry_layout.size());
    m_bdry_name.resize(bdry_layout.size());
-   
+   m_InsulatorBC.resize(bdry_layout.size());
+
+   a_pp.query("conservative_wall",m_conservative_wall);
+
    for (int i(0); i<bdry_layout.size(); i++) {
       const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[i]) );
       m_bdry_name[i] = this_bdry_layout.name();
@@ -50,8 +55,9 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
                     m_bc_type[i] == "extrapolate_zeroBv" || 
                     m_bc_type[i] == "insulator_conductor" );
          if(m_bc_type[i]=="insulator_conductor") {
-            m_InsulatorBC = RefCountedPtr<InsulatorBC> (new InsulatorBC(i,m_bdry_name[i],m_mesh));
+            m_InsulatorBC[i] = RefCountedPtr<InsulatorBC> (new InsulatorBC(i,m_bdry_name[i],m_mesh));
          }
+         if(m_bc_type[i]=="axis" && !m_mesh.axisymmetric()) m_bc_type[i] = "symmetry";
       }
    }
    
@@ -62,6 +68,7 @@ void FieldBC::printParameters() const
    if (procID()==0) {
       std::cout << std::endl;
       std::cout << "FieldBC =======================================" << std::endl;
+      std::cout << "conservative wall = " << m_conservative_wall << std::endl;
       for (int i(0); i<m_bc_type.size(); i++) {
          std::cout << "  " << m_bdry_name[i] << ": " << m_bc_type[i] << ": " << std::endl;
       }
@@ -113,6 +120,7 @@ void FieldBC::applyEdgeBC( LevelData<EdgeDataBox>&  a_dst,
                             bdry_layout,
                             m_bc_type,
                             m_InsulatorBC,
+                            m_conservative_wall,
                             a_time );
    
 }
@@ -127,6 +135,7 @@ void FieldBC::applyNodeBC( LevelData<NodeFArrayBox>&  a_dst,
                             m_mesh,
                             m_bc_type,
                             m_InsulatorBC,
+                            m_conservative_wall,
                             a_time );
 
 }
@@ -461,99 +470,42 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
 }
 
 void FieldBC::applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
-                        LevelData<NodeFArrayBox>&  a_J_virtual )
+                        LevelData<NodeFArrayBox>&  a_J_virtual ) const
 {
-   CH_TIME("PicSpeciesBC::applyToJ()");
- 
-   // currently this is only used for symmetry boundaries. The contribution of the
-   // current density from the mirror particles across the symmetry boundary are
-   // not accounted for when J is computed (only particles inside physical domain
-   // are used in J calc). For J parallel to a symmetry boundary, we multiply by
-   // a factor of 2 on the physical boundary (higher-order shape functions are not
-   // considered yet). For J perp to a symmetry boundary, we subtract off J in the
-   // corresonding ghost cell across the symmetry boundary.
-  
-   // loop over non-periodic boundaries and apply BCs to J
-   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
-   for (int b(0); b<bdry_layout.size(); b++) {
-
-      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
-      const int bdry_dir = this_bdry_layout.dir();
-      const int bdry_side(this_bdry_layout.side());
-      const std::string this_bc = m_bc_type[b];
-
-      if(this_bc=="symmetry" || this_bc=="axis") {
-      
-         for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-
-            const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-            const Box bdry_box( bdry_grids[dit] );
-            for (int dir(0); dir<SpaceDim; dir++) {
-          
-               // convert cell bdry box to a edge bdry box
-               Box edge_box = surroundingNodes(bdry_box);
-               edge_box.enclosedCells(dir);
-
-               // collapse edge_box to 1 cell thick in bdry_dir direction                  
-               if(bdry_side==0) edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir));
-               if(bdry_side==1) edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir));
-                  
-               // adjust J in cells near boundary appropriately to account for
-               // mirror particles across symmetry boundary
-               FArrayBox& this_J( a_J_inPlane[interior_dit][dir] );
-               if(dir==bdry_dir) {
-                  Box dst_box = edge_box;
-                  Box src_box = edge_box;
-                  const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
-                  for (int n=0; n<nG; n++) {
-                     if(bdry_side==0) dst_box.shift(bdry_dir,1);
-                     if(bdry_side==1) dst_box.shift(bdry_dir,-1);
-                     this_J.minus(this_J,src_box,dst_box,0,0,1);
-                     if(bdry_side==0) src_box.shift(bdry_dir,-1);
-                     if(bdry_side==1) src_box.shift(bdry_dir,1);
-                  }
-
-               }
-               else { // work exactly on bdry only
-                  // would need to modify this if using higher-order particle shape functions
-                  if(!m_mesh.axisymmetric()) this_J.mult(2.0,edge_box,0,this_J.nComp());
-               }
-               
-            }
-           
-            if(SpaceDim<3 && !m_mesh.axisymmetric()) {
-                       
-               // convert cell bdry box to a node bdry box
-               Box node_box = surroundingNodes(bdry_box);
-
-               // collapse node_box to 1 cell thick in bdry_dir direction                  
-               if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
-               if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
-
-               // would need to modify this if using higher-order 
-               // particle shape functions
-               FArrayBox& this_J( a_J_virtual[interior_dit].getFab() );
-               this_J.mult(2.0,node_box,0,this_J.nComp());
-            }
-            
-         }
-
-      }
-   }
+   CH_TIME("FieldBC::applyToJ()");
    
+   FieldBCUtils::applyToJ_PIC( a_J_inPlane,
+                               a_J_virtual, 
+                               m_mesh,
+                               m_bc_type );
+
 }
 
-void FieldBC::prepJforBC( LevelData<EdgeDataBox>&  a_Jx,
-                    const LevelData<EdgeDataBox>&  a_Jx0,
-                    const LevelData<EdgeDataBox>&  a_Ex,
+#if CH_SPACEDIM==1
+void FieldBC::prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
+                          LevelData<NodeFArrayBox>&  a_Jv,
+                    const LevelData<EdgeDataBox>&    a_Jx0,
+                    const LevelData<NodeFArrayBox>&  a_Jv0,
+                    const LevelData<EdgeDataBox>&    a_Ex,
                     const LevelData<NodeFArrayBox>&  a_Ev,
-                    const LevelData<EdgeDataBox>&  a_sigma_xx,
-                    const LevelData<EdgeDataBox>&  a_sigma_xy,
-                    const LevelData<EdgeDataBox>&  a_sigma_xz,
-                    const Real                     a_volume_scale )
+                    const LevelData<EdgeDataBox>&    a_sigma_xx,
+                    const LevelData<EdgeDataBox>&    a_sigma_xy,
+                    const LevelData<EdgeDataBox>&    a_sigma_xz,
+                    const LevelData<NodeFArrayBox>&  a_sigma_yx,
+                    const LevelData<NodeFArrayBox>&  a_sigma_yy,
+                    const LevelData<NodeFArrayBox>&  a_sigma_yz,
+                    const LevelData<NodeFArrayBox>&  a_sigma_zx,
+                    const LevelData<NodeFArrayBox>&  a_sigma_zy,
+                    const LevelData<NodeFArrayBox>&  a_sigma_zz,
+                    const Real                       a_volume_scale ) const
 {
    CH_TIME("FieldBC::prepJforBC()");
+   
+   // WARNING.....
+   //
+   // NOTE THAT CARE HAS NOT BEEN TAKEN TO ENSURE CONSISTENT BEHAVIOR
+   // WITH applyToJ() CALL FROM PIC SPECIES CLASS....
+   // NEED TO ADDRESS THIS ISSUE AT SOME POINT
  
    // loop over non-periodic boundaries and apply BCs to J
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -564,51 +516,88 @@ void FieldBC::prepJforBC( LevelData<EdgeDataBox>&  a_Jx,
       const int bdry_dir = this_bdry_layout.dir();
       const int bdry_side(this_bdry_layout.side());
       const std::string this_bc = m_bc_type[b];
-
-      if(this_bc=="symmetry" || this_bc=="axis") {
       
-         for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+      for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
 
-            const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-            const Box bdry_box( bdry_grids[dit] );
-            for (int dir(0); dir<SpaceDim; dir++) {
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+         const Box bdry_box( bdry_grids[dit] );
+         
+         const FArrayBox& Ex( a_Ex[interior_dit][0] );
+         const FArrayBox& Ev( a_Ev[interior_dit].getFab() );
+         const FArrayBox& Jx0( a_Jx0[interior_dit][0] );
+         const FArrayBox& Jv0( a_Jv0[interior_dit].getFab() );
           
-               // convert cell bdry box to a edge bdry box
-               Box edge_box = surroundingNodes(bdry_box);
-               edge_box.enclosedCells(dir);
+         //
+         // compute Jx in ghost cells from deposited mass matrices
+         //  
+         
+         Box edge_box = surroundingNodes(bdry_box);
+         edge_box.enclosedCells(bdry_dir);
 
-               // collapse edge_box to 1 cell thick in bdry_dir direction                  
-               if(bdry_side==0) edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir));
-               if(bdry_side==1) edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir));
+         FArrayBox& Jx( a_Jx[interior_dit][0] );
+         const FArrayBox& sigxx = a_sigma_xx[interior_dit][0];
+         const FArrayBox& sigxy = a_sigma_xy[interior_dit][0];
+         const FArrayBox& sigxz = a_sigma_xz[interior_dit][0];
 
-               // adjust normal J boundary cells to account for
-               // deposition there
-               FArrayBox& Jx( a_Jx[interior_dit][dir] );
-               const FArrayBox& Jx0( a_Jx0[interior_dit][dir] );
-               const FArrayBox& Ex( a_Ex[interior_dit][dir] );
-               const FArrayBox& Ev( a_Ev[interior_dit].getFab() );
-               if(dir==bdry_dir) {
-                  const FArrayBox& sigxx = a_sigma_xx[interior_dit][dir];
-                  const FArrayBox& sigxy = a_sigma_xy[interior_dit][dir];
-                  const FArrayBox& sigxz = a_sigma_xz[interior_dit][dir];
+         FORT_COMPUTE_JX_BDRY_FROM_MASS_MATRIX( CHF_BOX(edge_box),
+                                                CHF_CONST_INT(bdry_side),
+                                                CHF_CONST_FRA(sigxx),
+                                                CHF_CONST_FRA(sigxy),
+                                                CHF_CONST_FRA(sigxz),
+                                                CHF_CONST_FRA1(Ex,0),
+                                                CHF_CONST_FRA1(Ev,0),
+                                                CHF_CONST_FRA1(Ev,1),
+                                                CHF_CONST_FRA1(Jx0,0),
+                                                CHF_FRA1(Jx,0) );
+         Jx.mult(1.0/a_volume_scale,edge_box,0,1);
 
-                  FORT_COMPUTE_JX_BDRY_FROM_MASS_MATRIX( CHF_BOX(edge_box),
-                                        CHF_CONST_INT(bdry_side),
-                                        CHF_CONST_FRA(sigxx),
-                                        CHF_CONST_FRA(sigxy),
-                                        CHF_CONST_FRA(sigxz),
-                                        CHF_CONST_FRA1(Ex,0),
-                                        CHF_CONST_FRA1(Ev,0),
-                                        CHF_CONST_FRA1(Ev,1),
-                                        CHF_CONST_FRA1(Jx0,0),
-                                        CHF_FRA1(Jx,0) );
-                  Jx.mult(1.0/a_volume_scale,edge_box,0,1);
-               }
-            }
-         }
+         //
+         // compute Jy and Jz in ghost cells from deposited mass matrices
+         //
+         
+         Box node_box = surroundingNodes(bdry_box);
+         if(bdry_side==0) node_box.growHi(bdry_dir,-1);
+         if(bdry_side==1) node_box.growLo(bdry_dir,-1);
+
+         FArrayBox& Jv( a_Jv[interior_dit].getFab() );
+         const FArrayBox& sigyx = a_sigma_yx[interior_dit].getFab();
+         const FArrayBox& sigyy = a_sigma_yy[interior_dit].getFab();
+         const FArrayBox& sigyz = a_sigma_yz[interior_dit].getFab();
+         const FArrayBox& sigzx = a_sigma_zx[interior_dit].getFab();
+         const FArrayBox& sigzy = a_sigma_zy[interior_dit].getFab();
+         const FArrayBox& sigzz = a_sigma_zz[interior_dit].getFab();
+
+         const int z_comp = 1;
+         
+         FORT_COMPUTE_JY_BDRY_FROM_MASS_MATRIX( CHF_BOX(node_box),
+                                                CHF_CONST_INT(bdry_side),
+                                                CHF_CONST_FRA(sigyx),
+                                                CHF_CONST_FRA(sigyy),
+                                                CHF_CONST_FRA(sigyz),
+                                                CHF_CONST_FRA1(Ex,0),
+                                                CHF_CONST_FRA1(Ev,0),
+                                                CHF_CONST_FRA1(Ev,z_comp),
+                                                CHF_CONST_FRA1(Jv0,0),
+                                                CHF_FRA1(Jv,0) );
+         Jv.mult(1.0/a_volume_scale,node_box,0,1);
+         
+         FORT_COMPUTE_JZ_BDRY_FROM_MASS_MATRIX( CHF_BOX(node_box),
+                                                CHF_CONST_INT(bdry_side),
+                                                CHF_CONST_FRA(sigzx),
+                                                CHF_CONST_FRA(sigzy),
+                                                CHF_CONST_FRA(sigzz),
+                                                CHF_CONST_FRA1(Ex,0),
+                                                CHF_CONST_FRA1(Ev,0),
+                                                CHF_CONST_FRA1(Ev,z_comp),
+                                                CHF_CONST_FRA1(Jv0,z_comp),
+                                                CHF_FRA1(Jv,z_comp) );
+         Jv.mult(1.0/a_volume_scale,node_box,z_comp,1);
+         
       }
+      
    }
 
 }
+#endif
 
 #include "NamespaceFooter.H"

@@ -1,6 +1,5 @@
 
 #include "VariableHardSphere.H"
-#include "Constants.H"
 #include "CodeUnits.H"
 #include "MathUtils.H"
 #include "PicSpecies.H"

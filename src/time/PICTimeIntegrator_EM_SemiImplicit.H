@@ -32,7 +32,9 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
                  const PicSpeciesPtrVect&,
                  ElectroMagneticFields* const );
 
-    virtual void initialize();
+    virtual void initialize( const std::string&  a_restart_file_name );
+    
+    virtual void printParams() const;
     
     virtual int prepForCheckpoint() const;
 
@@ -45,13 +47,6 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
     virtual void preTimeStep( const Real, const Real, const int );
     virtual void timeStep( const Real, const Real, const int );
     virtual void postTimeStep( const Real, const Real );
-
-    virtual void setSolverParams( const Real  a_rtol, 
-                                  const Real  a_atol, 
-                                  const int   a_iter_max ) 
-    { 
-      m_nlsolver->setParams( a_rtol, a_atol, a_iter_max );
-    }
 
   protected:
 

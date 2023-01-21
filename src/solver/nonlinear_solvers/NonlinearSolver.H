@@ -25,7 +25,8 @@ class NonlinearSolver
                         const double ) const = 0;
 
     virtual bool isDefined() const = 0;
-    virtual void setParams(const double, const double, const int) = 0;
+    virtual void printParams() const = 0;
+    virtual void getParams(double&, double&, int&) = 0;
 
     virtual void verbose( const bool ) { }
     virtual void setOutputIndent( const std::string& ) { }

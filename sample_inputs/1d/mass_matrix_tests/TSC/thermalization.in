@@ -1,60 +1,81 @@
+#TEST np=25, timelimit=00:05:00
 #####################################################
 # Verbosity Definitions
 #####################################################
 simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
 
 ###   some fundamental parameters for
-###   N1 = 9.082e24/m^3, T1 = 1.00 eV:
-###   N2 = 3.353e25/m^3, T2 = 12.12 eV:
-###   1/wpe2 = 3.06e-15 s
-###   de2 = cvac/wpe2 =  9.18e-7 m
-###   lamdaDe2 = Ve2/wpe2 =  4.47e-9 m
-###   taui2 = 2.62e-12 s
-###   mfpi2 = Vi2*taui2 = 8.94e-8 m
+###   N = 1.0e30/m^3, Ti = Te = 100eV:
+###   1/wpe0 = 1.77e-17 s
+###   de0 = cvac/wpe0 =  5.314e-9 m
+###   taue0 = 3.44e-17 s
+###   taui0 = 1.04e-15 s
 
-system.advance_method = "PIC_EM_EXPLICIT"
+#system.advance_method = "PIC_EM_EXPLICIT"
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
-#system.advance_method = "PIC_EM_THETA_IMPLICIT"
-#system.iter_max = 8
-#system.rel_tol = 1.0e-6
-#system.abs_tol = 1.0e-12
-#system.theta_parameter = 1.0 # 1/2<=theta_parameter<=1
-system.write_species_charge_density = false
-system.write_species_current_density = false
+system.advance_method = "PIC_EM_THETA_IMPLICIT"
+
+pic_species.iter_min_two = true
+pic_species.iter_max_particles = 8
+pic_species.quasi_freeze_particles_jacobian = true
+pic_species.use_mass_matrices = false
+
+#pic_em_theta_implicit.solver_type = "picard"
+pic_em_theta_implicit.solver_type = "newton"
+#pic_em_theta_implicit.solver_type = "petsc"
+jacobian.with_pc = false
+
+newton.verbose = true
+newton.rtol = 1.0e-8
+newton.atol = 1.0e-12
+newton.maxits = 10
+
+gmres.verbose = true
+gmres.rtol = 1.0e-6
+gmres.atol = 1.0e-12
+gmres.maxits = 1000
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 10
-simulation.max_step            = 10000000
-simulation.max_time            = 140000.0
+simulation.max_step            = 100
+#simulation.max_step            = 1000000
+simulation.max_time            = 100.0
 #simulation.cfl_number          = 0.565
 #simulation.cfl_scatter         = 0.001
 #simulation.dt_scatter_interval = 10
-simulation.fixed_dt            = 0.2
+simulation.fixed_dt            = 0.10
 #simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 2000.0
+simulation.plot_time_interval  = 100.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 20
 
-history.precision = 5
+history.precision = 8
 history.field_probes = true
-history.field_bdry_probes = true
+history.solver_probes = true
 history.species0_probes = true
 history.species1_probes = true
+
+simulation.checkpoint_time_interval = 5000.0
+#simulation.restart_file = "checkpoint_data/chk000500.1d.hdf5"
+simulation.wall_time_hrs = 3.95
+#simulation.wall_time_hrs = 0.95
 
 #####################################################
 # Computational Grid Definitions
 #####################################################
-grid.num_cells     = 288
-grid.is_periodic   = 0
-grid.config_decomp = 72
+grid.num_cells     = 40 40
+grid.is_periodic   = 1  1
+grid.config_decomp = 10 10
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 2
+grid.num_ghosts    = 3
 
 grid.X_min = 0.0
-grid.X_max = 200.0 # [mfpi]
+grid.X_max = 10.0 # 10*de0
+grid.Z_min = 0.0
+grid.Z_max = 10.0 # 10*de0
 grid.verbosity = 1
 
 #####################################################
@@ -62,18 +83,19 @@ grid.verbosity = 1
 #####################################################
 units.number_density = 1.0  # num/m^3
 units.temperature    = 1.0  # eV
-units.length         = 8.941e-8   # m
-units.time           = 3.062e-15  # s
+units.length         = 5.314e-9  # m
+units.time           = 1.77e-17  # s
 
 #####################################################
 # Fields Definitions
 #####################################################
 em_fields.use = true
 em_fields.advance = true
-em_fields.advance_electric_field = 1 0 0
-em_fields.advance_magnetic_field = 0 0 0
-em_fields.write_divs = true
+em_fields.advance_electric_field = 1 1 1
+em_fields.advance_magnetic_field = 1 1 1
 em_fields.write_rho = true
+em_fields.write_divs = true
+em_fields.write_curls = true
 
 IC.em_fields.magnetic.0.type = "constant"
 IC.em_fields.magnetic.0.value = 0.0
@@ -89,101 +111,87 @@ IC.em_fields.electric.1.value = 0.0
 IC.em_fields.electric.2.type = "constant"
 IC.em_fields.electric.2.value = 0.0
 
-BC.em_fields.dir0_lower.type = "extrapolate"
-BC.em_fields.dir0_upper.type = "symmetry"
-
 #####################################################
 # Species Definitions
 #####################################################
-
-# Species 1: electrons
-
 pic_species.0.name   = "electron"
 pic_species.0.mass   = 1.0
 pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = true
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "TSC"
+pic_species.0.interp_type_E = "TSC"
 
 IC.electron.X_min = 0.0
-IC.electron.X_max = 200.0
-IC.electron.parts_per_cell = 200
+IC.electron.X_max = 10.0
+IC.electron.Z_min = 0.0
+IC.electron.Z_max = 10.0
+IC.electron.parts_per_cell = 10 10
 IC.electron.density.type = "constant"
-IC.electron.density.value = 9.082e24 # [number/m^3]
+IC.electron.density.value = 1.0e30 # [number/m^3]
 IC.electron.temperature_0.type = "constant"
-IC.electron.temperature_0.value = 1.0 # [eV]
+IC.electron.temperature_0.value = 100.0 # [eV]
 IC.electron.temperature_1.type = "constant"
-IC.electron.temperature_1.value = 1.0 # [eV]
+IC.electron.temperature_1.value = 100.0 # [eV]
 IC.electron.temperature_2.type = "constant"
-IC.electron.temperature_2.value = 1.0 # [eV]
+IC.electron.temperature_2.value = 100.0 # [eV]
 IC.electron.velocity_0.type = "constant"
-IC.electron.velocity_0.value = 78154.2
+IC.electron.velocity_0.value = 0.0
 IC.electron.velocity_1.type = "constant"
 IC.electron.velocity_1.value = 0.0
 IC.electron.velocity_2.type = "constant"
 IC.electron.velocity_2.value = 0.0
 
-BC.electron.dir0_lower.type = "inflow_outflow"
-BC.electron.dir0_lower.inflow.discrete_samples = 200
-BC.electron.dir0_lower.inflow.density = 9.082e24
-BC.electron.dir0_lower.inflow.temperature = 1.0 1.0 1.0
-BC.electron.dir0_lower.inflow.velocity = 78154.2 0.0 0.0
-
-BC.electron.dir0_upper.type = "symmetry"
-
-# Species 2: protons
-
 pic_species.1.name   = "proton"
-pic_species.1.mass   = 1836
+pic_species.1.mass   = 1836.15
 pic_species.1.charge = 1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
+pic_species.1.interp_type_N = "TSC"
+pic_species.1.interp_type_J = "TSC"
+pic_species.1.interp_type_E = "TSC"
 
 IC.proton.X_min = 0.0
-IC.proton.X_max = 200.0
-IC.proton.parts_per_cell = 200
+IC.proton.X_max = 10.0
+IC.proton.Z_min = 0.0
+IC.proton.Z_max = 10.0
+IC.proton.parts_per_cell = 10 10
 IC.proton.density.type = "constant"
-IC.proton.density.value = 9.082e24 # [number/m^3]
+IC.proton.density.value = 1.0e30 # [number/m^3]
 IC.proton.temperature_0.type = "constant"
-IC.proton.temperature_0.value = 1.0 # [eV]
+IC.proton.temperature_0.value = 100.0 # [eV]
 IC.proton.temperature_1.type = "constant"
-IC.proton.temperature_1.value = 1.0 # [eV]
+IC.proton.temperature_1.value = 100.0 # [eV]
 IC.proton.temperature_2.type = "constant"
-IC.proton.temperature_2.value = 1.0 # [eV]
+IC.proton.temperature_2.value = 100.0 # [eV]
 IC.proton.velocity_0.type = "constant"
-IC.proton.velocity_0.value = 78154.2
+IC.proton.velocity_0.value = 0.0
 IC.proton.velocity_1.type = "constant"
 IC.proton.velocity_1.value = 0.0
 IC.proton.velocity_2.type = "constant"
 IC.proton.velocity_2.value = 0.0
-
-BC.proton.dir0_lower.type = "inflow_outflow"
-BC.proton.dir0_lower.inflow.discrete_samples = 200
-BC.proton.dir0_lower.inflow.density = 9.082e24
-BC.proton.dir0_lower.inflow.temperature = 1.0 1.0 1.0
-BC.proton.dir0_lower.inflow.velocity = 78154.2 0.0 0.0
-
-BC.proton.dir0_upper.type = "symmetry"
 
 #####################################################
 # Scattering Definitions
 #####################################################
 
 scattering.0.model = "TA"
-scattering.0speciesA = 0
+scattering.0.speciesA = 0
 scattering.0.speciesB = 0
-scattering.0.coulomb_logarithm = 10.0
+scattering.0.coulomb_logarithm = 3.0
 
 scattering.1.model = "TA"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
-scattering.1.coulomb_logarithm = 10.0
+scattering.1.coulomb_logarithm = 3.0
 
 scattering.2.model = "TA"
-scattering.2.speciesA = 0
-scattering.2.speciesB = 1
-scattering.2.coulomb_logarithm = 10.0
+scattering.2.speciesA = 1
+scattering.2.speciesB = 0
+scattering.2.coulomb_logarithm = 3.0
 
 #####################################################
 

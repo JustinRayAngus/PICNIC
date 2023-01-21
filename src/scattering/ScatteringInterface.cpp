@@ -220,6 +220,15 @@ ScatteringInterface::scatterDt( const PicSpeciesPtrVect&  a_pic_species_ptr_vect
    CH_TIME("System::scatterDt()");
 
    Real scatterDt_local = DBL_MAX;
+      
+   // compute the density and energy moments for mean free time calculation
+   for (int sp=0; sp<a_pic_species_ptr_vect.size(); sp++) {
+      PicSpeciesPtr species(a_pic_species_ptr_vect[sp]);
+      if(species->scatter()) {
+         species->setNumberDensity();
+         species->setEnergyDensity();
+      }
+   }
 
    // set mean free time for each scattering object
    for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {

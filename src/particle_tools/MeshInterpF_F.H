@@ -667,6 +667,67 @@ inline void FORTRAN_NAME(inlineW4_INTERPOLATE, inlineW4_INTERPOLATE)(
 }
 #endif  // GUARDW4_INTERPOLATE 
 
+#ifndef GUARDCIC_FIELD_DERIVATIVES 
+#define GUARDCIC_FIELD_DERIVATIVES 
+// Prototype for Fortran procedure cic_field_derivatives ...
+//
+void FORTRAN_NAME( CIC_FIELD_DERIVATIVES ,cic_field_derivatives )(
+      CHFp_REALVECT(dEpx)
+      ,CHFp_REALVECT(dEpy)
+      ,CHFp_REALVECT(dEpz)
+      ,CHFp_REALVECT(dBpx)
+      ,CHFp_REALVECT(dBpy)
+      ,CHFp_REALVECT(dBpz)
+      ,CHFp_CONST_FRA1(Ex)
+      ,CHFp_CONST_FRA1(Ey)
+      ,CHFp_CONST_FRA1(Ez)
+      ,CHFp_CONST_FRA1(Bx)
+      ,CHFp_CONST_FRA1(By)
+      ,CHFp_CONST_FRA1(Bz)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp) );
+
+#define FORT_CIC_FIELD_DERIVATIVES FORTRAN_NAME( inlineCIC_FIELD_DERIVATIVES, inlineCIC_FIELD_DERIVATIVES)
+#define FORTNT_CIC_FIELD_DERIVATIVES FORTRAN_NAME( CIC_FIELD_DERIVATIVES, cic_field_derivatives)
+
+inline void FORTRAN_NAME(inlineCIC_FIELD_DERIVATIVES, inlineCIC_FIELD_DERIVATIVES)(
+      CHFp_REALVECT(dEpx)
+      ,CHFp_REALVECT(dEpy)
+      ,CHFp_REALVECT(dEpz)
+      ,CHFp_REALVECT(dBpx)
+      ,CHFp_REALVECT(dBpy)
+      ,CHFp_REALVECT(dBpz)
+      ,CHFp_CONST_FRA1(Ex)
+      ,CHFp_CONST_FRA1(Ey)
+      ,CHFp_CONST_FRA1(Ez)
+      ,CHFp_CONST_FRA1(Bx)
+      ,CHFp_CONST_FRA1(By)
+      ,CHFp_CONST_FRA1(Bz)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp) )
+{
+ CH_TIMELEAF("FORT_CIC_FIELD_DERIVATIVES");
+ FORTRAN_NAME( CIC_FIELD_DERIVATIVES ,cic_field_derivatives )(
+      CHFt_REALVECT(dEpx)
+      ,CHFt_REALVECT(dEpy)
+      ,CHFt_REALVECT(dEpz)
+      ,CHFt_REALVECT(dBpx)
+      ,CHFt_REALVECT(dBpy)
+      ,CHFt_REALVECT(dBpz)
+      ,CHFt_CONST_FRA1(Ex)
+      ,CHFt_CONST_FRA1(Ey)
+      ,CHFt_CONST_FRA1(Ez)
+      ,CHFt_CONST_FRA1(Bx)
+      ,CHFt_CONST_FRA1(By)
+      ,CHFt_CONST_FRA1(Bz)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(xp) );
+}
+#endif  // GUARDCIC_FIELD_DERIVATIVES 
+
 }
 
 #endif

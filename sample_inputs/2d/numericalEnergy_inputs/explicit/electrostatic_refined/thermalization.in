@@ -2,7 +2,7 @@
 # Verbosity Definitions
 #####################################################
 simulation.verbosity = 10
-simulation.fixed_random_seed = 1983
+#simulation.fixed_random_seed = 1983
 
 ###   some fundamental parameters for
 ###   N = 1.0e30/m^3, Ti = Te = 100eV:
@@ -12,19 +12,13 @@ simulation.fixed_random_seed = 1983
 ###   taui0 = 1.04e-15 s
 
 system.advance_method = "PIC_EM_EXPLICIT"
-#system.advance_method = "PIC_EM_SEMI_IMPLICIT"
-#system.advance_method = "PIC_EM_THETA_IMPLICIT"
-#system.iter_max = 6
-#system.theta_parameter = 1.0 # 1/2<=theta_parameter<=1
-system.write_species_charge_density = false
-system.write_species_current_density = false
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
 #simulation.max_step            = 1
 simulation.max_step            = 1000000
-simulation.max_time            = 10.0
+simulation.max_time            = 20.0
 #simulation.cfl_number          = 0.565
 #simulation.cfl_scatter         = 0.001
 #simulation.dt_scatter_interval = 10
@@ -35,10 +29,14 @@ simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 20
 
-history.precision = 5
+history.precision = 8
 history.field_probes = true
 history.species0_probes = true
 history.species1_probes = true
+
+simulation.checkpoint_time_interval = 5.0
+#simulation.restart_file = "checkpoint_data/chk030000.2d.hdf5"
+simulation.wall_time_hrs = 0.95
 
 #####################################################
 # Computational Grid Definitions

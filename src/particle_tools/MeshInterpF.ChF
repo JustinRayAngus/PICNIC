@@ -1151,3 +1151,115 @@ c     computing weight and assigning mass
       enddo]
 
       end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  Interpolates EM fields to the particle position using CIC interpolation.
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine cic_field_derivatives( CHF_REALVECT[dEpx],
+     &                                  CHF_REALVECT[dEpy],
+     &                                  CHF_REALVECT[dEpz],
+     &                                  CHF_REALVECT[dBpx],
+     &                                  CHF_REALVECT[dBpy],
+     &                                  CHF_REALVECT[dBpz],
+     &                                  CHF_CONST_FRA1[Ex],
+     &                                  CHF_CONST_FRA1[Ey],
+     &                                  CHF_CONST_FRA1[Ez],
+     &                                  CHF_CONST_FRA1[Bx],
+     &                                  CHF_CONST_FRA1[By],
+     &                                  CHF_CONST_FRA1[Bz],
+     &                                  CHF_CONST_REALVECT[left_edge],
+     &                                  CHF_CONST_REALVECT[dx],
+     &                                  CHF_CONST_REALVECT[xp] )
+
+      integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM - 1)
+      integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
+      integer idir 
+      REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
+      REAL_T weight, CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
+      REAL_T sign(0:CH_SPACEDIM-1), w00, w10, w20
+
+c     compute the index of the left most cell/edge that contains this particle cloud
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
+      enddo
+              
+      do idir = 0, CH_SPACEDIM - 1
+        CHF_DTERM[
+        w00 = w0*(1.0-CHF_ID(0,idir)) - CHF_ID(0,idir)*sign(idir);
+        w10 = w1_stag*(1.0-CHF_ID(1,idir)) - CHF_ID(1,idir)*sign(idir);
+        w20 = w2_stag*(1.0-CHF_ID(2,idir)) - CHF_ID(2,idir)*sign(idir)]
+      enddo
+
+c     loop over all the cells containing this particle cloud and add to field
+      CHF_DTERM[
+      do ii = index(0), index(0) + 1
+        sign(0) = 1.0 - 2.0*(ii - index(0))
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xp(0) + left_edge(0)
+        ii_stag = ii-index(0)+index_stag(0)
+        l0_stag = ii_stag*dx(0) - xp(0) + left_edge(0)
+        w0 = 1.d0 - abs(l0 / dx(0))
+        w0_stag = 1.d0 - abs(l0_stag / dx(0));
+        do jj = index(1), index(1) + 1
+          sign(1) = 2.0*(jj - index(1))
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xp(1) + left_edge(1)
+          jj_stag = jj-index(1)+index_stag(1)
+          l1_stag = jj_stag*dx(1) - xp(1) + left_edge(1)
+          w1 = 1.d0 - abs(l1 / dx(1))
+          w1_stag = 1.d0 - abs(l1_stag / dx(1));
+          do kk = index(2), index(2) + 1
+            sign(2) = 2.0*(kk - index(2))
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xp(2) + left_edge(2)
+            kk_stag = kk-index(2)+index_stag(2)
+            l2_stag = kk_stag*dx(2) - xp(2) + left_edge(2)
+            w2 = 1.d0 - abs(l2 / dx(2))
+            w2_stag = 1.d0 - abs(l2_stag / dx(2)) ]
+
+            do idir = 0, CH_SPACEDIM - 1
+              CHF_DTERM[ w00 = w0*(1.0-CHF_ID(0,idir)) - CHF_ID(0,idir)*sign(idir);
+                         w10 = w1_stag*(1.0-CHF_ID(1,idir)) - CHF_ID(1,idir)*sign(idir);
+                         w20 = w2_stag*(1.0-CHF_ID(2,idir)) - CHF_ID(2,idir)*sign(idir) ]
+              weight = CHF_DTERM[w00;*w10;*w20]
+              dEpx(idir) = dEpx(idir) + weight*Ex(CHF_IX[ii; jj_stag; kk_stag])/two/dx(idir)
+            
+              CHF_DTERM[ w00 = w0_stag*(1.0-CHF_ID(0,idir)) - CHF_ID(0,idir)*sign(idir);
+                         w10 = w1*(1.0-CHF_ID(1,idir)) - CHF_ID(1,idir)*sign(idir);
+                         w20 = w2_stag*(1.0-CHF_ID(2,idir)) - CHF_ID(2,idir)*sign(idir) ]
+              weight = CHF_DTERM[w00;*w10;*w20]
+              dEpy(idir) = dEpy(idir) + weight*Ey(CHF_IX[ii_stag; jj; kk_stag])/two/dx(idir)
+            
+              CHF_DTERM[ w00 = w0_stag*(1.0-CHF_ID(0,idir)) - CHF_ID(0,idir)*sign(idir);
+                         w10 = w1_stag*(1.0-CHF_ID(1,idir)) - CHF_ID(1,idir)*sign(idir);
+                         w20 = w2*(1.0-CHF_ID(2,idir)) - CHF_ID(2,idir)*sign(idir) ]
+              weight = CHF_DTERM[w00;*w10;*w20]
+              dEpz(idir) = dEpz(idir) + weight*Ez(CHF_IX[ii_stag; jj_stag; kk])/two/dx(idir)
+            
+              CHF_DTERM[ w00 = w0_stag*(1.0-CHF_ID(0,idir)) - CHF_ID(0,idir)*sign(idir);
+                         w10 = w1*(1.0-CHF_ID(1,idir)) - CHF_ID(1,idir)*sign(idir);
+                         w20 = w2*(1.0-CHF_ID(2,idir)) - CHF_ID(2,idir)*sign(idir) ]
+              weight = CHF_DTERM[w00;*w10;*w20]
+              dBpx(idir) = dBpx(idir) + weight*Bx(CHF_IX[ii_stag; jj; kk])/two/dx(idir)
+            
+              CHF_DTERM[ w00 = w0*(1.0-CHF_ID(0,idir)) - CHF_ID(0,idir)*sign(idir);
+                         w10 = w1_stag*(1.0-CHF_ID(1,idir)) - CHF_ID(1,idir)*sign(idir);
+                         w20 = w2*(1.0-CHF_ID(2,idir)) - CHF_ID(2,idir)*sign(idir) ]
+              weight = CHF_DTERM[w00;*w10;*w20]
+              dBpy(idir) = dBpy(idir) + weight*By(CHF_IX[ii; jj_stag; kk])/two/dx(idir)
+            
+              CHF_DTERM[ w00 = w0*(1.0-CHF_ID(0,idir)) - CHF_ID(0,idir)*sign(idir);
+                         w10 = w1*(1.0-CHF_ID(1,idir)) - CHF_ID(1,idir)*sign(idir);
+                         w20 = w2_stag*(1.0-CHF_ID(2,idir)) - CHF_ID(2,idir)*sign(idir) ]
+              weight = CHF_DTERM[w00;*w10;*w20]
+              dBpz(idir) = dBpz(idir) + weight*Bz(CHF_IX[ii; jj; kk_stag])/two/dx(idir)
+            enddo
+
+      CHF_DTERM[
+          enddo;
+        enddo;
+      enddo]
+
+      end
+

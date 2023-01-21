@@ -23,8 +23,8 @@ class SpecialOperator
    
       virtual ~SpecialOperator() {;}
 
-      virtual void applyOp( PicSpecies&  a_picSpecies,
-                      const Real&        a_dt ) const = 0;
+      virtual void applyOp( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                      const Real&               a_dt ) const = 0;
 
       virtual void updateOp( const Real&  a_dt ) = 0;
       

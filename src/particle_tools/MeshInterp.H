@@ -38,13 +38,20 @@ public:
 
   /// Full constructor 
   MeshInterp(const Box&  a_domain,
+             const int a_ghosts,
              const RealVect& a_dx,
-             const RealVect& m_domainLeftEdge);
+             const RealVect& a_domainLeftEdge,
+             const RealVect& a_domainRightEdge);
 
   /// Define function 
   void define(const Box&  a_domain,
+              const int a_ghosts,
               const RealVect& a_dx,
-              const RealVect& m_domainLeftEdge);
+              const RealVect& a_domainLeftEdge,
+              const RealVect& a_domainRightEdge);
+
+  void setBCcheckLo( const IntVect a_bc_check_lo ) {m_bc_check_lo = a_bc_check_lo;}
+  void setBCcheckHi( const IntVect a_bc_check_hi ) {m_bc_check_hi = a_bc_check_hi;}
 
   /// Deposit the particles in a_particleList onto a_rho.
   /// The type of interpolation to perform is passed in as an argument.
@@ -71,9 +78,11 @@ public:
                             FArrayBox&   a_sigma_zy,
                             FArrayBox&   a_sigma_zz,
                             FArrayBox&   a_Jx,
-                            FArrayBox&   a_Jv,
+                            FArrayBox&   a_Jy,
+                            FArrayBox&   a_Jz,
                       const FArrayBox&   a_Bx,
-                      const FArrayBox&   a_Bv,
+                      const FArrayBox&   a_By,
+                      const FArrayBox&   a_Bz,
                       const int          a_qs,
                       const Real         a_alphas,
                       const List<P>&     a_particleList,
@@ -103,6 +112,17 @@ public:
                             const FArrayBox&   a_Bx,
                             const FArrayBox&   a_By,
                             const FArrayBox&   a_Bz,
+                            const InterpType&  a_interpType,
+                            const int          a_blank_B=0 ) const;
+  
+  template <class P>
+  void interpolateEMfieldsToPart( P&           a_particle,
+                            const FArrayBox&   a_Ex,
+                            const FArrayBox&   a_Ey,
+                            const FArrayBox&   a_Ez,
+                            const FArrayBox&   a_Bx,
+                            const FArrayBox&   a_By,
+                            const FArrayBox&   a_Bz,
                             const InterpType&  a_interpType ) const;
   
   template <class P>
@@ -126,6 +146,22 @@ public:
                           const InterpType&  a_interpType,
                           const int          a_comp=0 ) const;
   
+  template <class P>
+  void getFieldDerivativesAtPart( RealVect&    a_dExdy,
+                                  RealVect&    a_dEydy,
+                                  RealVect&    a_dEzdy,
+                                  RealVect&    a_dBxdy,
+                                  RealVect&    a_dBydy,
+                                  RealVect&    a_dBzdy,
+                            const P&           a_particle,
+                            const FArrayBox&   a_Ex,
+                            const FArrayBox&   a_Ey,
+                            const FArrayBox&   a_Ez,
+                            const FArrayBox&   a_Bx,
+                            const FArrayBox&   a_By,
+                            const FArrayBox&   a_Bz,
+                            const InterpType&  a_interpType ) const;
+  
   //
   //
   //
@@ -148,6 +184,26 @@ public:
   //
   //
   //
+  
+  template <class P>
+  void depositInflowCurrent( FArrayBox&   a_rhoVx,
+                             FArrayBox&   a_rhoVy,
+                             FArrayBox&   a_rhoVz,
+                       const List<P>&     a_particleList,
+                       const int          a_bdry_dir, 
+                       const int          a_bdry_side,
+                       const Real         a_cnormDt ) const;
+
+  template <class P>
+  void interpolateEMfieldsToInflowParts( List<P>&     a_particleList,
+                                   const int          a_bdry_dir, 
+                                   const int          a_bdry_side,
+                                   const FArrayBox&   a_Ex,
+                                   const FArrayBox&   a_Ey,
+                                   const FArrayBox&   a_Ez,
+                                   const FArrayBox&   a_Bx,
+                                   const FArrayBox&   a_By,
+                                   const FArrayBox&   a_Bz ) const;
   
   template <class P>
   void depositCurrent_testing( FArrayBox&   a_rhoVx,
@@ -281,8 +337,12 @@ private:
                          const int          a_comp ) const;
   
   Box m_domain;
+  int m_ghosts;
   RealVect m_dx;
   RealVect m_domainLeftEdge;
+  RealVect m_domainRightEdge;
+  IntVect m_bc_check_lo;
+  IntVect m_bc_check_hi;
 };
 
 #include "NamespaceFooter.H"

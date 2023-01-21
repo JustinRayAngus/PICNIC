@@ -1,0 +1,257 @@
+#TEST np=8, timelimit=00:05:00
+#####################################################
+# Verbosity Definitions
+#####################################################
+simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
+
+###   some fundamental parameters for
+###   Ne = Ni = 1.0e17/m^3, Ue = +/-0.2Cvac:
+###   1/wpe0 = 5.6054e-11 s
+###   de0 = cvac/wpe0 = 1.6805e-2 m
+###   kV = 2*pi/2.053*0.2; % Markidis 2011
+###   gamma = 0.453927 (X 2 for growth of field energy)
+
+###   dispersion in heavy ion mass limit:
+###   1/(w-kV)^2 + 1/(w+kV)^2 = 1
+###   solution:
+###   wsq_pl = (1 + kV^2) + sqrt(1 + 4*kV^2);
+###   wsq_mi = (1 + kV^2) - sqrt(1 + 4*kV^2);
+###   w_pl = sqrt(w_sq_pl); % units of wp0
+###   w_mi = sqrt(w_sq_mi)  % units of wp0
+
+#system.advance_method = "PIC_EM_EXPLICIT"
+
+system.advance_method = "PIC_EM_SEMI_IMPLICIT"
+picard.atol = 1.0e-36
+picard.maxits = 5
+
+#system.advance_method = "PIC_EM_THETA_IMPLICIT"
+
+#pic_species.iter_max_particles = 11
+#pic_species.quasi_freeze_particles_jacobian = true
+#pic_species.use_mass_matrices = true
+#pic_species.mod_init_advance = true
+
+#pic_em_theta_implicit.solver_type = "petsc"
+
+#newton.verbose = false
+#newton.atol = 1.0e-12
+#newton.rtol = 1.0e-8
+#newton.maxits = 100
+
+#gmres.verbose = false
+#gmres.atol = 1.0e-12
+#gmres.rtol = 1.0e-4
+#gmres.maxits = 1000
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 1
+simulation.max_step            = 100000
+simulation.max_time            = 30.0
+simulation.fixed_dt            = 0.01
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 3.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 20
+
+history.precision = 8
+history.field_probes = true
+history.solver_probes = true
+history.species_solver_probes = true
+history.species0_probes = true
+history.species1_probes = true
+
+simulation.checkpoint_time_interval = 5000.0
+#simulation.restart_file = "checkpoint_data/chk161000.1d.hdf5"
+simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 64
+grid.is_periodic   = 1
+grid.config_decomp = 8
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.0
+grid.X_max = 2.053 
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 1.6805e-2  # m (skin depth)
+units.time           = 5.6054e-11 # s (1/wpe)
+
+#####################################################
+# Fields Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = true
+#em_fields.advance_electric_field = 1 0 0
+#em_fields.advance_magnetic_field = 0 0 0
+em_fields.write_rho = true
+em_fields.write_divs = true
+em_fields.write_curls = true
+
+#  Poisson solver
+em_fields.enforce_gauss_startup = true
+
+poisson.ref_ratio = 1       # not being used... I think
+poisson.max_grid_size = 64  # sets size of boxes if using default box setting
+poisson.block_factor = 64   # all boxes will be coarsenable by this factor
+
+poisson.use_eb_grids = true # will use 1 box only for solver
+#poisson.read_in_grids = true # will setup boxes based on that below
+#poisson.level_0_box_count = 2
+#poisson.level_0_box_0_lo  = 0
+#poisson.level_0_box_0_hi  = 255
+#poisson.level_0_box_1_lo  = 256
+#poisson.level_0_box_1_hi  = 511
+
+poisson.bc_lo = 0 0 # 0 for dirichlet 1 for neumann
+poisson.bc_hi = 0 0 # 0 for dirichlet 1 for neumann
+poisson.bc_value = 0.0 0.0
+
+poisson.num_smooth = 4   # typically 4-8
+poisson.num_mg     = 1   # only > 1 for timing check
+poisson.max_iterations = 100
+poisson.tolerance  = 1.0e-7
+poisson.norm_thresh  = 1.0e-13
+poisson.hang       = 1.0e-10
+
+# initial conditions for fields
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+#####################################################
+# Species Definitions
+#####################################################
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = false
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "CC1"
+pic_species.0.interp_type_E = "CC1"
+pic_species.0.deposit_outflow_J = true
+
+IC.electron.X_min = 0.0
+IC.electron.X_max = 2.053
+IC.electron.parts_per_cell = 100
+IC.electron.density.type = "constant"
+IC.electron.density.value = 1.0e17 # [number/m^3]
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 0.0 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 0.0 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 0.0 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 5.9958e7
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+IC_1.electron.X_min = 0.0
+IC_1.electron.X_max = 2.053
+IC_1.electron.parts_per_cell = 100
+IC_1.electron.density.type = "constant"
+IC_1.electron.density.value = 1.0e17 # [number/m^3]
+IC_1.electron.temperature_0.type = "constant"
+IC_1.electron.temperature_0.value = 0.0 # [eV]
+IC_1.electron.temperature_1.type = "constant"
+IC_1.electron.temperature_1.value = 0.0 # [eV]
+IC_1.electron.temperature_2.type = "constant"
+IC_1.electron.temperature_2.value = 0.0 # [eV]
+IC_1.electron.velocity_0.type = "constant"
+IC_1.electron.velocity_0.value = -5.9958e7
+IC_1.electron.velocity_1.type = "constant"
+IC_1.electron.velocity_1.value = 0.0
+IC_1.electron.velocity_2.type = "constant"
+IC_1.electron.velocity_2.value = 0.0
+
+#  perturb electron positions
+electron.perturb_positions = true
+electron.perturb_positions.type = "sin"
+electron.perturb_positions.amplitude = 1.0e-4
+electron.perturb_positions.mode = 1
+
+pic_species.1.name   = "ion"
+pic_species.1.mass   = 4000.0
+pic_species.1.charge = 1
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = false
+pic_species.1.interp_type_N = "TSC"
+pic_species.1.interp_type_J = "CC1"
+pic_species.1.interp_type_E = "CC1"
+pic_species.1.deposit_outflow_J = true
+
+IC.ion.X_min = 0.0
+IC.ion.X_max = 2.053
+IC.ion.parts_per_cell = 100
+IC.ion.density.type = "constant"
+IC.ion.density.value = 1.0e17 # [number/m^3]
+IC.ion.temperature_0.type = "constant"
+IC.ion.temperature_0.value = 0.0 # [eV]
+IC.ion.temperature_1.type = "constant"
+IC.ion.temperature_1.value = 0.0 # [eV]
+IC.ion.temperature_2.type = "constant"
+IC.ion.temperature_2.value = 0.0 # [eV]
+IC.ion.velocity_0.type = "constant"
+IC.ion.velocity_0.value = 0.0
+IC.ion.velocity_1.type = "constant"
+IC.ion.velocity_1.value = 0.0
+IC.ion.velocity_2.type = "constant"
+IC.ion.velocity_2.value = 0.0
+
+IC_1.ion.X_min = 0.0
+IC_1.ion.X_max = 2.053
+IC_1.ion.parts_per_cell = 100
+IC_1.ion.density.type = "constant"
+IC_1.ion.density.value = 1.0e17 # [number/m^3]
+IC_1.ion.temperature_0.type = "constant"
+IC_1.ion.temperature_0.value = 0.0 # [eV]
+IC_1.ion.temperature_1.type = "constant"
+IC_1.ion.temperature_1.value = 0.0 # [eV]
+IC_1.ion.temperature_2.type = "constant"
+IC_1.ion.temperature_2.value = 0.0 # [eV]
+IC_1.ion.velocity_0.type = "constant"
+IC_1.ion.velocity_0.value = 0.0
+IC_1.ion.velocity_1.type = "constant"
+IC_1.ion.velocity_1.value = 0.0
+IC_1.ion.velocity_2.type = "constant"
+IC_1.ion.velocity_2.value = 0.0
+
+#pic_species.pairing_init.0.name = "i-e"
+#pic_species.pairing_init.0.speciesA = 0
+#pic_species.pairing_init.0.speciesB = 1
+#pic_species.pairing_init.0.amplitude = 1.0e-3
+#pic_species.pairing_init.0.mode = 1
+
+#####################################################
+
+

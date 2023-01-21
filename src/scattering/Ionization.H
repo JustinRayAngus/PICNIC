@@ -2,7 +2,7 @@
 #define _IONIZATION_H_
 
 #include "Scattering.H"
-#include "Constants.H"
+#include "PicnicConstants.H"
 #include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"

@@ -5,7 +5,7 @@
 #include <cmath>
 #include "BoxIterator.H"
 #include "SpaceUtils.H"
-#include "Constants.H"
+#include "PicnicConstants.H"
 
 #include "NamespaceHeader.H"
 

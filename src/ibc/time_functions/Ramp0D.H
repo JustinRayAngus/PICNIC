@@ -11,16 +11,22 @@ class Ramp0D : public TimeFunction
 {
    public:
 
-      Ramp0D( const Real&  a_rise_time,
-              const Real&  a_amplitude, 
-              const int&   verbosity )
+      Ramp0D( const Real  a_rise_time,
+              const Real  a_steady_time,
+              const Real  a_fall_time,
+              const Real  a_amplitude,
+              const int   verbosity )
          : TimeFunction(verbosity), 
            m_rise_time(a_rise_time),
+           m_steady_time(a_steady_time),
+           m_fall_time(a_fall_time),
            m_amplitude(a_amplitude) {;}
 
-      Ramp0D( ParmParse& pp, const int& verbosity )
+      Ramp0D( ParmParse& pp, const int verbosity )
          : TimeFunction(verbosity), 
            m_rise_time(0.0),
+           m_steady_time(DBL_MAX),
+           m_fall_time(0.0),
            m_amplitude(0.0)
       {
          parseParameters( pp );
@@ -32,6 +38,8 @@ class Ramp0D : public TimeFunction
          if (procID()==0) {
             std::cout << "Ramp0D function parameters:" << std::endl;
             std::cout << " rise time = " << m_rise_time  << std::endl;
+            std::cout << " steady_time = " << m_steady_time  << std::endl;
+            std::cout << " fall_time = " << m_fall_time  << std::endl;
             std::cout << " amplitude = " << m_amplitude  << std::endl << std::endl;
          }
       }
@@ -41,6 +49,10 @@ class Ramp0D : public TimeFunction
       {
          a_value = a_time/m_rise_time*m_amplitude;
          a_value = std::min(a_value,m_amplitude);
+         if(a_time>m_rise_time+m_steady_time) {
+            a_value = m_amplitude*(1.0-(a_time-m_steady_time-m_rise_time)/m_fall_time);
+            a_value = std::max(a_value,0.0);
+         }
       }
 
    private:
@@ -53,12 +65,18 @@ class Ramp0D : public TimeFunction
       {
          pp.get( "rise_time", m_rise_time );
          pp.get( "amplitude", m_amplitude );
+         if(pp.contains("steady_time")) {
+            pp.get( "steady_time", m_steady_time );
+            pp.get( "fall_time", m_fall_time );
+         }
          if (m_verbosity) {
             printParameters();
          }
       }
 
       Real m_rise_time;
+      Real m_steady_time;
+      Real m_fall_time;
       Real m_amplitude;
 };
 

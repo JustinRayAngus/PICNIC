@@ -39,13 +39,27 @@ class PicardSolver : public NonlinearSolver<Vec,Ops>
       return m_is_defined;
     }
 
-    inline void setParams(  const double  a_rtol,
-                            const double  a_atol,
-                            const int     a_maxits )
+    inline void getParams( double&  a_rtol,
+                           double&  a_atol,
+                           int&     a_maxits )
     {
-      m_rtol = a_rtol;
-      m_atol = a_atol;
-      m_maxits = a_maxits;
+      a_rtol = m_rtol;
+      a_atol = m_atol;
+      a_maxits = m_maxits;
+    }
+    
+    void printParams( ) const
+    {
+       if(procID()>0) return;
+       cout << " Picard solver parameters: " << endl;
+       cout << "   atol   = " << m_atol << endl;
+       cout << "   rtol   = " << m_rtol << endl;
+       cout << "   maxits = " << m_maxits << endl;
+    }
+
+    virtual void verbose( const bool  a_verbose ) 
+    { 
+       m_verbose = a_verbose;
     }
 
     inline void numBlocks(const int a_n)
@@ -56,6 +70,7 @@ class PicardSolver : public NonlinearSolver<Vec,Ops>
   protected:
 
     bool m_is_defined;
+    bool m_verbose;
 
     int m_num_blocks;
 
@@ -71,6 +86,8 @@ class PicardSolver : public NonlinearSolver<Vec,Ops>
 
   private:
 
+    void parseParameters( ParmParse& );
+
 };
 
 template <class Vec, class Ops>
@@ -85,6 +102,10 @@ void PicardSolver<Vec,Ops>::define( const Vec&    a_U,
   m_rtol = 1e-6;
   m_atol = 1e-12;
   m_maxits = 11;
+  m_verbose = true;
+  
+  ParmParse pppicard ( "picard" );
+  parseParameters( pppicard );
 
   m_Uold.define(a_U);
   m_F.define(a_U);
@@ -93,6 +114,15 @@ void PicardSolver<Vec,Ops>::define( const Vec&    a_U,
   m_dtfac = a_dtfac;
 
   m_is_defined = true;
+}
+
+template <class Vec, class Ops>
+void PicardSolver<Vec,Ops>::parseParameters( ParmParse& a_pp )
+{
+  a_pp.query("verbose", m_verbose); /* verbosity */
+  a_pp.query("atol",    m_atol);    /* absolute tolerance */
+  a_pp.query("rtol",    m_rtol);    /* relative tolerance */
+  a_pp.query("maxits",  m_maxits);  /* maximum iterations */
 }
 
 template <class Vec, class Ops>
@@ -108,7 +138,7 @@ void PicardSolver<Vec,Ops>::solve(  Vec&          a_U,
 
     m_Uold = a_U;
 
-    m_ops->preRHSOp( a_U, a_dt);
+    m_ops->preRHSOp( a_U, a_dt, iter);
 
     m_F = 0;
     for (int i(0); i < m_num_blocks; i++) {
@@ -125,14 +155,14 @@ void PicardSolver<Vec,Ops>::solve(  Vec&          a_U,
       else            m_norm0 = 1.0;
     }
 
-    if (!procID()) {
+    if (m_verbose && (!procID())) {
       printf( "  (%s) iter = %3d ", _NLSOLVER_PICARD_, iter );
       printf( "norm: %1.4e (abs.), %1.4e (rel.)\n", 
               m_norm, m_norm/m_norm0 );
     }
 
     if (m_norm < m_atol) {
-      if (!procID()) {
+      if (m_verbose && (!procID())) {
         printf("  exiting: satisfied absolute tolerance (%1.3e).\n", 
                m_atol);
       }
@@ -140,7 +170,7 @@ void PicardSolver<Vec,Ops>::solve(  Vec&          a_U,
     }
 
     if (m_norm/m_norm0 < m_rtol) {
-      if (!procID()) {
+      if (m_verbose && (!procID())) {
         printf("  exiting: satisfied relative tolerance (%1.3e).\n", 
                m_rtol);
       }
@@ -148,7 +178,7 @@ void PicardSolver<Vec,Ops>::solve(  Vec&          a_U,
     }
 
     if ( iter >= m_maxits ) {
-      if (!procID()) {
+      if (m_verbose && (!procID())) {
         printf("  exiting: iterations exceed max iterations (%d).\n", 
                m_maxits);
       }

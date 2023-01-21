@@ -189,6 +189,16 @@ void Simulation::loadRestartFile( ParmParse& a_ppsim )
    a_ppsim.query( "restart_file", m_restart_file_name );
 
    if(!procID()) cout << "Reading restart file " << m_restart_file_name << endl;
+   
+   ifstream f(m_restart_file_name.c_str());
+   if(!f.good()) {
+      if(!procID()) { 
+         cout << "EXIT FAILURE!!!" << endl;
+         cout << "restart file = " << m_restart_file_name;
+         cout << " not found" << endl << endl;
+      }
+      exit(EXIT_FAILURE);
+   }
 
 #ifdef CH_USE_HDF5
    HDF5Handle handle( m_restart_file_name, HDF5Handle::OPEN_RDONLY );
@@ -239,6 +249,13 @@ inline void Simulation::writeHistFile(bool startup_flag)
 
 void Simulation::writeCheckpointFile()
 {
+
+   // need to write history at checkpoint time in order
+   // for certain cummulative probes to be correct on restart
+   if(m_history && m_last_history!=m_cur_step) {
+      writeHistFile(false);
+      m_last_history = m_cur_step;
+   }
 
    std::string chk_dir("checkpoint_data");
 #ifdef CH_MPI
@@ -362,7 +379,7 @@ void Simulation::advance()
    if(!procID() && ((m_cur_step+1) % cout_step_interval)==0 ) {
       cout << endl << "Step " << m_cur_step+1 << ", dt = " << m_cur_dt << endl;
    }
-   m_system->advance( m_cur_time, m_cur_dt, m_cur_step );
+   m_system->timeStep( m_cur_time, m_cur_dt, m_cur_step );
    postTimeStep();
 
    clock_t m_now = clock();

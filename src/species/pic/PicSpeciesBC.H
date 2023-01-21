@@ -8,6 +8,8 @@
 #include "ParticleBC.H"
 #include "InflowBC.H"
 
+#include "MeshInterp.H"
+
 #include "NamespaceHeader.H"
 
 class PicSpeciesBC
@@ -34,13 +36,53 @@ class PicSpeciesBC
    void applyToRho( LevelData<NodeFArrayBox>&  a_Rho );
    
    void removeOutflowParticles();
+
+   void zeroDeltas();
+  
+   const RealVect& getDeltaMassOut_lo() const { return m_delta_MassOut_lo; }
+   const RealVect& getDeltaMassOut_hi() const { return m_delta_MassOut_hi; }
+   const RealVect& getDeltaMomXOut_lo() const { return m_delta_MomXOut_lo; }
+   const RealVect& getDeltaMomXOut_hi() const { return m_delta_MomXOut_hi; }
+   const RealVect& getDeltaMomYOut_lo() const { return m_delta_MomYOut_lo; }
+   const RealVect& getDeltaMomYOut_hi() const { return m_delta_MomYOut_hi; }
+   const RealVect& getDeltaMomZOut_lo() const { return m_delta_MomZOut_lo; }
+   const RealVect& getDeltaMomZOut_hi() const { return m_delta_MomZOut_hi; }
+   const RealVect& getDeltaEnergyOut_lo() const { return m_delta_EnergyOut_lo; }
+   const RealVect& getDeltaEnergyOut_hi() const { return m_delta_EnergyOut_hi; }
    
-   void repositionInflowParticles( ParticleData<JustinsParticle>&  a_data );
+   const RealVect& getDeltaMassIn_lo() const { return m_delta_MassIn_lo; }
+   const RealVect& getDeltaMassIn_hi() const { return m_delta_MassIn_hi; }
+   const RealVect& getDeltaMomXIn_lo() const { return m_delta_MomXIn_lo; }
+   const RealVect& getDeltaMomXIn_hi() const { return m_delta_MomXIn_hi; }
+   const RealVect& getDeltaMomYIn_lo() const { return m_delta_MomYIn_lo; }
+   const RealVect& getDeltaMomYIn_hi() const { return m_delta_MomYIn_hi; }
+   const RealVect& getDeltaMomZIn_lo() const { return m_delta_MomZIn_lo; }
+   const RealVect& getDeltaMomZIn_hi() const { return m_delta_MomZIn_hi; }
+   const RealVect& getDeltaEnergyIn_lo() const { return m_delta_EnergyIn_lo; }
+   const RealVect& getDeltaEnergyIn_hi() const { return m_delta_EnergyIn_hi; }
+  
+   const IntVect& getIsOutflowBC_lo() const { return m_isOutflowBC_lo; }
+   const IntVect& getIsOutflowBC_hi() const { return m_isOutflowBC_hi; }
    
+   Vector<List<JustinsParticle>>& getInflowListVect() {return m_inflow_list_vector;}
+ 
    void repositionOutflowParticles( List<JustinsParticle>&  a_outcast_list );
+
+   void depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_J_inPlane,
+                               LevelData<NodeFArrayBox>&  a_J_virtual, 
+                         const MeshInterp&                a_meshInterp, 
+                         const InterpType                 a_interpJToGrid );
+   
+   void depositInflowJ( LevelData<EdgeDataBox>&    a_J_inPlane,
+                        LevelData<NodeFArrayBox>&  a_J_virtual, 
+                  const MeshInterp&                a_meshInterp, 
+                  const Real                       a_cnormDt );
    
    void createInflowParticles( const Real&  a_time,
-                               const Real&  a_cnormDt );
+                               const Real&  a_cnormDt,
+                               const ParticleData<JustinsParticle>&  a_data );
+   
+   void injectInflowParticles( ParticleData<JustinsParticle>&  a_data );
       
    protected:
   
@@ -48,22 +90,6 @@ class PicSpeciesBC
                       const int&      a_dir,
                       const Real&     a_leftEdge,
                       const Real&     a_rightEdge );
-      
-      void applyBC_Lo( List<JustinsParticle>&  a_list,
-                       List<JustinsParticle>&  a_inflow_list,
-                       List<JustinsParticle>&  a_outflow_list,
-                 const std::string&            a_bc_type,
-                 const int&                    a_dir,
-                 const Real&                   a_leftEdge,
-                 const bool&                   a_intermediate_advance );
-      
-      void applyBC_Hi( List<JustinsParticle>&  a_list,
-                       List<JustinsParticle>&  a_inflow_list,
-                       List<JustinsParticle>&  a_outflow_list,
-                 const std::string&            a_bc_type,
-                 const int&                    a_dir,
-                 const Real&                   a_rightEdge,
-                 const bool&                   a_intermediate_advance );
       
       void axis( List<JustinsParticle>&  a_list,
            const int                     a_dir );
@@ -99,12 +125,12 @@ class PicSpeciesBC
                 const bool&                   a_intermediate_advance );
       
       void remove_Lo( List<JustinsParticle>&  a_list,
-                const int&                    a_dir,
-                const Real&                   a_leftEdge );
+                const int                     a_dir,
+                const Real                    a_leftEdge );
       
       void remove_Hi( List<JustinsParticle>&  a_list,
-                const int&                    a_dir,
-                const Real&                   a_rightEdge );
+                const int                     a_dir,
+                const Real                    a_rightEdge );
       
       Vector<std::string> m_bdry_name;
       Vector<std::string> m_bc_type;
@@ -122,6 +148,32 @@ class PicSpeciesBC
 
       Vector<List<JustinsParticle>>  m_outflow_list_vector;
       Vector<List<JustinsParticle>>  m_inflow_list_vector;
+  
+      // boundary probes used for diagnostics
+      RealVect m_delta_MassOut_lo;   // delta mass of outflow particles at lo side 
+      RealVect m_delta_MassOut_hi;   // delta mass of outflow particles at hi side
+      RealVect m_delta_MomXOut_lo;   // delta X-momentum of outflow particles at lo side 
+      RealVect m_delta_MomXOut_hi;   // delta X-momentum of outflow particles at hi side
+      RealVect m_delta_MomYOut_lo;   // delta Y-momentum of outflow particles at lo side 
+      RealVect m_delta_MomYOut_hi;   // delta Y-momentum of outflow particles at hi side
+      RealVect m_delta_MomZOut_lo;   // delta Z-momentum of outflow particles at lo side 
+      RealVect m_delta_MomZOut_hi;   // delta Z-momentum of outflow particles at hi side
+      RealVect m_delta_EnergyOut_lo; // delta energy of outflow particles at lo side 
+      RealVect m_delta_EnergyOut_hi; // delta energy of outflow particles at hi side
+      // 
+      RealVect m_delta_MassIn_lo;   // delta mass of inflow particles at lo side 
+      RealVect m_delta_MassIn_hi;   // delta mass of inflow particles at hi side
+      RealVect m_delta_MomXIn_lo;   // delta X-momentum of inflow particles at lo side 
+      RealVect m_delta_MomXIn_hi;   // delta X-momentum of inflow particles at hi side
+      RealVect m_delta_MomYIn_lo;   // delta Y-momentum of inflow particles at lo side 
+      RealVect m_delta_MomYIn_hi;   // delta Y-momentum of inflow particles at hi side
+      RealVect m_delta_MomZIn_lo;   // delta Z-momentum of inflow particles at lo side 
+      RealVect m_delta_MomZIn_hi;   // delta Z-momentum of inflow particles at hi side
+      RealVect m_delta_EnergyIn_lo; // delta energy of inflow particles at lo side 
+      RealVect m_delta_EnergyIn_hi; // delta energy of outflow particles at hi side
+
+      IntVect m_isOutflowBC_lo = IntVect::Zero;
+      IntVect m_isOutflowBC_hi = IntVect::Zero;     
 
       InflowBCPtrVect m_inflow_bc_ptr_vect;
 

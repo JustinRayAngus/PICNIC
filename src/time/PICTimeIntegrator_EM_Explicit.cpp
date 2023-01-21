@@ -3,7 +3,7 @@
 
 #include "NamespaceHeader.H"
 
-void PICTimeIntegrator_EM_Explicit::initialize()
+void PICTimeIntegrator_EM_Explicit::initialize( const std::string&  a_restart_file_name )
 {
   m_system->copyEToVec( m_E );
   m_system->copyBToVec( m_B );
@@ -46,10 +46,29 @@ void PICTimeIntegrator_EM_Explicit::preTimeStep(  const Real a_time,
       this_picSpecies->advancePositions_2ndHalf();
     }
     this_picSpecies->applyBCs( false );
+    this_picSpecies->removeOutflowParticles(); // needed here for method used to achieve charge
+                                               // conservation with outflow particles. Outflow parts
+                                               // created here are those that have xpbar from last 
+                                               // timeStep inside the physical domain and thus they 
+                                               // are retained in the main particle list and their current
+                                               // is deposited correctly. If we do not remove them here,
+                                               // then their current will contribute during the 
+                                               // next timeStep() via the deposit from the outflow list,
+                                               // which should only contain particles with xpbar outside
+                                               // the physical domain created during the half advance.
   }
 
   m_Eold = m_E;
   m_Bold = m_B;
+  
+  // update old particle values and create inflow particles  
+  for (int s=0; s<m_particles.size(); s++) {
+    auto this_picSpecies(m_particles[s]);
+    this_picSpecies->updateOldParticlePositions();
+    this_picSpecies->updateOldParticleVelocities();
+    this_picSpecies->createInflowParticles( a_time, a_dt );
+    //this_picSpecies->injectInflowParticles();
+  }
 
   return;
 }
@@ -124,7 +143,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
     // compute current density at t_{n+1} and 
     // advance E from t_{n+1/2} to t_{n+1} using B_{n+1} and J_{n+1}
     if(m_fields->usePoisson()) m_system->setChargeDensity();
-    if(m_fields->advanceE()) m_system->setCurrentDensity();
+    if(m_fields->advanceE()) m_system->setCurrentDensity( true );
     m_system->computeRHS( m_FE, m_B, a_time, halfDt, e_only );
     m_E = m_Eold + m_FE;
     m_system->updatePhysicalState( m_E, a_time, e_only );

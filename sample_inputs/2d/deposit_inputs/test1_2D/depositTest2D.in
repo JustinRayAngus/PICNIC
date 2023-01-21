@@ -2,8 +2,8 @@
 # Verbosity and writing Definitions
 #####################################################
 simulation.verbosity = 10
-system.write_species_charge_density = true
-system.write_species_current_density = true
+pic_species.write_species_charge_density = true
+pic_species.write_species_current_density = true
 
 #####################################################
 # Time Stepping Definitions

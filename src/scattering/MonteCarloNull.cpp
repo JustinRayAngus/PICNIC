@@ -1,6 +1,5 @@
 
 #include "MonteCarloNull.H"
-#include "Constants.H"
 #include "MathUtils.H"
 #include "PicSpecies.H"
 #include "JustinsParticle.H"
@@ -111,7 +110,7 @@ void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
    for (int n=0; n<m_num_dis; n++) {
       int spc1 = m_dis_species1[n];
       int spc2 = m_dis_species2[n];
-      if (spc1<1 || spc2<2) continue;
+      if (spc1<0 || spc2<0) continue;
       PicSpeciesPtr dis_species1(a_picSpeciesPtrVect[spc1]);
       PicSpeciesPtr dis_species2(a_picSpeciesPtrVect[spc2]);
       Real this_mass1 = dis_species1->mass();

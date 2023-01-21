@@ -15,21 +15,33 @@ MeshInterp::MeshInterp()
 {}
 
 MeshInterp::MeshInterp(const Box&  a_domain,
+                       const int  a_ghosts,
                        const RealVect& a_dx,
-                       const RealVect& a_domainLeftEdge)
+                       const RealVect& a_domainLeftEdge,
+                       const RealVect& a_domainRightEdge)
 {
   m_domain = a_domain;
   m_domainLeftEdge = a_domainLeftEdge;
+  m_domainRightEdge = a_domainRightEdge;
+  m_ghosts = a_ghosts;
   m_dx = a_dx;
+  m_bc_check_lo = IntVect::Zero;
+  m_bc_check_hi = IntVect::Zero;
 }
 
 void MeshInterp::define(const Box&  a_domain,
+                        const int  a_ghosts,
                         const RealVect& a_dx,
-                        const RealVect& a_domainLeftEdge)
+                        const RealVect& a_domainLeftEdge,
+                        const RealVect& a_domainRightEdge)
 {
   m_domain = a_domain;
   m_domainLeftEdge = a_domainLeftEdge;
+  m_domainRightEdge = a_domainRightEdge;
+  m_ghosts = a_ghosts;
   m_dx = a_dx;
+  m_bc_check_lo = IntVect::Zero;
+  m_bc_check_hi = IntVect::Zero;
 }
 
 void MeshInterp::depositParticle( FArrayBox&   a_rho,

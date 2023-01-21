@@ -2,7 +2,8 @@
 #define _PIC_TIME_INTEGRATOR_DSMC_H_
 
 #include "PICTimeIntegrator.H"
-#define PIC_DSMC "DSMC"
+
+#define PIC_DSMC "PIC_DSMC"
 
 #include "NamespaceHeader.H"
 
@@ -29,15 +30,27 @@ class PICTimeIntegrator_DSMC : public PICTimeIntegrator
       m_system = a_sys;
       m_particles = a_particles;
 
+      printParams();
+
       m_is_defined = true;
     }
 
     inline virtual 
     bool isDefined() const { return m_is_defined; }
+    
+    virtual void printParams() const 
+    {
+       if(procID()>0) return;
+       cout << "================== Time Solver ==================" << endl;
+       cout << "advance method = PIC_DSMC" << endl;
+       cout << "=================================================" << endl;
+       cout << endl;
+    }
 
     inline virtual 
     PICTIType type() const { return PIC_DSMC; }
 
+    virtual void preTimeStep( const Real, const Real, const int );
     virtual void timeStep( const Real, const Real, const int );
 
   protected:

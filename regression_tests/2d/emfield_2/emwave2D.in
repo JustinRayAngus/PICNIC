@@ -3,8 +3,8 @@
 # Verbosity and writing Definitions
 #####################################################
 simulation.verbosity = 10
-system.write_species_charge_density = false
-system.write_species_current_density = false
+pic_species.write_species_charge_density = false
+pic_species.write_species_current_density = false
 
 system.advance_method = "PIC_EM_EXPLICIT"
 

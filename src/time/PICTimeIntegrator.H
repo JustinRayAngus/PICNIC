@@ -24,7 +24,7 @@ class PICTimeIntegrator
                          const PicSpeciesPtrVect&, 
                          ElectroMagneticFields* const ) = 0;
 
-    virtual void initialize() { }
+    virtual void initialize( const std::string&  a_restart_file_name ) { }
     
     virtual int prepForCheckpoint() const { return 0; }
 
@@ -38,7 +38,7 @@ class PICTimeIntegrator
 
     virtual bool isDefined() const = 0;
 
-    virtual void setSolverParams( const Real, const Real, const int ) { }
+    virtual void printParams() const = 0;
     
     virtual void getConvergenceParams( int&   a_l_exit_status,
                                        int&   a_l_last_iter, 

@@ -11,7 +11,7 @@
 #include "Particle.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
-#include "PicSpecies.H"
+#include "PicSpeciesInterface.H"
 #include "BinFab.H"
 #include "LevelData.H"
 #include "FArrayBox.H"
@@ -40,6 +40,9 @@ class dataFileIO
       ~dataFileIO() {;}
       
       void writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
+#ifdef MASS_MATRIX_TEST
+                                               const PicSpeciesInterface&    a_pic_species,
+#endif
                                                const int                     a_cur_step, 
                                                const double                  a_cur_time );
       
@@ -49,10 +52,13 @@ class dataFileIO
       void writeEMFields_old( HDF5Handle&             a_handle,
                         const ElectroMagneticFields&  a_emfield );
       
+      void writeMassMatrices( HDF5Handle&           a_handle,
+                        const PicSpeciesInterface&  a_pic_species );
+      
 #ifdef MASS_MATRIX_TEST
-      void writeEMmassMatrices( const ElectroMagneticFields&  a_emfield,
-                                HDF5Handle&                   a_handle,
-                                HDF5HeaderData&               a_header );
+      void writeMassMatricesTest( HDF5Handle&           a_handle,
+                                  HDF5HeaderData&       a_header,
+                            const PicSpeciesInterface&  a_pic_species );
 #endif 
      
       void writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
@@ -74,6 +80,10 @@ class dataFileIO
       void writeEMFieldPotential( const ElectroMagneticFields&  a_emfield,
                                   HDF5Handle&                   a_handle,
                                   HDF5HeaderData&               a_header );
+      
+      void writePicSpecies( const PicSpeciesInterface&  a_pic_species,
+                            const int                   a_cur_step,
+                            const double                a_cur_time );
       
       void writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                         const int          a_species, 
@@ -106,6 +116,9 @@ class dataFileIO
       void writeCheckpointEMFields( HDF5Handle&             a_handle,
                               const int                     a_write_old_data,
                               const ElectroMagneticFields&  a_emfield );
+      
+      void writeCheckpointPicSpecies( HDF5Handle&           a_handle,
+                                const PicSpeciesInterface&  a_pic_species );
       
       void writeCheckpointParticles( HDF5Handle&  a_handle,
                                const PicSpecies&  a_picSpecies,

@@ -47,10 +47,23 @@ class NewtonSolver : public NonlinearSolver<Vec, Ops>
       return m_is_Defined; 
     }
 
-    void setParams( const double, 
-                    const double, 
-                    const int )
+    inline void getParams( double&  a_rtol,
+                           double&  a_atol,
+                           int&     a_maxits )
     {
+      a_rtol = m_rtol;
+      a_atol = m_atol;
+      a_maxits = m_maxits;
+    }
+    
+    void printParams( ) const
+    {
+       if(procID()>0) return;
+       cout << " Newton solver parameters: " << endl;
+       cout << "   atol   = " << m_atol << endl;
+       cout << "   rtol   = " << m_rtol << endl;
+       cout << "   stol   = " << m_stol << endl;
+       cout << "   maxits = " << m_maxits << endl;
     }
     
     virtual void verbose( const bool  a_verbose ) 
@@ -146,6 +159,7 @@ void NewtonSolver<Vec,Ops>::parseParameters( ParmParse& a_pp )
   a_pp.query("verbose", m_verbose); /* verbosity */
   a_pp.query("atol",    m_atol);    /* absolute tolerance */
   a_pp.query("rtol",    m_rtol);    /* relative tolerance */
+  a_pp.query("stol",    m_stol);    /* step tolerance */
   a_pp.query("maxits",  m_maxits);  /* maximum iterations */
 }
 

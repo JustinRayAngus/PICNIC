@@ -1,5 +1,5 @@
-#ifndef _CONSTANTS_H_
-#define _CONSTANTS_H_
+#ifndef _PicnicConstants_H_
+#define _PicnicConstants_H_
 
 #include <cmath>
 

@@ -15,6 +15,7 @@
 #include <typeinfo>
 #include <cstdio>
 #include <cmath>
+#include <array>
 
 #include "BinItem.H"
 #include "NamespaceHeader.H"

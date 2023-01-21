@@ -1,5 +1,5 @@
 #include "CodeUnits.H"
-#include "Constants.H"
+#include "PicnicConstants.H"
 #include <assert.h>
 
 #include "NamespaceHeader.H"
@@ -47,19 +47,19 @@ CodeUnits::CodeUnits( ParmParse& a_parm_parse,
 
 }
 
-void CodeUnits::printParameters( const int a_procID) const
+void CodeUnits::printParameters() const
 {
-   if(!a_procID) {
-      cout << "====================== Fundamental Code Units ======================" << endl;
-      cout << "  NUMBER_DENISTY [1/m^3]: " << m_scale[NUMBER_DENSITY] << endl;
-      cout << "  TEMPERATURE       [eV]: " << m_scale[TEMPERATURE] << endl;
-      cout << "  LENGTH             [m]: " << m_scale[LENGTH]      << endl;
-      cout << "  TIME               [s]: " << m_scale[TIME]        << endl;
-      cout << "  ELECTRIC_FIELD   [V/m]: " << m_scale[ELECTRIC_FIELD] << endl;
-      cout << "  MAGNETIC_FIELD     [T]: " << m_scale[MAGNETIC_FIELD] << endl;
-      cout << "====================================================================" << endl;
-      cout << endl;
-   }
+   if(procID()>0) return;
+   cout << "====================== Fundamental Code Units ======================" << endl;
+   cout << "  NUMBER_DENISTY [1/m^3]: " << m_scale[NUMBER_DENSITY] << endl;
+   cout << "  TEMPERATURE       [eV]: " << m_scale[TEMPERATURE] << endl;
+   cout << "  LENGTH             [m]: " << m_scale[LENGTH]      << endl;
+   cout << "  TIME               [s]: " << m_scale[TIME]        << endl;
+   cout << "  ELECTRIC_FIELD   [V/m]: " << m_scale[ELECTRIC_FIELD] << endl;
+   cout << "  MAGNETIC_FIELD     [T]: " << m_scale[MAGNETIC_FIELD] << endl;
+   cout << "====================================================================" << endl;
+   cout << endl;
+
 }
 
 #include "NamespaceFooter.H"

@@ -2,6 +2,7 @@
 #define _SCATTERINGUTILS_H_
 
 #include "RealVect.H"
+#include <array>
 
 #include "NamespaceHeader.H"
 

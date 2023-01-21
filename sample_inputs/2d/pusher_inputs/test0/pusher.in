@@ -11,8 +11,8 @@ simulation.verbosity = 10
 ###   rg = Ve/omega_ce = 0.0072 [m]
 
 system.advance_method = "PIC_EM_EXPLICIT"
-system.write_species_charge_density = false
-system.write_species_current_density = false
+pic_species.write_species_charge_density = false
+pic_species.write_species_current_density = false
 
 #####################################################
 # Time Stepping Definitions

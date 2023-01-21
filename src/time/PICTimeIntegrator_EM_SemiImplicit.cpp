@@ -22,11 +22,22 @@ void PICTimeIntegrator_EM_SemiImplicit::define( System* const             a_sys,
 
   m_nlsolver = new PicardSolver<ODEVector<System>, System>;
   m_nlsolver->define(m_E, m_system, nullptr, 0.5);
+  printParams();
 
   m_is_defined = true;
 }
+    
+void PICTimeIntegrator_EM_SemiImplicit::printParams() const
+{
+   if(procID()>0) return;
+   cout << "================== Time Solver ==================" << endl;
+   cout << "advance method = PIC_EM_SEMI_IMPLICIT" << endl;
+   m_nlsolver->printParams();
+   cout << "=================================================" << endl;
+   cout << endl;
+}
 
-void PICTimeIntegrator_EM_SemiImplicit::initialize()
+void PICTimeIntegrator_EM_SemiImplicit::initialize( const std::string&  a_restart_file_name )
 {
   m_system->copyEToVec( m_E );
   m_system->copyBToVec( m_B );
@@ -43,9 +54,21 @@ int PICTimeIntegrator_EM_SemiImplicit::prepForCheckpoint() const
 
 void PICTimeIntegrator_EM_SemiImplicit::preTimeStep(  const Real a_time,
                                                       const Real a_dt,
-                                                      const int )
+                                                      const int  a_step )
 {  
   CH_TIME("PICTimeIntegrator_EM_SemiImplicit::preTimeStep()");
+     
+  // update solver verbosity 
+  bool this_verbosity = false;
+  int cout_step_interval = 1;
+  if(a_step<10) cout_step_interval = 1;
+  else if(a_step<100) cout_step_interval = 10;
+  else cout_step_interval = 100;
+     
+  if( ((a_step+1) % cout_step_interval)==0 ) {
+     this_verbosity = true;
+  }
+  m_nlsolver->verbose(this_verbosity);
      
   if (a_time == 0.0) {
     m_system->computeRHS( m_FB, m_E, 0.0, a_dt, b_only );
@@ -57,6 +80,15 @@ void PICTimeIntegrator_EM_SemiImplicit::preTimeStep(  const Real a_time,
 
   m_Eold = m_E;
   m_Bold = m_B;
+   
+  // update old particle values and create inflow particles  
+  for (int s=0; s<m_particles.size(); s++) {
+    auto this_picSpecies(m_particles[s]);
+    this_picSpecies->updateOldParticlePositions();
+    this_picSpecies->updateOldParticleVelocities();
+    this_picSpecies->createInflowParticles( a_time, a_dt );
+    this_picSpecies->injectInflowParticles();
+  }
 
   return;
 }

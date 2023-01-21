@@ -7,14 +7,15 @@ simulation.verbosity = 10
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
-system.iter_max = 8
-system.iter_max_particles = 6
-system.freeze_particles_jacobian = false
+
+pic_species.iter_min_two = true
+pic_species.iter_max_particles = 6
 
 pic_em_theta_implicit.solver_type = "newton"
 
 newton.atol = 1.0e-12
 newton.rtol = 1.0e-6
+
 gmres.atol = 1.0e-12
 gmres.rtol = 1.0e-4
 
@@ -28,7 +29,7 @@ simulation.max_time            = 5.0
 #simulation.cfl_scatter         = 0.001
 simulation.fixed_dt            = 0.001
 #simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 0.50
+simulation.plot_time_interval  = 1.00
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10

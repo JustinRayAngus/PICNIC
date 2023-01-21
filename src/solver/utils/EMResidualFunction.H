@@ -94,7 +94,7 @@ void EMResidualFunction<Vec,Ops>::evalFunction( Vec&        a_F,
   CH_TIME("EMResidualFunction::evalFunction()");
   CH_assert(isDefined());
 
-  m_ops->preRHSOp( a_U, m_cur_time, m_dt, false );
+  m_ops->preRHSOp( a_U, m_cur_time, m_dt, a_its, false );
   m_ops->computeRHS( m_F, a_U, m_cur_time, m_dtfac*m_dt );
 
   /* set base Y and G(Y) for Jacobian */

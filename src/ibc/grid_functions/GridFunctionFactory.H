@@ -6,6 +6,7 @@
 #include "DomainGrid.H"
 
 #include "Cosine.H"
+#include "Heavyside.H"
 #include "Polar.H"
 #include "Bennett.H"
 #include "Constant.H"
@@ -59,6 +60,9 @@ RefCountedPtr<GridFunction> GridFunctionFactory::create(
    RefCountedPtr<GridFunction> result(NULL);
    if (model == "cosine") {
       result = RefCountedPtr<GridFunction>( new Cosine( a_pp, a_mesh, a_verbosity ) );
+   }
+   else if (model == "heavyside") {
+      result = RefCountedPtr<GridFunction>( new Heavyside( a_pp, a_mesh, a_verbosity ) );
    }
    else if (model == "polar") {
       result = RefCountedPtr<GridFunction>( new Polar( a_pp, a_verbosity ) );

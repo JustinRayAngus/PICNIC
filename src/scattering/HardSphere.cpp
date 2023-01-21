@@ -1,6 +1,5 @@
 
 #include "HardSphere.H"
-#include "Constants.H"
 #include "MathUtils.H"
 #include "PicSpecies.H"
 #include "JustinsParticle.H"

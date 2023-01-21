@@ -19,6 +19,7 @@
 #include "GridFunctionFactory.H"
 
 #include "MeshInterp.H"
+//#include "PicSpecies.H" // JRA, can't do this. Circular
 
 #include "AMRMultiGrid.H"
 #include "BiCGStabSolver.H"
@@ -49,9 +50,6 @@ public:
   
   virtual ~ElectroMagneticFields();
 
-  void initializeMassMatrices( const InterpType  a_interp_type,
-                               const bool        a_use_mass_matrices );
-
   void initialize( const Real          a_cur_time,
                    const std::string&  a_restart_file_name );
 
@@ -72,6 +70,8 @@ public:
   bool writeExB() const { return m_writeExB; }
   
   Real stableDt() const { return m_stable_dt; }
+  
+  const FieldBC& getFieldBC() const { return *m_field_bc; }  
 
   const LevelData<FluxBox>& getMagneticField() const {return m_magneticField;}
   LevelData<FluxBox>& getMagneticField() {return m_magneticField;}
@@ -112,37 +112,6 @@ public:
   LevelData<EdgeDataBox>& getCurrentDensity() {return m_currentDensity;}
   LevelData<NodeFArrayBox>& getVirtualCurrentDensity() {return m_currentDensity_virtual;}
   LevelData<NodeFArrayBox>& getChargeDensity() {return m_chargeDensity;}
-  
-  // const references to mass matrix containers
-  const LevelData<EdgeDataBox>& getJtilde() const {return m_Jtilde;}
-  const LevelData<EdgeDataBox>& getSigmaxx() const {return m_sigma_xx;}
-  const LevelData<EdgeDataBox>& getSigmaxy() const {return m_sigma_xy;}
-  const LevelData<EdgeDataBox>& getSigmaxz() const {return m_sigma_xz;}
-  const LevelData<NodeFArrayBox>& getVirtualJtilde() const {return m_Jtilde_virtual;}
-  const LevelData<NodeFArrayBox>& getSigmayx() const {return m_sigma_yx;}
-  const LevelData<NodeFArrayBox>& getSigmayy() const {return m_sigma_yy;}
-  const LevelData<NodeFArrayBox>& getSigmayz() const {return m_sigma_yz;}
-  const LevelData<NodeFArrayBox>& getSigmazx() const {return m_sigma_zx;}
-  const LevelData<NodeFArrayBox>& getSigmazy() const {return m_sigma_zy;}
-  const LevelData<NodeFArrayBox>& getSigmazz() const {return m_sigma_zz;}
-
-#ifdef MASS_MATRIX_TEST
-  const LevelData<EdgeDataBox>& getJtest() const {return m_currentDensity_TEST;}
-  const LevelData<NodeFArrayBox>& getVirtualJtest() const {return m_currentDensity_virtual_TEST;}
-#endif
-
-  // non-const references to mass matrix containers
-  LevelData<EdgeDataBox>& getJtilde() {return m_Jtilde;}
-  LevelData<EdgeDataBox>& getSigmaxx() {return m_sigma_xx;}
-  LevelData<EdgeDataBox>& getSigmaxy() {return m_sigma_xy;}
-  LevelData<EdgeDataBox>& getSigmaxz() {return m_sigma_xz;}
-  LevelData<NodeFArrayBox>& getVirtualJtilde() {return m_Jtilde_virtual;}
-  LevelData<NodeFArrayBox>& getSigmayx() {return m_sigma_yx;}
-  LevelData<NodeFArrayBox>& getSigmayy() {return m_sigma_yy;}
-  LevelData<NodeFArrayBox>& getSigmayz() {return m_sigma_yz;}
-  LevelData<NodeFArrayBox>& getSigmazx() {return m_sigma_zx;}
-  LevelData<NodeFArrayBox>& getSigmazy() {return m_sigma_zy;}
-  LevelData<NodeFArrayBox>& getSigmazz() {return m_sigma_zz;}
   
   // const reference to m_rhs_vector and m_phi_vector zero comp
   const LevelData<NodeFArrayBox>& getPotential() const {return *m_phi_vector[0];}
@@ -212,7 +181,8 @@ public:
   void setDivB();
   void setDivE();
 
-  void solvePoisson( const Real&  a_time );
+  void enforceGaussLaw( const Real  a_time );
+  void solvePoisson( const Real  a_time );
   void correctElectricField();
   
   bool advanceE() const { return m_advanceE; }
@@ -260,15 +230,20 @@ public:
   void applyBCs_electricField( const Real  a_time );
   void applyBCs_magneticField( const Real  a_time );
 
-  void assemblePrecondMatrix( BandedMatrix&, const Real );
+  void assemblePrecondMatrix( BandedMatrix&              a_banded_matrix,
+                        const bool                       a_use_mass_matrices,
+                        const LevelData<EdgeDataBox>&    a_sigma_xx,
+#if CH_SPACEDIM==1
+                        const LevelData<NodeFArrayBox>&  a_sigma_yy,
+#endif
+                        const LevelData<NodeFArrayBox>&  a_sigma_zz,
+                        const Real                       a_cnormDt );
 
   inline int numPCMatBands() const 
   {
     return m_pcmat_nbands;
   }
   
-  void computeJfromMassMatrices();
-
 private:
   
   // compute the curl of the fields 
@@ -277,6 +252,7 @@ private:
   
   const bool m_verbosity; 
   bool m_use_poisson; 
+  bool m_enforce_gauss_startup; 
   bool m_external_fields; 
   bool m_advance; 
   bool m_advanceE, m_advanceE_inPlane, m_advanceE_virtual; 
@@ -284,7 +260,6 @@ private:
   std::array<bool,3> m_advanceE_comp;
   std::array<bool,3> m_advanceB_comp;
   bool m_writeDivs, m_writeCurls, m_writeRho, m_writeExB; 
-  bool m_use_mass_matrices; 
   Real m_stable_dt;
   Real m_Jnorm_factor; // mu0*qe*cvac*Xscale/Bscale
   Real m_rhoCnorm_factor; // qe/ep0*Xscale/Escale
@@ -329,18 +304,6 @@ private:
   LevelData<EdgeDataBox> m_currentDensity;          
   LevelData<NodeFArrayBox> m_currentDensity_virtual;  // needed for 1D/2D simulations
   LevelData<NodeFArrayBox> m_chargeDensity;
-
-#ifdef MASS_MATRIX_TEST
-  LevelData<EdgeDataBox> m_currentDensity_TEST;          
-  LevelData<NodeFArrayBox> m_currentDensity_virtual_TEST;
-#endif
-  
-  // containers for semi-implicit mass matrix
-  LevelData<EdgeDataBox> m_Jtilde;
-  LevelData<EdgeDataBox> m_sigma_xx, m_sigma_xy, m_sigma_xz;
-  LevelData<NodeFArrayBox> m_Jtilde_virtual;
-  LevelData<NodeFArrayBox> m_sigma_yx, m_sigma_yy, m_sigma_yz;
-  LevelData<NodeFArrayBox> m_sigma_zx, m_sigma_zy, m_sigma_zz;
 
   // containers for curlE
   LevelData<FluxBox> m_curlE;          

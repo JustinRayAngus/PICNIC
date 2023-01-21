@@ -2,7 +2,7 @@
 #define _TAKIZUKAABE_H_
 
 #include "Scattering.H"
-#include "Constants.H"
+#include "PicnicConstants.H"
 #include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
@@ -69,7 +69,7 @@ class TakizukaAbe : public Scattering
             std::cout << "TakizukaAbe scattering parameters:" << std::endl;
             std::cout << "  species A name:      " << m_species1_name << std::endl;
             std::cout << "  species B name:      " << m_species2_name << std::endl;
-            std::cout << "  Clog =               " << m_Clog << std::endl;
+            std::cout << "  Clog =               " << m_Clog << std::endl << std::endl;
          }
       }
       

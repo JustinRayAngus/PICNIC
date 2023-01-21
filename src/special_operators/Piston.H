@@ -4,7 +4,7 @@
 #include "SpecialOperator.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
-#include "Constants.H"
+#include "PicnicConstants.H"
 
 #include "NamespaceHeader.H"
 
@@ -37,103 +37,104 @@ class Piston : public SpecialOperator
          }
       }
 
-      virtual void applyOp( PicSpecies&  a_picSpecies, 
-                      const Real&        a_dt ) const
+      virtual void applyOp( PicSpeciesPtrVect&  a_pic_species_ptr_vect, 
+                      const Real&               a_dt ) const
       {
          CH_TIME("Piston::applyOp()");
          
          const Real cnormDt = m_units.CvacNorm()*a_dt;
+      
+         for (int sp=0; sp<a_pic_species_ptr_vect.size(); sp++) {
+            PicSpeciesPtr species(a_pic_species_ptr_vect[sp]);
    
-         // This special operator does its own push, so check to make sure the species
-         // motion is turned off
-         bool pMotion = a_picSpecies.motion();
-         CH_assert(!pMotion);
+            // This special operator does its own push, so check to make sure the species
+            // motion is turned off
+            bool pMotion = species->motion();
+            CH_assert(!pMotion);
     
-         // get some Grid info
-         const ProblemDomain& domain(m_mesh.getDomain());
+            const ProblemDomain& domain(m_mesh.getDomain());
    
-         // compute domain extent and get total num parts and sim volume
-         const IntVect domainDimensions = domain.size();
-         const RealVect& Xmin(m_mesh.getXmin());
-         const RealVect& Xmax(m_mesh.getXmax());
-         const RealVect Lbox = Xmax - Xmin; 
+            // compute domain extent and get total num parts and sim volume
+            const IntVect domainDimensions = domain.size();
+            const RealVect& Xmin(m_mesh.getXmin());
+            const RealVect& Xmax(m_mesh.getXmax());
+            const RealVect Lbox = Xmax - Xmin; 
  
-         // these are used for cylindrical coords
-         Real beta_x, beta_y, x_car, y_car; 
-         int th_dir;
+            // these are used for cylindrical coords
+            Real beta_x, beta_y, x_car, y_car; 
+            int th_dir;
 
-         // Each proc loops over its own boxes
-         ParticleData<JustinsParticle>& Pdata = a_picSpecies.partData();
-         const BoxLayout& BL = Pdata.getBoxes();
-         DataIterator dit(BL);
-         const Real beta_piston = m_piston_velocity/Constants::CVAC;
-         for(dit.begin(); dit.ok(); ++dit) {
+            // Each proc loops over its own boxes
+            ParticleData<JustinsParticle>& Pdata = species->partData();
+            const BoxLayout& BL = Pdata.getBoxes();
+            DataIterator dit(BL);
+            const Real beta_piston = m_piston_velocity/Constants::CVAC;
+            for(dit.begin(); dit.ok(); ++dit) {
 
-            List<JustinsParticle>& pList = Pdata[dit].listItems();
-            ListIterator<JustinsParticle> li(pList);
-            for(li.begin(); li.ok(); ++li) {
+               List<JustinsParticle>& pList = Pdata[dit].listItems();
+               ListIterator<JustinsParticle> li(pList);
+               for(li.begin(); li.ok(); ++li) {
 
-               RealVect&  xp = li().position();
-               std::array<Real,3>&  betap = li().velocity(); // actually beta
+                  RealVect&  xp = li().position();
+                  std::array<Real,3>&  betap = li().velocity(); // actually beta
 
-               // update particle position
-               for(int dir=0; dir<SpaceDim; dir++) xp[dir] += betap[dir]*cnormDt;
+                  // update particle position
+                  for(int dir=0; dir<SpaceDim; dir++) xp[dir] += betap[dir]*cnormDt;
 
-               // correct velocity/positions for axisymmetric               
-               if(m_mesh.axisymmetric()) {
-                  th_dir = 1;
-                  if(m_mesh.anticyclic()) th_dir = 2;
-                  beta_x = betap[0];
-                  beta_y = betap[th_dir];
-                  x_car = xp[0];
-                  y_car = beta_y*cnormDt;
-                  xp[0] = sqrt(x_car*x_car + y_car*y_car);
-                  if(xp[0] > 0.0) {
-                     betap[0] =  (x_car*beta_x + y_car*beta_y)/xp[0];
-                     betap[th_dir] = (-y_car*beta_x + x_car*beta_y)/xp[0];
-                  }
-               }
-
-               // check to see if particle crosses piston boundary
-               if(xp[m_piston_dir]>=m_piston_position) { // specular reflection
-                  Real dr = xp[m_piston_dir]-m_piston_position;
-                  if(m_mesh.axisymmetric()) { // conserve angular momentum
+                  // correct velocity/positions for axisymmetric               
+                  if(m_mesh.axisymmetric()) {
                      th_dir = 1;
                      if(m_mesh.anticyclic()) th_dir = 2;
-                     Real rpold = xp[m_piston_dir];
-                     betap[th_dir] = betap[th_dir]*rpold/(rpold-dr);
-                  }
-                  xp[m_piston_dir] = m_piston_position-dr;
-                  betap[m_piston_dir] = -(betap[m_piston_dir]-beta_piston) + beta_piston;
-               }
-         
-               // set particle boundary conditions here for now
-               for(int dir=0; dir<SpaceDim; dir++) {
-                  if( domain.isPeriodic(dir) ) {
-                     if( xp[dir]<Xmin[dir] ) xp[dir] = xp[dir] + Lbox[dir];
-                     if( xp[dir]>=Xmax[dir] ) xp[dir] = xp[dir] - Lbox[dir];
-                  }
-                  else { // symmetry BCs
-                     if(xp[dir]<=Xmin[dir]) {
-                        xp[dir] = 2.*Xmin[dir] - xp[dir];
-                        betap[dir] = -betap[dir];
-                     }
-                     if(xp[dir]>=Xmax[dir]) {
-                        xp[dir] = 2.*Xmax[dir] - xp[dir];
-                        betap[dir] = -betap[dir];
+                     beta_x = betap[0];
+                     beta_y = betap[th_dir];
+                     x_car = xp[0];
+                     y_car = beta_y*cnormDt;
+                     xp[0] = sqrt(x_car*x_car + y_car*y_car);
+                     if(xp[0] > 0.0) {
+                        betap[0] =  (x_car*beta_x + y_car*beta_y)/xp[0];
+                        betap[th_dir] = (-y_car*beta_x + x_car*beta_y)/xp[0];
                      }
                   }
-               }
-               //
-               //
-               //////////////////////////////////////////////////
 
-            } // end loop over particle list
+                  // check to see if particle crosses piston boundary
+                  if(xp[m_piston_dir]>=m_piston_position) { // specular reflection
+                     Real dr = xp[m_piston_dir]-m_piston_position;
+                     if(m_mesh.axisymmetric()) { // conserve angular momentum
+                        th_dir = 1;
+                        if(m_mesh.anticyclic()) th_dir = 2;
+                        Real rpold = xp[m_piston_dir];
+                        betap[th_dir] = betap[th_dir]*rpold/(rpold-dr);
+                     }
+                     xp[m_piston_dir] = m_piston_position-dr;
+                     betap[m_piston_dir] = -(betap[m_piston_dir]-beta_piston) + beta_piston;
+                  }
+         
+                  // set particle boundary conditions here for now
+                  for(int dir=0; dir<SpaceDim; dir++) {
+                     if( domain.isPeriodic(dir) ) {
+                        if( xp[dir]<Xmin[dir] ) xp[dir] = xp[dir] + Lbox[dir];
+                        if( xp[dir]>=Xmax[dir] ) xp[dir] = xp[dir] - Lbox[dir];
+                     }
+                     else { // symmetry BCs
+                        if(xp[dir]<=Xmin[dir]) {
+                           xp[dir] = 2.*Xmin[dir] - xp[dir];
+                           betap[dir] = -betap[dir];
+                        }
+                        if(xp[dir]>=Xmax[dir]) {
+                           xp[dir] = 2.*Xmax[dir] - xp[dir];
+                           betap[dir] = -betap[dir];
+                        }
+                     }
+                  }
+
+               } // end loop over particle list
       
-         } // end loop over boxes
-         Pdata.gatherOutcast();
-         Pdata.remapOutcast();
-         CH_assert(Pdata.isClosed());
+            } // end loop over boxes
+            Pdata.gatherOutcast();
+            Pdata.remapOutcast();
+            CH_assert(Pdata.isClosed());
+
+         }
 
       }
       

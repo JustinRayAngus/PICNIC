@@ -194,6 +194,7 @@ namespace FieldBCUtils {
    void setInsulatorConductorBC_E( LevelData<EdgeDataBox>&  a_dst,
                              const BoundaryBoxLayout&       a_bdry_layout,
                              const InsulatorBC&             a_insulator_bc,
+                             const bool                     a_conservative_wall,
                              const Real                     a_time )
    {
       CH_TIME("FieldBCUtils::setInsulatorConductorBC_E()");
@@ -219,19 +220,28 @@ namespace FieldBCUtils {
             IntVect grow_vect = a_dst.ghostVect();
             grow_vect[bdry_dir] = 0;
             fill_box_grown.grow(grow_vect);
+            
+            // apply bc for conductor
          
-            // multiply by ICbinary to set zero on conductor
-            std::string E_bc_type = "extrapolate";
+            std::string E_bc_type;
             if(dir!=bdry_dir) {
-               E_bc_type = "odd";
+               // JRA, energy conservation requires zero BC for Epar,
+               // since Jpar at ghosts does not enter field solve
+               if(a_conservative_wall) E_bc_type = "zero";
+               else E_bc_type = "odd";
                this_dst.mult(this_ICbinary,fill_box_grown,0,0,this_dst.nComp());
    
                const int ISIDE(a_bdry_layout.side());
                if(ISIDE==0) fill_box_grown.growHi(bdry_dir,-1);
                if(ISIDE==1) fill_box_grown.growLo(bdry_dir,-1);
             }
+            else {
+               // JRA, energy conservation requires even BC for Eperp, 
+               // which is like using NGP for Eperp near the bdry
+               if(a_conservative_wall) E_bc_type = "even";
+               else E_bc_type = "extrapolate";
+            }
             
-            // apply bc for conductor
             BoundaryConditions::setBC( this_dst,
                                        fill_box_grown,
                                        0,
@@ -239,12 +249,17 @@ namespace FieldBCUtils {
                                        bdry_dir,
                                        a_bdry_layout.side() );
             
+            // overwrite bc in insulator region
+            
             if(dir!=bdry_dir) {
                // reduce grown fill_box to insulator box and setBC in insulator region
                Box insulator_box = fill_box_grown;
                getInsulatorBox(insulator_box,this_ICbinary,bdry_dir);     
 
-               E_bc_type = "extrapolate";
+               // JRA, energy conservation requires zero BC for Epar,
+               // since Jpar at ghosts does not enter field solve
+               if(a_conservative_wall) E_bc_type = "zero";
+               else E_bc_type = "extrapolate";
                BoundaryConditions::setBC( this_dst,
                                           insulator_box,
                                           0,
@@ -263,6 +278,7 @@ namespace FieldBCUtils {
    void setInsulatorConductorBC_Ev( LevelData<NodeFArrayBox>&  a_dst,
                               const BoundaryBoxLayout&         a_bdry_layout,
                               const InsulatorBC&               a_insulator_bc,
+                              const bool                       a_conservative_wall,
                               const Real                       a_time )
    {
       CH_TIME("FieldBCUtils::setInsulatorConductorBC_Ev()");
@@ -287,14 +303,19 @@ namespace FieldBCUtils {
          for (auto n=0; n<this_dst.nComp(); ++n) {
             this_dst.mult(this_ICbinary,fill_box_grown,0,n,1);
          }
-               
+
          // dont change value on boundary in setBC()
          const int ISIDE(a_bdry_layout.side());
          if(ISIDE==0) fill_box_grown.growHi(a_bdry_layout.dir(),-1);
          if(ISIDE==1) fill_box_grown.growLo(a_bdry_layout.dir(),-1);
          
          // apply bc for conductor
-         string Ev_bc_type = "odd";
+         std::string Ev_bc_type;
+        
+         // JRA, energy conservation requires zero BC for Epar,
+         // since Jpar at ghosts does not enter field solve
+         if(a_conservative_wall) Ev_bc_type = "zero";
+         else Ev_bc_type = "odd";
          for (int n(0); n<this_dst.nComp(); n++) {
             BoundaryConditions::setBC( this_dst,
                                        fill_box_grown,
@@ -303,12 +324,15 @@ namespace FieldBCUtils {
                                        a_bdry_layout.dir(),
                                        a_bdry_layout.side() );
          }
+         
+         // overwrite bc in insulator region
 
          // reduce grown fill_box to insulator box and setBC in insulator region
          Box insulator_box = fill_box_grown;
          getInsulatorBox(insulator_box,this_ICbinary,a_bdry_layout.dir());     
-                  
-         Ev_bc_type = "extrapolate";
+
+         if(a_conservative_wall) Ev_bc_type = "zero";
+         else Ev_bc_type = "extrapolate";
          for (int n(0); n<this_dst.nComp(); n++) {
             BoundaryConditions::setBC( this_dst,
                                        insulator_box,
@@ -332,7 +356,7 @@ namespace FieldBCUtils {
    void setCellBC( LevelData<FArrayBox>&        a_dst,
              const DomainGrid&                  a_mesh,
              const Vector<std::string>&         a_all_bc_type,
-             const RefCountedPtr<InsulatorBC>&  a_insulator_bc,
+             const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
              const Real                         a_time )
    {
       CH_TIME("FieldBCUtils::setCellBC (virtual magnetic field)");
@@ -393,7 +417,7 @@ namespace FieldBCUtils {
          }
 
          if(this_bc_type=="insulator_conductor") { // re-do bcs in insulator region
-            setInsulatorConductorBC_Bv(a_dst,a_mesh,bdry_layout,*a_insulator_bc,a_time);
+            setInsulatorConductorBC_Bv(a_dst,a_mesh,bdry_layout,*a_all_insulator_bc[b],a_time);
          }
       
       } // end loop over boundaries
@@ -404,7 +428,7 @@ namespace FieldBCUtils {
    void setFluxBC( LevelData<FluxBox>&        a_dst,
              const BoundaryBoxLayoutPtrVect&  a_all_bdry_layouts,
              const Vector<std::string>&       a_all_bc_type,
-             const RefCountedPtr<InsulatorBC>&  a_insulator_bc,
+             const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
              const Real                       a_time )
    {
       CH_TIME("FieldBCUtils::setFluxBC() (magnetic field)");
@@ -414,7 +438,7 @@ namespace FieldBCUtils {
          const std::string this_bc_type (a_all_bc_type[b]);
          
          if(this_bc_type=="insulator_conductor") {
-            setInsulatorConductorBC_B(a_dst,bdry_layout,*a_insulator_bc,a_time);
+            setInsulatorConductorBC_B(a_dst,bdry_layout,*a_all_insulator_bc[b],a_time);
          }
          else {
       
@@ -475,11 +499,12 @@ namespace FieldBCUtils {
    } // end function
    
    inline
-   void setEdgeBC( LevelData<EdgeDataBox>&    a_dst,
-             const BoundaryBoxLayoutPtrVect&  a_all_bdry_layouts,
-             const Vector<std::string>&       a_all_bc_type,
-             const RefCountedPtr<InsulatorBC>&  a_insulator_bc,
-             const Real                       a_time )
+   void setEdgeBC( LevelData<EdgeDataBox>&      a_dst,
+             const BoundaryBoxLayoutPtrVect&    a_all_bdry_layouts,
+             const Vector<std::string>&         a_all_bc_type,
+             const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
+             const bool                         a_conservative_wall,
+             const Real                         a_time )
    {
       CH_TIME("FieldBCUtils::setEdgeBC() (electric field)");
       
@@ -488,7 +513,8 @@ namespace FieldBCUtils {
          const std::string this_bc_type (a_all_bc_type[b]);
          
          if(this_bc_type=="insulator_conductor") {
-            setInsulatorConductorBC_E(a_dst,bdry_layout,*a_insulator_bc,a_time);
+            setInsulatorConductorBC_E( a_dst,bdry_layout, *a_all_insulator_bc[b],
+                                       a_conservative_wall, a_time );
          }
          else {
          
@@ -519,10 +545,18 @@ namespace FieldBCUtils {
                      if(dir!=bdry_layout.dir()) E_bc_type = "even";
                   }
                   if(this_bc_type=="conductor") {
-                     E_bc_type = "extrapolate";
                      if(dir!=bdry_layout.dir()) {
-                        E_bc_type = "odd";
+                        // JRA, energy conservation requires zero BC for Epar,
+                        // since Jpar at ghosts does not enter field solve
+                        if(a_conservative_wall) E_bc_type = "zero";
+                        else E_bc_type = "odd";
                         this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
+                     }
+                     else {
+                        // JRA, energy conservation requires even BC for Eperp, 
+                        // which is like using NGP for Eperp near the bdry
+                        if(a_conservative_wall) E_bc_type = "even";
+                        else E_bc_type = "extrapolate";
                      }
                   }
                   if(this_bc_type=="extrapolate_zeroBv") E_bc_type = "extrapolate";
@@ -550,11 +584,12 @@ namespace FieldBCUtils {
    } // end function
    
    inline
-   void setNodeBC( LevelData<NodeFArrayBox>&  a_dst,
-             const DomainGrid&                a_mesh,
-             const Vector<std::string>&       a_all_bc_type,
-             const RefCountedPtr<InsulatorBC>&  a_insulator_bc,
-             const Real                       a_time )
+   void setNodeBC( LevelData<NodeFArrayBox>&    a_dst,
+             const DomainGrid&                  a_mesh,
+             const Vector<std::string>&         a_all_bc_type,
+             const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
+             const bool                         a_conservative_wall,
+             const Real                         a_time )
    {
       CH_TIME("FieldBCUtils::setNodeBC (virtual electric field)");
 
@@ -565,7 +600,8 @@ namespace FieldBCUtils {
          
          const std::string this_bc_type(a_all_bc_type[b]);
          if(this_bc_type=="insulator_conductor") {
-            setInsulatorConductorBC_Ev(a_dst,bdry_layout,*a_insulator_bc,a_time);
+            setInsulatorConductorBC_Ev( a_dst,bdry_layout, *a_all_insulator_bc[b], 
+                                        a_conservative_wall, a_time );
          }
          else {
 
@@ -588,7 +624,10 @@ namespace FieldBCUtils {
                   if(a_mesh.axisymmetric()) this_dst.setVal(0.0,fill_box_grown,0,1);
                }
                if(this_bc_type=="conductor") {
-                  Ev_bc_type = "odd";
+                  // JRA, energy conservation requires zero BC for Epar,
+                  // since Jpar at ghosts does not enter field solve
+                  if(a_conservative_wall) Ev_bc_type = "zero";
+                  else Ev_bc_type = "odd";
                   this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
                }
                if(this_bc_type=="extrapolate_zeroBv") Ev_bc_type = "extrapolate";
@@ -717,7 +756,140 @@ namespace FieldBCUtils {
 
       }
    }
-   
+
+   //////////////////////////////////////////////////////////////////////
+   //
+   //
+   //
+   //////////////////////////////////////////////////////////////////////
+
+   inline
+   void applyToJ_PIC( LevelData<EdgeDataBox>&    a_J_inPlane,
+                      LevelData<NodeFArrayBox>&  a_J_virtual,
+                const DomainGrid&                a_mesh,
+                const Vector<std::string>&       a_all_bc_type )
+   {
+      CH_TIME("PicSpeciesBC::applyToJ_PIC()");
+
+      // Note that this is called from pic species and from emfields when
+      // computing J from mass matrices. Thus, a_all_bc_type could be that from
+      // species or from fields, which are not necessarily the same. This leaves
+      // room for a potential future bug. Need to fix this.
+      //
+      // Comment on factor of 2 for J on boundary (and parallel to it).
+      // If the boundary is a symmetry plane (except for axis in axisymmetric), 
+      // then the 2 comes from the ghost charge. If it is not a symmetry plane,
+      // then a factor of 2 is because the Area that should be divided should be
+      // 1/2 that if non-boundary cells, but we don't do that because it messes
+      // up J in periodic case when should not have 1/2 factor. In future, I should
+      // set up the Jacobian used to compute dA such that it correctly contains 1/2
+      // on boundaries (except periodic and except axis for axisymmetric). Then
+      // I would not need to do anything to J parallel here
+      //
+      // Comment on J normal to boundary. For Symmetry, we subtract ghost Jnorm
+      // from mirror location across boundary, which is the same as depositing
+      // the mirror current to the interior. For other boundaries, we add ghost
+      // Jnorm, which amount so using NGP for Jnorm close to boundary and is
+      // needed to maintain exact energy conservation (only verified for insulator
+      // BC so far)
+      //
+
+      // loop over non-periodic boundaries and apply BCs to J
+      const BoundaryBoxLayoutPtrVect& bdry_layout = a_mesh.getBoundaryLayout();
+      for (int b(0); b<bdry_layout.size(); b++) {
+
+         const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+         const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
+         const int bdry_dir = this_bdry_layout.dir();
+         const int bdry_side(this_bdry_layout.side());
+         const std::string this_bc = a_all_bc_type[b];
+
+         for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+
+            const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+            const Box bdry_box( bdry_grids[dit] );
+            for (int dir(0); dir<SpaceDim; dir++) {
+          
+               // convert cell bdry box to a edge bdry box
+               Box edge_box = surroundingNodes(bdry_box);
+               edge_box.enclosedCells(dir);
+
+               // collapse edge_box to 1 cell thick in bdry_dir direction                  
+               if(bdry_side==0) edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir));
+               if(bdry_side==1) edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir));
+                  
+               FArrayBox& this_J( a_J_inPlane[interior_dit][dir] );
+               if(dir==bdry_dir) {
+                  Box dst_box = edge_box;
+                  Box src_box = edge_box;
+                  const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+                  for (int n=0; n<nG; n++) {
+                     if(bdry_side==0) dst_box.shift(bdry_dir,1);
+                     if(bdry_side==1) dst_box.shift(bdry_dir,-1);
+                     if(this_bc=="symmetry" || this_bc=="axis") {
+                        this_J.minus(this_J,src_box,dst_box,0,0,1);
+                     }
+                     else {
+                        this_J.plus(this_J,src_box,dst_box,0,0,1);
+                     }
+                     if(bdry_side==0) src_box.shift(bdry_dir,-1);
+                     if(bdry_side==1) src_box.shift(bdry_dir,1);
+                  }
+
+               }
+               else {
+                  if(this_bc!="axis") this_J.mult(2.0,edge_box,0,this_J.nComp());
+                  if(this_bc=="symmetry") { // add ghost J|| back to interior. Needed
+                                            // for shape functions higher order than CIC and
+                                            // for getting J|| correct for particles with xpbar
+                                            // beyond a symmetry boundary during the intermediate 
+                                            // stage of the advance, where there is no assumption 
+                                            // that particle BCs have been applied.
+                     Box dst_box = edge_box;
+                     Box src_box = edge_box;
+                     const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+                     for (int n=0; n<nG; n++) {
+                        dst_box.shift(bdry_dir,1-2*bdry_side);
+                        src_box.shift(bdry_dir,2*bdry_side-1);
+                        this_J.plus(this_J,src_box,dst_box,0,0,1);
+                     }
+                  }
+               }
+
+            }
+           
+#if CH_SPACEDIM<3
+            
+            // collapse node_box to 1 cell thick in bdry_dir direction (on boundary)
+            Box node_box = surroundingNodes(bdry_box);
+            if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
+            if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
+
+            FArrayBox& this_J( a_J_virtual[interior_dit].getFab() );
+            if(this_bc!="axis") this_J.mult(2.0,node_box,0,this_J.nComp());
+            if(this_bc=="symmetry") { // add ghost J|| back to interior. Needed
+                                      // for shape functions higher order than CIC and
+                                      // for getting J|| correct for particles with xpbar
+                                      // beyond a symmetry boundary during the intermediate 
+                                      // stage of the advance, where there is no assumption 
+                                      // that particle BCs have been applied.
+               Box dst_box = node_box;
+               Box src_box = node_box;
+               const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+               for (int n=0; n<nG; n++) {
+                  dst_box.shift(bdry_dir,1-2*bdry_side);
+                  src_box.shift(bdry_dir,2*bdry_side-1);
+                  this_J.plus(this_J,src_box,dst_box,0,0,1);
+               }
+            }
+#endif
+            
+         } // end loop over boxes
+
+      } // end loop over boundaries
+
+   } // end applyToJ_PIC()
+
 }
 #include "NamespaceFooter.H"
 

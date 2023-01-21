@@ -1,0 +1,130 @@
+#TEST np=2, timelimit=00:05:00
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
+
+system.advance_method = "PIC_EM_EXPLICIT"
+#pic_em_explicit.old_ordering = false
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 1
+simulation.max_step            = 1000000000
+simulation.max_time            = 10.0 
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 1.0e-3
+#simulation.plot_interval       = 1000
+simulation.dt_scatter_interval = 100 
+simulation.plot_time_interval  = 2.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 100
+
+history.precision = 12
+history.field_probes = true
+history.field_bdry_probes = true
+history.species_bdry_probes = true
+history.species0_probes = true
+#
+#simulation.checkpoint_time_interval = 10.0
+#simulation.restart_file = "checkpoint_data/chk062200.1d.hdf5"
+simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+####################################################
+grid.num_cells     = 20
+grid.is_periodic   = 0
+grid.config_decomp = 2
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.46
+grid.X_max = 1.46
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = true
+em_fields.advance_electric_field = 1 1 1
+em_fields.advance_magnetic_field = 1 1 1
+em_fields.write_rho = true
+em_fields.write_divs = true
+em_fields.write_curls = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+BC.em_fields.conservative_wall = true
+BC.em_fields.dir0_upper.type = "insulator_conductor"
+BC.insulator.dir0_upper.X0_min = 1.46
+BC.insulator.dir0_upper.X0_max = 1.52
+BC.insulator.dir0_upper.time_function.type = "zero"
+
+BC.em_fields.dir0_lower.type = "insulator_conductor"
+BC.insulator.dir0_lower.X0_min = 0.40
+BC.insulator.dir0_lower.X0_max = 0.46
+BC.insulator.dir0_lower.time_function.type = "zero"
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# Species 0
+
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = true
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "CC1"
+pic_species.0.interp_type_E = "CIC"
+pic_species.0.interp_bc_check = true
+pic_species.0.deposit_outflow_J = true
+
+BC.electron.dir0_lower.type = "inflow_outflow"
+BC.electron.dir0_lower.inflow.discrete_samples = 10
+BC.electron.dir0_lower.inflow.density = 1.0e8
+BC.electron.dir0_lower.inflow.temperature = 0.1 0.1 0.1
+BC.electron.dir0_lower.inflow.velocity = 2.0e6 0.0 0.0
+BC.electron.dir0_lower.inflow.time_function.type = "ramp"
+BC.electron.dir0_lower.inflow.time_function.rise_time = 1.0
+BC.electron.dir0_lower.inflow.time_function.steady_time = 2.0
+BC.electron.dir0_lower.inflow.time_function.fall_time = 1.0
+BC.electron.dir0_lower.inflow.time_function.amplitude = 1.0
+
+BC.electron.dir0_upper.type = "outflow"
+
+#electron.particle.0.weight = 1.0e8
+#electron.particle.0.position = 0.96
+#electron.particle.0.velocity = 1.0e6 0.0 0.0
+
+#####################################################
+

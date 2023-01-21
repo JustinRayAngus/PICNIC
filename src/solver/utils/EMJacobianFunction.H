@@ -227,7 +227,7 @@ void EMJacobianFunction<T,Ops>::applyOp(T& a_F, const T& a_U, int a_its)
     }
 
     m_Z = m_Y0 + eps*a_U;
-    m_ops->preRHSOp( m_Z, m_cur_time, m_dt, true );
+    m_ops->preRHSOp( m_Z, m_cur_time, m_dt, -1, true );
     m_ops->computeRHS(m_F, m_Z, m_cur_time, m_dtfac*m_dt );
 
     a_F = a_U - (1.0/eps)*(m_F-m_F0);

@@ -6,9 +6,9 @@ simulation.verbosity = 10
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
-system.iter_max = 8
-system.iter_max_particles = 6
-system.freeze_particles_jacobian = false
+
+pic_species.iter_max_particles = 6
+pic_species.freeze_particles_jacobian = false
 
 pic_em_theta_implicit.solver_type = "newton"
 

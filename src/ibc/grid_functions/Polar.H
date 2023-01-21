@@ -2,7 +2,7 @@
 #define _POLAR_H_
 
 #include "GridFunction.H"
-#include "Constants.H"
+#include "PicnicConstants.H"
 
 #include "NamespaceHeader.H"
 

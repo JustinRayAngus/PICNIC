@@ -13,6 +13,9 @@
 #include "CH_HDF5.H"
 #include "ParmParse.H"
 #include "parstream.H"
+#if 1  // warning, OS dependencies, will not work on all platforms
+#include <sys/stat.h>
+#endif
 
 #include "DebugDump.H"
 #include "memtrack.H"
@@ -84,6 +87,11 @@ int main(int a_argc, char* a_argv[])
 
 #ifdef CH_MPI
    CH_TIMER_REPORT();
+   char* timerEnv = getenv("CH_TIMER");
+   if(!procID() && timerEnv!=NULL) {
+     mkdir( "time_tables", 0777 );
+     std::system("mv time.* time_tables/");
+   }
    MPI_Finalize();
 #endif
 

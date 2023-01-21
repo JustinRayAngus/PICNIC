@@ -2,6 +2,9 @@ c  ----------------------------------------------------------------------------
 
       subroutine compute_Jx_from_mass_matrix(
      &     CHF_BOX[box],
+     &     CHF_CONST_INTVECT[Ncxx],
+     &     CHF_CONST_INTVECT[Ncxy],
+     &     CHF_CONST_INTVECT[Ncxz],
      &     CHF_CONST_FRA[sigmaxx],
      &     CHF_CONST_FRA[sigmaxy],
      &     CHF_CONST_FRA[sigmaxz],
@@ -13,33 +16,77 @@ c  ----------------------------------------------------------------------------
      & )
 
 c     local variables
-      integer CHF_DDECL[i;j;k], nn, xx_diag, xy_base
+      integer CHF_DDECL[i;j;k], Nc, idir
+      integer CHF_DDECL[ii;jj;kk], offset_xx(0:CH_SPACEDIM - 1)
+      integer offset_xy(0:CH_SPACEDIM - 1), offset_xz(0:CH_SPACEDIM - 1)
       REAL_T sigxxEx, sigxyEy, sigxzEz, sigE
       
-      xx_diag = (nsigmaxxcomp - 1)/2
-      xy_base = nsigmaxycomp/2 - 1
+c     compute offset in each dir (careful with staggering...)
+      do idir = 0, CH_SPACEDIM - 1
+        offset_xx(idir) = (Ncxx(idir)-1)/2
+        offset_xy(idir) = (Ncxy(idir)-1)/2
+        offset_xz(idir) = (Ncxz(idir)-1)/2
+        if(idir==1) then
+          offset_xy(idir) = Ncxy(idir)/2
+        endif  
+        if(idir==2) then
+          offset_xz(idir) = Ncxz(idir)/2
+        endif
+      enddo
 
       CHF_MULTIDO[box;i;j;k]
 
-        sigxxEx = sigmaxx(CHF_IX[i;j;k],xx_diag)*Ex(CHF_IX[i;j;k])
-        do nn=1, xx_diag
-          sigxxEx = sigxxEx 
-     &            + sigmaxx(CHF_IX[i;j;k],xx_diag-nn)*Ex(CHF_IX[i-nn;j;k])
-     &            + sigmaxx(CHF_IX[i;j;k],xx_diag+nn)*Ex(CHF_IX[i+nn;j;k])
-        enddo
+        sigxxEx = zero
+        CHF_DTERM[
+        do ii = 0, Ncxx(0)-1;
+          do jj = 0, Ncxx(1)-1;
+            do kk = 0, Ncxx(2)-1]
 
+        Nc = CHF_DTERM[ii; + Ncxx(0)*jj; + Ncxx(0)*Ncxx(1)*kk]
+        sigxxEx = sigxxEx + sigmaxx(CHF_IX[i;j;k],Nc)*Ex(CHF_IX[i+ii-offset_xx(0); 
+     &                                                          j+jj-offset_xx(1);
+     &                                                          k+kk-offset_xx(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
+        
         sigxyEy = zero
+        CHF_DTERM[
+        do ii = 0, Ncxy(0)-1;
+          do jj = 0, Ncxy(1)-1;
+            do kk = 0, Ncxy(2)-1]
+
+        Nc = CHF_DTERM[ii; + Ncxy(0)*jj; + Ncxy(0)*Ncxy(1)*kk]
+        sigxyEy = sigxyEy + sigmaxy(CHF_IX[i;j;k],Nc)*Ey(CHF_IX[i+ii-offset_xy(0);
+     &                                                          j+jj-offset_xy(1);
+     &                                                          k+kk-offset_xy(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
+
         sigxzEz = zero
-        do nn=0, nsigmaxycomp-1
-          sigxyEy = sigxyEy
-     &            + sigmaxy(CHF_IX[i;j;k],nn)*Ey(CHF_IX[i+nn-xy_base;j;k])
-          sigxzEz = sigxzEz
-     &            + sigmaxz(CHF_IX[i;j;k],nn)*Ez(CHF_IX[i+nn-xy_base;j;k])
-        enddo
+        CHF_DTERM[
+        do ii = 0, Ncxz(0)-1;
+          do jj = 0, Ncxz(1)-1;
+            do kk = 0, Ncxz(2)-1]
+
+        Nc = CHF_DTERM[ii; + Ncxz(0)*jj; + Ncxz(0)*Ncxz(1)*kk]
+        sigxzEz = sigxzEz + sigmaxz(CHF_IX[i;j;k],Nc)*Ez(CHF_IX[i+ii-offset_xz(0);
+     &                                                          j+jj-offset_xz(1);
+     &                                                          k+kk-offset_xz(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
 
         sigE = sigxxEx + sigxyEy + sigxzEz
-
         Jx(CHF_IX[i;j;k]) = Jx0(CHF_IX[i;j;k]) + sigE
+c        Jx(CHF_IX[i;j;k]) = sigE
 
       CHF_ENDDO
 
@@ -50,6 +97,9 @@ c  ----------------------------------------------------------------------------
 
       subroutine compute_Jy_from_mass_matrix(
      &     CHF_BOX[box],
+     &     CHF_CONST_INTVECT[Ncyx],
+     &     CHF_CONST_INTVECT[Ncyy],
+     &     CHF_CONST_INTVECT[Ncyz],
      &     CHF_CONST_FRA[sigmayx],
      &     CHF_CONST_FRA[sigmayy],
      &     CHF_CONST_FRA[sigmayz],
@@ -61,30 +111,77 @@ c  ----------------------------------------------------------------------------
      & )
 
 c     local variables
-      integer CHF_DDECL[i;j;k], nn, yx_base
+      integer CHF_DDECL[i;j;k], Nc, idir
+      integer CHF_DDECL[ii;jj;kk], offset_yx(0:CH_SPACEDIM - 1)
+      integer offset_yy(0:CH_SPACEDIM - 1), offset_yz(0:CH_SPACEDIM - 1)
       REAL_T sigyxEx, sigyyEy, sigyzEz, sigE
 
-      yx_base = nsigmayxcomp/2
+c     compute offset in each dir (careful with staggering...)
+      do idir = 0, CH_SPACEDIM - 1
+        offset_yx(idir) = (Ncyx(idir)-1)/2
+        offset_yy(idir) = (Ncyy(idir)-1)/2
+        offset_yz(idir) = (Ncyz(idir)-1)/2
+        if(idir==0) then
+          offset_yx(idir) = Ncyx(idir)/2
+        endif  
+        if(idir==2) then
+          offset_yz(idir) = Ncyz(idir)/2
+        endif
+      enddo
 
       CHF_MULTIDO[box;i;j;k]
 
         sigyxEx = zero
-        do nn=0, nsigmayxcomp-1
-          sigyxEx = sigyxEx
-     &            + sigmayx(CHF_IX[i;j;k],nn)*Ex(CHF_IX[i+nn-yx_base;j;k])
-        enddo
+        CHF_DTERM[
+        do ii = 0, Ncyx(0)-1;
+          do jj = 0, Ncyx(1)-1;
+            do kk = 0, Ncyx(2)-1]
 
-        sigyyEy = sigmayy(CHF_IX[i;j;k],0)*Ey(CHF_IX[i-1;j;k])
-     &          + sigmayy(CHF_IX[i;j;k],1)*Ey(CHF_IX[i;j;k])
-     &          + sigmayy(CHF_IX[i;j;k],2)*Ey(CHF_IX[i+1;j;k])
-        
-        sigyzEz = sigmayz(CHF_IX[i;j;k],0)*Ez(CHF_IX[i-1;j;k])
-     &          + sigmayz(CHF_IX[i;j;k],1)*Ez(CHF_IX[i;j;k])
-     &          + sigmayz(CHF_IX[i;j;k],2)*Ez(CHF_IX[i+1;j;k])
+        Nc = CHF_DTERM[ii; + Ncyx(0)*jj; + Ncyx(0)*Ncyx(1)*kk]
+        sigyxEx = sigyxEx + sigmayx(CHF_IX[i;j;k],Nc)*Ex(CHF_IX[i+ii-offset_yx(0); 
+     &                                                          j+jj-offset_yx(1);
+     &                                                          k+kk-offset_yx(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
+
+        sigyyEy = zero
+        CHF_DTERM[
+        do ii = 0, Ncyy(0)-1;
+          do jj = 0, Ncyy(1)-1;
+            do kk = 0, Ncyy(2)-1]
+
+        Nc = CHF_DTERM[ii; + Ncyy(0)*jj; + Ncyy(0)*Ncyy(1)*kk]
+        sigyyEy = sigyyEy + sigmayy(CHF_IX[i;j;k],Nc)*Ey(CHF_IX[i+ii-offset_yy(0); 
+     &                                                          j+jj-offset_yy(1);
+     &                                                          k+kk-offset_yy(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
+
+        sigyzEz = zero
+        CHF_DTERM[
+        do ii = 0, Ncyz(0)-1;
+          do jj = 0, Ncyz(1)-1;
+            do kk = 0, Ncyz(2)-1]
+
+        Nc = CHF_DTERM[ii; + Ncyz(0)*jj; + Ncyz(0)*Ncyz(1)*kk]
+        sigyzEz = sigyzEz + sigmayz(CHF_IX[i;j;k],Nc)*Ez(CHF_IX[i+ii-offset_yz(0); 
+     &                                                          j+jj-offset_yz(1);
+     &                                                          k+kk-offset_yz(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
 
         sigE = sigyxEx + sigyyEy + sigyzEz
-
         Jy(CHF_IX[i;j;k]) = Jy0(CHF_IX[i;j;k]) + sigE
+c        Jy(CHF_IX[i;j;k]) = sigE
 
       CHF_ENDDO
 
@@ -95,6 +192,9 @@ c  ----------------------------------------------------------------------------
 
       subroutine compute_Jz_from_mass_matrix(
      &     CHF_BOX[box],
+     &     CHF_CONST_INTVECT[Nczx],
+     &     CHF_CONST_INTVECT[Nczy],
+     &     CHF_CONST_INTVECT[Nczz],
      &     CHF_CONST_FRA[sigmazx],
      &     CHF_CONST_FRA[sigmazy],
      &     CHF_CONST_FRA[sigmazz],
@@ -106,31 +206,77 @@ c  ----------------------------------------------------------------------------
      & )
 
 c     local variables
-      integer CHF_DDECL[i;j;k], nn, zx_base
+      integer CHF_DDECL[i;j;k], Nc, idir
+      integer CHF_DDECL[ii;jj;kk], offset_zx(0:CH_SPACEDIM - 1)
+      integer offset_zy(0:CH_SPACEDIM - 1), offset_zz(0:CH_SPACEDIM - 1)
       REAL_T sigzxEx, sigzyEy, sigzzEz, sigE
       
-      zx_base = nsigmazxcomp/2
+c     compute offset in each dir (careful with staggering...)
+      do idir = 0, CH_SPACEDIM - 1
+        offset_zx(idir) = (Nczx(idir)-1)/2
+        offset_zy(idir) = (Nczy(idir)-1)/2
+        offset_zz(idir) = (Nczz(idir)-1)/2
+        if(idir==0) then
+          offset_zx(idir) = Nczx(idir)/2
+        endif  
+        if(idir==1) then
+          offset_zy(idir) = Nczy(idir)/2
+        endif
+      enddo
 
       CHF_MULTIDO[box;i;j;k]
 
         sigzxEx = zero
-        do nn=0, nsigmazxcomp-1
-          sigzxEx = sigzxEx
-     &            + sigmazx(CHF_IX[i;j;k],nn)*Ex(CHF_IX[i+nn-zx_base;j;k])
-        enddo
+        CHF_DTERM[
+        do ii = 0, Nczx(0)-1;
+          do jj = 0, Nczx(1)-1;
+            do kk = 0, Nczx(2)-1]
 
-        sigzyEy = sigmazy(CHF_IX[i;j;k],0)*Ey(CHF_IX[i-1;j;k])
-     &          + sigmazy(CHF_IX[i;j;k],1)*Ey(CHF_IX[i;j;k])
-     &          + sigmazy(CHF_IX[i;j;k],2)*Ey(CHF_IX[i+1;j;k])
+        Nc = CHF_DTERM[ii; + Nczx(0)*jj; + Nczx(0)*Nczx(1)*kk]
+        sigzxEx = sigzxEx + sigmazx(CHF_IX[i;j;k],Nc)*Ex(CHF_IX[i+ii-offset_zx(0); 
+     &                                                          j+jj-offset_zx(1);
+     &                                                          k+kk-offset_zx(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
         
-        sigzzEz = sigmazz(CHF_IX[i;j;k],0)*Ez(CHF_IX[i-1;j;k])
-     &          + sigmazz(CHF_IX[i;j;k],1)*Ez(CHF_IX[i;j;k])
-     &          + sigmazz(CHF_IX[i;j;k],2)*Ez(CHF_IX[i+1;j;k])
+        sigzyEy = zero
+        CHF_DTERM[
+        do ii = 0, Nczy(0)-1;
+          do jj = 0, Nczy(1)-1;
+            do kk = 0, Nczy(2)-1]
+
+        Nc = CHF_DTERM[ii; + Nczy(0)*jj; + Nczy(0)*Nczy(1)*kk]
+        sigzyEy = sigzyEy + sigmazy(CHF_IX[i;j;k],Nc)*Ey(CHF_IX[i+ii-offset_zy(0); 
+     &                                                          j+jj-offset_zy(1);
+     &                                                          k+kk-offset_zy(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
+
+        sigzzEz = zero
+        CHF_DTERM[
+        do ii = 0, Nczz(0)-1;
+          do jj = 0, Nczz(1)-1;
+            do kk = 0, Nczz(2)-1]
+
+        Nc = CHF_DTERM[ii; + Nczz(0)*jj; + Nczz(0)*Nczz(1)*kk]
+        sigzzEz = sigzzEz + sigmazz(CHF_IX[i;j;k],Nc)*Ez(CHF_IX[i+ii-offset_zz(0); 
+     &                                                          j+jj-offset_zz(1);
+     &                                                          k+kk-offset_zz(2)])
+
+        CHF_DTERM[
+            enddo;
+          enddo;
+        enddo]
 
         sigE = sigzxEx + sigzyEy + sigzzEz
-
         Jz(CHF_IX[i;j;k]) = Jz0(CHF_IX[i;j;k]) + sigE
-c        Jz(CHF_IX[i;j;k]) = Jz0(CHF_IX[i;j;k])
+c        Jz(CHF_IX[i;j;k]) = sigE
 
       CHF_ENDDO
 
@@ -153,83 +299,185 @@ c  ----------------------------------------------------------------------------
      & )
 
 c     local variables
-      integer CHF_DDECL[i;j;k], nn, xx_diag, xy_base, yx_base
+      integer CHF_DDECL[i;j;k], Ngx, nn, nn_min, nn_max, xx_base, xy_base
       REAL_T sigxxEx, sigxyEy, sigxzEz, sigE
 
-      xx_diag = (nsigmaxxcomp - 1)/2
+      Ngx = iboxhi0 - iboxlo0 + 1
+      xx_base = (nsigmaxxcomp - 1)/2
       xy_base = nsigmaxycomp/2 - 1
 
-      if(side.eq.zero) then
-
       CHF_MULTIDO[box;i;j;k]
-      
-        sigxxEx = sigmaxx(CHF_IX[i;j;k],xx_diag)*Ex(CHF_IX[i;j;k])
-        do nn=1, xx_diag
-          sigxxEx = sigxxEx + sigmaxx(CHF_IX[i;j;k],xx_diag+nn)*Ex(CHF_IX[i+nn;j;k])
-        enddo
-
+        
+        sigxxEx = zero
         sigxyEy = zero
         sigxzEz = zero
-        do nn=nsigmaxycomp/2, nsigmaxycomp-1
-          sigxyEy = sigxyEy
-     &            + sigmaxy(CHF_IX[i;j;k],nn)*Ey(CHF_IX[i+nn-xy_base;j;k])
-          sigxzEz = sigxzEz
-     &            + sigmaxz(CHF_IX[i;j;k],nn)*Ez(CHF_IX[i+nn-xy_base;j;k])
-        enddo
-  
-c        sigxyEy = zero
-c     &          + zero
-c     &          + sigmaxy(CHF_IX[i;j;k],2)*Ey(CHF_IX[i+1;j;k])
-c     &          + sigmaxy(CHF_IX[i;j;k],3)*Ey(CHF_IX[i+2;j;k])
         
-c        sigxzEz = zero
-c     &          + zero
-c     &          + sigmaxz(CHF_IX[i;j;k],2)*Ez(CHF_IX[i+1;j;k])
-c     &          + sigmaxz(CHF_IX[i;j;k],3)*Ez(CHF_IX[i+2;j;k])
+        if(side.eq.zero) then
+          nn_min = MAX(0,xx_base-Ngx-i)
+          nn_max = nsigmaxxcomp-1
+        else
+          nn_min = 0
+          nn_max = MIN(nsigmaxxcomp-1,xx_base+iboxhi0-i)
+        endif
 
+c        nn_min = -i*(1-side)
+c        nn_max = nsigmaxxcomp-1 - (i-iboxlo0+1)*side
+        do nn = nn_min, nn_max
+          sigxxEx = sigxxEx + sigmaxx(CHF_IX[i;j;k],nn)*Ex(CHF_IX[i+nn-xx_base;j;k])
+        enddo
+        
+        if(side.eq.zero) then
+          nn_min = MAX(0,xy_base-Ngx-i)
+          nn_max = nsigmaxycomp-1
+        else
+          nn_min = 0
+          nn_max = MIN(nsigmaxycomp-1,xy_base+iboxhi0-i)
+        endif
+
+c        nn_min = -(i+1)*(1-side)
+c        nn_max = nsigmaxycomp-1 - (i-iboxlo0)*side
+        do nn = nn_min, nn_max
+          sigxyEy = sigxyEy + sigmaxy(CHF_IX[i;j;k],nn)*Ey(CHF_IX[i+nn-xy_base;j;k])
+          sigxzEz = sigxzEz + sigmaxz(CHF_IX[i;j;k],nn)*Ez(CHF_IX[i+nn-xy_base;j;k])
+        enddo
+        
         sigE = sigxxEx + sigxyEy + sigxzEz
 
         Jx(CHF_IX[i;j;k]) = Jx0(CHF_IX[i;j;k]) + sigE
+c        Jx(CHF_IX[i;j;k]) = sigE
 
       CHF_ENDDO
-
-      else
-
-      CHF_MULTIDO[box;i;j;k]
-
-        sigxxEx = sigmaxx(CHF_IX[i;j;k],xx_diag)*Ex(CHF_IX[i;j;k])
-        do nn=1, xx_diag
-          sigxxEx = sigxxEx + sigmaxx(CHF_IX[i;j;k],xx_diag-nn)*Ex(CHF_IX[i-nn;j;k])
-        enddo
-
-        sigxyEy = zero
-        sigxzEz = zero
-        do nn=0, nsigmaxycomp/2-1
-          sigxyEy = sigxyEy
-     &            + sigmaxy(CHF_IX[i;j;k],nn)*Ey(CHF_IX[i+nn-xy_base;j;k])
-          sigxzEz = sigxzEz
-     &            + sigmaxz(CHF_IX[i;j;k],nn)*Ez(CHF_IX[i+nn-xy_base;j;k])
-        enddo
-        
-c        sigxyEy = sigmaxy(CHF_IX[i;j;k],0)*Ey(CHF_IX[i-1;j;k])
-c     &          + sigmaxy(CHF_IX[i;j;k],1)*Ey(CHF_IX[i;j;k])
-c     &          + zero
-c     &          + zero
-        
-c        sigxzEz = sigmaxz(CHF_IX[i;j;k],0)*Ez(CHF_IX[i-1;j;k])
-c     &          + sigmaxz(CHF_IX[i;j;k],1)*Ez(CHF_IX[i;j;k])
-c     &          + zero
-c     &          + zero
-
-        sigE = sigxxEx + sigxyEy + sigxzEz
-
-        Jx(CHF_IX[i;j;k]) = Jx0(CHF_IX[i;j;k]) + sigE
-
-      CHF_ENDDO
-
-      endif
 
       return
       end
 
 c  ----------------------------------------------------------------------------
+
+      subroutine compute_Jy_bdry_from_mass_matrix(
+     &     CHF_BOX[box],
+     &     CHF_CONST_INT[side],
+     &     CHF_CONST_FRA[sigmayx],
+     &     CHF_CONST_FRA[sigmayy],
+     &     CHF_CONST_FRA[sigmayz],
+     &     CHF_CONST_FRA1[Ex],
+     &     CHF_CONST_FRA1[Ey],
+     &     CHF_CONST_FRA1[Ez],
+     &     CHF_CONST_FRA1[Jy0],
+     &     CHF_FRA1[Jy]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k], Ngx, nn, nn_min, nn_max, yx_base, yy_base
+      REAL_T sigyxEx, sigyyEy, sigyzEz, sigE
+
+      Ngx = iboxhi0 - iboxlo0 + 1
+      yx_base = nsigmayxcomp/2
+      yy_base = (nsigmayycomp - 1)/2
+
+      CHF_MULTIDO[box;i;j;k]
+        
+        sigyxEx = zero
+        sigyyEy = zero
+        sigyzEz = zero
+
+        if(side.eq.zero) then
+          nn_min = MAX(0,yx_base-Ngx-i)
+          nn_max = nsigmayxcomp-1
+        else
+          nn_min = 0
+          nn_max = MIN(nsigmayxcomp-1,yx_base+iboxhi0-i)
+        endif
+
+        do nn = nn_min, nn_max
+          sigyxEx = sigyxEx + sigmayx(CHF_IX[i;j;k],nn)*Ex(CHF_IX[i+nn-yx_base;j;k])
+        enddo
+        
+        if(side.eq.zero) then
+          nn_min = MAX(0,yy_base-Ngx-i)
+          nn_max = nsigmayycomp-1
+        else
+          nn_min = 0
+          nn_max = MIN(nsigmayycomp-1,yy_base+iboxhi0-i)
+        endif
+
+        do nn = nn_min, nn_max
+          sigyyEy = sigyyEy + sigmayy(CHF_IX[i;j;k],nn)*Ey(CHF_IX[i+nn-yy_base;j;k])
+          sigyzEz = sigyzEz + sigmayz(CHF_IX[i;j;k],nn)*Ez(CHF_IX[i+nn-yy_base;j;k])
+        enddo
+        
+        sigE = sigyxEx + sigyyEy + sigyzEz
+
+        Jy(CHF_IX[i;j;k]) = Jy0(CHF_IX[i;j;k]) + sigE
+c        Jy(CHF_IX[i;j;k]) = sigE
+
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+
+      subroutine compute_Jz_bdry_from_mass_matrix(
+     &     CHF_BOX[box],
+     &     CHF_CONST_INT[side],
+     &     CHF_CONST_FRA[sigmazx],
+     &     CHF_CONST_FRA[sigmazy],
+     &     CHF_CONST_FRA[sigmazz],
+     &     CHF_CONST_FRA1[Ex],
+     &     CHF_CONST_FRA1[Ey],
+     &     CHF_CONST_FRA1[Ez],
+     &     CHF_CONST_FRA1[Jz0],
+     &     CHF_FRA1[Jz]
+     & )
+
+c     local variables
+      integer CHF_DDECL[i;j;k], Ngx, nn, nn_min, nn_max, zx_base, zz_base
+      REAL_T sigzxEx, sigzyEy, sigzzEz, sigE
+
+      Ngx = iboxhi0 - iboxlo0 + 1
+      zx_base = nsigmazxcomp/2
+      zz_base = (nsigmazzcomp - 1)/2
+
+      CHF_MULTIDO[box;i;j;k]
+        
+        sigzxEx = zero
+        sigzyEy = zero
+        sigzzEz = zero
+
+        if(side.eq.zero) then
+          nn_min = MAX(0,zx_base-Ngx-i)
+          nn_max = nsigmazxcomp-1
+        else
+          nn_min = 0
+          nn_max = MIN(nsigmazxcomp-1,zx_base+iboxhi0-i)
+        endif
+
+        do nn = nn_min, nn_max
+          sigzxEx = sigzxEx + sigmazx(CHF_IX[i;j;k],nn)*Ex(CHF_IX[i+nn-zx_base;j;k])
+        enddo
+        
+        if(side.eq.zero) then
+          nn_min = MAX(0,zz_base-Ngx-i)
+          nn_max = nsigmazzcomp-1
+        else
+          nn_min = 0
+          nn_max = MIN(nsigmazzcomp-1,zz_base+iboxhi0-i)
+        endif
+
+        do nn = nn_min, nn_max
+          sigzyEy = sigzyEy + sigmazy(CHF_IX[i;j;k],nn)*Ey(CHF_IX[i+nn-zz_base;j;k])
+          sigzzEz = sigzzEz + sigmazz(CHF_IX[i;j;k],nn)*Ez(CHF_IX[i+nn-zz_base;j;k])
+        enddo
+        
+        sigE = sigzxEx + sigzyEy + sigzzEz
+
+        Jz(CHF_IX[i;j;k]) = Jz0(CHF_IX[i;j;k]) + sigE
+c        Jz(CHF_IX[i;j;k]) = sigE
+
+      CHF_ENDDO
+
+      return
+      end
+
+c  ----------------------------------------------------------------------------
+

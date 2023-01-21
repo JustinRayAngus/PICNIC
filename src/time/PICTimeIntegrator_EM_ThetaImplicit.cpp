@@ -17,21 +17,24 @@ void PICTimeIntegrator_EM_ThetaImplicit::define(  System* const             a_sy
   m_U.printLoadBalanceInfo();
 
   ParmParse pp("pic_em_theta_implicit");
+  pp.query("theta_parameter", m_theta);
   pp.query("solver_type", m_nlsolver_type);
   pp.query("pc_update_freq", m_pc_update_freq);
+
+  CH_assert(m_theta>=0.5 && m_theta<=1.0);
 
   if (m_nlsolver_type == _NLSOLVER_PICARD_) {
 
     m_nlsolver = new PicardSolver<ODEVector<System>, System>;
     dynamic_cast<PicardSolver<ODEVector<System>, System>*>
       (m_nlsolver)->numBlocks( m_system->numPicardBlocks() );
-
+  
   } else if (m_nlsolver_type == _NLSOLVER_NEWTON_) {
 
     m_nlsolver = new NewtonSolver<ODEVector<System>, System>;
     m_func = new EMResidualFunction<ODEVector<System>, System>;
     m_func->define( m_U, m_system, m_theta );
-
+    
   } else if (m_nlsolver_type == _NLSOLVER_PETSC_) {
 
 #ifdef with_petsc
@@ -41,17 +44,62 @@ void PICTimeIntegrator_EM_ThetaImplicit::define(  System* const             a_sy
 #else
     MayDay::Error("PETSc nonlinear solver requires compilation with PETSc");
 #endif
-
+    
   } else {
     MayDay::Error("Invalid choice for PICTimeIntegrator_EM_ThetaImplicit::m_nlsolver_type");
   }
   m_nlsolver->define(m_U, m_system, m_func, m_theta);
   m_nlsolver->setOutputIndent("  ");
+  
+  Real rtol, atol;
+  int maxits;
+  m_nlsolver->getParams(rtol,atol,maxits);    
+  if( (m_nlsolver_type == _NLSOLVER_PICARD_) && (maxits % 2 == 0) ) {
+      cout << "WARNING!!! iter_max = " << maxits << endl;
+      cout << "theta_implicit time advance with picard solver " << endl;
+      cout << "may not work properly with even iter_max " << endl;
+  } 
+  
+  // look for option to do energy-conserving semi-implicit
+  // this requires using JFNK. Diff in maxits for petsc vs native newton
+  // is due to how counting sequence goes for nonlinear iterations
+  // (newton: 0,1,2... petsc: 0,0,1,2...)
+  pp.query("ec_semi_implicit", m_ec_semi_implicit);
+  if(m_ec_semi_implicit) {
+    if(m_nlsolver_type==_NLSOLVER_PICARD_) m_ec_semi_implicit = false;
+    if(m_nlsolver_type==_NLSOLVER_NEWTON_) {
+       CH_assert(maxits==1);
+       m_system->DefineECSemiImpFlag();
+    }
+    if(m_nlsolver_type==_NLSOLVER_PETSC_) {
+       CH_assert(maxits==2);
+       m_system->DefineECSemiImpFlag();
+    }
+  }
+ 
+
+  printParams();
 
   m_is_defined = true;
 }
 
-void PICTimeIntegrator_EM_ThetaImplicit::initialize()
+void PICTimeIntegrator_EM_ThetaImplicit::printParams() const
+{
+   if(procID()>0) return;
+   cout << "================== Time Solver ==================" << endl;
+   cout << "advance method = PIC_EM_THETA_IMPLICIT" << endl;
+   cout << "theta_parameter = " << m_theta << endl;
+   cout << "solver_type = " << m_nlsolver_type << endl;
+   if(m_nlsolver_type != _NLSOLVER_PICARD_) { 
+   cout << "ec_semi_implicit = " << m_ec_semi_implicit << endl;
+   cout << "pc_update_freq = " << m_pc_update_freq << endl;
+   }
+   m_nlsolver->printParams();
+   cout << "=================================================" << endl;
+   cout << endl;
+}
+
+void PICTimeIntegrator_EM_ThetaImplicit::initialize( const std::string&  a_restart_file_name )
 {
   CH_TIME("PICTimeIntegrator_EM_ThetaImplicit::initialize()");
 
@@ -67,6 +115,34 @@ void PICTimeIntegrator_EM_ThetaImplicit::initialize()
     //int dummy_step = 0;
     //dynamic_cast<EMJacobianFunction<ODEVector<System>, System>*>
     //    ( &(m_func->getJacobian()) )->updatePreCondMat( m_U, dummy_step );
+  }
+   
+  if(!a_restart_file_name.empty()) {
+  
+    // read solver probes
+#ifdef CH_USE_HDF5
+    
+    if(!procID()) cout << "Reading solver probe data from restart file..." << endl << endl;
+
+    HDF5Handle handle( a_restart_file_name, HDF5Handle::OPEN_RDONLY );
+    HDF5HeaderData header;
+   
+    const std::string solverGroup = std::string("solver");
+    handle.setGroup(solverGroup);
+    header.readFromFile( handle );
+   
+    m_last_l_exit_status  = header.m_int["l_exit_status"];
+    m_last_nl_exit_status = header.m_int["nl_exit_status"];
+    m_last_l_total_iter = header.m_int["l_total_iter"];
+    m_last_nl_total_iter = header.m_int["nl_total_iter"];
+    m_last_l_last_iter = header.m_int["l_last_iter"];
+    m_last_nl_iter = header.m_int["nl_iter"];
+    m_last_nl_abs_res = header.m_real["nl_abs_res"];
+    m_last_nl_rel_res = header.m_real["nl_rel_res"];
+  
+    handle.close();
+#endif
+
   }
 
 }

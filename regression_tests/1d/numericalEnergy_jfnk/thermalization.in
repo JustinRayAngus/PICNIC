@@ -15,28 +15,23 @@ simulation.fixed_random_seed = 1983
 #system.advance_method = "PIC_EM_EXPLICIT"
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
-system.iter_max = 5
-system.iter_max_particles = 4
-#system.quasi_freeze_particles_jacobian = true
-system.freeze_particles_jacobian = false
-system.rel_tol = 1.0e-6
-system.abs_tol = 1.0e-12
+
+pic_species.iter_max_particles = 4
+#pic_species.quasi_freeze_particles_jacobian = true
+pic_species.freeze_particles_jacobian = false
 
 #pic_em_theta_implicit.solver_type = "picard"
 pic_em_theta_implicit.solver_type = "newton"
-#
+
 newton.verbose = true
-newton.rtol = 1.0e-6
+newton.rtol = 1.0e-8
 newton.atol = 1.0e-12
 newton.maxits = 10
-#
+
 gmres.verbose = true
-gmres.rtol = 1.0e-4
+gmres.rtol = 1.0e-6
 gmres.atol = 1.0e-12
 gmres.maxits = 1000
-
-system.write_species_charge_density = false
-system.write_species_current_density = false
 
 #####################################################
 # Time Stepping Definitions
@@ -49,13 +44,14 @@ simulation.max_time            = 20.0
 #simulation.dt_scatter_interval = 10
 simulation.fixed_dt            = 0.10
 #simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 100.0
+simulation.plot_time_interval  = 200.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 20
 
-history.precision = 5
+history.precision = 8
 history.field_probes = true
+history.solver_probes = true
 history.species0_probes = true
 history.species1_probes = true
 
@@ -87,6 +83,7 @@ em_fields.use = true
 em_fields.advance = true
 em_fields.write_rho = true
 em_fields.write_divs = true
+em_fields.write_curls = true
 
 IC.em_fields.magnetic.0.type = "constant"
 IC.em_fields.magnetic.0.value = 0.0
@@ -111,6 +108,9 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = false
+# applyBCs will not be called during interative advance
+# if deposit_outflow_J = true
+pic_species.0.deposit_outflow_J = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 10.0
@@ -136,6 +136,9 @@ pic_species.1.charge = 1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = false
+# applyBCs will not be called during interative advance
+# if deposit_outflow_J = true
+pic_species.1.deposit_outflow_J = true
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 10.0

@@ -16,14 +16,7 @@ simulation.fixed_random_seed = 1983
 ###   mfpi2 = Vi2*taui2 = 8.94e-8 m
 
 system.advance_method = "PIC_EM_EXPLICIT"
-#system.advance_method = "PIC_EM_SEMI_IMPLICIT"
-#system.advance_method = "PIC_EM_THETA_IMPLICIT"
-#system.iter_max = 8
-#system.abs_tol = 1.0e-6
-#system.rel_tol = 1.0e-12
-#system.theta_parameter = 1.0 # 1/2<=theta_parameter<=1
-system.write_species_charge_density = false
-system.write_species_current_density = false
+pic_em_explicit.old_ordering = false
 
 #####################################################
 # Time Stepping Definitions
@@ -39,10 +32,12 @@ simulation.fixed_dt            = 0.2
 simulation.plot_time_interval  = 2000.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
-simulation.history_interval    = 10
+simulation.history_interval    = 20
 
-history.precision = 5
+history.precision = 8
 history.field_probes = true
+history.field_bdry_probes = true
+history.species_bdry_probes = true
 history.species0_probes = true
 history.species1_probes = true
 
@@ -53,7 +48,7 @@ grid.num_cells     = 288
 grid.is_periodic   = 0
 grid.config_decomp = 36
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 2
+grid.num_ghosts    = 1
 
 grid.X_min = 0.0
 grid.X_max = 200.0 # [mfpi]
@@ -74,7 +69,9 @@ em_fields.use = true
 em_fields.advance = true
 em_fields.advance_electric_field = 1 0 0
 em_fields.advance_magnetic_field = 0 0 0
+em_fields.write_rho = true
 em_fields.write_divs = true
+#em_fields.write_curls = true
 
 IC.em_fields.magnetic.0.type = "constant"
 IC.em_fields.magnetic.0.value = 0.0
@@ -90,7 +87,12 @@ IC.em_fields.electric.1.value = 0.0
 IC.em_fields.electric.2.type = "constant"
 IC.em_fields.electric.2.value = 0.0
 
-BC.em_fields.dir0_lower.type = "extrapolate"
+BC.em_fields.conservative_wall = true # false will use extrap
+BC.em_fields.dir0_lower.type = "insulator_conductor"
+BC.insulator.dir0_lower.X0_min = -1.0
+BC.insulator.dir0_lower.X0_max = 0.0
+BC.insulator.dir0_lower.time_function.type = "zero"
+
 BC.em_fields.dir0_upper.type = "symmetry"
 
 #####################################################
@@ -105,6 +107,11 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = true
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "CC1"
+pic_species.0.interp_type_E = "CIC"
+pic_species.0.interp_bc_check = true
+pic_species.0.deposit_outflow_J = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 200.0
@@ -125,6 +132,7 @@ IC.electron.velocity_2.type = "constant"
 IC.electron.velocity_2.value = 0.0
 
 BC.electron.dir0_lower.type = "inflow_outflow"
+BC.electron.dir0_lower.inflow.impose_neumann_density = true
 BC.electron.dir0_lower.inflow.discrete_samples = 200
 BC.electron.dir0_lower.inflow.density = 9.082e24
 BC.electron.dir0_lower.inflow.temperature = 1.0 1.0 1.0
@@ -140,6 +148,11 @@ pic_species.1.charge = 1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
+pic_species.1.interp_type_N = "TSC"
+pic_species.1.interp_type_J = "CC1"
+pic_species.1.interp_type_E = "CIC"
+pic_species.1.interp_bc_check = true
+pic_species.1.deposit_outflow_J = true
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 200.0
