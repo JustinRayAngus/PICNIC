@@ -118,9 +118,9 @@ class TakizukaAbe : public Scattering
       int m_sp2;     // species 2 identifier
       signed int m_charge1; // species 1 charge / |electron charge|
       signed int m_charge2; // species 2 charge / |electron charge|
-      Real m_mass1;  // species 1 mass / electron mass
-      Real m_mass2;  // species 2 mass / electron mass
-      Real m_mu;     // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
+      long double m_mass1;  // species 1 mass / electron mass
+      long double m_mass2;  // species 2 mass / electron mass
+      long double m_mu;     // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
    
       // precompute a conversion factor used for each scattering event
       Real m_b90_codeToPhys, m_b90_cofactor; 

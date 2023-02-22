@@ -78,9 +78,9 @@ grid.geometry      = "cartesian"
 grid.num_ghosts    = 3
 
 grid.X_min = 0.0
-grid.X_max = 10.0 # 10*de0
+grid.X_max = 10.0
 grid.Z_min = 0.0
-grid.Z_max = 10.0 # 10*de0
+grid.Z_max = 10.0
 grid.verbosity = 1
 
 #####################################################

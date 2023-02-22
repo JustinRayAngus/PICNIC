@@ -101,8 +101,9 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
     {
        if(procID()>0) return;
        cout << " Petsc SNES solver parameters: " << endl;
-       cout << "   newton_atol   = " << m_newton_atol << endl;
        cout << "   newton_rtol   = " << m_newton_rtol << endl;
+       cout << "   newton_atol   = " << m_newton_atol << endl;
+       cout << "   newton_stol   = " << m_newton_stol << endl;
        cout << "   newton_maxits = " << m_newton_maxits << endl;
        cout << "   gmres_atol   = " << m_gmres_atol << endl;
        cout << "   gmres_rtol   = " << m_gmres_rtol << endl;
@@ -429,6 +430,16 @@ void PetscSNESWrapper<T,Ops>::setOptions()
     }
   }
   {
+    char option[100] = "-snes_stol";
+    PetscBool is_specified;
+    PetscOptionsHasName( NULL, NULL, option, &is_specified );
+    if (!is_specified) {
+      char val[100];
+      sprintf(val, "%e", m_newton_stol );
+      PetscOptionsSetValue( NULL, option , val );
+    }
+  }
+  {
     char option[100] = "-snes_max_it";
     PetscBool is_specified;
     PetscOptionsHasName( NULL, NULL, option, &is_specified );
@@ -568,8 +579,9 @@ template <class T, class Ops>
 void PetscSNESWrapper<T,Ops>::parseParametersNewton( ParmParse& a_pp )
 {
   a_pp.query("verbose", m_newton_verbose); /* verbosity */
-  a_pp.query("atol",    m_newton_atol);    /* absolute tolerance */
   a_pp.query("rtol",    m_newton_rtol);    /* relative tolerance */
+  a_pp.query("atol",    m_newton_atol);    /* absolute tolerance */
+  a_pp.query("stol",    m_newton_stol);    /* step tolerance */
   a_pp.query("maxits",  m_newton_maxits);  /* maximum iterations */
 }
 
@@ -577,8 +589,8 @@ template <class T, class Ops>
 void PetscSNESWrapper<T,Ops>::parseParametersGMRES( ParmParse& a_pp )
 {
   a_pp.query("verbose", m_gmres_verbose); /* verbosity */
-  a_pp.query("atol",    m_gmres_atol);    /* absolute tolerance */
   a_pp.query("rtol",    m_gmres_rtol);    /* relative tolerance */
+  a_pp.query("atol",    m_gmres_atol);    /* absolute tolerance */
   a_pp.query("maxits",  m_gmres_maxits);  /* maximum iterations */
 }
 

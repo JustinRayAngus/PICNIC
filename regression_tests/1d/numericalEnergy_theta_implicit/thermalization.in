@@ -12,12 +12,16 @@ simulation.fixed_random_seed = 1983
 ###   taue0 = 3.44e-17 s
 ###   taui0 = 1.04e-15 s
 
-#system.advance_method = "PIC_EM_EXPLICIT"
-#system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
+
+pic_species.mod_init_advance = false
+pic_species.part_order_swap = true
+pic_species.iter_max_particles = 0
 
 pic_em_theta_implicit.solver_type = "picard"
 picard.maxits = 5
+picard.atol = 1.0e-12
+picard.rtol = 1.0e-8
 
 #####################################################
 # Time Stepping Definitions
@@ -51,7 +55,7 @@ grid.geometry      = "cartesian"
 grid.num_ghosts    = 2
 
 grid.X_min = 0.0
-grid.X_max = 10.0 # 10*de0
+grid.X_max = 10.0
 grid.verbosity = 1
 
 #####################################################
@@ -97,7 +101,7 @@ pic_species.0.scatter = true
 pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
-# applyBCs will not be called during interative advance
+# applyBCs will not be called during iterative advance
 # if deposit_outflow_J = true
 pic_species.0.interp_bc_check = false
 pic_species.0.deposit_outflow_J = true
@@ -129,7 +133,7 @@ pic_species.1.scatter = true
 pic_species.1.interp_type_N = "TSC"
 pic_species.1.interp_type_J = "CC1"
 pic_species.1.interp_type_E = "CC1"
-# applyBCs will not be called during interative advance
+# applyBCs will not be called during iterative advance
 # if deposit_outflow_J = true
 pic_species.1.interp_bc_check = false
 pic_species.1.deposit_outflow_J = true

@@ -40,7 +40,7 @@ void TakizukaAbe::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
    m_mass1 = this_species1->mass();    // species 1 mass / me
    m_mass2 = this_species2->mass();    // species 2 mass / me
    m_mu = m_mass1*m_mass2/(m_mass1 + m_mass2); // reduced mass
-         
+  
    Real cvacSq = Constants::CVAC*Constants::CVAC;
    m_b90_cofactor = abs(m_charge1*m_charge2)/(m_mu*cvacSq)*m_b90_codeToPhys; 
    
@@ -324,17 +324,11 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             this_part2_ptr = this_part2.getPointer();
             std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
    
-            //
             // compute deltaU
-            //
             computeDeltaU( deltaU,
                            this_betap1, numDen,
                            this_betap2, numDen,
                            m_Clog, a_dt_sec );     
-            //deltaU = {0,0,0};
-            //
-            // compute deltaU
-            //
             
             // update particle velocities
             for (int dir=0; dir<3; dir++) {
@@ -361,17 +355,11 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
                this_part2_ptr = this_part2.getPointer();
                std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
 
-               //
                // compute deltaU
-               //
                computeDeltaU( deltaU,
                               this_betap1, numDen/2.0,
                               this_betap2, numDen/2.0,
                               m_Clog, a_dt_sec );     
-               //deltaU = {0,0,0};
-               //
-               // compute deltaU
-               //
             
                // update particle velocities
                for (int dir=0; dir<3; dir++) {
@@ -488,13 +476,6 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
                p1 = p;
                p2 = p % numCell2;
             } 
-            if(procID() && verbosity) {
-               cout << "JRA: numCell1 = " << numCell1 << endl;
-               cout << "JRA: numCell2 = " << numCell2 << endl;
-               cout << "JRA: p = " << p << endl;
-               cout << "JRA: p1 = " << p1 << endl;
-               cout << "JRA: p2 = " << p2 << endl;
-            }
 
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part1_ptrs[p1];

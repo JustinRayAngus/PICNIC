@@ -234,8 +234,6 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
 {
    CH_TIME("PicSpecies::applyForces()");
     
-#define USE_NEW_FORCES
-
    if(a_pList.length()==0) return;   
    
    if(m_mesh.axisymmetric() && !m_use_axisymmetric_boris) {
@@ -244,14 +242,8 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
                                            m_axisymmetric_iter_max );
    }
    else {
-#ifdef USE_NEW_FORCES
-      const bool byWholeDt = !a_byHalfDt;
-      PicSpeciesUtils::applyForcesNew( a_pList, m_fnorm_const, a_cnormDt, 
-                                       byWholeDt, m_mesh.anticyclic() ); 
-#else
       PicSpeciesUtils::applyForces( a_pList, m_fnorm_const, a_cnormDt, 
                                     a_byHalfDt, m_mesh.anticyclic() ); 
-#endif
    }
 
 }
@@ -1707,6 +1699,7 @@ void PicSpecies::setChargeDensityOnNodes()
    LDaddNodeOp<NodeFArrayBox> addNodeOp;
    m_chargeDensity_nodes.exchange(m_chargeDensity_nodes.interval(), 
                                   m_mesh.reverseCopier(), addNodeOp);
+   //SpaceUtils::exchangeNodeFArrayBox(m_chargeDensity_nodes); // needed if more than 1 box per proccesor. bug?
    
    // divide by Jacobian after exchange (corrected Jacobian does not have ghosts)
    const LevelData<NodeFArrayBox>& Jacobian = m_mesh.getCorrectedJnc();  

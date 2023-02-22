@@ -16,12 +16,6 @@ namespace PicSpeciesUtils {
                const bool                    a_byHalfDt,
                const bool                    a_anticyclic );
    
-   void applyForcesNew( List<JustinsParticle>&  a_pList,
-               const Real                    a_fnorm,
-               const Real                    a_cnormDt, 
-               const bool                    a_byWholeDt,
-               const bool                    a_anticyclic );
-   
    void applyForcesAxisymm( List<JustinsParticle>&  a_pList,
                       const Real                    a_fnorm,
                       const Real                    a_cnormDt, 

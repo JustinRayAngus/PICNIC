@@ -49,9 +49,9 @@ grid.geometry      = "cartesian"
 grid.num_ghosts    = 2
 
 grid.X_min = 0.0
-grid.X_max = 10.0 # 10*de0
+grid.X_max = 10.0
 grid.Z_min = 0.0
-grid.Z_max = 10.0 # 10*de0
+grid.Z_max = 10.0
 grid.verbosity = 1
 
 #####################################################
@@ -94,7 +94,7 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = true
-# applyBCs will not be called during interative advance
+# applyBCs will not be called during iterative advance
 # if deposit_outflow_J = true
 pic_species.0.deposit_outflow_J = true
 
@@ -124,7 +124,7 @@ pic_species.1.charge = 1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
-# applyBCs will not be called during interative advance
+# applyBCs will not be called during iterative advance
 # if deposit_outflow_J = true
 pic_species.1.deposit_outflow_J = true
 

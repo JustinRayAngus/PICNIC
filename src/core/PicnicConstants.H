@@ -20,7 +20,7 @@ namespace Constants {
    // Fundamental Physical Constants
    const double CVAC   = 2.99792458e+08;  // speed of light [m/s]
    const double MU0    = FOURPI*1.0e-7;   // vacuum permeability [H/m]
-   const double EP0    = 8.85418782e-12;  // vacuum permittivity [C^2/N-m^2]
+   const double EP0    = 1.0/CVAC/CVAC/MU0;  // vacuum permittivity [C^2/N-m^2]
    const double ME     = 9.10938370e-31;  // electron mass [kg]
    const double MN     = 1.67492750e-27;  // neutron mass [kg]
    const double MP     = 1.67262192e-27;  // proton mass [kg]
