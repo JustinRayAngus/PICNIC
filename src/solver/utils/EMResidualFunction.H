@@ -15,6 +15,7 @@ class EMResidualFunction: public NonlinearFunction<Vec,Ops>
     {
       m_cur_time = 0.0;
       m_ops = nullptr;
+      m_update_pc = true;
       m_is_Defined = false; 
     }
 
@@ -26,7 +27,8 @@ class EMResidualFunction: public NonlinearFunction<Vec,Ops>
     
     void define(const Vec&, 
                 Ops* const,
-                const double );
+                const double,
+                bool );
 
     inline bool isDefined() const
     { 
@@ -59,6 +61,7 @@ class EMResidualFunction: public NonlinearFunction<Vec,Ops>
 
     bool m_is_Defined;
     double m_cur_time, m_dt, m_dtfac;
+    bool m_update_pc;
 
     Vec m_Z, m_F, m_R;
     Ops* m_ops;
@@ -69,7 +72,8 @@ class EMResidualFunction: public NonlinearFunction<Vec,Ops>
 template <class Vec, class Ops>
 void EMResidualFunction<Vec,Ops>::define( const Vec&    a_U, 
                                           Ops* const    a_ops,
-                                          const double  a_dtfac )
+                                          const double  a_dtfac,
+                                          const bool    a_update_pc )
 {
   m_Z.define(a_U);
   m_F.define(a_U);
@@ -82,7 +86,7 @@ void EMResidualFunction<Vec,Ops>::define( const Vec&    a_U,
   m_ops = a_ops;
   m_jac.define( a_U, a_ops, a_dtfac );
 
-
+  m_update_pc = a_update_pc;
   m_is_Defined = true;
 }
 
@@ -100,6 +104,8 @@ void EMResidualFunction<Vec,Ops>::evalFunction( Vec&        a_F,
   /* set base Y and G(Y) for Jacobian */
   m_jac.setBaseSolution(a_U);
   m_jac.setBaseRHS(m_F);
+  /* update preconditioner */
+  if (m_update_pc) m_jac.updatePreCondMat(a_U);
 
   /* Compute ([Y - G(Y)] - b) */
   a_F = a_U - (m_F + m_R);

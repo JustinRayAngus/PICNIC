@@ -31,6 +31,11 @@ class Constant : public GridFunction
          return m_value;
       }
 
+      virtual Real getDerivative( const RealVect&  a_X,
+                                  const int        a_dir ) const {
+         return 0.0;
+      }   
+
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "Constant grid function parameters:" << std::endl;

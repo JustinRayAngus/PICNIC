@@ -49,8 +49,8 @@ private:
    Real m_density;
    std::array<Real,3> m_velocity;
    std::array<Real,3> m_temperature;
-   std::array<Real,3> m_beta_VT;
-   std::array<Real,3> m_beta_U;
+   std::array<Real,3> m_gbeta_VT;
+   std::array<Real,3> m_gbeta_U;
   
    bool m_impose_neumann_density;
    int m_discrete_samples;

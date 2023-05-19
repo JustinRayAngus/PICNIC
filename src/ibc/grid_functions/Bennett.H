@@ -18,7 +18,6 @@ class Bennett : public GridFunction
        const int         a_verbosity )
          : GridFunction(a_verbosity)
       {
-         CH_assert(SpaceDim==2);
          parseParameters( a_pp );
       }
 
@@ -34,6 +33,20 @@ class Bennett : public GridFunction
 
          return value;
 
+      }
+      
+      virtual Real getDerivative( const RealVect&  a_X,
+                                  const int        a_dir ) const {
+         CH_assert(a_dir<SpaceDim);
+         
+         Real deriv = 0.0;
+         if(a_dir==0) {
+            Real X0 = a_X[0];
+            Real denom = m_a*m_a + X0*X0;
+            deriv = 2.0*m_A*(1.0 - 2.0*X0*X0/denom)/denom;
+         }
+
+         return deriv;
       }
 
       virtual void printParameters()  const {
@@ -74,8 +87,9 @@ class Bennett : public GridFunction
          RealVect X;
          for(bit.begin(); bit.ok(); ++bit) {
             ib = bit();
-            X[0] = a_real_coords.get(ib,0);
-            X[1] = a_real_coords.get(ib,1);
+            for(int n=0; n<SpaceDim; n++) {
+               X[n] = a_real_coords.get(ib,n);
+            }
             value = getValue(X);
             a_data.set(ib,0,value);
          }

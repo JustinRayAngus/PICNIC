@@ -13,14 +13,14 @@ c         left_edge:  the physical location of the left edge of the domain
 c         dx:         the mesh spacing
 c         x:          the position coordinate of the particle
 c         kernal:     the velocity-space kernal of the particle
-c         q:          the particle weight
+c         wp:         the particle weight
 c
       subroutine moment_deposit( CHF_FRA1[moment],
      &                   CHF_CONST_REALVECT[left_edge],
      &                   CHF_CONST_REALVECT[dx],
      &                   CHF_CONST_REALVECT[x],
      &                   CHF_CONST_REAL[kernal],
-     &                   CHF_CONST_REAL[q] ) 
+     &                   CHF_CONST_REAL[wp] ) 
 
       integer index(0:CH_SPACEDIM - 1)
       integer idir
@@ -32,9 +32,30 @@ c     compute the index of the cell containing this particle
         index(idir) = floor((x(idir) - left_edge(idir)) / dx(idir))
       enddo
 
-c     assign the particle weight X kernal to that cell
+c     assign the particle wp X kernal to that cell
       moment(CHF_IX[index(0); index(1); index(2)]) = 
-     &   moment(CHF_IX[index(0); index(1); index(2)]) + q*kernal / volume
+     &   moment(CHF_IX[index(0); index(1); index(2)]) + wp*kernal / volume
+
+      end
+
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      
+      subroutine count_deposit( CHF_FRA1[moment],
+     &                   CHF_CONST_REALVECT[left_edge],
+     &                   CHF_CONST_REALVECT[dx],
+     &                   CHF_CONST_REALVECT[xp] )
+
+      integer index(0:CH_SPACEDIM - 1)
+      integer idir
+
+c     compute the index of the cell containing this particle
+      do idir = 0, CH_SPACEDIM - 1
+        index(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
+      enddo
+
+c     increment moment by one
+      moment(CHF_IX[index(0); index(1); index(2)]) = 
+     &   moment(CHF_IX[index(0); index(1); index(2)]) + one
 
       end
 

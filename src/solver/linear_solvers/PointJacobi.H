@@ -28,7 +28,7 @@ class PointJacobiSolver : public LinearFunctionSolver<T, Ops>
 
     ~PointJacobiSolver<T,Ops>()  {}
 
-    void define (LinearFunction<T,Ops>* const, const T&);
+    void define (Ops* const, LinearFunction<T,Ops>* const, const T&);
     void solve(T&, const T&, int a_its = -1);
 
     inline void verbose(const bool a_v) 
@@ -71,8 +71,9 @@ class PointJacobiSolver : public LinearFunctionSolver<T, Ops>
 };
 
 template <class T, class Ops>
-void PointJacobiSolver<T,Ops>::define(LinearFunction<T,Ops>* const  a_op, 
-                                      const T&                      a_x )
+void PointJacobiSolver<T,Ops>::define(  Ops* const,
+                                        LinearFunction<T,Ops>* const  a_op, 
+                                        const T&                      a_x )
 {
   m_op = a_op;
   CH_assert(m_op != NULL);

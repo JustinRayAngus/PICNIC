@@ -20,8 +20,19 @@ namespace PicSpeciesUtils {
                       const Real                    a_fnorm,
                       const Real                    a_cnormDt, 
                       const bool                    a_byHalfDt,
-                      const bool                    a_anticyclic,
-                      const int                     a_iter_max );
+                      const bool                    a_anticyclic );
+   
+   void applyForcesHYBRID( List<JustinsParticle>&  a_pList,
+                     const Real                    a_fnorm,
+                     const Real                    a_cnormDt, 
+                     const bool                    a_anticyclic );
+
+   void stepNormTransferCYLCAR( List<JustinsParticle>&  a_pList,
+                          List<JustinsParticle>&  a_temp_pList,
+                    const RealVect&               a_dX,
+                    const Real                    a_cnormHalfDt, 
+                    const Real                    a_rtol, 
+                    const bool                    a_reverse );
 
    void stepNormTransfer( List<JustinsParticle>&  a_pList,
                           List<JustinsParticle>&  a_temp_pList,

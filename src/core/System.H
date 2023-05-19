@@ -96,6 +96,8 @@ class System
       void scatterParticles( const Real&  a_dt );
     
       void DefineECSemiImpFlag() { m_ec_semi_implicit = true; }
+
+      inline int nonLinearIter() const { return m_nonlinear_iter; }
       
       void preRHSOp( const ODEVector<System>& a_U,
                      const Real               a_time,
@@ -265,20 +267,20 @@ class System
 
         a_Pmat.setToIdentityMatrix();
         const Real cnormDt = a_dt*m_units->CvacNorm();
-        const LevelData<EdgeDataBox>&  sigma_xx = m_pic_species->getSigmaxx();
-#if CH_SPACEDIM==1
-        const LevelData<NodeFArrayBox>&  sigma_yy = m_pic_species->getSigmayy();
-#endif
-        const LevelData<NodeFArrayBox>&  sigma_zz = m_pic_species->getSigmazz();
-        bool use_mm = m_pic_species->useMassMatrices();
-        if(sigma_xx.isDefined()==0) use_mm = false; // there is a call here before mm defined
+        //bool use_mm = m_pic_species->useMassMatrices();
         m_emfields->assemblePrecondMatrix( a_Pmat,
-                                           use_mm,
-                                           sigma_xx, 
+                                           m_pic_species->getSigmaxx().isDefined(),
+                                           m_pic_species->getSigmaxx(), 
+                                           m_pic_species->getSigmaxy(), 
+                                           m_pic_species->getSigmaxz(), 
 #if CH_SPACEDIM==1
-                                           sigma_yy, 
+                                           m_pic_species->getSigmayx(), 
+                                           m_pic_species->getSigmayy(), 
+                                           m_pic_species->getSigmayz(), 
 #endif                                     
-                                           sigma_zz,
+                                           m_pic_species->getSigmazx(),
+                                           m_pic_species->getSigmazy(),
+                                           m_pic_species->getSigmazz(),
                                            cnormDt );
         a_Pmat.finalAssembly();
         //a_Pmat.writeToFile("pc_matrix.txt",1);

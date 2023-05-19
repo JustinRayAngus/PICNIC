@@ -44,6 +44,24 @@ class Cosine : public GridFunction
 
       }
 
+      virtual Real getDerivative( const RealVect&  a_X,
+                                  const int        a_dir ) const {
+         CH_assert(a_dir<SpaceDim);
+         
+         Real X0, L0, arg; 
+         Real deriv = m_amplitude;
+         for (int dir=0; dir<SpaceDim; dir++) {
+            X0 = a_X[dir];
+            L0 = m_L[dir];
+            arg = Constants::TWOPI*m_mode[dir]*X0/L0 + m_phase[dir]*Constants::PI;
+            arg = std::fmod(arg,Constants::TWOPI); // cos(pi/2) != cos(3*pi/2) != cos(5*pi/2)...
+            if(dir==a_dir) deriv = deriv*sin(arg)*Constants::TWOPI*m_mode[dir]/L0;
+            else deriv = deriv*cos(arg);
+         }
+         return deriv; 
+        
+      }
+
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "Cosine grid function parameters:" << std::endl;

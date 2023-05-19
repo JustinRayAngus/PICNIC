@@ -35,7 +35,7 @@ void PICTimeIntegrator_DSMC::timeStep( const Real a_time,
   // advance particle positions from t_{n} to t_{n+1} using vp_{n}
   for (int s=0; s<m_particles.size(); s++) {
     auto this_picSpecies(m_particles[s]);
-    this_picSpecies->advancePositions(a_dt);
+    this_picSpecies->advancePositionsExplicit(a_dt);
     this_picSpecies->applyInertialForces(a_dt, false, true);
     this_picSpecies->applyBCs(false);
   }

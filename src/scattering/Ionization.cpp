@@ -491,7 +491,7 @@ Real Ionization::getTextSigma( const Real  a_beta ) const
          sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qvec,KE_cm,index);
       }
       else {
-         sigma = ScatteringUtils::linearInterp(m_Evec,m_Qvec,KE_cm,index);
+         sigma = MathUtils::linearInterp(m_Evec,m_Qvec,KE_cm,index);
       }
    }
    else {

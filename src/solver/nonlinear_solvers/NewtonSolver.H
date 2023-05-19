@@ -23,6 +23,7 @@ class NewtonSolver : public NonlinearSolver<Vec, Ops>
       m_func = nullptr;
       m_linear_solver = nullptr;
       m_op_indent = "";
+      m_linear_solver_type = _LINSOLVER_GMRES_;
     }
 
     ~NewtonSolver<Vec,Ops>()
@@ -64,6 +65,7 @@ class NewtonSolver : public NonlinearSolver<Vec, Ops>
        cout << "   rtol   = " << m_rtol << endl;
        cout << "   stol   = " << m_stol << endl;
        cout << "   maxits = " << m_maxits << endl;
+       cout << "   linear_solver = " << m_linear_solver_type << endl;
     }
     
     virtual void verbose( const bool  a_verbose ) 
@@ -117,7 +119,7 @@ class NewtonSolver : public NonlinearSolver<Vec, Ops>
 
 template <class Vec, class Ops>
 void NewtonSolver<Vec,Ops>::define( const Vec&                        a_U,
-                                    Ops* const, 
+                                    Ops* const                        a_ops, 
                                     NonlinearFunction<Vec,Ops>* const a_func,
                                     const double )
 {
@@ -135,7 +137,6 @@ void NewtonSolver<Vec,Ops>::define( const Vec&                        a_U,
 
   m_count   = 0;
   m_isLinear = false;
-  m_linear_solver_type = _LINSOLVER_GMRES_;
 
   m_F.define(a_U); 
   m_dU.define(a_U);
@@ -145,10 +146,16 @@ void NewtonSolver<Vec,Ops>::define( const Vec&                        a_U,
 
   if ( m_linear_solver_type == _LINSOLVER_GMRES_) {
      m_linear_solver = new GMRESSolver<Vec,Ops>;
+  } else if ( m_linear_solver_type == _LINSOLVER_PETSCKSP_) {
+#ifdef with_petsc
+     m_linear_solver = new PetscKSPWrapper<Vec,Ops>;
+#else
+     MayDay::Error("PETSc KSP solver requires compilation with PETSc");
+#endif
   } else {
      MayDay::Error("NewtonSolver<Vec,Ops>::define(): Unrecognized linear solver");
   }
-  m_linear_solver->define(&(m_func->getJacobian()), a_U);
+  m_linear_solver->define(a_ops, &(m_func->getJacobian()), a_U);
   
   m_is_Defined = true;
 }
@@ -156,11 +163,12 @@ void NewtonSolver<Vec,Ops>::define( const Vec&                        a_U,
 template <class Vec, class Ops>
 void NewtonSolver<Vec,Ops>::parseParameters( ParmParse& a_pp )
 {
-  a_pp.query("verbose", m_verbose); /* verbosity */
-  a_pp.query("atol",    m_atol);    /* absolute tolerance */
-  a_pp.query("rtol",    m_rtol);    /* relative tolerance */
-  a_pp.query("stol",    m_stol);    /* step tolerance */
-  a_pp.query("maxits",  m_maxits);  /* maximum iterations */
+  a_pp.query("verbose",       m_verbose);             /* verbosity */
+  a_pp.query("atol",          m_atol);                /* absolute tolerance */
+  a_pp.query("rtol",          m_rtol);                /* relative tolerance */
+  a_pp.query("stol",          m_stol);                /* step tolerance */
+  a_pp.query("maxits",        m_maxits);              /* maximum iterations */
+  a_pp.query("linear_solver", m_linear_solver_type);  /* linear solver type */
 }
 
 template <class Vec, class Ops>
@@ -197,7 +205,7 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
                m_op_indent.c_str(), _NLSOLVER_NEWTON_, m_atol);
       }
       m_convergedReason = "norm less than absolute tolerance";
-      m_exitStatus = 0;
+      m_exitStatus = 2;
       break;
     }
     if (m_norm/m_norm0 < m_rtol) {
@@ -206,7 +214,7 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
                m_op_indent.c_str(), _NLSOLVER_NEWTON_, m_rtol);
       }
       m_convergedReason = "norm less than relative tolerance";
-      m_exitStatus = 0;
+      m_exitStatus = 3;
       break;
     }
     if (m_its > m_maxits) {
@@ -215,7 +223,7 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
                m_op_indent.c_str(), _NLSOLVER_NEWTON_, m_maxits);
       }
       m_convergedReason = "number of iterations exceeded maximum";
-      m_exitStatus = 1;
+      m_exitStatus = 5;
       break;
     }
     if (m_norm > 100*m_norm0) {
@@ -239,13 +247,24 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
                 m_op_indent.c_str(), _NLSOLVER_NEWTON_, m_stol );
       }
       m_convergedReason = "step size norm less than tolerance";
-      m_exitStatus = 0;
+      m_exitStatus = 4;
       break;
     }
 
     /* Update solution Y = Y - dY */
     a_U -= m_dU;
     m_its++;
+  }
+      
+  if((!procID()) && (m_exitStatus<0)) {
+    cout << "Warning: Newton solver diverged" << endl;
+    cout << "iter = " << m_its << endl;
+    cout << "rel_norm = " << m_norm/m_norm0 << endl;
+  }
+  if((!procID()) && (m_exitStatus==5)) {
+    cout << "Warning: Newton solver max iterations reached" << endl;
+    cout << "iter = " << m_its << endl;
+    cout << "rel_norm = " << m_norm/m_norm0 << endl;
   }
 
   m_count += m_its;

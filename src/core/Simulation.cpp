@@ -208,7 +208,7 @@ void Simulation::loadRestartFile( ParmParse& a_ppsim )
 
    m_cur_step = header.m_int["cur_step"];
    m_cur_time = header.m_real["cur_time"];
-   m_cur_dt   = header.m_real["cur_dt"];
+   //m_cur_dt   = header.m_real["cur_dt"];
 
    handle.close();
 

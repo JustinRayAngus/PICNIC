@@ -50,7 +50,9 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
                                  FArrayBox&   a_rhoVy,
                                  FArrayBox&   a_rhoVz,
                            const List<P>&     a_particleList,
-                           const InterpType&  a_interpType ) const
+                           const InterpType&  a_interpType,
+                           const int          a_cyl_car,
+                           const bool         a_from_explicit_solver ) const
 {
    CH_TIME("MeshInterp::depositCurrent()");
 
@@ -60,11 +62,46 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
    const int z_comp = a_rhoVz.nComp()-1;
 
    for (ListIterator<P> lit(a_particleList); lit; ++lit) {
-      const P& this_particle = lit();
-      const RealVect& this_xpold = this_particle.position_old();
-      const RealVect& this_xp = this_particle.position();
-      const std::array<Real,3>& this_vp = this_particle.velocity(); 
-      const Real& this_wp = this_particle.weight();
+      
+      const RealVect& xpold = lit().position_old();
+      const RealVect& xp = lit().position();
+      const std::array<Real,3>& up = lit().velocity(); 
+      const Real& wp = lit().weight();
+   
+#ifdef RELATIVISTIC_PARTICLES
+      Real gammap = 1.0;
+      if(a_from_explicit_solver) {
+         gammap += up[0]*up[0] + up[1]*up[1] + up[2]*up[2];
+         gammap = sqrt(gammap);
+      }
+      else {
+         std::array<Real,3> upnew;
+         Real gbsq_old, gbsq_new;
+         const std::array<Real,3>& upold = lit().velocity_old();
+         for(int n=0; n<3; n++) upnew[n] = 2.0*up[n] - upold[n];
+         gbsq_old = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
+         gbsq_new = upnew[0]*upnew[0] + upnew[1]*upnew[1] + upnew[2]*upnew[2];
+         gammap = 0.5*(sqrt(1.0 + gbsq_old) + sqrt(1.0 + gbsq_new));
+      }
+      const Real wpog = wp/gammap;
+#else
+      const Real wpog = wp;
+#endif
+
+      std::array<Real,3> up0 = up;
+      if(a_cyl_car) { // transform up from CAR to CYL
+         int dirpr = 0;
+         int dirpth = 1;
+#if CH_SPACEDIM==2
+         dirpth = 2;
+#endif
+         const Real costhp = lit().position_virt(0);
+         const Real sinthp = lit().position_virt(1);
+         const Real upx = up[dirpr];
+         const Real upy = up[dirpth];
+         up0[dirpr]  =  costhp*upx + sinthp*upy; 
+         up0[dirpth] = -sinthp*upx + costhp*upy;
+      }
       
       switch (a_interpType) {
          case CIC:
@@ -73,11 +110,11 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
                                    CHF_FRA1(a_rhoVz, z_comp),
                                    CHF_CONST_REALVECT(m_domainLeftEdge),
                                    CHF_CONST_REALVECT(m_dx),
-                                   CHF_CONST_REALVECT(this_xp),
-                                   CHF_CONST_REAL(this_vp[0]),
-                                   CHF_CONST_REAL(this_vp[1]),
-                                   CHF_CONST_REAL(this_vp[2]),
-                                   CHF_CONST_REAL(this_wp) );
+                                   CHF_CONST_REALVECT(xp),
+                                   CHF_CONST_REAL(up0[0]),
+                                   CHF_CONST_REAL(up0[1]),
+                                   CHF_CONST_REAL(up0[2]),
+                                   CHF_CONST_REAL(wpog) );
          break;
          case TSC:
          FORT_TSC_DEPOSIT_CURRENT( CHF_FRA1(a_rhoVx, 0),
@@ -85,11 +122,11 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
                                    CHF_FRA1(a_rhoVz, z_comp),
                                    CHF_CONST_REALVECT(m_domainLeftEdge),
                                    CHF_CONST_REALVECT(m_dx),
-                                   CHF_CONST_REALVECT(this_xp),
-                                   CHF_CONST_REAL(this_vp[0]),
-                                   CHF_CONST_REAL(this_vp[1]),
-                                   CHF_CONST_REAL(this_vp[2]),
-                                   CHF_CONST_REAL(this_wp) );
+                                   CHF_CONST_REALVECT(xp),
+                                   CHF_CONST_REAL(up0[0]),
+                                   CHF_CONST_REAL(up0[1]),
+                                   CHF_CONST_REAL(up0[2]),
+                                   CHF_CONST_REAL(wpog) );
          break;
          case CC0: // zero-order charge conserving scheme
 #if CH_SPACEDIM == 1
@@ -101,12 +138,12 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
                                    CHF_CONST_REALVECT(m_domainLeftEdge),
                                    CHF_CONST_REALVECT(m_domainRightEdge),
                                    CHF_CONST_REALVECT(m_dx),
-                                   CHF_CONST_REALVECT(this_xpold),
-                                   CHF_CONST_REALVECT(this_xp),
-                                   CHF_CONST_REAL(this_vp[0]),
-                                   CHF_CONST_REAL(this_vp[1]),
-                                   CHF_CONST_REAL(this_vp[2]),
-                                   CHF_CONST_REAL(this_wp) );
+                                   CHF_CONST_REALVECT(xpold),
+                                   CHF_CONST_REALVECT(xp),
+                                   CHF_CONST_REAL(up0[0]),
+                                   CHF_CONST_REAL(up0[1]),
+                                   CHF_CONST_REAL(up0[2]),
+                                   CHF_CONST_REAL(wpog) );
 #endif
 #if CH_SPACEDIM == 2
          FORT_CC0_2D_DEPOSIT_CURRENT( CHF_FRA1(a_rhoVx, 0),
@@ -114,12 +151,12 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
                                    CHF_FRA1(a_rhoVz, z_comp),
                                    CHF_CONST_REALVECT(m_domainLeftEdge),
                                    CHF_CONST_REALVECT(m_dx),
-                                   CHF_CONST_REALVECT(this_xpold),
-                                   CHF_CONST_REALVECT(this_xp),
-                                   CHF_CONST_REAL(this_vp[0]),
-                                   CHF_CONST_REAL(this_vp[1]),
-                                   CHF_CONST_REAL(this_vp[2]),
-                                   CHF_CONST_REAL(this_wp) );
+                                   CHF_CONST_REALVECT(xpold),
+                                   CHF_CONST_REALVECT(xp),
+                                   CHF_CONST_REAL(up0[0]),
+                                   CHF_CONST_REAL(up0[1]),
+                                   CHF_CONST_REAL(up0[2]),
+                                   CHF_CONST_REAL(wpog) );
 #endif
          break;
          case CC1: // first-order charge conserving scheme
@@ -133,12 +170,12 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
                                    CHF_CONST_REALVECT(m_domainLeftEdge),
                                    CHF_CONST_REALVECT(m_domainRightEdge),
                                    CHF_CONST_REALVECT(m_dx),
-                                   CHF_CONST_REALVECT(this_xpold),
-                                   CHF_CONST_REALVECT(this_xp),
-                                   CHF_CONST_REAL(this_vp[0]),
-                                   CHF_CONST_REAL(this_vp[1]),
-                                   CHF_CONST_REAL(this_vp[2]),
-                                   CHF_CONST_REAL(this_wp) );
+                                   CHF_CONST_REALVECT(xpold),
+                                   CHF_CONST_REALVECT(xp),
+                                   CHF_CONST_REAL(up0[0]),
+                                   CHF_CONST_REAL(up0[1]),
+                                   CHF_CONST_REAL(up0[2]),
+                                   CHF_CONST_REAL(wpog) );
 #endif
 #if CH_SPACEDIM == 2
          FORT_CC1_2D_DEPOSIT_CURRENT( CHF_FRA1(a_rhoVx, 0),
@@ -147,12 +184,12 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoVx,
                                    CHF_CONST_INT(m_ghosts),
                                    CHF_CONST_REALVECT(m_domainLeftEdge),
                                    CHF_CONST_REALVECT(m_dx),
-                                   CHF_CONST_REALVECT(this_xpold),
-                                   CHF_CONST_REALVECT(this_xp),
-                                   CHF_CONST_REAL(this_vp[0]),
-                                   CHF_CONST_REAL(this_vp[1]),
-                                   CHF_CONST_REAL(this_vp[2]),
-                                   CHF_CONST_REAL(this_wp) );
+                                   CHF_CONST_REALVECT(xpold),
+                                   CHF_CONST_REALVECT(xp),
+                                   CHF_CONST_REAL(up0[0]),
+                                   CHF_CONST_REAL(up0[1]),
+                                   CHF_CONST_REAL(up0[2]),
+                                   CHF_CONST_REAL(wpog) );
 #endif
          break;
          default:
@@ -179,19 +216,47 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                 const FArrayBox&   a_Bx,
                                 const FArrayBox&   a_By,
                                 const FArrayBox&   a_Bz,
-                                const int          a_qs,
+                                const Real         a_qovs,
                                 const Real         a_alphas,
+                                const int          a_inert_type,
                                 const List<P>&     a_particleList,
                                 const InterpType&  a_interpType ) const
 {
    const int z_comp = a_Jz.nComp()-1; 
    for (ListIterator<P> lit(a_particleList); lit; ++lit) {
-      const P& this_particle = lit();
-      const RealVect& this_xp = this_particle.position();
-      const RealVect& this_xpold = this_particle.position_old();
-      const std::array<Real,3>& this_vpold = this_particle.velocity_old(); 
-      const Real& this_wp = this_particle.weight()*a_qs;
- 
+
+      const RealVect& xpbar = lit().position();
+      const RealVect& xpold = lit().position_old();
+      const std::array<Real,3>& upbar = lit().velocity(); 
+      const std::array<Real,3>& upold = lit().velocity_old(); 
+      const Real wp = lit().weight()*a_qovs;
+
+      std::array<Real,3> upbar0 = upbar;
+      Real inert_fact = 0.0;
+      if(a_inert_type==1) {
+         inert_fact = lit().position_virt(0); // dtheta
+#if CH_SPACEDIM==2
+         cout << "JRA: the anti-cyclic nature for cyl RZ has not yet been";
+         cout << " accounted for in the mass matrix deposits" << endl;
+#endif
+      }
+      else if(a_inert_type==2) {
+         const Real costhp = lit().position_virt(0);
+         const Real sinthp = lit().position_virt(1);
+         inert_fact = costhp*costhp + sinthp*sinthp; // not equal to unity in general
+         int dirpr = 0;
+         int dirpth = 1;
+#if CH_SPACEDIM==2
+         dirpth = 2;
+         cout << "JRA: the anti-cyclic nature for cyl RZ has not yet been";
+         cout << " accounted for in the mass matrix deposits" << endl;
+#endif
+         const Real upx = upbar[dirpr];
+         const Real upy = upbar[dirpth];
+         upbar0[dirpr]  =  costhp*upx + sinthp*upy;
+         upbar0[dirpth] = -sinthp*upx + costhp*upy;
+      }
+      
       switch (a_interpType) {
          case CIC:
          FORT_CIC_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
@@ -211,12 +276,18 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                  CHF_CONST_FRA1(a_Bz, z_comp),
                                  CHF_CONST_REALVECT(m_domainLeftEdge),
                                  CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(this_xp),
-                                 CHF_CONST_REAL(this_vpold[0]),
-                                 CHF_CONST_REAL(this_vpold[1]),
-                                 CHF_CONST_REAL(this_vpold[2]),
+                                 CHF_CONST_REALVECT(xpold),
+                                 CHF_CONST_REALVECT(xpbar),
+                                 CHF_CONST_REAL(upold[0]),
+                                 CHF_CONST_REAL(upold[1]),
+                                 CHF_CONST_REAL(upold[2]),
+                                 CHF_CONST_REAL(upbar0[0]),
+                                 CHF_CONST_REAL(upbar0[1]),
+                                 CHF_CONST_REAL(upbar0[2]),
                                  CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_REAL(this_wp) );
+                                 CHF_CONST_INT(a_inert_type),
+                                 CHF_CONST_REAL(inert_fact),
+                                 CHF_CONST_REAL(wp) );
          break;
          case TSC:
          FORT_TSC_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
@@ -236,12 +307,18 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                  CHF_CONST_FRA1(a_Bz, z_comp),
                                  CHF_CONST_REALVECT(m_domainLeftEdge),
                                  CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(this_xp),
-                                 CHF_CONST_REAL(this_vpold[0]),
-                                 CHF_CONST_REAL(this_vpold[1]),
-                                 CHF_CONST_REAL(this_vpold[2]),
+                                 CHF_CONST_REALVECT(xpold),
+                                 CHF_CONST_REALVECT(xpbar),
+                                 CHF_CONST_REAL(upold[0]),
+                                 CHF_CONST_REAL(upold[1]),
+                                 CHF_CONST_REAL(upold[2]),
+                                 CHF_CONST_REAL(upbar0[0]),
+                                 CHF_CONST_REAL(upbar0[1]),
+                                 CHF_CONST_REAL(upbar0[2]),
                                  CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_REAL(this_wp) );
+                                 CHF_CONST_INT(a_inert_type),
+                                 CHF_CONST_REAL(inert_fact),
+                                 CHF_CONST_REAL(wp) );
          break;
          case CC0:
 #if CH_SPACEDIM == 1
@@ -265,13 +342,18 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                  CHF_CONST_REALVECT(m_domainLeftEdge),
                                  CHF_CONST_REALVECT(m_domainRightEdge),
                                  CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(this_xpold),
-                                 CHF_CONST_REALVECT(this_xp),
-                                 CHF_CONST_REAL(this_vpold[0]),
-                                 CHF_CONST_REAL(this_vpold[1]),
-                                 CHF_CONST_REAL(this_vpold[2]),
+                                 CHF_CONST_REALVECT(xpold),
+                                 CHF_CONST_REALVECT(xpbar),
+                                 CHF_CONST_REAL(upold[0]),
+                                 CHF_CONST_REAL(upold[1]),
+                                 CHF_CONST_REAL(upold[2]),
+                                 CHF_CONST_REAL(upbar0[0]),
+                                 CHF_CONST_REAL(upbar0[1]),
+                                 CHF_CONST_REAL(upbar0[2]),
                                  CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_REAL(this_wp) );
+                                 CHF_CONST_INT(a_inert_type),
+                                 CHF_CONST_REAL(inert_fact),
+                                 CHF_CONST_REAL(wp) );
 #endif
          break;
          case CC1:
@@ -296,13 +378,18 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                  CHF_CONST_REALVECT(m_domainLeftEdge),
                                  CHF_CONST_REALVECT(m_domainRightEdge),
                                  CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(this_xpold),
-                                 CHF_CONST_REALVECT(this_xp),
-                                 CHF_CONST_REAL(this_vpold[0]),
-                                 CHF_CONST_REAL(this_vpold[1]),
-                                 CHF_CONST_REAL(this_vpold[2]),
+                                 CHF_CONST_REALVECT(xpold),
+                                 CHF_CONST_REALVECT(xpbar),
+                                 CHF_CONST_REAL(upold[0]),
+                                 CHF_CONST_REAL(upold[1]),
+                                 CHF_CONST_REAL(upold[2]),
+                                 CHF_CONST_REAL(upbar0[0]),
+                                 CHF_CONST_REAL(upbar0[1]),
+                                 CHF_CONST_REAL(upbar0[2]),
                                  CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_REAL(this_wp) );
+                                 CHF_CONST_INT(a_inert_type),
+                                 CHF_CONST_REAL(inert_fact),
+                                 CHF_CONST_REAL(wp) );
 #endif
 #if CH_SPACEDIM == 2
          FORT_CC1_2D_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
@@ -322,13 +409,18 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                  CHF_CONST_FRA1(a_Bz, z_comp),
                                  CHF_CONST_REALVECT(m_domainLeftEdge),
                                  CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(this_xpold),
-                                 CHF_CONST_REALVECT(this_xp),
-                                 CHF_CONST_REAL(this_vpold[0]),
-                                 CHF_CONST_REAL(this_vpold[1]),
-                                 CHF_CONST_REAL(this_vpold[2]),
+                                 CHF_CONST_REALVECT(xpold),
+                                 CHF_CONST_REALVECT(xpbar),
+                                 CHF_CONST_REAL(upold[0]),
+                                 CHF_CONST_REAL(upold[1]),
+                                 CHF_CONST_REAL(upold[2]),
+                                 CHF_CONST_REAL(upbar0[0]),
+                                 CHF_CONST_REAL(upbar0[1]),
+                                 CHF_CONST_REAL(upbar0[2]),
                                  CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_REAL(this_wp) );
+                                 CHF_CONST_INT(a_inert_type),
+                                 CHF_CONST_REAL(inert_fact),
+                                 CHF_CONST_REAL(wp) );
 #endif
          break;
          default:
@@ -946,6 +1038,8 @@ void MeshInterp::depositInflowCurrent( FArrayBox&   a_rhoVx,
    // inflow current is deposited via time-orbit-averged NGP for in-plane J
    // and time-orbit-averaged CIC for out-of-plane J
 
+   // Note that this function is only called from the implicit solver.
+
 #if CH_SPACEDIM == 1
    
    const int z_comp = a_rhoVz.nComp()-1;
@@ -962,16 +1056,27 @@ void MeshInterp::depositInflowCurrent( FArrayBox&   a_rhoVx,
 
    for (ListIterator<P> lit(a_particleList); lit; ++lit) {
 
-     const P& this_particle = lit();
-     const Real& wp = this_particle.weight();
-     const RealVect& xpold = this_particle.position_old();
-     const RealVect& xpbar = this_particle.position();
-     const std::array<Real,3>& vpold = this_particle.velocity_old(); 
-     const std::array<Real,3>& vpbar = this_particle.velocity(); 
+     const Real& wp = lit().weight();
+     const RealVect& xpold = lit().position_old();
+     const RealVect& xpbar = lit().position();
+     const std::array<Real,3>& upold = lit().velocity_old(); 
+     const std::array<Real,3>& upbar = lit().velocity(); 
 
-     if(vpbar[a_bdry_dir]==0.0) continue;
+     if(upbar[a_bdry_dir]==0.0) continue;
+      
+     Real gammap_old = 1.0;
+     Real gammap = 1.0;
+#ifdef RELATIVISTIC_PARTICLES
+     std::array<Real,3> upnew;
+     Real gbsq_old, gbsq_new;
+     for(int n=0; n<3; n++) upnew[n] = 2.0*upbar[n] - upold[n];
+     gbsq_old = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
+     gbsq_new = upnew[0]*upnew[0] + upnew[1]*upnew[1] + upnew[2]*upnew[2];
+     gammap_old = sqrt(1.0 + gbsq_old);
+     gammap = 0.5*(gammap_old + sqrt(1.0+gbsq_new));
+#endif
 
-     cnormDt0 = (X0-xpold[a_bdry_dir])/vpold[a_bdry_dir];
+     cnormDt0 = (X0-xpold[a_bdry_dir])/(upold[a_bdry_dir]/gammap_old);
      cnormDt1 = a_cnormDt - cnormDt0;
      
      for (int dir=0; dir<SpaceDim; dir++) {
@@ -988,19 +1093,19 @@ void MeshInterp::depositInflowCurrent( FArrayBox&   a_rhoVx,
       
      // orbit-averaged NGP for in-plane J
      orbit_fact = cnormDt1/a_cnormDt;
-     a_rhoVx(index1,0) += orbit_fact*wp*vpbar[0]/volume;
+     a_rhoVx(index1,0) += orbit_fact*wp*upbar[0]/gammap/volume;
 
      // orbit-averaged CIC for out-of-plane J
      ii = index1;
      l0 = xpbar1[0] - (m_domainLeftEdge[0] + ii[0]*m_dx[0]);
      w0 = 1.0 - abs(l0/m_dx[0]);
-     a_rhoVy(ii,0) += orbit_fact*w0*wp*vpbar[1]/volume;
-     a_rhoVz(ii,z_comp) += orbit_fact*w0*wp*vpbar[2]/volume;
+     a_rhoVy(ii,0) += orbit_fact*w0*wp*upbar[1]/gammap/volume;
+     a_rhoVz(ii,z_comp) += orbit_fact*w0*wp*upbar[2]/gammap/volume;
      
      w0 = 1.0 - w0;
      ii[0] += 1;
-     a_rhoVy(ii,0) += orbit_fact*w0*wp*vpbar[1]/volume;
-     a_rhoVz(ii,z_comp) += orbit_fact*w0*wp*vpbar[2]/volume;
+     a_rhoVy(ii,0) += orbit_fact*w0*wp*upbar[1]/gammap/volume;
+     a_rhoVz(ii,z_comp) += orbit_fact*w0*wp*upbar[2]/gammap/volume;
 
    }
 #endif

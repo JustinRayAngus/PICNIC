@@ -29,10 +29,30 @@ class Polar : public GridFunction
          
          Real X0, Z0, R0, value; 
          X0 = a_X[0];
-         Z0 = a_X[2];
+         Z0 = a_X[1];
          R0 = sqrt(X0*X0 + Z0*Z0);
          value = (m_a*X0 + m_b*Z0)/R0;
          return value;
+
+      }
+      
+      virtual Real getDerivative( const RealVect&  a_X,
+                                  const int        a_dir ) const {
+         CH_assert(a_dir<SpaceDim);
+
+         Real X0, Z0, R0, deriv; 
+         X0 = a_X[0];
+         Z0 = a_X[1];
+         R0 = sqrt(X0*X0 + Z0*Z0);
+         
+         if(a_dir==0) {
+            deriv = (m_a + m_b*Z0)/R0 - (m_a*X0 + m_b*Z0)/R0/R0*X0;
+         }
+         if(a_dir==1) {
+            deriv = (m_a*X0 + m_b)/R0 - (m_a*X0 + m_b*Z0)/R0/R0*Z0;
+         }
+
+         return deriv;
 
       }
 

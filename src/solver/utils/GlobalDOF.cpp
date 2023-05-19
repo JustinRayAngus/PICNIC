@@ -1,5 +1,4 @@
 #include <vector>
-#include "SpaceUtils.H"
 #include "GlobalDOF.H"
 
 #include "NamespaceHeader.H"

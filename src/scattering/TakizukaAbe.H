@@ -25,7 +25,11 @@ class TakizukaAbe : public Scattering
       {
          m_scatter_dt = DBL_MAX;
          m_Clog = 10.0;
+#ifdef RELATIVISTIC_PARTICLES
+         m_b90_codeToPhys = Constants::QE*Constants::QE/(2.0*Constants::PI*Constants::EP0*Constants::ME);
+#else
          m_b90_codeToPhys = Constants::QE*Constants::QE/(4.0*Constants::PI*Constants::EP0*Constants::ME); 
+#endif
          parseParameters( a_pp );
       }
       
@@ -36,7 +40,11 @@ class TakizukaAbe : public Scattering
          : Scattering(a_verbosity)
       {
          m_scatter_dt = DBL_MAX;
+#ifdef RELATIVISTIC_PARTICLES
+         m_b90_codeToPhys = Constants::QE*Constants::QE/(2.0*Constants::PI*Constants::EP0*Constants::ME); 
+#else
          m_b90_codeToPhys = Constants::QE*Constants::QE/(4.0*Constants::PI*Constants::EP0*Constants::ME); 
+#endif
          //
          m_sp1 = a_sp1;
          m_sp2 = a_sp2;
@@ -97,6 +105,13 @@ class TakizukaAbe : public Scattering
                     const Real                 a_den2,
                     const Real                 a_Clog,
                     const Real                 a_dt_sec ) const;
+     
+      void LorentzScatter( std::array<Real,3>&  a_up1,
+                           std::array<Real,3>&  a_up2,
+                     const long double          a_mass1,
+                     const long double          a_mass2,
+                     const Real                 a_den2,
+                     const Real                 a_dt_sec ) const;
 
       // prohibit copying
       //TakizukaAbe( const Constant& );
@@ -123,7 +138,7 @@ class TakizukaAbe : public Scattering
       long double m_mu;     // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
    
       // precompute a conversion factor used for each scattering event
-      Real m_b90_codeToPhys, m_b90_cofactor; 
+      Real m_b90_codeToPhys, m_b90_fact; 
 
       // preallocate some constants to avoid redeclaring many times
       mutable Real m_delta, m_deltasq;

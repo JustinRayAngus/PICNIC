@@ -53,6 +53,12 @@ class Heavyside : public GridFunction
 
       }
 
+      virtual Real getDerivative( const RealVect&  a_X,
+                                  const int        a_dir ) const {
+         CH_assert(a_dir<SpaceDim);
+         return 0.0;         
+      }
+
       virtual void printParameters()  const {
          if (procID()>0) return;
             std::cout << "Heavyside grid function parameters:" << std::endl;

@@ -395,7 +395,7 @@ Real ChargeExchange::getTextSigmaIso( const Real  a_beta ) const
          sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qiso,KE_cm,index);
       }
       else {
-         sigma = ScatteringUtils::linearInterp(m_Evec,m_Qiso,KE_cm,index);
+         sigma = MathUtils::linearInterp(m_Evec,m_Qiso,KE_cm,index);
       }
    }
 
@@ -428,7 +428,7 @@ Real ChargeExchange::getTextSigmaBack( const Real  a_beta ) const
          sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qback,KE_cm,index);
       }
       else {
-         sigma = ScatteringUtils::linearInterp(m_Evec,m_Qback,KE_cm,index);
+         sigma = MathUtils::linearInterp(m_Evec,m_Qback,KE_cm,index);
       }
    }
 

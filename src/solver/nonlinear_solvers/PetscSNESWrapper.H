@@ -1,7 +1,11 @@
+/* TODO
+ - what is the purpose of m_iter? and function curIteration()?
+*/
+
 #ifndef _PetscSNESWrapper_H_
 #define _PetscSNESWrapper_H_
 
-#define _NLSOLVER_PETSC_ "petsc"
+#define _NLSOLVER_PETSCSNES_ "petsc_snes" 
 
 #ifdef with_petsc
 
@@ -10,6 +14,7 @@
 
 #include <petscsnes.h>
 #include "NonlinearSolver.H"
+#include "PetscCopiers.H"
 
 #include "NamespaceHeader.H"
 
@@ -28,16 +33,19 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       m_count_lin = 0;
 
       /* default values */
-      m_newton_maxits = 10;
-      m_newton_rtol   = 1e-6;
-      m_newton_atol   = 1e-10;
-      m_newton_stol   = 1e-14;
-      m_gmres_maxits  = 100;
-      m_gmres_rtol    = 1e-3;
-      m_gmres_atol    = 1e-12;
+      m_newton_maxits  = 10;
+      m_newton_rtol    = 1e-6;
+      m_newton_atol    = 1e-10;
+      m_newton_stol    = 1e-14;
+      m_newton_maxstep = 1e14;
+      m_gmres_maxits   = 100;
+      m_gmres_rtol     = 1e-3;
+      m_gmres_atol     = 1e-12;
 
-      m_newton_verbose = true;
-      m_gmres_verbose = true;
+      m_newton_verbose = false;
+      m_gmres_verbose = false;
+    
+      m_linesearch_type = "bt"; // default for SNES
 
     }
 
@@ -48,9 +56,6 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       VecDestroy(&m_Y);
       return;
     }
-
-    void cpAppVecToPetsc( Vec&, const T& ) const;
-    void cpAppVecFromPetsc( const Vec&, T& ) const;
 
     void define(  const T&, 
                   Ops* const, 
@@ -65,10 +70,10 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       CH_TIME("PetscSNESWrapper::solve()");
       CH_assert(isDefined());
     
-      cpAppVecToPetsc( m_Y, a_U );
-      cpAppVecToPetsc( m_R, a_b );
+      PetscCopiers::cpAppVecToPetsc<T>( m_Y, a_U );
+      PetscCopiers::cpAppVecToPetsc<T>( m_R, a_b );
       SNESSolve( m_nlsolver, m_R, m_Y );
-      cpAppVecFromPetsc( m_Y, a_U );
+      PetscCopiers::cpAppVecFromPetsc<T>( m_Y, a_U );
       
       // update iteration counts 
       PetscInt nl_iter;
@@ -78,6 +83,14 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       PetscInt l_iter;
       SNESGetLinearSolveIterations( m_nlsolver, &l_iter );
       m_count_lin += (int)l_iter;
+
+      SNESConvergedReason reason;
+      SNESGetConvergedReason( m_nlsolver, &reason );
+      const int exit_status = (int)reason;
+      if(!procID() && exit_status < 0) {
+         cout << "SNES solver diverged: exit status = " << exit_status << endl;
+         cout << "see https://petsc.org/release/docs/manualpages/SNES/SNESConvergedReason/" << endl;
+      }
 
       return;
     }
@@ -101,6 +114,9 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
     {
        if(procID()>0) return;
        cout << " Petsc SNES solver parameters: " << endl;
+       cout << "   solver type = NEWTONLS" << endl;
+       cout << "   line search type = " << m_linesearch_type << endl;
+       cout << "   newton_maxstep = " << m_newton_maxstep << endl;
        cout << "   newton_rtol   = " << m_newton_rtol << endl;
        cout << "   newton_atol   = " << m_newton_atol << endl;
        cout << "   newton_stol   = " << m_newton_stol << endl;
@@ -174,7 +190,7 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
                                        int& a_nl_exit_status, int& a_nl_iter, int& a_nl_total_iter,
                                     double& a_nl_abs_res, double& a_nl_rel_res ) const
     {
-       // get nonlinear solver params (https://petsc.org/main/docs/manualpages/SNES/SNESConvergedReason/)
+       // get nonlinear solver params (https://petsc.org/release/docs/manualpages/SNES/SNESConvergedReason/)
        SNESConvergedReason reason;
        SNESGetConvergedReason( m_nlsolver, &reason );
        a_nl_exit_status = (int)reason;
@@ -217,6 +233,7 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
 
     int m_newton_maxits;
     double m_newton_rtol, m_newton_atol, m_newton_stol;
+    double m_newton_maxstep;
     bool m_newton_verbose;
 
     int m_gmres_maxits;
@@ -231,6 +248,7 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
     mutable Vec m_Y, m_R;
     mutable Mat m_J, m_P;
     SNES m_nlsolver;
+    std::string m_linesearch_type;
 
   private:
     
@@ -261,9 +279,9 @@ static PetscErrorCode RHSFunction(  SNES  solver,
      context->norm0(nl_norm);
   }
 
-  context->cpAppVecFromPetsc( a_Y, context->m_U );
+  PetscCopiers::cpAppVecFromPetsc<T>( a_Y, context->m_U );
   func->evalFunction( context->m_F, context->m_U, its );
-  context->cpAppVecToPetsc( a_F, context->m_F);
+  PetscCopiers::cpAppVecToPetsc<T>( a_F, context->m_F);
 
   return 0;
 }
@@ -288,14 +306,14 @@ static PetscErrorCode JacobianFunction( SNES  a_solver,
   PCGetType( pc, &pctype );
 
   if (strcmp(pctype,PCNONE)) {
-    context->cpAppVecFromPetsc( a_Y, context->m_U );
+    PetscCopiers::cpAppVecFromPetsc<T>( a_Y, context->m_U );
     int err = context->updatePCMatrix(a_P);
     if (err) {
       if (!procID()) {
         printf( "%s(%s) Preconditioning matrix unavailable.\n",
-                context->opIndent().c_str(), _NLSOLVER_PETSC_ );
+                context->opIndent().c_str(), _NLSOLVER_PETSCSNES_ );
         printf( "%s(%s) Turning off preconditioning.\n",
-                context->opIndent().c_str(), _NLSOLVER_PETSC_ );
+                context->opIndent().c_str(), _NLSOLVER_PETSCSNES_ );
       }
       PCSetType( pc, PCNONE );
     }
@@ -316,31 +334,11 @@ static PetscErrorCode applyJacobian( Mat a_A,
   NonlinearFunction<T,Ops>* func( context->getFunction() );
   LinearFunction<T,Ops>* jac( &func->getJacobian() );
 
-  context->cpAppVecFromPetsc( a_Y, context->m_U );
+  PetscCopiers::cpAppVecFromPetsc<T>( a_Y, context->m_U );
   jac->applyOp( context->m_F, context->m_U, context->curIteration() );
-  context->cpAppVecToPetsc( a_F, context->m_F);
+  PetscCopiers::cpAppVecToPetsc<T>( a_F, context->m_F);
 
   return 0;
-}
-
-template <class T, class Ops>
-void PetscSNESWrapper<T,Ops>::cpAppVecToPetsc( Vec&     a_Y, 
-                                               const T& a_U ) const
-{
-  PetscScalar *Yarr;
-  VecGetArray(a_Y,&Yarr);
-  a_U.copyTo( (Real* const) Yarr );
-  VecRestoreArray(a_Y,&Yarr);
-}
-
-template <class T, class Ops>
-void PetscSNESWrapper<T,Ops>::cpAppVecFromPetsc( const Vec&  a_Y, 
-                                                 T&          a_U ) const
-{
-  const PetscScalar *Yarr;
-  VecGetArrayRead(a_Y,&Yarr);
-  a_U.copyFrom( (const Real* const) Yarr );
-  VecRestoreArrayRead(a_Y,&Yarr);
 }
 
 template <class T, class Ops>
@@ -363,7 +361,7 @@ void PetscSNESWrapper<T,Ops>::define( const T&                        a_U,
   CH_assert( a_func->isDefined() );
   m_func = a_func;
   LinearFunction<T,Ops>& jac( m_func->getJacobian() );
-  jac.updatePreCondMat( a_U, 0 );
+  jac.updatePreCondMat( a_U );
 
   int m_local_size = a_U.getVectorSize();
   VecCreate( MPI_COMM_WORLD, &m_Y );
@@ -398,7 +396,15 @@ void PetscSNESWrapper<T,Ops>::define( const T&                        a_U,
 
   SNESSetJacobian( m_nlsolver, m_J, m_P, JacobianFunction<T,Ops>, this);
 
+  // specify nonlinear solver (https://petsc.org/release/docs/manualpages/SNES/SNESType/)
   SNESSetType( m_nlsolver, SNESNEWTONLS );
+
+  // defaut line search method for SNESNEWTONLS is backtracking over L2 norm of function
+  if(m_linesearch_type=="basic") { // basic: damping method that defaults to full Newton step
+     SNESLineSearch linesearch;
+     SNESGetLineSearch( m_nlsolver, &linesearch );
+     SNESLineSearchSetType( linesearch, SNESLINESEARCHBASIC );
+  }
 
   setOptions();
   SNESSetFromOptions( m_nlsolver );
@@ -440,6 +446,16 @@ void PetscSNESWrapper<T,Ops>::setOptions()
     }
   }
   {
+    char option[100] = "-snes_linesearch_maxstep";
+    PetscBool is_specified;
+    PetscOptionsHasName( NULL, NULL, option, &is_specified );
+    if (!is_specified) {
+      char val[100];
+      sprintf(val, "%e", m_newton_maxstep );
+      PetscOptionsSetValue( NULL, option , val );
+    }
+  }
+  {
     char option[100] = "-snes_max_it";
     PetscBool is_specified;
     PetscOptionsHasName( NULL, NULL, option, &is_specified );
@@ -455,6 +471,7 @@ void PetscSNESWrapper<T,Ops>::setOptions()
     PetscOptionsHasName( NULL, NULL, option, &is_specified );
     if (!is_specified) {
       if (m_newton_verbose) {
+        //PetscOptionsSetValue( NULL, "-snes_view_pre" , NULL );
         PetscOptionsSetValue( NULL, option , NULL );
         PetscOptionsSetValue( NULL, "-snes_converged_reason" , NULL );
       }
@@ -514,60 +531,21 @@ void PetscSNESWrapper<T,Ops>::setOptions()
     KSPGetPC( lin_solver, &precon );
 
     if (numProc() == 1) {
-      if (SpaceDim == 1) {
-        if (!procID()) {
-          printf( "%s(%s)Preconditioner: PETSc's native ILU (serial).\n",
-                  m_op_indent.c_str(), _NLSOLVER_PETSC_ );
-        }
-        PetscOptionsSetValue( NULL, "-pc_type", "ilu");
-        PetscOptionsSetValue( NULL, "-pc_factor_levels", "2");
-      } else {
-        if (!procID()) {
-          printf( "%s(%s)Preconditioner: PETSc's native LU (serial).\n",
-                  m_op_indent.c_str(), _NLSOLVER_PETSC_ );
-        }
-        PetscOptionsSetValue( NULL, "-pc_type", "lu");
-      }
-    } else {
-#if defined(PETSC_HAVE_HYPRE)
-      if (SpaceDim == 1) {
-        if (!procID()) {
-          printf( "%s(%s)Preconditioner: hypre's parallel ILU (euclid).\n",
-                  m_op_indent.c_str(), _NLSOLVER_PETSC_ );
-        }
-        PetscOptionsSetValue( NULL, "-pc_type", "hypre");
-        PetscOptionsSetValue( NULL, "-pc_hypre_type", "euclid");
-        PetscOptionsSetValue( NULL, "-pc_hypre_euclid_level", "2");
-      } else {
-        if (!procID()) {
-          printf( "%s(%s)Preconditioner: None.\n",
-                  m_op_indent.c_str(), _NLSOLVER_PETSC_ );
-        }
-        PetscOptionsSetValue( NULL, "-pc_type", "none");
-      }
-#elif defined(PETSC_HAVE_SUPERLU_DIST)
-      if (SpaceDim == 1) {
-        if (!procID()) {
-          printf( "%s(%s)Preconditioner: SuperLU_dist's parallel LU.\n",
-                  m_op_indent.c_str(), _NLSOLVER_PETSC_ );
-        }
-        PetscOptionsSetValue( NULL, "-pc_type", "lu");
-      } else {
-        if (!procID()) {
-          printf( "%s(%s)Preconditioner: None.\n",
-                  m_op_indent.c_str(), _NLSOLVER_PETSC_ );
-        }
-        PetscOptionsSetValue( NULL, "-pc_type", "none");
-      }
-#else
       if (!procID()) {
-        printf( "%s(%s)Preconditioner: None available.\n",
-                m_op_indent.c_str(), _NLSOLVER_PETSC_ );
-        printf( "%s(%s)Preconditioner: Please configure PETSc with an appropriate package.\n",
-                m_op_indent.c_str(), _NLSOLVER_PETSC_ );
+        printf( "%s(%s)Preconditioner: PETSc's native ILU (serial).\n",
+                m_op_indent.c_str(), _NLSOLVER_PETSCSNES_ );
       }
-      PetscOptionsSetValue( NULL, "-pc_type", "none");
-#endif
+      PetscOptionsSetValue( NULL, "-pc_type", "ilu");
+      PetscOptionsSetValue( NULL, "-pc_factor_levels", "2");
+    } else {
+      if (!procID()) {
+        printf( "%s(%s)Preconditioner: Additive Schwarz method with ILU on each block.\n",
+                m_op_indent.c_str(), _NLSOLVER_PETSCSNES_ );
+      }
+      PetscOptionsSetValue( NULL, "-pc_type", "asm");
+      PetscOptionsSetValue( NULL, "-pc_asm_overlap", "2"); /*TODO: make this local size-dependent */
+      PetscOptionsSetValue( NULL, "-sub_pc_type", "ilu");
+      PetscOptionsSetValue( NULL, "-sub_pc_factor_levels", "2");
     }
 
   }
@@ -579,9 +557,12 @@ template <class T, class Ops>
 void PetscSNESWrapper<T,Ops>::parseParametersNewton( ParmParse& a_pp )
 {
   a_pp.query("verbose", m_newton_verbose); /* verbosity */
+  a_pp.query("line_search.type", m_linesearch_type); /* linesearch type */
+  CH_assert(m_linesearch_type=="basic" || m_linesearch_type=="bt");
   a_pp.query("rtol",    m_newton_rtol);    /* relative tolerance */
   a_pp.query("atol",    m_newton_atol);    /* absolute tolerance */
   a_pp.query("stol",    m_newton_stol);    /* step tolerance */
+  a_pp.query("maxstep", m_newton_maxstep); /* max step for line search */
   a_pp.query("maxits",  m_newton_maxits);  /* maximum iterations */
 }
 

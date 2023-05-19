@@ -4,32 +4,33 @@
 #####################################################
 simulation.verbosity = 10
 
-#system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
-#system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 
+pic_species.part_order_swap = true
 pic_species.iter_min_two = true
-pic_species.iter_max_particles = 6
+pic_species.iter_max_particles = 21
+pic_species.rtol_particles = 1.0e-14
+pic_species.mod_init_advance = false
 
 pic_em_theta_implicit.solver_type = "newton"
 
-newton.atol = 1.0e-12
 newton.rtol = 1.0e-6
+newton.atol = 1.0e-12
 
-gmres.atol = 1.0e-12
 gmres.rtol = 1.0e-4
+gmres.atol = 1.0e-12
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
 #simulation.max_step            = 1
-simulation.max_step            = 100000
+simulation.max_step            = 10000000
 simulation.max_time            = 5.0
 #simulation.cfl_number          = 0.565
 #simulation.cfl_scatter         = 0.001
 simulation.fixed_dt            = 0.001
 #simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 1.00
+simulation.plot_time_interval  = 1.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
@@ -42,6 +43,7 @@ grid.is_periodic   = 0  1
 grid.config_decomp = 1  1
 grid.geometry      = "cyl_RZ"
 #grid.geometry      = "cartesian"
+grid.volume_correction = "conservative"
 grid.num_ghosts    = 1
 
 grid.X_min = 0.0
@@ -92,7 +94,7 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = false
-pic_species.0.use_axisymmetric_boris = true
+pic_species.0.push_type = "CYL_BORIS"
 
 electron.particle.0.weight = 1.0
 electron.particle.0.position = 0.025 1.725
@@ -113,8 +115,7 @@ pic_species.1.charge = -1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = false
-pic_species.1.use_axisymmetric_boris = false
-pic_species.1.axisymmetric_iter_max = 2
+pic_species.1.push_type = "CYL_CYL"
 
 electron1.particle.0.weight = 1.0
 electron1.particle.0.position = 0.025 1.725
@@ -135,8 +136,7 @@ pic_species.2.charge = -1
 pic_species.2.motion = true
 pic_species.2.forces = true
 pic_species.2.scatter = false
-pic_species.2.use_axisymmetric_boris = false
-pic_species.2.axisymmetric_iter_max = 6
+pic_species.2.push_type = "CYL_HYBRID"
 
 electron2.particle.0.weight = 1.0
 electron2.particle.0.position = 0.025 1.725
@@ -148,6 +148,27 @@ electron2.particle.1.velocity = 4.2e5 0.0 1.0e5
 
 BC.electron2.dir0_lower.type = "axis"
 BC.electron2.dir0_upper.type = "symmetry"
+
+# use non-boris method with old values for dtheta in inertia
+
+pic_species.3.name   = "electron3"
+pic_species.3.mass   = 1.0
+pic_species.3.charge = -1
+pic_species.3.motion = true
+pic_species.3.forces = true
+pic_species.3.scatter = false
+pic_species.3.push_type = "CYL_CAR"
+
+electron3.particle.0.weight = 1.0
+electron3.particle.0.position = 0.025 1.725
+electron3.particle.0.velocity = -4.2e5 0.0 1.0e5
+
+electron3.particle.1.weight = 1.0
+electron3.particle.1.position = 0.75 1.025
+electron3.particle.1.velocity = 4.2e5 0.0 1.0e5
+
+BC.electron3.dir0_lower.type = "axis"
+BC.electron3.dir0_upper.type = "symmetry"
 
 #####################################################
 

@@ -32,13 +32,11 @@ JustinsParticle::JustinsParticle( const Real                 a_weight,
   //std::array<Real,3> zero_array = {0,0,0};
   //setElectricField(zero_array);
   //setMagneticField(zero_array);
-  if(SpaceDim<3) {
-     std::array<Real,3-SpaceDim> thisPosVirt;
-     for(int i=0; i<3-SpaceDim; i++) {
-        thisPosVirt[i] = 0.0 + i*0.0;
-     }
-     setPositionVirt(thisPosVirt);
-  }
+#if CH_SPACEDIM<3
+  std::array<Real,2> thisPosVirt;
+  for(int i=0; i<2; i++) thisPosVirt[i] = 0.0 + i*0.0;
+  setPositionVirt(thisPosVirt);
+#endif
   setID();
 }
 
@@ -55,13 +53,11 @@ void JustinsParticle::define( const Real                 a_weight,
   //std::array<Real,3> zero_array = {0,0,0};
   //setElectricField(zero_array);
   //setMagneticField(zero_array);
-  if(SpaceDim<3) {
-     std::array<Real,3-SpaceDim> thisPosVirt;
-     for(int i=0; i<3-SpaceDim; i++) {
-        thisPosVirt[i] = 0.0 + i*0.0;
-     }
-     setPositionVirt(thisPosVirt);
-  }
+#if CH_SPACEDIM<3
+  std::array<Real,2> thisPosVirt;
+  for(int i=0; i<2; i++) thisPosVirt[i] = 0.0 + i*0.0;
+  setPositionVirt(thisPosVirt);
+#endif
 }
 
 void JustinsParticle::setKillTag()
@@ -250,39 +246,39 @@ Real JustinsParticle::magnetic_field(const int a_dir) const
   return m_magnetic_field[a_dir];
 }
 
-//
-// virtual position functions (for 1D/2D sims)
-//
+#if CH_SPACEDIM<3
 
-void JustinsParticle::setPositionVirt(const std::array<Real,3-SpaceDim>& a_pos_virt)
+// virtual position functions (for 1D/2D sims)
+
+void JustinsParticle::setPositionVirt(const std::array<Real,2>& a_pos_virt)
 {
   m_pos_virt = a_pos_virt;
 }
 
-void JustinsParticle::setPositionVirt(const Real& a_pos_virt,
-                            const int   a_dir)
+void JustinsParticle::setPositionVirt(const Real a_pos_virt,
+                                      const int  a_comp)
 {
-  m_pos_virt[a_dir] = a_pos_virt;
+  m_pos_virt[a_comp] = a_pos_virt;
 }
 
-std::array<Real,3-SpaceDim>& JustinsParticle::positionVirt()
-{
-  return m_pos_virt;
-}
-
-const std::array<Real,3-SpaceDim>& JustinsParticle::positionVirt() const
+std::array<Real,2>& JustinsParticle::position_virt()
 {
   return m_pos_virt;
 }
 
-Real JustinsParticle::positionVirt(const int a_dir) const
+const std::array<Real,2>& JustinsParticle::position_virt() const
 {
-  return m_pos_virt[a_dir];
+  return m_pos_virt;
 }
 
-//
+Real JustinsParticle::position_virt(const int a_comp) const
+{
+  return m_pos_virt[a_comp];
+}
+
+#endif
+
 //////////
-//
 
 bool JustinsParticle::operator == (const JustinsParticle& a_p) const
 {
@@ -294,8 +290,13 @@ bool JustinsParticle::operator == (const JustinsParticle& a_p) const
            m_velocity  == a_p.m_velocity &&
            m_velocity_old  == a_p.m_velocity &&
            m_electric_field  == a_p.m_electric_field &&
+#if CH_SPACEDIM<3
            m_magnetic_field  == a_p.m_magnetic_field &&
            m_pos_virt  == a_p.m_pos_virt );
+#else
+           m_magnetic_field  == a_p.m_magnetic_field );
+
+#endif
 }
 
 bool JustinsParticle::operator == (const JustinsParticle* a_p) const
@@ -311,7 +312,10 @@ bool JustinsParticle::operator != (const JustinsParticle& a_p) const
 int JustinsParticle::size() const
 {
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID)
-                           + sizeof(m_position_old) + sizeof(m_pos_virt)
+                           + sizeof(m_position_old) 
+#if CH_SPACEDIM<3
+                           + sizeof(m_pos_virt)
+#endif
                            //+ sizeof(m_electric_field) + sizeof(m_magnetic_field)
                            + sizeof(m_velocity) + sizeof(m_velocity_old) );
 }
@@ -319,7 +323,11 @@ int JustinsParticle::size() const
 int JustinsParticle::sizeOutput() const
 { // don't include fields or kill_tag in output
   return ( BinItem::size() + sizeof(m_weight) + sizeof(m_ID) 
+#if CH_SPACEDIM==1
                            + sizeof(m_pos_virt)
+#elif CH_SPACEDIM==2
+                           + sizeof(m_pos_virt[0])
+#endif
                            + sizeof(m_velocity) );
 }
 
@@ -340,9 +348,11 @@ void JustinsParticle::linearOut(void* buf) const
       *buffer++ = m_position_old[i];
    }
    
-   for(int i=0; i<3-SpaceDim; i++) {
+#if CH_SPACEDIM<3
+   for(int i=0; i<2; i++) {
       *buffer++ = m_pos_virt[i];
    }
+#endif
    
    for(int i=0; i<3; i++) {
       *buffer++ = m_velocity[i];
@@ -375,9 +385,11 @@ void JustinsParticle::linearOutOutput(void* buf) const
       *buffer++ = m_position[i];
    }
    
+#if CH_SPACEDIM<3
    for(int i=0; i<3-SpaceDim; i++) {
       *buffer++ = m_pos_virt[i];
    }
+#endif
    
    for(int i=0; i<3; i++) {
       *buffer++ = m_velocity[i];
@@ -403,9 +415,11 @@ void JustinsParticle::linearIn(void* buf)
       m_position_old[i] = *buffer++;
    }
    
-   for(int i=0; i<3-SpaceDim; i++) {
+#if CH_SPACEDIM<3
+   for(int i=0; i<2; i++) {
       m_pos_virt[i] = *buffer++;
    }
+#endif
    
    for(int i=0; i<3; i++) {
       m_velocity[i] = *buffer++;

@@ -42,12 +42,13 @@ void TakizukaAbe::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
    m_mu = m_mass1*m_mass2/(m_mass1 + m_mass2); // reduced mass
   
    Real cvacSq = Constants::CVAC*Constants::CVAC;
-   m_b90_cofactor = abs(m_charge1*m_charge2)/(m_mu*cvacSq)*m_b90_codeToPhys; 
-   
-   //
+#ifdef RELATIVISTIC_PARTICLES
+   m_b90_fact = abs(m_charge1*m_charge2)/cvacSq*m_b90_codeToPhys; 
+#else
+   m_b90_fact = abs(m_charge1*m_charge2)/(m_mu*cvacSq)*m_b90_codeToPhys; 
+#endif
+
    // set the mean free time
-   //
-   
    if(this_species1->scatter() && this_species2->scatter()) {
    
       const bool setMoments = true;
@@ -268,7 +269,6 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
    // predefine some variables
    int numCell;
    Real numDen;
-   std::array<Real,3> deltaU;
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
@@ -323,8 +323,12 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
             JustinsParticlePtr& this_part2 = vector_part_ptrs[p];
             this_part2_ptr = this_part2.getPointer();
             std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
-   
+
+#ifdef RELATIVISTIC_PARTICLES   
+            LorentzScatter( this_betap1, this_betap2, m_mass1, m_mass2, numDen, a_dt_sec );
+#else
             // compute deltaU
+            std::array<Real,3> deltaU;
             computeDeltaU( deltaU,
                            this_betap1, numDen,
                            this_betap2, numDen,
@@ -335,7 +339,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
                this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
                this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
             }
-
+#endif
          }
          if(pstart==3) {
             int p1, p2;
@@ -355,7 +359,11 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
                this_part2_ptr = this_part2.getPointer();
                std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
 
+#ifdef RELATIVISTIC_PARTICLES   
+               LorentzScatter( this_betap1, this_betap2, m_mass1, m_mass2, numDen, a_dt_sec );
+#else
                // compute deltaU
+               std::array<Real,3> deltaU;
                computeDeltaU( deltaU,
                               this_betap1, numDen/2.0,
                               this_betap2, numDen/2.0,
@@ -366,7 +374,7 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
                   this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
                   this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
                }
-
+#endif
             }
          }
          verbosity=0;
@@ -415,7 +423,6 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
    int numCell1, numCell2, pMax, pMin;
    Real numDen1;
    Real numDen2;
-   std::array<Real,3> deltaU;
  
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab1_ptr.disjointBoxLayout();
@@ -486,8 +493,14 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
             JustinsParticlePtr& this_part2 = vector_part2_ptrs[p2];
             this_part2_ptr = this_part2.getPointer();
             std::array<Real,3>& this_betap2 = this_part2_ptr->velocity();
+
+#ifdef RELATIVISTIC_PARTICLES
+            if(numDen1<=numDen2) LorentzScatter( this_betap2, this_betap1, m_mass2, m_mass1, numDen1, a_dt_sec );
+            else LorentzScatter( this_betap1, this_betap2, m_mass1, m_mass2, numDen2, a_dt_sec );
+#else
   
             // compute deltaU
+            std::array<Real,3> deltaU;
             computeDeltaU( deltaU,
                            this_betap1, numDen1,
                            this_betap2, numDen2,
@@ -499,7 +512,7 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
                this_betap1[dir] = this_betap1[dir] + m_mu/m_mass1*deltaU[dir];
                this_betap2[dir] = this_betap2[dir] - m_mu/m_mass2*deltaU[dir];
             }
-
+#endif
          }
          verbosity=0;
 
@@ -536,8 +549,7 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
 
    // compute deltasq_var
    Real den = Min(a_den1,a_den2); 
-   //Real b90 = abs(m_charge1*m_charge2)/(m_mu*u*u*cvacSq)*m_b90_codeToPhys; // 90 degree impact param [m] 
-   Real b90 = m_b90_cofactor/(u*u); // 90 degree impact parameter [m]
+   Real b90 = m_b90_fact/(u*u); // 90 degree impact parameter [m]
    Real deltasq_var = Constants::TWOPI*b90*b90*den*a_Clog*u*Constants::CVAC*a_dt_sec;
 
    if(deltasq_var<1.0) { // sample from gaussian distribution  
@@ -560,6 +572,87 @@ void TakizukaAbe::computeDeltaU( std::array<Real,3>&  a_deltaU,
    // define deltaU
    ScatteringUtils::computeDeltaU(a_deltaU,ux,uy,uz,m_costh,m_sinth,m_cosphi,m_sinphi);
                
+}
+
+void TakizukaAbe::LorentzScatter( std::array<Real,3>&  a_up1,
+                                  std::array<Real,3>&  a_up2,
+                            const long double          a_mass1,
+                            const long double          a_mass2,
+                            const Real                 a_den2,
+                            const Real                 a_dt_sec ) const
+{
+   CH_TIME("TakizukaAbe::LorentzScatter()");
+   
+   // Relativistic scattering method for two equal weight particles with den2 < den1
+
+   long double gamma1, gamma2, Etot, gammacm, gamma1st, gamma2st;
+   long double vcmdotup, vrelst, s12, muRst, upst_fact, upstsq, denom;
+   std::array<Real,3> vcm, upst;
+
+   // compute the lab frame total energy
+   gamma1 = sqrt(1.0 + a_up1[0]*a_up1[0] + a_up1[1]*a_up1[1] + a_up1[2]*a_up1[2]);
+   gamma2 = sqrt(1.0 + a_up2[0]*a_up2[0] + a_up2[1]*a_up2[1] + a_up2[2]*a_up2[2]);
+   Etot = gamma1*a_mass1 + gamma2*a_mass2;
+ 
+   // compute center-of-momentum beta and gamma
+   for(int n=0; n<3; n++) vcm[n] = (a_mass1*a_up1[n] + a_mass2*a_up2[n])/Etot;
+   gammacm = 1.0/sqrt(1.0-vcm[0]*vcm[0]-vcm[1]*vcm[1]-vcm[2]*vcm[2]);
+
+   // compute gamma* and up* for particles 1 and 2 ( * = CM frame )
+   vcmdotup = vcm[0]*a_up2[0] + vcm[1]*a_up2[1] + vcm[2]*a_up2[2];
+   gamma2st = gammacm*(gamma2 - vcmdotup);
+
+   vcmdotup = vcm[0]*a_up1[0] + vcm[1]*a_up1[1] + vcm[2]*a_up1[2];
+   gamma1st = gammacm*(gamma1 - vcmdotup);
+ 
+   upst_fact = (gammacm/(1.0+gammacm)*vcmdotup - gamma1)*gammacm;
+   for(int n=0; n<3; n++) upst[n] = a_up1[n] + upst_fact*vcm[n]; 
+ 
+   // compute relative beta in CM frame (vrelst = |v1st - v2st|/(1 - v1st/cdotv2st))
+   muRst = gamma1st*a_mass1*gamma2st*a_mass2/(a_mass2*gamma2st + a_mass1*gamma1st); 
+   upstsq = upst[0]*upst[0] + upst[1]*upst[1] + upst[2]*upst[2];
+   denom = 1.0 + upstsq*a_mass1/a_mass2/gamma1st/gamma2st;
+   vrelst = sqrt(upstsq)*a_mass1/muRst/denom;
+
+   // compute s12 = 2*<delta^2>
+   s12 = Constants::PI*m_b90_fact*m_b90_fact*a_den2*m_Clog*vrelst*Constants::CVAC*a_dt_sec;
+   s12 *= gamma1st*gamma2st/gamma1/gamma2;
+   s12 /= pow(muRst*vrelst*vrelst,2);
+
+   if(s12<2.0) { // sample from gaussian distribution  
+      m_delta = sqrt(s12/2.0)*MathUtils::randn();
+      m_deltasq = m_delta*m_delta;
+      m_sinth = 2.0*m_delta/(1.0+m_deltasq); 
+      m_costh = 1.0 - 2.0*m_deltasq/(1.0+m_deltasq);
+   } 
+   else { // set random polar angle between zero and pi
+      Real theta = Constants::PI*MathUtils::rand();
+      m_costh = cos(theta);
+      m_sinth = sin(theta);
+   }
+   
+   // set random azimuthal angle
+   m_phi = Constants::TWOPI*MathUtils::rand();
+   m_cosphi = cos(m_phi);
+   m_sinphi = sin(m_phi);
+
+   // rotate upst for particle 1 by scattering angles
+   ScatteringUtils::rotateVelocity(upst,m_costh,m_sinth,m_cosphi,m_sinphi);
+
+   // Lorentz transform particle 1 back to lab frame
+   vcmdotup = vcm[0]*upst[0] + vcm[1]*upst[1] + vcm[2]*upst[2];
+   upst_fact = (gammacm/(1.0+gammacm)*vcmdotup + gamma1st)*gammacm;
+   for(int n=0; n<3; n++) a_up1[n] = upst[n] + upst_fact*vcm[n]; 
+   
+   // Lorentz transform particle 2 back to lab frame (pp2st + pp1st = 0)
+   for(int n=0; n<3; n++) upst[n] *= -a_mass1/a_mass2;
+   vcmdotup *= -a_mass1/a_mass2;
+   upst_fact = (gammacm/(1.0+gammacm)*vcmdotup + gamma2st)*gammacm;
+   for(int n=0; n<3; n++) a_up2[n] = upst[n] + upst_fact*vcm[n];
+
+   // set velocity of particle 2 using momentum conservation
+   //for(int n=0; n<3; n++) a_up2[n] = (vcm[n]*Etot - a_mass1*a_up1[n])/a_mass2;
+ 
 }
 
 #include "NamespaceFooter.H"

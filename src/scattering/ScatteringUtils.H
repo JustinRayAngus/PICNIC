@@ -45,6 +45,35 @@ namespace ScatteringUtils {
       wp3 = wp23;
 
    }
+   
+   inline
+   void rotateVelocity( std::array<Real,3>&  a_u,
+                  const Real                 costh,
+                  const Real                 sinth,
+                  const Real                 cosphi,
+                  const Real                 sinphi )
+   {
+
+      // define u and uperp
+      Real ux = a_u[0];
+      Real uy = a_u[1];
+      Real uz = a_u[2];
+      Real u = sqrt(ux*ux + uy*uy + uz*uz);
+      Real uperp = sqrt(ux*ux + uy*uy);
+
+      // rotate
+      if(uperp==0.0) {
+         a_u[0] = u*sinth*cosphi;   
+         a_u[1] = u*sinth*sinphi;   
+         a_u[2] = u*costh;   
+      }
+      else {
+         a_u[0] = ux*uz/uperp*sinth*cosphi - uy*u/uperp*sinth*sinphi + ux*costh;   
+         a_u[1] = uy*uz/uperp*sinth*cosphi + ux*u/uperp*sinth*sinphi + uy*costh;   
+         a_u[2] = -uperp*sinth*cosphi + uz*costh;   
+      }
+
+   }
 
    inline
    void computeDeltaU( std::array<Real,3>&  a_deltaU,
@@ -99,16 +128,6 @@ namespace ScatteringUtils {
                  const Real                 a_sinth,
                  const Real                 a_phi );
 
-   Real linearInterp( int&                a_index,
-                const std::vector<Real>&  a_X,
-                const std::vector<Real>&  a_Y,
-                const Real                a_X0 );
-   
-   Real linearInterp( const std::vector<Real>&  a_X,
-                      const std::vector<Real>&  a_Y,
-                      const Real                a_X0,
-                      const int                 a_index );
-   
    Real semilogInterp( const std::vector<Real>&  a_X,
                        const std::vector<Real>&  a_Y,
                        const Real                a_X0,

@@ -4,9 +4,10 @@
 #include "ParmParse.H"
 #include "TimeFunction.H"
 
-#include "Constant0D.H"
 #include "Ramp0D.H"
+#include "Table0D.H"
 #include "SinSq0D.H"
+#include "Constant0D.H"
 
 #include "NamespaceHeader.H"
 
@@ -41,6 +42,9 @@ RefCountedPtr<TimeFunction> TimeFunctionFactory::create(
    RefCountedPtr<TimeFunction> result(NULL);
    if (model == "ramp" || model == "RAMP") {
       result = RefCountedPtr<TimeFunction>( new Ramp0D( a_pp, a_verbosity ) );
+   }
+   else if (model == "table" || model == "TABLE") {
+      result = RefCountedPtr<TimeFunction>( new Table0D( a_pp, a_verbosity ) );
    }
    else if (model == "sinsq" || model == "SINSQ") {
       result = RefCountedPtr<TimeFunction>( new SinSq0D( a_pp, a_verbosity ) );

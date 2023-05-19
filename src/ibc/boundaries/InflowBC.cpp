@@ -42,8 +42,8 @@ InflowBC::InflowBC( const int&             a_bdry_layout_index,
    // predefine direction dependent mean and thermal velocity / speed of light 
    Real V0 = sqrt(Constants::QE/Constants::ME); // ele thermal speed at 1eV [m/s]
    for(int dir=0; dir<3; dir++) { 
-      m_beta_VT[dir] = V0*sqrt(m_temperature[dir]/a_species_mass)/Constants::CVAC;
-      m_beta_U[dir] = m_velocity[dir]/Constants::CVAC;
+      m_gbeta_VT[dir] = V0*sqrt(m_temperature[dir]/a_species_mass)/Constants::CVAC;
+      m_gbeta_U[dir] = m_velocity[dir]/Constants::CVAC;
    }
       
 
@@ -106,32 +106,60 @@ void InflowBC::apply( List<JustinsParticle>&  a_inflow_pList,
          // initialize particle velocities by randomly sampling a maxwellian
          RealVect Xpart, Xpart_old;
          Xpart_old[m_bdry_dir] = m_X_bdry + (2.0*m_bdry_side - 1.0)*m_dX[m_bdry_dir]*MathUtils::rand();
-         std::array<Real,3> BetaPart = {0,0,0};
-         BetaPart[m_bdry_dir] = m_beta_VT[m_bdry_dir]*MathUtils::randn() + m_beta_U[m_bdry_dir];
+         std::array<Real,3> up = {0,0,0};
+         
+#ifdef RELATIVISTIC_PARTICLES
+         for(int dir=0; dir<3; dir++) { 
+            up[dir] = m_gbeta_VT[dir]*MathUtils::randn() + m_gbeta_U[dir];
+         }
 
-         // only go further of the particle makes it into the physical domain
-         Xpart[m_bdry_dir] = Xpart_old[m_bdry_dir] + BetaPart[m_bdry_dir]*a_cnormDt;
+         Real gammap = 1.0;
+         gammap += up[0]*up[0] + up[1]*up[1] + up[2]*up[2];
+         gammap = sqrt(gammap);
+
+         Xpart[m_bdry_dir] = Xpart_old[m_bdry_dir] + up[m_bdry_dir]/gammap*a_cnormDt;
          if( (m_bdry_side==0 && Xpart[m_bdry_dir]>m_X_bdry) ||
              (m_bdry_side==1 && Xpart[m_bdry_dir]<m_X_bdry) ) {
 
-            for(int dir=0; dir<3; dir++) { 
-               if(dir!=m_bdry_dir) {
-                  BetaPart[dir] = m_beta_VT[dir]*MathUtils::randn() + m_beta_U[dir];
-               }
-            }
             for(int dir=0; dir<SpaceDim; dir++) { 
                if(dir!=m_bdry_dir) {
                   Xpart_old[dir] = local_Xlo[dir] + MathUtils::rand()*m_dX[dir];
                }
-               Xpart[dir] = Xpart_old[dir] + 0.5*BetaPart[dir]*a_cnormDt;
+               Xpart[dir] = Xpart_old[dir] + 0.5*up[dir]/gammap*a_cnormDt;
             }
-            JustinsParticle particle(m_weight, Xpart, BetaPart);
+            JustinsParticle particle(m_weight, Xpart, up);
             particle.setOldPosition(Xpart_old);
             uint64_t ID = 0; // need to declare ID to make smoke tests not fail
             particle.setID(ID);
             a_inflow_pList.append(particle);
 
          }
+#else
+         // only go further of the particle makes it into the physical domain
+         up[m_bdry_dir] = m_gbeta_VT[m_bdry_dir]*MathUtils::randn() + m_gbeta_U[m_bdry_dir];
+         Xpart[m_bdry_dir] = Xpart_old[m_bdry_dir] + up[m_bdry_dir]*a_cnormDt;
+         if( (m_bdry_side==0 && Xpart[m_bdry_dir]>m_X_bdry) ||
+             (m_bdry_side==1 && Xpart[m_bdry_dir]<m_X_bdry) ) {
+
+            for(int dir=0; dir<3; dir++) { 
+               if(dir!=m_bdry_dir) {
+                  up[dir] = m_gbeta_VT[dir]*MathUtils::randn() + m_gbeta_U[dir];
+               }
+            }
+            for(int dir=0; dir<SpaceDim; dir++) { 
+               if(dir!=m_bdry_dir) {
+                  Xpart_old[dir] = local_Xlo[dir] + MathUtils::rand()*m_dX[dir];
+               }
+               Xpart[dir] = Xpart_old[dir] + 0.5*up[dir]*a_cnormDt;
+            }
+            JustinsParticle particle(m_weight, Xpart, up);
+            particle.setOldPosition(Xpart_old);
+            uint64_t ID = 0; // need to declare ID to make smoke tests not fail
+            particle.setID(ID);
+            a_inflow_pList.append(particle);
+
+         }
+#endif
 
       }
 

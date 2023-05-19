@@ -30,6 +30,7 @@ grid.is_periodic   = 0  1
 grid.config_decomp = 1  1
 grid.geometry      = "cyl_RZ"
 #grid.geometry      = "cartesian"
+grid.volume_correction = "conservative"
 grid.num_ghosts    = 1
 
 grid.X_min = 0.0
@@ -80,7 +81,7 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = false
-pic_species.0.use_axisymmetric_boris = true
+pic_species.0.push_type = "CYL_BORIS"
 
 electron.particle.0.weight = 1.0
 electron.particle.0.position = 0.025 1.725
@@ -92,50 +93,6 @@ electron.particle.1.velocity = 4.2e5 0.0 1.0e5
 
 BC.electron.dir0_lower.type = "axis"
 BC.electron.dir0_upper.type = "symmetry"
-
-# use non-boris method for inertia with 2 iterations
-
-pic_species.1.name   = "electron1"
-pic_species.1.mass   = 1.0
-pic_species.1.charge = -1
-pic_species.1.motion = true
-pic_species.1.forces = true
-pic_species.1.scatter = false
-pic_species.1.use_axisymmetric_boris = false
-pic_species.1.axisymmetric_iter_max = 2
-
-electron1.particle.0.weight = 1.0
-electron1.particle.0.position = 0.025 1.725
-electron1.particle.0.velocity = -4.2e5 0.0 1.0e5
-
-electron1.particle.1.weight = 1.0
-electron1.particle.1.position = 0.75 1.025
-electron1.particle.1.velocity = 4.2e5 0.0 1.0e5
-
-BC.electron1.dir0_lower.type = "axis"
-BC.electron1.dir0_upper.type = "symmetry"
-
-# use non-boris method for inertia with 6 iterations
-
-pic_species.2.name   = "electron2"
-pic_species.2.mass   = 1.0
-pic_species.2.charge = -1
-pic_species.2.motion = true
-pic_species.2.forces = true
-pic_species.2.scatter = false
-pic_species.2.use_axisymmetric_boris = false
-pic_species.2.axisymmetric_iter_max = 6
-
-electron2.particle.0.weight = 1.0
-electron2.particle.0.position = 0.025 1.725
-electron2.particle.0.velocity = -4.2e5 0.0 1.0e5
-
-electron2.particle.1.weight = 1.0
-electron2.particle.1.position = 0.75 1.025
-electron2.particle.1.velocity = 4.2e5 0.0 1.0e5
-
-BC.electron2.dir0_lower.type = "axis"
-BC.electron2.dir0_upper.type = "symmetry"
 
 #####################################################
 

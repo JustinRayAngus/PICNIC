@@ -20,6 +20,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::define(  System* const             a_sy
   pp.query("theta_parameter", m_theta);
   pp.query("solver_type", m_nlsolver_type);
   pp.query("pc_update_freq", m_pc_update_freq);
+  pp.query("pc_update_newton", m_pc_update_newton);
 
   CH_assert(m_theta>=0.5 && m_theta<=1.0);
 
@@ -33,16 +34,17 @@ void PICTimeIntegrator_EM_ThetaImplicit::define(  System* const             a_sy
 
     m_nlsolver = new NewtonSolver<ODEVector<System>, System>;
     m_func = new EMResidualFunction<ODEVector<System>, System>;
-    m_func->define( m_U, m_system, m_theta );
+    m_func->define( m_U, m_system, m_theta, m_pc_update_newton );
     
-  } else if (m_nlsolver_type == _NLSOLVER_PETSC_) {
+  } else if (     (m_nlsolver_type == _NLSOLVER_PETSCSNES_) 
+              ||  (m_nlsolver_type == "petsc") /* backward compatibility */) {
 
 #ifdef with_petsc
     m_nlsolver = new PetscSNESWrapper<ODEVector<System>, System>;
     m_func = new EMResidualFunction<ODEVector<System>, System>;
-    m_func->define( m_U, m_system, m_theta );
+    m_func->define( m_U, m_system, m_theta, m_pc_update_newton );
 #else
-    MayDay::Error("PETSc nonlinear solver requires compilation with PETSc");
+    MayDay::Error("PETSc SNES solver requires compilation with PETSc");
 #endif
     
   } else {
@@ -71,7 +73,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::define(  System* const             a_sy
        CH_assert(maxits==1);
        m_system->DefineECSemiImpFlag();
     }
-    if(m_nlsolver_type==_NLSOLVER_PETSC_) {
+    if(m_nlsolver_type==_NLSOLVER_PETSCSNES_) {
        CH_assert(maxits==2);
        m_system->DefineECSemiImpFlag();
     }
@@ -93,6 +95,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::printParams() const
    if(m_nlsolver_type != _NLSOLVER_PICARD_) { 
    cout << "ec_semi_implicit = " << m_ec_semi_implicit << endl;
    cout << "pc_update_freq = " << m_pc_update_freq << endl;
+   cout << "pc_update_newton = " << (m_pc_update_newton?"true":"false") << endl;
    }
    m_nlsolver->printParams();
    cout << "=================================================" << endl;
@@ -114,7 +117,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::initialize( const std::string&  a_resta
                 // for it to work....
     //int dummy_step = 0;
     //dynamic_cast<EMJacobianFunction<ODEVector<System>, System>*>
-    //    ( &(m_func->getJacobian()) )->updatePreCondMat( m_U, dummy_step );
+    //    ( &(m_func->getJacobian()) )->updatePreCondMat( m_U );
   }
    
   if(!a_restart_file_name.empty()) {
@@ -158,7 +161,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::timeStep(  const Real a_time,
     m_func->curTimeStep( a_dt );
     if (a_step%m_pc_update_freq == 0 || m_restart_pc_update_flag) {
       dynamic_cast<EMJacobianFunction<ODEVector<System>, System>*>
-          ( &(m_func->getJacobian()) )->updatePreCondMat( m_U, a_step );
+          ( &(m_func->getJacobian()) )->updatePreCondMat( m_U );
       m_restart_pc_update_flag = false;
     }
   }
@@ -174,7 +177,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::postTimeStep(  const Real a_time,
 
   for (int s=0; s<m_particles.size(); s++) {
     auto this_picSpecies(m_particles[s]);
-    this_picSpecies->advanceVelocities_2ndHalf();
+    this_picSpecies->advanceVelocities_2ndHalf( a_dt );
     this_picSpecies->advancePositions_2ndHalf();
     this_picSpecies->applyInertialForces(a_dt,true,true);
     this_picSpecies->applyBCs(false);

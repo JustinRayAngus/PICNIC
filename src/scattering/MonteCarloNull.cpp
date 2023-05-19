@@ -1,6 +1,5 @@
 
 #include "MonteCarloNull.H"
-#include "MathUtils.H"
 #include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
@@ -1062,7 +1061,7 @@ Real MonteCarloNull::getSigma( Real&  a_xi, const Real  a_beta ) const
             a_xi = ScatteringUtils::semilogInterp(m_Evec,m_xi,KE_cm,index);
          }
          else {
-            a_xi = ScatteringUtils::linearInterp(m_Evec,m_xi,KE_cm,index);
+            a_xi = MathUtils::linearInterp(m_Evec,m_xi,KE_cm,index);
          }
       }
 
@@ -1113,7 +1112,7 @@ Real MonteCarloNull::getElasticSigma( const int   a_index,
             sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qelm,a_KE,a_index);
          }
          else {
-            sigma = ScatteringUtils::linearInterp(m_Evec,m_Qelm,a_KE,a_index);
+            sigma = MathUtils::linearInterp(m_Evec,m_Qelm,a_KE,a_index);
          }
       }
       
@@ -1129,7 +1128,7 @@ Real MonteCarloNull::getElasticSigma( const int   a_index,
             sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qela,a_KE,a_index);
          }
          else {
-            sigma = ScatteringUtils::linearInterp(m_Evec,m_Qela,a_KE,a_index);
+            sigma = MathUtils::linearInterp(m_Evec,m_Qela,a_KE,a_index);
          }
       }
 
@@ -1163,7 +1162,7 @@ Real MonteCarloNull::getExcitationSigma( const int   a_index,
          sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qexc[a_comp],a_KE,a_index);
       }
       else {
-         sigma = ScatteringUtils::linearInterp(m_Evec,m_Qexc[a_comp],a_KE,a_index);
+         sigma = MathUtils::linearInterp(m_Evec,m_Qexc[a_comp],a_KE,a_index);
       }
    }
 
@@ -1193,7 +1192,7 @@ Real MonteCarloNull::getDissociationSigma( const int   a_index,
          sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qdis[a_comp],a_KE,a_index);
       }
       else {
-         sigma = ScatteringUtils::linearInterp(m_Evec,m_Qdis[a_comp],a_KE,a_index);
+         sigma = MathUtils::linearInterp(m_Evec,m_Qdis[a_comp],a_KE,a_index);
       }
    }
 
@@ -1217,7 +1216,7 @@ Real MonteCarloNull::getIonizationSigma( const int   a_index,
          sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qizn[a_comp],a_KE,a_index);
       }
       else {
-         sigma = ScatteringUtils::linearInterp(m_Evec,m_Qizn[a_comp],a_KE,a_index);
+         sigma = MathUtils::linearInterp(m_Evec,m_Qizn[a_comp],a_KE,a_index);
       }
    }
 

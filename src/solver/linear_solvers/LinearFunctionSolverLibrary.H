@@ -4,5 +4,6 @@
 #include "GMRESSolver.H"
 #include "PointJacobi.H"
 #include "GaussSeidel.H"
+#include "PetscKSPWrapper.H"
 
 #endif

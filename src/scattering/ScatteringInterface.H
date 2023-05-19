@@ -54,7 +54,8 @@ private:
 
   void createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
                    const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                   const ParmParse&          a_pp_scatterC ) const;
+                   const ParmParse&          a_pp_scatterC,
+                   const CodeUnits&          a_units ) const;
   
   bool m_verbosity;    
   Real m_scatterDt = DBL_MAX;

@@ -114,6 +114,14 @@ private:
       
   std::string m_geom_type; 
  
+  enum VOLUME_CORRECTION {
+     NONE,
+     VERBONCOEUR,
+     CONSERVATIVE,
+  };
+      
+  VOLUME_CORRECTION m_volume_correction;
+
   RealVect m_Xmin, m_Xmax, m_dX;
   double m_mapped_cell_volume;
   RealVect m_mapped_face_area;  

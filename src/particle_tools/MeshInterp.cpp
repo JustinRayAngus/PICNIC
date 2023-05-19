@@ -179,10 +179,16 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
 { 
   //CH_TIME("MeshInterp::momentParticle()"); // timer here seems to affect time spent here...
   
-  Real kernal;
+  Real kernal, gammap=1.0;
   Real kernal0, kernal1, kernal2;
   switch (a_momentType)
     {
+    case number:
+      FORT_COUNT_DEPOSIT( CHF_FRA1(a_moment, 0),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position) );
+      break;
     case density:
       kernal = 1.0;
       FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, 0),
@@ -206,7 +212,11 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
                       CHF_CONST_REAL(a_weight) );
       break;
     case energy:
-      kernal = a_species_mass/2.0;
+#ifdef RELATIVISTIC_PARTICLES
+      for (int n=0; n<3; n++) gammap += a_velocity[n]*a_velocity[n];
+      gammap = sqrt(gammap);
+#endif
+      kernal = a_species_mass/(gammap + 1.0);
       kernal0 = kernal*a_velocity[0]*a_velocity[0];
       kernal1 = kernal*a_velocity[1]*a_velocity[1];
       kernal2 = kernal*a_velocity[2]*a_velocity[2];

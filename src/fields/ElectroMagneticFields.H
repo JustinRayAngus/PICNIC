@@ -154,6 +154,32 @@ public:
      return extB;
   }
  
+  // get dir derivative of external electric field
+  std::array<Real,3> getExternaldEdX( const RealVect&  a_X,
+                                      const int        a_dir ) const
+  {  
+     std::array<Real,3> extdEdX = {0.0,0.0,0.0};
+     if(m_external_fields) {
+        extdEdX[0] = m_gridFunction_extE0->getDerivative(a_X,a_dir);
+        extdEdX[1] = m_gridFunction_extE1->getDerivative(a_X,a_dir);
+        extdEdX[2] = m_gridFunction_extE2->getDerivative(a_X,a_dir);
+     }
+     return extdEdX;
+  }
+  
+  // get dir derivative of external magnetic field
+  std::array<Real,3> getExternaldBdX( const RealVect&  a_X,
+                                      const int        a_dir ) const
+  {  
+     std::array<Real,3> extdBdX = {0.0,0.0,0.0};
+     if(m_external_fields) {
+        extdBdX[0] = m_gridFunction_extB0->getDerivative(a_X,a_dir);
+        extdBdX[1] = m_gridFunction_extB1->getDerivative(a_X,a_dir);
+        extdBdX[2] = m_gridFunction_extB2->getDerivative(a_X,a_dir);
+     }
+     return extdBdX;
+  }
+
   // advance the fields in time
   void computeRHSElectricField( const Real, const Real );
   void computeRHSMagneticField( const Real, const Real );
@@ -230,14 +256,20 @@ public:
   void applyBCs_electricField( const Real  a_time );
   void applyBCs_magneticField( const Real  a_time );
 
-  void assemblePrecondMatrix( BandedMatrix&              a_banded_matrix,
-                        const bool                       a_use_mass_matrices,
-                        const LevelData<EdgeDataBox>&    a_sigma_xx,
+  void assemblePrecondMatrix( BandedMatrix&,
+                              const bool,
+                              const LevelData<EdgeDataBox>&,
+                              const LevelData<EdgeDataBox>&,
+                              const LevelData<EdgeDataBox>&,
 #if CH_SPACEDIM==1
-                        const LevelData<NodeFArrayBox>&  a_sigma_yy,
+                              const LevelData<NodeFArrayBox>&,
+                              const LevelData<NodeFArrayBox>&,
+                              const LevelData<NodeFArrayBox>&,
 #endif
-                        const LevelData<NodeFArrayBox>&  a_sigma_zz,
-                        const Real                       a_cnormDt );
+                              const LevelData<NodeFArrayBox>&,
+                              const LevelData<NodeFArrayBox>&,
+                              const LevelData<NodeFArrayBox>&,
+                              const Real );
 
   inline int numPCMatBands() const 
   {
@@ -267,7 +299,6 @@ private:
   Real m_energyB_factor; // Bscale*Bscale/mu0
   Real m_SdA_factor;   // Escale*Bscale/mu0*area_scale
   Real m_time_scale;   // time_scale
-  Real m_volume_scale; 
    
   // surface integrals of Poynting flux used for diagnostics
   RealVect m_intSdA_lo;
@@ -350,6 +381,12 @@ private:
 
   // number of bands in Jacobian matrix
   int m_pcmat_nbands;
+  // number of nearest neighbors to include in
+  // mass matrix contributions to preconditioner
+  int m_pc_mass_matrix_width;
+  // include sigma_ij terms in mass matrix contribution
+  // to preconditioner
+  bool m_pc_mass_matrix_include_ij;
   
 };
 

@@ -13,7 +13,8 @@ class LinearFunctionSolver
 
     virtual ~LinearFunctionSolver() {}
 
-    virtual void define(  LinearFunction<Vec,Ops>* const, 
+    virtual void define(  Ops* const,
+                          LinearFunction<Vec,Ops>* const, 
                           const Vec&) = 0;
 
     virtual void solve( Vec& a_x, 

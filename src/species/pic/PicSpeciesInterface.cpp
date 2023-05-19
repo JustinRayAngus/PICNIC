@@ -16,6 +16,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    : m_verbosity(true),
      m_writeSpeciesChargeDensity(false),
      m_writeSpeciesCurrentDensity(false),
+     m_writeSpeciesNppc(false),
      m_part_order_swap(false),
      m_iter_min_two(false),
      m_iter_max_particles(0),
@@ -33,6 +34,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    ParmParse pp("pic_species");
    pp.query("write_species_charge_density", m_writeSpeciesChargeDensity);
    pp.query("write_species_current_density", m_writeSpeciesCurrentDensity);
+   pp.query("write_species_nppc", m_writeSpeciesNppc);
    //
    pp.query("part_order_swap",m_part_order_swap);
    pp.query("iter_min_two",m_iter_min_two);
@@ -47,8 +49,6 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    if(m_use_mass_matrices) m_quasi_freeze_particles_jacobian = true;
    if(m_quasi_freeze_particles_jacobian) m_freeze_particles_jacobian=false;
    
-   m_volume_scale = a_units.getScale(a_units.VOLUME);
-        
    createAllPicSpecies( a_mesh );
       
    m_num_species = m_pic_species_ptr_vect.size();
@@ -112,7 +112,18 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
       PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       species->initialize( a_units, a_cur_time, a_restart_file_name );
       
+      if(!a_implicit_advance) {
+         bool planar_push = species->planarPush();
+         bool boris_inertia = species->borisInertia();
+         if(!planar_push && !boris_inertia) {
+            if(!procID()) cout << "EXIT_FAILURE: Using non-planar and non-boris push for sp = " << sp << endl;
+            if(!procID()) cout << "not setup to work with EXPLICIT advance" << endl;
+            exit(EXIT_FAILURE);
+         }
+      }
+
       if(a_implicit_advance) {
+      
          species->setParticleSolverParams( m_part_order_swap,
                                            m_iter_min_two,
                                            m_iter_max_particles,
@@ -147,6 +158,7 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
       cout << " pic species" << endl << endl;
       cout << " write species charge density  = " << m_writeSpeciesChargeDensity << endl;
       cout << " write species current density = " << m_writeSpeciesCurrentDensity << endl;
+      cout << " write species nppc = " << m_writeSpeciesNppc << endl;
       if (a_implicit_advance) {
          cout << " implicit advance parameters:" << endl;
          cout << "  part_order_swap = " << m_part_order_swap << endl;
@@ -272,8 +284,11 @@ void PicSpeciesInterface::initializeMassMatrices( const std::string&  a_restart_
       }
    }
    
-   m_Jtilde.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
-   m_Jtilde_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
+   m_J0.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
+   m_J0_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
+   
+   m_E0.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
+   m_E0_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
    
    // poor naming convention. m_sigma_x* containers are EdgeBox types.
    // In 2D, m_sigma_xj[0] is sigma_xj for j = x,y,z, but
@@ -293,9 +308,12 @@ void PicSpeciesInterface::initializeMassMatrices( const std::string&  a_restart_
    m_sigma_zz.define(grids,m_num_zz_comps.product(),ghostVect);
    
    // set all to zero (effects PC for initial step... bug?)
-   SpaceUtils::zero( m_Jtilde );
-   SpaceUtils::zero( m_Jtilde_virtual );
-   //
+   SpaceUtils::zero( m_J0 );
+   SpaceUtils::zero( m_J0_virtual );
+   
+   SpaceUtils::zero( m_E0 );
+   SpaceUtils::zero( m_E0_virtual );
+   
    SpaceUtils::zero( m_sigma_xx );
    SpaceUtils::zero( m_sigma_xy );
    SpaceUtils::zero( m_sigma_xz );
@@ -541,21 +559,25 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
       
       FArrayBox& Jx = currentDensity[dit][0];
       const FArrayBox& Ex = electricField[dit][0];
-      const FArrayBox& Jx0 = m_Jtilde[dit][0];
+      const FArrayBox& Jx0 = m_J0[dit][0];
+      const FArrayBox& Ex0 = m_E0[dit][0];
 #if CH_SPACEDIM<3
       FArrayBox& Jv = currentDensity_virtual[dit].getFab();      
       const FArrayBox& Ev = electricField_virtual[dit].getFab();
-      const FArrayBox& Jv0 = m_Jtilde_virtual[dit].getFab();
+      const FArrayBox& Jv0 = m_J0_virtual[dit].getFab();
+      const FArrayBox& Ev0 = m_E0_virtual[dit].getFab();
 #endif
 #if CH_SPACEDIM>=2
       FArrayBox& Jy = currentDensity[dit][1];
       const FArrayBox& Ey = electricField[dit][1];
-      const FArrayBox& Jy0 = m_Jtilde[dit][1];
+      const FArrayBox& Jy0 = m_J0[dit][1];
+      const FArrayBox& Ey0 = m_E0[dit][1];
 #endif
 #if CH_SPACEDIM==3
       FArrayBox& Jz = currentDensity[dit][2];
       const FArrayBox& Ez = electricField[dit][2];
-      const FArrayBox& Jz0 = m_Jtilde[dit][2];
+      const FArrayBox& Jz0 = m_J0[dit][2];
+      const FArrayBox& Ez0 = m_E0[dit][2];
 #endif
 
       //
@@ -574,20 +596,26 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
                                         CHF_CONST_FRA(sigxx),
                                         CHF_CONST_FRA(sigxy),
                                         CHF_CONST_FRA(sigxz),
+                                        CHF_CONST_FRA1(Ex0,0),
                                         CHF_CONST_FRA1(Ex,0),
 #if CH_SPACEDIM==1
+                                        CHF_CONST_FRA1(Ev0,0),
                                         CHF_CONST_FRA1(Ev,0),
+                                        CHF_CONST_FRA1(Ev0,1),
                                         CHF_CONST_FRA1(Ev,1),
 #elif CH_SPACEDIM==2
+                                        CHF_CONST_FRA1(Ey0,0),
                                         CHF_CONST_FRA1(Ey,0),
+                                        CHF_CONST_FRA1(Ev0,0),
                                         CHF_CONST_FRA1(Ev,0),
 #elif CH_SPACEDIM==3
+                                        CHF_CONST_FRA1(Ey0,0),
                                         CHF_CONST_FRA1(Ey,0),
+                                        CHF_CONST_FRA1(Ez0,0),
                                         CHF_CONST_FRA1(Ez,0),
 #endif
                                         CHF_CONST_FRA1(Jx0,0),
                                         CHF_FRA1(Jx,0) );
-      Jx.mult(1.0/m_volume_scale);
 
       //
       // compute Jy = Jy0 + sigma*E
@@ -615,25 +643,29 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
                                         CHF_CONST_FRA(sigyx),
                                         CHF_CONST_FRA(sigyy),
                                         CHF_CONST_FRA(sigyz),
+                                        CHF_CONST_FRA1(Ex0,0),
                                         CHF_CONST_FRA1(Ex,0),
 #if CH_SPACEDIM==1
+                                        CHF_CONST_FRA1(Ev0,0),
                                         CHF_CONST_FRA1(Ev,0),
+                                        CHF_CONST_FRA1(Ev0,1),
                                         CHF_CONST_FRA1(Ev,1),
                                         CHF_CONST_FRA1(Jv0,0),
                                         CHF_FRA1(Jv,0) );
-      Jv.mult(1.0/m_volume_scale,0,1);
 #elif CH_SPACEDIM==2
+                                        CHF_CONST_FRA1(Ey0,0),
                                         CHF_CONST_FRA1(Ey,0),
+                                        CHF_CONST_FRA1(Ev0,0),
                                         CHF_CONST_FRA1(Ev,0),
                                         CHF_CONST_FRA1(Jy0,0),
                                         CHF_FRA1(Jy,0) );
-      Jy.mult(1.0/m_volume_scale);
 #elif CH_SPACEDIM==3
+                                        CHF_CONST_FRA1(Ey0,0),
                                         CHF_CONST_FRA1(Ey,0),
+                                        CHF_CONST_FRA1(Ez0,0),
                                         CHF_CONST_FRA1(Ez,0),
                                         CHF_CONST_FRA1(Jy0,0),
                                         CHF_FRA1(Jy,0) );
-      Jy.mult(1.0/m_volume_scale);
 #endif
 
       //
@@ -656,25 +688,29 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
                                         CHF_CONST_FRA(sigzx),
                                         CHF_CONST_FRA(sigzy),
                                         CHF_CONST_FRA(sigzz),
+                                        CHF_CONST_FRA1(Ex0,0),
                                         CHF_CONST_FRA1(Ex,0),
 #if CH_SPACEDIM==1
+                                        CHF_CONST_FRA1(Ev0,0),
                                         CHF_CONST_FRA1(Ev,0),
+                                        CHF_CONST_FRA1(Ev0,1),
                                         CHF_CONST_FRA1(Ev,1),
                                         CHF_CONST_FRA1(Jv0,1),
                                         CHF_FRA1(Jv,1) );
-      Jv.mult(1.0/m_volume_scale,1,1);
 #elif CH_SPACEDIM==2
+                                        CHF_CONST_FRA1(Ey0,0),
                                         CHF_CONST_FRA1(Ey,0),
+                                        CHF_CONST_FRA1(Ev0,0),
                                         CHF_CONST_FRA1(Ev,0),
                                         CHF_CONST_FRA1(Jv0,0),
                                         CHF_FRA1(Jv,0) );
-      Jv.mult(1.0/m_volume_scale,0,1);
 #elif CH_SPACEDIM==3
+                                        CHF_CONST_FRA1(Ey0,0),
                                         CHF_CONST_FRA1(Ey,0),
+                                        CHF_CONST_FRA1(Ez0,0),
                                         CHF_CONST_FRA1(Ez,0),
                                         CHF_CONST_FRA1(Jz0,0),
                                         CHF_FRA1(Jz,0) );
-      Jz.mult(1.0/m_volume_scale);
 #endif
 
    }
@@ -685,12 +721,12 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
    // the field_bc. This is legacy.
    const FieldBC& field_bc = a_emfields.getFieldBC();
    field_bc.prepJforBC( currentDensity, currentDensity_virtual,
-                        m_Jtilde, m_Jtilde_virtual,
+                        m_J0, m_J0_virtual,
+                        m_E0, m_E0_virtual,
                         electricField, electricField_virtual,
                         m_sigma_xx, m_sigma_xy, m_sigma_xz,
                         m_sigma_yx, m_sigma_yy, m_sigma_yz,
-                        m_sigma_zx, m_sigma_zy, m_sigma_zz,
-                        m_volume_scale);
+                        m_sigma_zx, m_sigma_zy, m_sigma_zz );
    field_bc.applyToJ( currentDensity, currentDensity_virtual );
 #endif
    
@@ -700,13 +736,11 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       for (int dir=0; dir<SpaceDim; ++dir) {
          currentDensity[dit][dir].divide(Jec[dit][dir],0,0,1);
-         //currentDensity[dit][dir].plus(m_Jtilde[dit][dir],0,0,1);
       }
 #if CH_SPACEDIM<3
       for (int comp=0; comp<currentDensity_virtual.nComp(); ++comp) {
          currentDensity_virtual[dit].getFab().divide(Jnc[dit].getFab(),0,comp,1);
       }
-      //currentDensity_virtual[dit].plus(m_Jtilde_virtual[dit]);
 #endif
    }
 
@@ -800,59 +834,6 @@ void PicSpeciesInterface::setCurrentDensity( const bool  a_from_explicit_solver 
 
 }
 
-void PicSpeciesInterface::redefineJtilde( const ElectroMagneticFields&  a_emfields )
-{
-   CH_TIME("PicSpeciesInterface::redefineJtilde()");
-   
-   const DisjointBoxLayout& grids(m_mesh.getDBL());
-   const int ghosts(m_mesh.ghosts());
-   const IntVect ghostVect = ghosts*IntVect::Unit; 
-
-#ifdef MASS_MATRIX_TEST
-   LevelData<EdgeDataBox>& currentDensity = m_currentDensity_TEST;
-   LevelData<NodeFArrayBox>& currentDensity_virtual = m_currentDensity_virtual_TEST;
-#else
-   LevelData<EdgeDataBox>& currentDensity = m_currentDensity;
-   LevelData<NodeFArrayBox>& currentDensity_virtual = m_currentDensity_virtual;
-#endif      
- 
-   LevelData<EdgeDataBox> Jg_save;
-   LevelData<NodeFArrayBox> Jgv_save;
-   Jg_save.define(grids,1,ghostVect);
-   Jgv_save.define(grids,3-SpaceDim,ghostVect);
-   
-   // copy Jg to Jg_save and set Jtilde to zero
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      for (int dir=0; dir<SpaceDim; dir++) {
-         Jg_save[dit][dir].copy(m_currentDensity[dit][dir]);
-         m_Jtilde[dit][dir].setVal(0.0);
-      }
-#if CH_SPACEDIM<3
-      Jgv_save[dit].copy(m_currentDensity_virtual[dit]);
-      m_Jtilde_virtual[dit].setVal(0.0);
-#endif
-   }
-
-   // compute Jg from mass matrices with Jtilde = 0
-   // i.e., Jg = sigma*E
-   computeJfromMassMatrices( a_emfields );
-
-   // Set Jtilde = Jg_save - Jg and copy Jg_save back to Jg
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      for (int dir=0; dir<SpaceDim; dir++) {
-         m_Jtilde[dit][dir].copy(Jg_save[dit][dir]);
-         m_Jtilde[dit][dir].minus(currentDensity[dit][dir]);
-         currentDensity[dit][dir].copy(Jg_save[dit][dir]);
-      }
-#if CH_SPACEDIM<3
-      m_Jtilde_virtual[dit].copy(Jgv_save[dit]);
-      m_Jtilde_virtual[dit].minus(currentDensity_virtual[dit]);
-      currentDensity_virtual[dit].getFab().copy(Jgv_save[dit].getFab());
-#endif
-   }
-   
-}
-  
 void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacobian, 
                                     const ElectroMagneticFields&  a_emfields,
                                     const Real                    a_dt,
@@ -866,8 +847,8 @@ void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacob
    // and then compute current density at half time step
    //
    // xbar = xn + dt/2*vbar
-   // vbar = vn + dt/2*q/m*(E(xbar) + vbar x B(xbar))
-   // Jbar = Sum_sSum_p(qp*S(xbar-xg)*vbar)/dV
+   // upbar = upn + dt/2*q/m*(E(xbar) + upbar/gammapbar x B(xbar))
+   // Jbar = Sum_sSum_p(qp*S(xbar-xg)*upbar/gammap)/dV
 
    if(a_from_emjacobian) { // called from linear stage of jfnk
 
@@ -892,7 +873,6 @@ void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacob
          setCurrentDensity();
 #ifdef MASS_MATRIX_TEST
          setMassMatrices( a_emfields, a_dt );
-         //redefineJtilde( a_emfields );
          computeJfromMassMatrices( a_emfields );
 #endif
 
@@ -903,7 +883,12 @@ void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacob
   
       for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
          auto species(m_pic_species_ptr_vect[sp]);
-         if(a_nonlinear_iter==0 && m_mod_init_advance) species->advancePositions( a_dt, true );
+         if(a_nonlinear_iter==0 && m_mod_init_advance) {
+            species->advancePositionsImplicit( a_dt, true );
+            species->interpolateFieldsToParticles( a_emfields );
+            species->addExternalFieldsToParticles( a_emfields ); 
+            species->advanceVelocities( a_dt, true );
+         }
          else species->advanceParticlesIteratively( a_emfields, a_dt );
       }
      
@@ -920,14 +905,11 @@ void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacob
 #endif
          setMassMatrices( a_emfields, a_dt );
          computeJfromMassMatrices( a_emfields );
-         //setCurrentDensity();
-         //redefineJtilde( a_emfields );
       }
       else {
          setCurrentDensity();
 #ifdef MASS_MATRIX_TEST
          setMassMatrices( a_emfields, a_dt );
-         //redefineJtilde( a_emfields );
          computeJfromMassMatrices( a_emfields );
 #endif
       }
@@ -959,7 +941,7 @@ void PicSpeciesInterface::postNewtonUpdate( const ElectroMagneticFields&  a_emfi
       auto species(m_pic_species_ptr_vect[sp]);
       species->interpolateEfieldToParticles( a_emfields );
       species->advanceVelocities( a_dt, true );
-      species->advancePositions( a_dt, true );
+      species->advancePositionsImplicit( a_dt, true );
    }
  
 }
@@ -970,9 +952,9 @@ void PicSpeciesInterface::setMassMatrices( const ElectroMagneticFields&  a_emfie
    CH_TIME("PicSpeciesInterface::setMassMatrices()");
    
    // set all to zero
-   SpaceUtils::zero( m_Jtilde );
-   SpaceUtils::zero( m_Jtilde_virtual );
-   //
+   SpaceUtils::zero( m_J0 );
+   SpaceUtils::zero( m_J0_virtual );
+   
    SpaceUtils::zero( m_sigma_xx );
    SpaceUtils::zero( m_sigma_xy );
    SpaceUtils::zero( m_sigma_xz );
@@ -993,18 +975,18 @@ void PicSpeciesInterface::setMassMatrices( const ElectroMagneticFields&  a_emfie
                                        m_sigma_yx, m_sigma_yy, m_sigma_yz,
 #endif
                                        m_sigma_zx, m_sigma_zy, m_sigma_zz, 
-                                       m_Jtilde, m_Jtilde_virtual, a_emfields, a_dt );
+                                       m_J0, m_J0_virtual, a_emfields, a_dt );
    }
    
    // add ghost cells to valid cells
    LDaddEdgeOp<EdgeDataBox> addEdgeOp;
-   m_Jtilde.exchange( m_Jtilde.interval(), m_mesh.reverseCopier(), addEdgeOp );
+   m_J0.exchange( m_J0.interval(), m_mesh.reverseCopier(), addEdgeOp );
    m_sigma_xx.exchange( m_sigma_xx.interval(), m_mesh.reverseCopier(), addEdgeOp );
    m_sigma_xy.exchange( m_sigma_xy.interval(), m_mesh.reverseCopier(), addEdgeOp );
    m_sigma_xz.exchange( m_sigma_xz.interval(), m_mesh.reverseCopier(), addEdgeOp );
 
    LDaddNodeOp<NodeFArrayBox> addNodeOp;
-   m_Jtilde_virtual.exchange( m_Jtilde_virtual.interval(), m_mesh.reverseCopier(), addNodeOp );
+   m_J0_virtual.exchange( m_J0_virtual.interval(), m_mesh.reverseCopier(), addNodeOp );
 #if CH_SPACEDIM==1
    m_sigma_yx.exchange( m_sigma_yx.interval(), m_mesh.reverseCopier(), addNodeOp );
    m_sigma_yy.exchange( m_sigma_yy.interval(), m_mesh.reverseCopier(), addNodeOp );
@@ -1013,6 +995,23 @@ void PicSpeciesInterface::setMassMatrices( const ElectroMagneticFields&  a_emfie
    m_sigma_zx.exchange( m_sigma_zx.interval(), m_mesh.reverseCopier(), addNodeOp );
    m_sigma_zy.exchange( m_sigma_zy.interval(), m_mesh.reverseCopier(), addNodeOp );
    m_sigma_zz.exchange( m_sigma_zz.interval(), m_mesh.reverseCopier(), addNodeOp );
+   
+   // save electric field to compute perturbed E during GMRES
+   const LevelData<EdgeDataBox>& electricField = a_emfields.getElectricField();
+   const LevelData<NodeFArrayBox>& electricField_virtual = a_emfields.getVirtualElectricField();
+   
+#ifdef MASS_MATRIX_TEST
+   SpaceUtils::zero( m_E0 );
+   SpaceUtils::zero( m_E0_virtual );
+#else
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         m_E0[dit][dir].copy(electricField[dit][dir]);
+      }
+      m_E0_virtual[dit].getFab().copy(electricField_virtual[dit].getFab());
+   } 
+#endif
    
 }
 

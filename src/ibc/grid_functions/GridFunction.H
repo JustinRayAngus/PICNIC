@@ -47,6 +47,10 @@ class GridFunction
       
       // return function value at location a_X
       virtual Real getValue( const RealVect&  a_X ) const = 0;
+      
+      // return dir derivative of function value at location a_X
+      virtual Real getDerivative( const RealVect&  a_X,
+                                  const int        a_dir ) const = 0;
 
       // Print object parameters.
       virtual void printParameters() const = 0;

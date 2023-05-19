@@ -8,6 +8,7 @@ simulation.fixed_random_seed = 1983
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
+#pic_species.mod_init_advance = false
 pic_species.iter_min_two = true
 pic_species.iter_max_particles = 8
 pic_species.rtol_particles = 1.0e-14
@@ -129,7 +130,6 @@ pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
 pic_species.0.interp_bc_check = true
-pic_species.0.deposit_outflow_J = true
 pic_species.0.suborbit_inflow_J = true
 
 BC.electron.dir0_lower.type = "inflow_outflow"

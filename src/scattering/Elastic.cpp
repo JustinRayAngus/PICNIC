@@ -415,7 +415,7 @@ Real Elastic::getTextSigma( Real&  a_xi, const Real  a_beta ) const
             sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qelm,KE_cm,index);
          }
          else {
-            sigma = ScatteringUtils::linearInterp(m_Evec,m_Qelm,KE_cm,index);
+            sigma = MathUtils::linearInterp(m_Evec,m_Qelm,KE_cm,index);
          }
 
       }
@@ -440,7 +440,7 @@ Real Elastic::getTextSigma( Real&  a_xi, const Real  a_beta ) const
             sigma = ScatteringUtils::loglogInterp(m_Evec,m_Qela,KE_cm,index);
          }
          else {
-            sigma = ScatteringUtils::linearInterp(m_Evec,m_Qela,KE_cm,index);
+            sigma = MathUtils::linearInterp(m_Evec,m_Qela,KE_cm,index);
          }
 
          // get xi
@@ -448,7 +448,7 @@ Real Elastic::getTextSigma( Real&  a_xi, const Real  a_beta ) const
             xi = ScatteringUtils::semilogInterp(m_Evec,m_xi,KE_cm,index);
          }
          else {
-            xi = ScatteringUtils::linearInterp(m_Evec,m_xi,KE_cm,index);
+            xi = MathUtils::linearInterp(m_Evec,m_xi,KE_cm,index);
          }
 
       }

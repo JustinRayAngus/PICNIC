@@ -18,7 +18,7 @@ void FORTRAN_NAME( MOMENT_DEPOSIT ,moment_deposit )(
       ,CHFp_CONST_REALVECT(dx)
       ,CHFp_CONST_REALVECT(x)
       ,CHFp_CONST_REAL(kernal)
-      ,CHFp_CONST_REAL(q) );
+      ,CHFp_CONST_REAL(wp) );
 
 #define FORT_MOMENT_DEPOSIT FORTRAN_NAME( inlineMOMENT_DEPOSIT, inlineMOMENT_DEPOSIT)
 #define FORTNT_MOMENT_DEPOSIT FORTRAN_NAME( MOMENT_DEPOSIT, moment_deposit)
@@ -29,7 +29,7 @@ inline void FORTRAN_NAME(inlineMOMENT_DEPOSIT, inlineMOMENT_DEPOSIT)(
       ,CHFp_CONST_REALVECT(dx)
       ,CHFp_CONST_REALVECT(x)
       ,CHFp_CONST_REAL(kernal)
-      ,CHFp_CONST_REAL(q) )
+      ,CHFp_CONST_REAL(wp) )
 {
  CH_TIMELEAF("FORT_MOMENT_DEPOSIT");
  FORTRAN_NAME( MOMENT_DEPOSIT ,moment_deposit )(
@@ -38,9 +38,37 @@ inline void FORTRAN_NAME(inlineMOMENT_DEPOSIT, inlineMOMENT_DEPOSIT)(
       ,CHFt_CONST_REALVECT(dx)
       ,CHFt_CONST_REALVECT(x)
       ,CHFt_CONST_REAL(kernal)
-      ,CHFt_CONST_REAL(q) );
+      ,CHFt_CONST_REAL(wp) );
 }
 #endif  // GUARDMOMENT_DEPOSIT 
+
+#ifndef GUARDCOUNT_DEPOSIT 
+#define GUARDCOUNT_DEPOSIT 
+// Prototype for Fortran procedure count_deposit ...
+//
+void FORTRAN_NAME( COUNT_DEPOSIT ,count_deposit )(
+      CHFp_FRA1(moment)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp) );
+
+#define FORT_COUNT_DEPOSIT FORTRAN_NAME( inlineCOUNT_DEPOSIT, inlineCOUNT_DEPOSIT)
+#define FORTNT_COUNT_DEPOSIT FORTRAN_NAME( COUNT_DEPOSIT, count_deposit)
+
+inline void FORTRAN_NAME(inlineCOUNT_DEPOSIT, inlineCOUNT_DEPOSIT)(
+      CHFp_FRA1(moment)
+      ,CHFp_CONST_REALVECT(left_edge)
+      ,CHFp_CONST_REALVECT(dx)
+      ,CHFp_CONST_REALVECT(xp) )
+{
+ CH_TIMELEAF("FORT_COUNT_DEPOSIT");
+ FORTRAN_NAME( COUNT_DEPOSIT ,count_deposit )(
+      CHFt_FRA1(moment)
+      ,CHFt_CONST_REALVECT(left_edge)
+      ,CHFt_CONST_REALVECT(dx)
+      ,CHFt_CONST_REALVECT(xp) );
+}
+#endif  // GUARDCOUNT_DEPOSIT 
 
 #ifndef GUARDMOMENT3V_DEPOSIT 
 #define GUARDMOMENT3V_DEPOSIT 

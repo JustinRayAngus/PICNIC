@@ -47,7 +47,7 @@ ScatteringInterface::ScatteringInterface( const CodeUnits&          a_units,
    bool coulomb_all = false;
    pp_scatterC.query("all",coulomb_all);
    if(coulomb_all) {
-      createAllCoulomb( coulomb_ptr_vect, a_pic_species_ptr_vect, pp_scatterC );
+      createAllCoulomb( coulomb_ptr_vect, a_pic_species_ptr_vect, pp_scatterC, a_units );
    } 
 
    //bool more_scattering_models(true);
@@ -61,7 +61,7 @@ ScatteringInterface::ScatteringInterface( const CodeUnits&          a_units,
      
       // Create scattering object and add it to the scattering vector
       if(pp_scatter.contains("model")) {
-         ScatteringPtr this_scattering = scatteringFactory.create( pp_scatter, m_weight_method, 1 );
+         ScatteringPtr this_scattering = scatteringFactory.create( pp_scatter, a_units, m_weight_method, 1 );
          if(this_scattering->getScatteringType()==COULOMB) {
             coulomb_ptr_vect.push_back(this_scattering);
          }
@@ -309,7 +309,8 @@ ScatteringInterface::readCheckpoint( HDF5Handle&  a_handle )
 void 
 ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
                                  const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                                 const ParmParse&          a_pp_scatterC ) const
+                                 const ParmParse&          a_pp_scatterC,
+                                 const CodeUnits&          a_units ) const
 {
          
   if(!procID()) { 
@@ -325,6 +326,15 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
   std::string model = "TA";
   a_pp_scatterC.query("model",model);
 
+  // query for the angular scattering type used for Coulomb class
+  std::string angular_model = "TAKIZUKA";
+  a_pp_scatterC.query("angular_scattering",angular_model);
+  
+  if(!procID()) { 
+    cout << "ScatteringInterface: Coulomb model type:       " << model << endl;
+    cout << "ScatteringInterface: angular scattering model: " << angular_model << endl;
+  }
+
   ScatteringFactory scatteringFactory;
 
   // create like-like species first
@@ -336,7 +346,7 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
     if(!use_scattering || charge==0.0) continue;
             
     // Create scattering object and add it to the scattering vector
-    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, Clog10, model, 1 );
+    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, Clog10, model, angular_model, a_units, 1 );
     a_coulomb_ptr_vect.push_back(this_scattering);
             
   }
@@ -357,7 +367,7 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
       if(!use_scattering2 || charge2==0.0) continue;
                
       // Create scattering object and add it to the scattering vector
-      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, Clog10, model, 1 );
+      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, Clog10, model, angular_model, a_units, 1 );
       a_coulomb_ptr_vect.push_back(this_scattering);
 
     }

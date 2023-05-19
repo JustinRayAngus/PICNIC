@@ -107,7 +107,6 @@ pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CIC"
 pic_species.0.interp_bc_check = true
-pic_species.0.deposit_outflow_J = true
 
 BC.electron.dir0_lower.type = "inflow_outflow"
 BC.electron.dir0_lower.inflow.discrete_samples = 10

@@ -12,12 +12,12 @@ pic_species.iter_max_particles = 8
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
 
-#pic_em_theta_implicit.solver_type = "newton"
 pic_em_theta_implicit.solver_type = "petsc"
 pic_em_theta_implicit.pc_update_freq = 1
 jacobian.with_pc = true
 
 newton.verbose = false
+newton.line_search.type = "basic"
 newton.atol = 1.0e-12
 newton.rtol = 1.0e-6
 
@@ -133,7 +133,6 @@ pic_species.0.scatter = true
 #pic_species.0.interp_type_N = "TSC"
 #pic_species.0.interp_type_J = "CC1"
 #pic_species.0.interp_type_E = "CC1"
-pic_species.0.deposit_outflow_J = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 0.5
@@ -279,7 +278,6 @@ pic_species.1.charge = 0
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
-pic_species.1.deposit_outflow_J = true
 
 IC.argonI.X_min = 0.0
 IC.argonI.X_max = 0.5
@@ -425,7 +423,6 @@ pic_species.2.charge = 1
 pic_species.2.motion = true
 pic_species.2.forces = true
 pic_species.2.scatter = true
-pic_species.2.deposit_outflow_J = true
 
 IC.argonII.X_min = 0.0
 IC.argonII.X_max = 0.5
@@ -571,7 +568,6 @@ pic_species.3.charge = 2
 pic_species.3.motion = true
 pic_species.3.forces = true
 pic_species.3.scatter = true
-pic_species.3.deposit_outflow_J = true
 
 BC.argonIII.dir0_lower.type = "symmetry"
 BC.argonIII.dir0_upper.type = "outflow"
@@ -584,7 +580,6 @@ pic_species.4.charge = 3
 pic_species.4.motion = true
 pic_species.4.forces = true
 pic_species.4.scatter = true
-pic_species.4.deposit_outflow_J = true
 
 BC.argonIV.dir0_lower.type = "symmetry"
 BC.argonIV.dir0_upper.type = "outflow"
@@ -597,7 +592,6 @@ pic_species.5.charge = 4
 pic_species.5.motion = true
 pic_species.5.forces = true
 pic_species.5.scatter = true
-pic_species.5.deposit_outflow_J = true
 
 BC.argonV.dir0_lower.type = "symmetry"
 BC.argonV.dir0_upper.type = "outflow"
@@ -610,7 +604,6 @@ pic_species.6.charge = 5
 pic_species.6.motion = true
 pic_species.6.forces = true
 pic_species.6.scatter = true
-pic_species.6.deposit_outflow_J = true
 
 BC.argonVI.dir0_lower.type = "symmetry"
 BC.argonVI.dir0_upper.type = "outflow"
@@ -623,7 +616,6 @@ pic_species.7.charge = 6
 pic_species.7.motion = true
 pic_species.7.forces = true
 pic_species.7.scatter = true
-pic_species.7.deposit_outflow_J = true
 
 BC.argonVII.dir0_lower.type = "symmetry"
 BC.argonVII.dir0_upper.type = "outflow"
@@ -636,7 +628,6 @@ pic_species.8.charge = 7
 pic_species.8.motion = true
 pic_species.8.forces = true
 pic_species.8.scatter = true
-pic_species.8.deposit_outflow_J = true
 
 BC.argonVIII.dir0_lower.type = "symmetry"
 BC.argonVIII.dir0_upper.type = "outflow"
@@ -649,7 +640,6 @@ pic_species.9.charge = 8
 pic_species.9.motion = true
 pic_species.9.forces = true
 pic_species.9.scatter = true
-pic_species.9.deposit_outflow_J = true
 
 BC.argonIX.dir0_lower.type = "symmetry"
 BC.argonIX.dir0_upper.type = "outflow"
@@ -662,7 +652,6 @@ pic_species.10.charge = 9
 pic_species.10.motion = true
 pic_species.10.forces = true
 pic_species.10.scatter = true
-pic_species.10.deposit_outflow_J = true
 
 BC.argonX.dir0_lower.type = "symmetry"
 BC.argonX.dir0_upper.type = "outflow"
@@ -675,7 +664,6 @@ pic_species.11.charge = 10
 pic_species.11.motion = true
 pic_species.11.forces = true
 pic_species.11.scatter = true
-pic_species.11.deposit_outflow_J = true
 
 BC.argonXI.dir0_lower.type = "symmetry"
 BC.argonXI.dir0_upper.type = "outflow"

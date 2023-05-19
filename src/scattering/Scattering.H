@@ -9,6 +9,7 @@
 #include "RefCountedPtr.H"
 
 #include "DomainGrid.H"
+#include "MathUtils.H"
 
 #include "NamespaceHeader.H"
 
@@ -72,6 +73,7 @@ class Scattering
    protected:
    
       bool m_verbosity;
+      bool m_volume_scale;
   
 };
 

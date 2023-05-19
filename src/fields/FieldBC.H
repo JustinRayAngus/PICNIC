@@ -59,6 +59,8 @@ class FieldBC
                        LevelData<NodeFArrayBox>&  a_Jv,
                  const LevelData<EdgeDataBox>&    a_Jx0,
                  const LevelData<NodeFArrayBox>&  a_Jv0,
+                 const LevelData<EdgeDataBox>&    a_Ex0,
+                 const LevelData<NodeFArrayBox>&  a_Ev0,
                  const LevelData<EdgeDataBox>&    a_Ex,
                  const LevelData<NodeFArrayBox>&  a_Ev,
                  const LevelData<EdgeDataBox>&    a_sigma_xx,
@@ -69,8 +71,7 @@ class FieldBC
                  const LevelData<NodeFArrayBox>&  a_sigma_yz,
                  const LevelData<NodeFArrayBox>&  a_sigma_zx,
                  const LevelData<NodeFArrayBox>&  a_sigma_zy,
-                 const LevelData<NodeFArrayBox>&  a_sigma_zz,
-                 const Real                       a_volume_scale ) const;
+                 const LevelData<NodeFArrayBox>&  a_sigma_zz ) const;
 #endif
 
    protected:

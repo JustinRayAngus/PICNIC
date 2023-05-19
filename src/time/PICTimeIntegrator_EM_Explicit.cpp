@@ -40,7 +40,7 @@ void PICTimeIntegrator_EM_Explicit::preTimeStep(  const Real a_time,
     auto this_picSpecies(m_particles[s]);
     if (a_time==0.0) { // initial advance of particles positions by 1/2 time step
       this_picSpecies->createInflowParticles( a_time, halfDt );
-      this_picSpecies->advancePositions( halfDt, false ); // false is correct here
+      this_picSpecies->advancePositionsExplicit( halfDt, false ); // false is correct here
     } 
     else {
       this_picSpecies->advancePositions_2ndHalf();
@@ -110,7 +110,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
     // advance positions from t_{n+1/2} to t_{n+1} using vp_{n+1}
     for (int s=0; s<m_particles.size(); s++) {
       auto this_species(m_particles[s]);
-      this_species->advancePositions( a_dt, true );
+      this_species->advancePositionsExplicit( a_dt, true );
       // not compatible with Boris method for inertia
       this_species->applyBCs( true );
     }
@@ -121,7 +121,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
     // advance positions from t_{n+1/2} to t_{n+1} using vp_{n+1}
     for (int s=0; s<m_particles.size(); s++) {
       auto this_species(m_particles[s]);
-      this_species->advancePositions( a_dt, true );
+      this_species->advancePositionsExplicit( a_dt, true );
       this_species->applyInertialForces( a_dt, false, true, true );
       this_species->applyBCs( true );
     }

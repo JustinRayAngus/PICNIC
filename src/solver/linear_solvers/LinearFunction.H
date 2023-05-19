@@ -73,7 +73,7 @@ class LinearFunction
 
     virtual void setOutputIndent( const std::string& ) { }
 
-    virtual void updatePreCondMat( const T&, int ) { }
+    virtual void updatePreCondMat( const T& ) { }
 
 #ifdef with_petsc
     virtual int copyPCMatrixToPetsc( Mat )

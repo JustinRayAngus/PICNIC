@@ -22,7 +22,7 @@
 
 #include "NamespaceHeader.H"
 
-typedef enum {density, momentum, energy, heatFlux} MomentType;
+typedef enum {number, density, momentum, energy, heatFlux} MomentType;
 typedef enum {UNKNOWN, NGP, CIC, TSC, W4, CC0, CC1} InterpType;
 
 /**
@@ -65,7 +65,9 @@ public:
                        FArrayBox&   a_rhoVy,
                        FArrayBox&   a_rhoVz,
                  const List<P>&     a_particleList,
-                 const InterpType&  a_interpType ) const;
+                 const InterpType&  a_interpType,
+                 const int          a_cyl_car,
+                 const bool         a_from_explicit_solver ) const;
   
   template <class P>
   void depositMassMatrices( FArrayBox&   a_sigma_xx,
@@ -83,8 +85,9 @@ public:
                       const FArrayBox&   a_Bx,
                       const FArrayBox&   a_By,
                       const FArrayBox&   a_Bz,
-                      const int          a_qs,
+                      const Real         a_qovs,
                       const Real         a_alphas,
+                      const int          a_inertial_type,
                       const List<P>&     a_particleList,
                       const InterpType&  a_interpType ) const;
   

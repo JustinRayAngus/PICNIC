@@ -48,6 +48,7 @@ src_dirs += ../src/time
 # define picnic specific compile time flags here
 #XTRACPPFLAGS += -DMASS_MATRIX_TEST
 #XTRACPPFLAGS += -DMASS_MATRIX_COST_TEST
+#XTRACPPFLAGS += -DRELATIVISTIC_PARTICLES
 
 # if PETSc exists and PETSC_DIR is set in the environment,
 # compile with PETSc

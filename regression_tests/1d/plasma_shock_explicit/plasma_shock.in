@@ -111,7 +111,6 @@ pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CIC"
 pic_species.0.interp_bc_check = true
-pic_species.0.deposit_outflow_J = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 200.0
@@ -152,7 +151,6 @@ pic_species.1.interp_type_N = "TSC"
 pic_species.1.interp_type_J = "CC1"
 pic_species.1.interp_type_E = "CIC"
 pic_species.1.interp_bc_check = true
-pic_species.1.deposit_outflow_J = true
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 200.0

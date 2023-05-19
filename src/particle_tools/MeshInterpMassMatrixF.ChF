@@ -23,11 +23,17 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_FRA1[Bgz],
      &                       CHF_CONST_REALVECT[left_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[xp],
-     &                       CHF_CONST_REAL[vpx], 
-     &                       CHF_CONST_REAL[vpy], 
-     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REALVECT[xpold],
+     &                       CHF_CONST_REALVECT[xpbar],
+     &                       CHF_CONST_REAL[upoldx], 
+     &                       CHF_CONST_REAL[upoldy], 
+     &                       CHF_CONST_REAL[upoldz], 
+     &                       CHF_CONST_REAL[upbarx], 
+     &                       CHF_CONST_REAL[upbary], 
+     &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_INT[inert_type], 
+     &                       CHF_CONST_REAL[inert_fact], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1), idir
@@ -35,28 +41,52 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer CHF_DDECL[ll;mm;nn], CHF_DDECL[aa;bb;cc], Nc
       integer shift(0:CH_SPACEDIM - 1)
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
-      REAL_T volume, rhop, weight, weight_E, weight_J 
+      REAL_T volume, rhop, weight, weight_E, weight_J, gammap_bar 
       REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
       REAL_T CHF_DDECL[w0_vec(0:1);w1_vec(0:1);w2_vec(0:1)]
       REAL_T CHF_DDECL[w0_stag_vec(0:1);w1_stag_vec(0:1);w2_stag_vec(0:1)]
 
-      REAL_T BpSq, gammap, arogp
-      Real_T fpxx, fpxy, fpxz
-      Real_T fpyx, fpyy, fpyz
-      Real_T fpzx, fpzy, fpzz
+      REAL_T Bpsq, arogp
+      REAL_T fpxx, fpxy, fpxz
+      REAL_T fpyx, fpyy, fpyz
+      REAL_T fpzx, fpzy, fpzz
+#ifdef MASS_MATRIX_TEST
+      REAL_T upoldBp, rogp
+#endif
+      REAL_T fpx, fpy, fpz
+      REAL_T Bpx, Bpy, Bpz
       
-      REAL_T vpBp, rogp
-      Real_T fpx, fpy, fpz
-      Real_T Bpx, Bpy, Bpz
+#ifdef RELATIVISTIC_PARTICLES
+      REAL_T upnewx, upnewy, upnewz
+      REAL_T gammap_old, gammap_new, gammap_tilde
+      
+      REAL_T gpx, gpy, gpz, upBp, gp_denom
+      REAL_T upfpx, upfpy, upfpz
+      
+c     compute relativistic factors
+      upnewx= 2.0*upbarx - upoldx
+      upnewy= 2.0*upbary - upoldy
+      upnewz= 2.0*upbarz - upoldz
+      gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
+      gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
+      gammap_tilde = 0.5*(gammap_old + gammap_new)
+#else
+      gammap_bar = 1.0
+#endif
 
 c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+#ifdef RELATIVISTIC_PARTICLES
+      rhop = qp / volume / gammap_tilde
+#else
       rhop = qp / volume
+#endif
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xp(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index_stag(idir) = floor((xp(idir) - left_edge(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
 c     compute shift for off-diagonal matrices components
@@ -70,22 +100,22 @@ c     compute shift for off-diagonal matrices components
 
 c     precompute the interpolation weights
       CHF_DTERM[
-        l0 = xp(0) - ( (index(0) + 0.5)*dx(0) + left_edge(0) )
+        l0 = xpbar(0) - ( (index(0) + 0.5)*dx(0) + left_edge(0) )
         w0_vec(1) = l0/dx(0)
         w0_vec(0) = 1.0 - w0_vec(1)
-        l0_stag = xp(0) - ( index_stag(0)*dx(0) + left_edge(0) )
+        l0_stag = xpbar(0) - ( index_stag(0)*dx(0) + left_edge(0) )
         w0_stag_vec(1) = l0_stag/dx(0)
         w0_stag_vec(0) = 1.0 - w0_stag_vec(1);
-        l1 = xp(1) - ( (index(1) + 0.5)*dx(1) + left_edge(1) )
+        l1 = xpbar(1) - ( (index(1) + 0.5)*dx(1) + left_edge(1) )
         w1_vec(1) = l1/dx(1)
         w1_vec(0) = 1.0 - w1_vec(1)
-        l1_stag = xp(1) - ( index_stag(1)*dx(1) + left_edge(1) )
+        l1_stag = xpbar(1) - ( index_stag(1)*dx(1) + left_edge(1) )
         w1_stag_vec(0) = 1.0 - abs(l1_stag/dx(1))
         w1_stag_vec(1) = 1.0 - w1_stag_vec(0);
-        l2 = xp(2) - ( (index(2) + 0.5)*dx(2) + left_edge(2) )
+        l2 = xpbar(2) - ( (index(2) + 0.5)*dx(2) + left_edge(2) )
         w2_vec(1) = l2/dx(2)
         w2_vec(0) = 1.0 - w2_vec(1)
-        l2_stag = xp(2) - ( index_stag(2)*dx(2) + left_edge(2) )
+        l2_stag = xpbar(2) - ( index_stag(2)*dx(2) + left_edge(2) )
         w2_stag_vec(1) = l2_stag/dx(2)
         w2_stag_vec(0) = 1.0 - w2_stag_vec(1) 
       ]
@@ -125,34 +155,115 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-c     scale Bp by alphas
+c     scale Bp by alphas/gammap_bar
+#ifdef RELATIVISTIC_PARTICLES
+      Bpx = alphas*Bpx/gammap_bar
+      Bpy = alphas*Bpy/gammap_bar
+      Bpz = alphas*Bpz/gammap_bar
+#else
       Bpx = alphas*Bpx
       Bpy = alphas*Bpy
       Bpz = alphas*Bpz
+#endif
+
+c     add inertial term to Bpz
+      if(inert_type==1) then
+          Bpz = Bpz + sin(inert_fact)
+      endif
 
 c     compute components of mass matrix kernals to deposit
-      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
-      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
-      gammap = 1.0 + Bpsq
-      rogp = rhop/gammap
-      arogp = alphas*rogp
+      if(inert_type==2) then
+        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
+        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
+        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
 
-      fpxx = arogp*(Bpx*Bpx + 1.0)
-      fpxy = arogp*(Bpx*Bpy + Bpz)
-      fpxz = arogp*(Bpx*Bpz - Bpy)
+        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
+        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
+        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
 
-      fpyx = arogp*(Bpy*Bpx - Bpz)
-      fpyy = arogp*(Bpy*Bpy + 1.0)
-      fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
+        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      else
+        Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
 
-      fpzx = arogp*(Bpz*Bpx + Bpy)
-      fpzy = arogp*(Bpz*Bpy - Bpx)
-      fpzz = arogp*(Bpz*Bpz + 1.0)
+        fpxx = arogp*(Bpx*Bpx + 1.0)
+        fpxy = arogp*(Bpx*Bpy + Bpz)
+        fpxz = arogp*(Bpx*Bpz - Bpy)
+
+        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = arogp*(Bpy*Bpz + Bpx)
+
+        fpzx = arogp*(Bpz*Bpx + Bpy)
+        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      endif
+
+#ifdef RELATIVISTIC_PARTICLES
+
+      if( gammap_bar>1.01 ) then
+c     modify mass matrix kernals for relativistic effects in Lorentz force
+        upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
+        gp_denom = gammap_bar**2 + Bpsq + upBp**2
+        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+
+        upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
+        upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
+        upfpz = upbarx*fpxz + upbary*fpyz + upbarz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+
+c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
+        gp_denom = gammap_bar*gammap_new
+        gpx = -upbarx/gp_denom
+        gpy = -upbary/gp_denom
+        gpz = -upbarz/gp_denom
+
+        upfpx = upnewx*fpxx + upnewy*fpyx + upnewz*fpzx
+        upfpy = upnewx*fpxy + upnewy*fpyy + upnewz*fpzy
+        upfpz = upnewx*fpxz + upnewy*fpyz + upnewz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+      endif
+
+#endif
       
+#ifdef MASS_MATRIX_TEST
 c     compute components of Jtilde kernals to deposit
-      fpx = rogp*(vpx - (Bpy*vpz - Bpz*vpy) + vpBp*Bpx)
-      fpy = rogp*(vpy - (Bpz*vpx - Bpx*vpz) + vpBp*Bpy)
-      fpz = rogp*(vpz - (Bpx*vpy - Bpy*vpx) + vpBp*Bpz)
+      upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
+      rogp = rhop/(1.0 + Bpsq)
+      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+#else
+c     compute components of J0 kernals to deposit
+      fpx = rhop*upbarx
+      fpy = rhop*upbary
+      fpz = rhop*upbarz
+#endif
 
 c     loop over all the cells containing this particle cloud and deposit
       CHF_DTERM[
@@ -296,11 +407,17 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_FRA1[Bgz],
      &                       CHF_CONST_REALVECT[left_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[xp],
-     &                       CHF_CONST_REAL[vpx], 
-     &                       CHF_CONST_REAL[vpy], 
-     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REALVECT[xpold],
+     &                       CHF_CONST_REALVECT[xpbar],
+     &                       CHF_CONST_REAL[upoldx], 
+     &                       CHF_CONST_REAL[upoldy], 
+     &                       CHF_CONST_REAL[upoldz], 
+     &                       CHF_CONST_REAL[upbarx], 
+     &                       CHF_CONST_REAL[upbary], 
+     &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_INT[inert_type], 
+     &                       CHF_CONST_REAL[inert_fact], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1), idir
@@ -308,28 +425,52 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer CHF_DDECL[ll;mm;nn], CHF_DDECL[aa;bb;cc], Nc
       integer shift(0:CH_SPACEDIM - 1)
       REAL_T CHF_DDECL[D0;D1;D2], CHF_DDECL[D0_stag;D1_stag;D2_stag]
-      REAL_T volume, rhop, weight, weight_E, weight_J 
+      REAL_T volume, rhop, weight, weight_E, weight_J, gammap_bar 
       REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
       REAL_T CHF_DDECL[w0_vec(0:2);w1_vec(0:2);w2_vec(0:2)]
       REAL_T CHF_DDECL[w0_stag_vec(0:2);w1_stag_vec(0:2);w2_stag_vec(0:2)]
 
-      REAL_T BpSq, gammap, arogp
-      Real_T fpxx, fpxy, fpxz
-      Real_T fpyx, fpyy, fpyz
-      Real_T fpzx, fpzy, fpzz
+      REAL_T Bpsq, arogp
+      REAL_T fpxx, fpxy, fpxz
+      REAL_T fpyx, fpyy, fpyz
+      REAL_T fpzx, fpzy, fpzz
+#ifdef MASS_MATRIX_TEST
+      REAL_T upoldBp, rogp
+#endif
+      REAL_T fpx, fpy, fpz
+      REAL_T Bpx, Bpy, Bpz
+
+#ifdef RELATIVISTIC_PARTICLES
+      REAL_T upnewx, upnewy, upnewz
+      REAL_T gammap_old, gammap_new, gammap_tilde
       
-      REAL_T vpBp, rogp
-      Real_T fpx, fpy, fpz
-      Real_T Bpx, Bpy, Bpz
+      REAL_T gpx, gpy, gpz, upBp, gp_denom
+      REAL_T upfpx, upfpy, upfpz
+      
+c     compute relativistic factors
+      upnewx= 2.0*upbarx - upoldx
+      upnewy= 2.0*upbary - upoldy
+      upnewz= 2.0*upbarz - upoldz
+      gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
+      gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
+      gammap_tilde = 0.5*(gammap_old + gammap_new)
+#else
+      gammap_bar = 1.0
+#endif
 
 c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+#ifdef RELATIVISTIC_PARTICLES
+      rhop = qp / volume / gammap_tilde
+#else
       rhop = qp / volume
+#endif
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xp(idir) - left_edge(idir) - dx(idir)) / dx(idir))
-        index_stag(idir) = floor((xp(idir) - left_edge(idir) - 0.5*dx(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5*dx(idir)) / dx(idir))
       enddo
 
 c     compute shift for off-diagonal matrices components
@@ -343,27 +484,27 @@ c     compute shift for off-diagonal matrices components
 
 c     precompute the interpolation weights
       CHF_DTERM[
-        D0 = ( xp(0) - ( (index(0) + 1.5)*dx(0) + left_edge(0) ) )/dx(0)
+        D0 = ( xpbar(0) - ( (index(0) + 1.5)*dx(0) + left_edge(0) ) )/dx(0)
         w0_vec(0) = 0.5*(0.5 - D0)**2
         w0_vec(1) = 0.75 - D0**2
         w0_vec(2) = 0.5*(0.5 + D0)**2
-        D0_stag = ( xp(0) - ( (index_stag(0) + 1.0)*dx(0) + left_edge(0) ) )/dx(0)
+        D0_stag = ( xpbar(0) - ( (index_stag(0) + 1.0)*dx(0) + left_edge(0) ) )/dx(0)
         w0_stag_vec(0) = 0.5*(0.5 - D0_stag)**2 
         w0_stag_vec(1) = 0.75 - D0_stag**2
         w0_stag_vec(2) = 0.5*(0.5 + D0_stag)**2;
-        D1 = ( xp(1) - ( (index(1) + 1.5)*dx(1) + left_edge(1) ) )/dx(1)
+        D1 = ( xpbar(1) - ( (index(1) + 1.5)*dx(1) + left_edge(1) ) )/dx(1)
         w1_vec(0) = 0.5*(0.5 - D1)**2
         w1_vec(1) = 0.75 - D1**2
         w1_vec(2) = 0.5*(0.5 + D1)**2
-        D1_stag = ( xp(1) - ( (index_stag(1) + 1.0)*dx(1) + left_edge(1) ) )/dx(1)
+        D1_stag = ( xpbar(1) - ( (index_stag(1) + 1.0)*dx(1) + left_edge(1) ) )/dx(1)
         w1_stag_vec(0) = 0.5*(0.5 - D1_stag)**2 
         w1_stag_vec(1) = 0.75 - D1_stag**2
         w1_stag_vec(2) = 0.5*(0.5 + D1_stag)**2;
-        D2 = ( xp(2) - ( (index(2) + 1.5)*dx(2) + left_edge(2) ) )/dx(2)
+        D2 = ( xpbar(2) - ( (index(2) + 1.5)*dx(2) + left_edge(2) ) )/dx(2)
         w2_vec(0) = 0.5*(0.5 - D2)**2
         w2_vec(1) = 0.75 - D2**2
         w2_vec(2) = 0.5*(0.5 + D2)**2
-        D2_stag = ( xp(2) - ( (index_stag(2) + 1.0)*dx(2) + left_edge(2) ) )/dx(2)
+        D2_stag = ( xpbar(2) - ( (index_stag(2) + 1.0)*dx(2) + left_edge(2) ) )/dx(2)
         w2_stag_vec(0) = 0.5*(0.5 - D2_stag)**2 
         w2_stag_vec(1) = 0.75 - D2_stag**2
         w2_stag_vec(2) = 0.5*(0.5 + D2_stag)**2
@@ -404,34 +545,115 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-c     scale Bp by alphas
+c     scale Bp by alphas/gammap_bar
+#ifdef RELATIVISTIC_PARTICLES
+      Bpx = alphas*Bpx/gammap_bar
+      Bpy = alphas*Bpy/gammap_bar
+      Bpz = alphas*Bpz/gammap_bar
+#else
       Bpx = alphas*Bpx
       Bpy = alphas*Bpy
       Bpz = alphas*Bpz
+#endif
+
+c     add inertial term to Bpz
+      if(inert_type==1) then
+          Bpz = Bpz + sin(inert_fact)
+      endif
 
 c     compute components of mass matrix kernals to deposit
-      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
-      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
-      gammap = 1.0 + Bpsq
-      rogp = rhop/gammap
-      arogp = alphas*rogp
+      if(inert_type==2) then
+        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
+        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
+        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
 
-      fpxx = arogp*(Bpx*Bpx + 1.0)
-      fpxy = arogp*(Bpx*Bpy + Bpz)
-      fpxz = arogp*(Bpx*Bpz - Bpy)
+        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
+        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
+        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
 
-      fpyx = arogp*(Bpy*Bpx - Bpz)
-      fpyy = arogp*(Bpy*Bpy + 1.0)
-      fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
+        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      else
+        Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
 
-      fpzx = arogp*(Bpz*Bpx + Bpy)
-      fpzy = arogp*(Bpz*Bpy - Bpx)
-      fpzz = arogp*(Bpz*Bpz + 1.0)
+        fpxx = arogp*(Bpx*Bpx + 1.0)
+        fpxy = arogp*(Bpx*Bpy + Bpz)
+        fpxz = arogp*(Bpx*Bpz - Bpy)
+
+        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = arogp*(Bpy*Bpz + Bpx)
+
+        fpzx = arogp*(Bpz*Bpx + Bpy)
+        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      endif
+
+#ifdef RELATIVISTIC_PARTICLES
+
+      if( gammap_bar>1.01 ) then
+c     modify mass matrix kernals for relativistic effects in Lorentz force
+        upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
+        gp_denom = gammap_bar**2 + Bpsq + upBp**2
+        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+
+        upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
+        upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
+        upfpz = upbarx*fpxz + upbary*fpyz + upbarz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+
+c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
+        gp_denom = gammap_bar*gammap_new
+        gpx = -upbarx/gp_denom
+        gpy = -upbary/gp_denom
+        gpz = -upbarz/gp_denom
+
+        upfpx = upnewx*fpxx + upnewy*fpyx + upnewz*fpzx
+        upfpy = upnewx*fpxy + upnewy*fpyy + upnewz*fpzy
+        upfpz = upnewx*fpxz + upnewy*fpyz + upnewz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+      endif
+
+#endif
       
+#ifdef MASS_MATRIX_TEST
 c     compute components of Jtilde kernals to deposit
-      fpx = rogp*(vpx - (Bpy*vpz - Bpz*vpy) + vpBp*Bpx)
-      fpy = rogp*(vpy - (Bpz*vpx - Bpx*vpz) + vpBp*Bpy)
-      fpz = rogp*(vpz - (Bpx*vpy - Bpy*vpx) + vpBp*Bpz)
+      upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
+      rogp = rhop/(1.0 + Bpsq)
+      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+#else
+c     compute components of J0 kernals to deposit
+      fpx = rhop*upbarx
+      fpy = rhop*upbary
+      fpz = rhop*upbarz
+#endif
 
 c     loop over all the cells containing this particle cloud and deposit
       CHF_DTERM[
@@ -581,28 +803,34 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REALVECT[dx],
      &                       CHF_CONST_REALVECT[xpold],
      &                       CHF_CONST_REALVECT[xpbar],
-     &                       CHF_CONST_REAL[vpx], 
-     &                       CHF_CONST_REAL[vpy], 
-     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[upoldx], 
+     &                       CHF_CONST_REAL[upoldy], 
+     &                       CHF_CONST_REAL[upoldz], 
+     &                       CHF_CONST_REAL[upbarx], 
+     &                       CHF_CONST_REAL[upbary], 
+     &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_INT[inert_type], 
+     &                       CHF_CONST_REAL[inert_fact], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
       integer idir, xy_comp0, yx_comp0, off_diag_comp
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
-      REAL_T volume, rhop, weight 
+      REAL_T volume, rhop, weight, gammap_bar 
       REAL_T wx_dn_stag, wx_up_stag, bc_seg_factor
       REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
       integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
 
-      REAL_T BpSq, gammap, arogp
-      Real_T fpxx, fpxy, fpxz
-      Real_T fpyx, fpyy, fpyz
-      Real_T fpzx, fpzy, fpzz
-      
-      REAL_T vpBp, rogp
-      Real_T fpx, fpy, fpz
-      Real_T Bpx, Bpy, Bpz
+      REAL_T Bpsq, arogp
+      REAL_T fpxx, fpxy, fpxz
+      REAL_T fpyx, fpyy, fpyz
+      REAL_T fpzx, fpzy, fpzz
+#ifdef MASS_MATRIX_TEST
+      REAL_T upoldBp, rogp
+#endif
+      REAL_T fpx, fpy, fpz
+      REAL_T Bpx, Bpy, Bpz
       
 c     maximum of 2 cell crossings allowed
       integer nn, i0, num_segments
@@ -611,9 +839,32 @@ c     maximum of 2 cell crossings allowed
       REAL_T dXp(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
       REAL_T Xcell, Deltap_vec(0:2)
 
+#ifdef RELATIVISTIC_PARTICLES
+      REAL_T upnewx, upnewy, upnewz
+      REAL_T gammap_old, gammap_new, gammap_tilde
+      
+      REAL_T gpx, gpy, gpz, upBp, gp_denom
+      REAL_T upfpx, upfpy, upfpz
+      
+c     compute relativistic factors
+      upnewx= 2.0*upbarx - upoldx
+      upnewy= 2.0*upbary - upoldy
+      upnewz= 2.0*upbarz - upoldz
+      gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
+      gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
+      gammap_tilde = 0.5*(gammap_old + gammap_new)
+#else
+      gammap_bar = 1.0
+#endif
+
 c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+#ifdef RELATIVISTIC_PARTICLES
+      rhop = qp / volume / gammap_tilde
+#else
       rhop = qp / volume
+#endif
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
@@ -672,34 +923,115 @@ c     determine how to set comps for xy, xz, yx, and zx components
         yx_comp0 = 1
       endif
 
-c     scale Bp by alphas
+c     scale Bp by alphas/gammap_bar
+#ifdef RELATIVISTIC_PARTICLES
+      Bpx = alphas*Bpx/gammap_bar
+      Bpy = alphas*Bpy/gammap_bar
+      Bpz = alphas*Bpz/gammap_bar
+#else
       Bpx = alphas*Bpx
       Bpy = alphas*Bpy
       Bpz = alphas*Bpz
+#endif
+
+c     add inertial term to Bpz
+      if(inert_type==1) then
+          Bpz = Bpz + sin(inert_fact)
+      endif
 
 c     compute components of mass matrix kernals to deposit
-      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
-      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
-      gammap = 1.0 + Bpsq
-      rogp = rhop/gammap
-      arogp = alphas*rogp
+      if(inert_type==2) then
+        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
+        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
+        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
 
-      fpxx = arogp*(Bpx*Bpx + 1.0)
-      fpxy = arogp*(Bpx*Bpy + Bpz)
-      fpxz = arogp*(Bpx*Bpz - Bpy)
+        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
+        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
+        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
 
-      fpyx = arogp*(Bpy*Bpx - Bpz)
-      fpyy = arogp*(Bpy*Bpy + 1.0)
-      fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
+        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      else
+        Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
 
-      fpzx = arogp*(Bpz*Bpx + Bpy)
-      fpzy = arogp*(Bpz*Bpy - Bpx)
-      fpzz = arogp*(Bpz*Bpz + 1.0)
+        fpxx = arogp*(Bpx*Bpx + 1.0)
+        fpxy = arogp*(Bpx*Bpy + Bpz)
+        fpxz = arogp*(Bpx*Bpz - Bpy)
+
+        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = arogp*(Bpy*Bpz + Bpx)
+
+        fpzx = arogp*(Bpz*Bpx + Bpy)
+        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      endif
+
+#ifdef RELATIVISTIC_PARTICLES
+
+      if( gammap_bar>1.01 ) then
+c     modify mass matrix kernals for relativistic effects in Lorentz force
+        upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
+        gp_denom = gammap_bar**2 + Bpsq + upBp**2
+        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+
+        upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
+        upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
+        upfpz = upbarx*fpxz + upbary*fpyz + upbarz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+
+c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
+        gp_denom = gammap_bar*gammap_new
+        gpx = -upbarx/gp_denom
+        gpy = -upbary/gp_denom
+        gpz = -upbarz/gp_denom
+
+        upfpx = upnewx*fpxx + upnewy*fpyx + upnewz*fpzx
+        upfpy = upnewx*fpxy + upnewy*fpyy + upnewz*fpzy
+        upfpz = upnewx*fpxz + upnewy*fpyz + upnewz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+      endif
+
+#endif
       
+#ifdef MASS_MATRIX_TEST
 c     compute components of Jtilde kernals to deposit
-      fpx = rogp*(vpx - (Bpy*vpz - Bpz*vpy) + vpBp*Bpx)
-      fpy = rogp*(vpy - (Bpz*vpx - Bpx*vpz) + vpBp*Bpy)
-      fpz = rogp*(vpz - (Bpx*vpy - Bpy*vpx) + vpBp*Bpz)
+      upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
+      rogp = rhop/(1.0 + Bpsq)
+      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+#else
+c     compute components of J0 kernals to deposit
+      fpx = rhop*upbarx
+      fpy = rhop*upbary
+      fpz = rhop*upbarz
+#endif
 
 c     loop over all the cells containing this particle cloud and deposit
       do ii_stag = index_stag(0), index_stag(0) + 1
@@ -904,41 +1236,70 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REALVECT[dx],
      &                       CHF_CONST_REALVECT[xpold],
      &                       CHF_CONST_REALVECT[xpbar],
-     &                       CHF_CONST_REAL[vpx], 
-     &                       CHF_CONST_REAL[vpy], 
-     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[upoldx], 
+     &                       CHF_CONST_REAL[upoldy], 
+     &                       CHF_CONST_REAL[upoldz], 
+     &                       CHF_CONST_REAL[upbarx], 
+     &                       CHF_CONST_REAL[upbary], 
+     &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_INT[inert_type], 
+     &                       CHF_CONST_REAL[inert_fact], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
       integer idir, xy_comp0, yx_comp0, off_diag_comp
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[l0_stag;l1_stag;l2_stag]
-      REAL_T volume, rhop, weight 
+      REAL_T volume, rhop, weight, gammap_bar 
       REAL_T wx_dn, wx_up, wx_dn_stag, wx_up_stag
       REAL_T CHF_DDECL[w0;w1;w2], CHF_DDECL[w0_stag;w1_stag;w2_stag]
       integer CHF_DDECL[ii;jj;kk], CHF_DDECL[ii_stag;jj_stag;kk_stag]
 
-      REAL_T BpSq, gammap, arogp
-      Real_T fpxx, fpxy, fpxz
-      Real_T fpyx, fpyy, fpyz
-      Real_T fpzx, fpzy, fpzz
-      
-      REAL_T vpBp, rogp
-      Real_T fpx, fpy, fpz
-      Real_T Bpx, Bpy, Bpz
+      REAL_T Bpsq, arogp
+      REAL_T fpxx, fpxy, fpxz
+      REAL_T fpyx, fpyy, fpyz
+      REAL_T fpzx, fpzy, fpzz
+#ifdef MASS_MATRIX_TEST
+      REAL_T upoldBp, rogp
+#endif
+      REAL_T fpx, fpy, fpz
+      REAL_T Bpx, Bpy, Bpz
       
 c     maximum of 2 cell crossings allowed
       integer maxXings, SegNumX(0:2), iiJ, iiE, llJ, llE, nJ, nE, Nc
       integer nn, i0, num_segments, shift
       integer index_old, index_new, index_min
-      REAL_T xpold0(0:CH_SPACEDIM - 1)
-      REAL_T dXp(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1), weight_J, weight_E
+      REAL_T xpold0(0:CH_SPACEDIM - 1), dXp(0:CH_SPACEDIM - 1)
+      REAL_T xpnew(0:CH_SPACEDIM - 1), weight_J, weight_E
       REAL_T Xcell, Deltap_dn_vec(0:2), Deltap_up_vec(0:2), dXp_sub
       REAL_T w0_cic(0:1), w0E_cic(0:1), bc_seg_factor
 
+#ifdef RELATIVISTIC_PARTICLES
+      REAL_T upnewx, upnewy, upnewz
+      REAL_T gammap_old, gammap_new, gammap_tilde
+      
+      REAL_T gpx, gpy, gpz, upBp, gp_denom
+      REAL_T upfpx, upfpy, upfpz
+      
+c     compute relativistic factors
+      upnewx= 2.0*upbarx - upoldx
+      upnewy= 2.0*upbary - upoldy
+      upnewz= 2.0*upbarz - upoldz
+      gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
+      gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
+      gammap_tilde = 0.5*(gammap_old + gammap_new)
+#else
+      gammap_bar = 1.0
+#endif
+
 c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+#ifdef RELATIVISTIC_PARTICLES
+      rhop = qp / volume / gammap_tilde
+#else
       rhop = qp / volume
+#endif
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
@@ -988,10 +1349,21 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-c     scale Bp by alphas
+c     scale Bp by alphas/gammap_bar
+#ifdef RELATIVISTIC_PARTICLES
+      Bpx = alphas*Bpx/gammap_bar
+      Bpy = alphas*Bpy/gammap_bar
+      Bpz = alphas*Bpz/gammap_bar
+#else
       Bpx = alphas*Bpx
       Bpy = alphas*Bpy
       Bpz = alphas*Bpz
+#endif
+
+c     add inertial term to Bpz
+      if(inert_type==1) then
+          Bpz = Bpz + sin(inert_fact)
+      endif
 
 c     determine how to set comps for xy, xz, yx, and zx components
       if(index(0)==index_stag(0)) then
@@ -1003,28 +1375,98 @@ c     determine how to set comps for xy, xz, yx, and zx components
       endif
 
 c     compute components of mass matrix kernals to deposit
-      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
-      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
-      gammap = 1.0 + Bpsq
-      rogp = rhop/gammap
-      arogp = alphas*rogp
-      
-      fpxx = arogp*(Bpx*Bpx + 1.0)
-      fpxy = arogp*(Bpx*Bpy + Bpz)
-      fpxz = arogp*(Bpx*Bpz - Bpy)
+      if(inert_type==2) then
+        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
+        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
+        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
 
-      fpyx = arogp*(Bpy*Bpx - Bpz)
-      fpyy = arogp*(Bpy*Bpy + 1.0)
-      fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
+        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
+        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
 
-      fpzx = arogp*(Bpz*Bpx + Bpy)
-      fpzy = arogp*(Bpz*Bpy - Bpx)
-      fpzz = arogp*(Bpz*Bpz + 1.0)
+        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
+        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      else
+        Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
       
+        fpxx = arogp*(Bpx*Bpx + 1.0)
+        fpxy = arogp*(Bpx*Bpy + Bpz)
+        fpxz = arogp*(Bpx*Bpz - Bpy)
+
+        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = arogp*(Bpy*Bpz + Bpx)
+
+        fpzx = arogp*(Bpz*Bpx + Bpy)
+        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      endif
+
+#ifdef RELATIVISTIC_PARTICLES
+
+      if( gammap_bar>1.01 ) then
+c     modify mass matrix kernals for relativistic effects in Lorentz force
+        upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
+        gp_denom = gammap_bar**2 + Bpsq + upBp**2
+        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+
+        upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
+        upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
+        upfpz = upbarx*fpxz + upbary*fpyz + upbarz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+
+c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
+        gp_denom = gammap_bar*gammap_new
+        gpx = -upbarx/gp_denom
+        gpy = -upbary/gp_denom
+        gpz = -upbarz/gp_denom
+
+        upfpx = upnewx*fpxx + upnewy*fpyx + upnewz*fpzx
+        upfpy = upnewx*fpxy + upnewy*fpyy + upnewz*fpzy
+        upfpz = upnewx*fpxz + upnewy*fpyz + upnewz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+      endif
+
+#endif
+      
+#ifdef MASS_MATRIX_TEST
 c     compute components of Jtilde kernals to deposit
-      fpx = rogp*(vpx - (Bpy*vpz - Bpz*vpy) + vpBp*Bpx)
-      fpy = rogp*(vpy - (Bpz*vpx - Bpx*vpz) + vpBp*Bpy)
-      fpz = rogp*(vpz - (Bpx*vpy - Bpy*vpx) + vpBp*Bpz)
+      upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
+      rogp = rhop/(1.0 + Bpsq)
+      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+#else
+c     compute components of J0 kernals to deposit
+      fpx = rhop*upbarx
+      fpy = rhop*upbary
+      fpz = rhop*upbarz
+#endif
 
 c     precompute some weights 
 c      l0_stag = xpbar(0) - index_stag(0)*dx(0) - left_edge(0)
@@ -1310,10 +1752,15 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REALVECT[dx],
      &                       CHF_CONST_REALVECT[xpold],
      &                       CHF_CONST_REALVECT[xpbar],
-     &                       CHF_CONST_REAL[vpx], 
-     &                       CHF_CONST_REAL[vpy], 
-     &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[upoldx], 
+     &                       CHF_CONST_REAL[upoldy], 
+     &                       CHF_CONST_REAL[upoldz], 
+     &                       CHF_CONST_REAL[upbarx], 
+     &                       CHF_CONST_REAL[upbary], 
+     &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_INT[inert_type], 
+     &                       CHF_CONST_REAL[inert_fact], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1), idir
@@ -1322,19 +1769,20 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer CHF_DDECL[iiE;jjE;kkE], CHF_DDECL[llE;mmE;nnE]
       integer shift(0:CH_SPACEDIM - 1), Nc
       REAL_T CHF_DDECL[l0;l1;l2], l0_stag, l1_stag
-      REAL_T volume, rhop, weight, weight_E, weight_J 
+      REAL_T volume, rhop, weight, weight_E, weight_J, gammap_bar 
       REAL_T CHF_DDECL[w0;w1;w2], w0_stag, w1_stag
       REAL_T CHF_DDECL[w0_vec(0:1);w1_vec(0:1);w2_vec(0:1)]
       REAL_T CHF_DDECL[w0_stag_vec(0:1);w1_stag_vec(0:1);w2_stag_vec(0:1)]
 
-      REAL_T BpSq, gammap, arogp
-      Real_T fpxx, fpxy, fpxz
-      Real_T fpyx, fpyy, fpyz
-      Real_T fpzx, fpzy, fpzz
-      
-      REAL_T vpBp, rogp
-      Real_T fpx, fpy, fpz
-      Real_T Bpx, Bpy, Bpz
+      REAL_T Bpsq, arogp
+      REAL_T fpxx, fpxy, fpxz
+      REAL_T fpyx, fpyy, fpyz
+      REAL_T fpzx, fpzy, fpzz
+#ifdef MASS_MATRIX_TEST
+      REAL_T upoldBp, rogp
+#endif
+      REAL_T fpx, fpy, fpz
+      REAL_T Bpx, Bpy, Bpz
 
       integer maxXings
       integer index_old(0:CH_SPACEDIM - 1), index_new(0:CH_SPACEDIM - 1), i0, i1
@@ -1353,9 +1801,32 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       REAL_T w0_cic(0:1), w1_cic(0:1), w0_stag_tsc(0:2), w1_stag_tsc(0:2)
       REAL_T w0E_cic(0:1), w1E_cic(0:1), w0E_stag_tsc(0:2), w1E_stag_tsc(0:2)
 
+#ifdef RELATIVISTIC_PARTICLES
+      REAL_T upnewx, upnewy, upnewz
+      REAL_T gammap_old, gammap_new, gammap_tilde
+
+      REAL_T gpx, gpy, gpz, upBp, gp_denom
+      REAL_T upfpx, upfpy, upfpz
+      
+c     compute relativistic factors
+      upnewx= 2.0*upbarx - upoldx
+      upnewy= 2.0*upbary - upoldy
+      upnewz= 2.0*upbarz - upoldz
+      gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
+      gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
+      gammap_tilde = 0.5*(gammap_old + gammap_new)
+#else
+      gammap_bar = 1.0
+#endif
+
 c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+#ifdef RELATIVISTIC_PARTICLES
+      rhop = qp / volume / gammap_tilde
+#else
       rhop = qp / volume
+#endif
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       do idir = 0, CH_SPACEDIM - 1
@@ -1420,34 +1891,115 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-c     scale Bp by alphas
+c     scale Bp by alphas/gammap_bar
+#ifdef RELATIVISTIC_PARTICLES
+      Bpx = alphas*Bpx/gammap_bar
+      Bpy = alphas*Bpy/gammap_bar
+      Bpz = alphas*Bpz/gammap_bar
+#else
       Bpx = alphas*Bpx
       Bpy = alphas*Bpy
       Bpz = alphas*Bpz
+#endif
+
+c     add inertial term to Bpz
+      if(inert_type==1) then
+        Bpz = Bpz + sin(inert_fact)
+      endif
 
 c     compute components of mass matrix kernals to deposit
-      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
-      vpBp = vpx*Bpx + vpy*Bpy + vpz*Bpz
-      gammap = 1.0 + Bpsq
-      rogp = rhop/gammap
-      arogp = alphas*rogp
+      if(inert_type==2) then
+        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
+        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
+        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
 
-      fpxx = arogp*(Bpx*Bpx + 1.0)
-      fpxy = arogp*(Bpx*Bpy + Bpz)
-      fpxz = arogp*(Bpx*Bpz - Bpy)
+        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
+        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
+        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
 
-      fpyx = arogp*(Bpy*Bpx - Bpz)
-      fpyy = arogp*(Bpy*Bpy + 1.0)
-      fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
+        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      else
+        Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
 
-      fpzx = arogp*(Bpz*Bpx + Bpy)
-      fpzy = arogp*(Bpz*Bpy - Bpx)
-      fpzz = arogp*(Bpz*Bpz + 1.0)
-      
+        fpxx = arogp*(Bpx*Bpx + 1.0)
+        fpxy = arogp*(Bpx*Bpy + Bpz)
+        fpxz = arogp*(Bpx*Bpz - Bpy)
+
+        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = arogp*(Bpy*Bpz + Bpx)
+
+        fpzx = arogp*(Bpz*Bpx + Bpy)
+        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzz = arogp*(Bpz*Bpz + 1.0)
+      endif
+
+#ifdef RELATIVISTIC_PARTICLES
+
+      if( gammap_bar>1.01 ) then
+c     modify mass matrix kernals for relativistic effects in Lorentz force
+        upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
+        gp_denom = gammap_bar**2 + Bpsq + upBp**2
+        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+
+        upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
+        upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
+        upfpz = upbarx*fpxz + upbary*fpyz + upbarz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+
+c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
+        gp_denom = gammap_bar*gammap_new
+        gpx = -upbarx/gp_denom
+        gpy = -upbary/gp_denom
+        gpz = -upbarz/gp_denom
+
+        upfpx = upnewx*fpxx + upnewy*fpyx + upnewz*fpzx
+        upfpy = upnewx*fpxy + upnewy*fpyy + upnewz*fpzy
+        upfpz = upnewx*fpxz + upnewy*fpyz + upnewz*fpzz
+
+        fpxx = fpxx + gpx*upfpx
+        fpxy = fpxy + gpx*upfpy
+        fpxz = fpxz + gpx*upfpz
+        fpyx = fpyx + gpy*upfpx
+        fpyy = fpyy + gpy*upfpy
+        fpyz = fpyz + gpy*upfpz
+        fpzx = fpzx + gpz*upfpx
+        fpzy = fpzy + gpz*upfpy
+        fpzz = fpzz + gpz*upfpz
+      endif
+
+#endif
+
+#ifdef MASS_MATRIX_TEST
 c     compute components of Jtilde kernals to deposit
-      fpx = rogp*(vpx - (Bpy*vpz - Bpz*vpy) + vpBp*Bpx)
-      fpy = rogp*(vpy - (Bpz*vpx - Bpx*vpz) + vpBp*Bpy)
-      fpz = rogp*(vpz - (Bpx*vpy - Bpy*vpx) + vpBp*Bpz)
+      upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
+      rogp = rhop/(1.0 + Bpsq)
+      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+#else
+c     compute components of J0 kernals to deposit
+      fpx = rhop*upbarx
+      fpy = rhop*upbary
+      fpz = rhop*upbarz
+#endif
 
 c     loop over all the cells containing this particle cloud and deposit sigma_zz
       CHF_DTERM[

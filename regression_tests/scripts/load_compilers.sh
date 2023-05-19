@@ -1,8 +1,8 @@
 #!/bin/bash
 
 if [[ $HOSTNAME == "quartz"* ]]; then
-  module load gcc/4.9.3
-  module load mvapich2/2.2
+  module load gcc/12.1.1
+  module load mvapich2/2.3.6
 else
   if [[ $HOSTNAME == "surface"* ]]; then
     use gcc-4.7.4p

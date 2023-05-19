@@ -28,7 +28,7 @@ class GaussSeidelSolver : public LinearFunctionSolver<T, Ops>
       delete m_solver;
     }
 
-    void define( LinearFunction<T,Ops>* const, const T& );
+    void define( Ops* const, LinearFunction<T,Ops>* const, const T& );
     void solve( T&, const T&, int a_its = -1 );
 
     inline void verbose(const bool a_v) 
@@ -58,7 +58,8 @@ class GaussSeidelSolver : public LinearFunctionSolver<T, Ops>
 };
 
 template <class T, class Ops>
-void GaussSeidelSolver<T,Ops>::define(LinearFunction<T,Ops>* const  a_op, 
+void GaussSeidelSolver<T,Ops>::define(Ops* const,
+                                      LinearFunction<T,Ops>* const  a_op, 
                                       const T&                      a_x )
 {
   /* default values */

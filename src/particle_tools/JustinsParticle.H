@@ -147,24 +147,24 @@ public:
   Real magnetic_field(const int a_dir) const;
 
 
+#if CH_SPACEDIM<3
   //  define functions for virtual position (for 1D/2D sim)
-  
+
   /// set virtual position field
-  void setPositionVirt(const std::array<Real,3-SpaceDim>& a_pos_virt);
-  void setPositionVirt(const Real& a_pos_virt, const int a_dir);
+  void setPositionVirt(const std::array<Real,2>& a_pos_virt);
+  void setPositionVirt(const Real a_pos_virt, const int a_comp);
 
   // retrieve reference virtual position field
-  std::array<Real,3-SpaceDim>& positionVirt();
+  std::array<Real,2>& position_virt();
 
   // retrieve const. reference virtual position field
-  const std::array<Real,3-SpaceDim>& positionVirt() const;
+  const std::array<Real,2>& position_virt() const;
 
   // retrieve virt. pos. comp. in a given direction
-  Real positionVirt(const int a_dir) const;
+  Real position_virt(const int a_comp) const;
+#endif
 
-  //
   ///////////////
-  //
 
   virtual bool operator==(const JustinsParticle& a_p) const;
   virtual bool operator==(const JustinsParticle* a_p) const;
@@ -207,8 +207,9 @@ protected:
   std::array<Real,3> m_velocity;
   std::array<Real,3> m_electric_field;
   std::array<Real,3> m_magnetic_field;
-  std::array<Real,3-SpaceDim> m_pos_virt; // virtual position for 1D/2D sims
- 
+#if CH_SPACEDIM<3
+  std::array<Real,2> m_pos_virt; // virtual position for 1D/2D sims
+#endif
   RealVect  m_position_old;
   std::array<Real,3> m_velocity_old;
 

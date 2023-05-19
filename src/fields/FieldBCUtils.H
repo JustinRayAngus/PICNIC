@@ -109,15 +109,16 @@ namespace FieldBCUtils {
          // set the value in the boundary for the appropriate comp
          const int comp = 0; // this should come from insulator_bc object
          IntVect ib;         // cell index
-         Real local_X;
+         Real local_X, local_val;
          BoxIterator bit(insulator_box); // grid indices for boundary box    
          for(bit.begin(); bit.ok(); ++bit) {
             ib = bit();
             if(a_mesh.axisymmetric()) {
                local_X = this_X.get(ib,bdry_dir);
-               bdry_val = bdry_val*Xmin_insulator[bdry_dir]/local_X;
+               local_val = bdry_val*Xmin_insulator[bdry_dir]/local_X;
             }
-            this_dst.set(ib,comp,bdry_val); // conductor
+            else local_val = bdry_val;
+            this_dst.set(ib,comp,local_val);
          }
 
       }
@@ -619,10 +620,6 @@ namespace FieldBCUtils {
       
                std::string Ev_bc_type;
                if(this_bc_type=="symmetry") Ev_bc_type = "even";
-               if(this_bc_type=="axis") {
-                  Ev_bc_type = "even";
-                  if(a_mesh.axisymmetric()) this_dst.setVal(0.0,fill_box_grown,0,1);
-               }
                if(this_bc_type=="conductor") {
                   // JRA, energy conservation requires zero BC for Epar,
                   // since Jpar at ghosts does not enter field solve
@@ -638,7 +635,8 @@ namespace FieldBCUtils {
                if(ISIDE==1) fill_box_grown.growLo(bdry_layout.dir(),-1);
             
                for (int n(0); n<this_dst.nComp(); n++) {
-                  if(this_bc_type=="axis" && n==0 && a_mesh.axisymmetric()) Ev_bc_type = "odd"; 
+                  if(this_bc_type=="axis" && n==0) Ev_bc_type = "odd"; 
+                  if(this_bc_type=="axis" && n==1) Ev_bc_type = "even"; 
                   BoundaryConditions::setBC( this_dst,
                                              fill_box_grown,
                                              n,
@@ -839,7 +837,8 @@ namespace FieldBCUtils {
                }
                else {
                   if(this_bc!="axis") this_J.mult(2.0,edge_box,0,this_J.nComp());
-                  if(this_bc=="symmetry") { // add ghost J|| back to interior. Needed
+                  if(this_bc=="symmetry" || this_bc=="axis") { 
+                                            // add ghost J|| back to interior. Needed
                                             // for shape functions higher order than CIC and
                                             // for getting J|| correct for particles with xpbar
                                             // beyond a symmetry boundary during the intermediate 
@@ -867,7 +866,8 @@ namespace FieldBCUtils {
 
             FArrayBox& this_J( a_J_virtual[interior_dit].getFab() );
             if(this_bc!="axis") this_J.mult(2.0,node_box,0,this_J.nComp());
-            if(this_bc=="symmetry") { // add ghost J|| back to interior. Needed
+            if(this_bc=="symmetry" || this_bc=="axis") { 
+                                      // add ghost J|| back to interior. Needed
                                       // for shape functions higher order than CIC and
                                       // for getting J|| correct for particles with xpbar
                                       // beyond a symmetry boundary during the intermediate 
@@ -879,7 +879,13 @@ namespace FieldBCUtils {
                for (int n=0; n<nG; n++) {
                   dst_box.shift(bdry_dir,1-2*bdry_side);
                   src_box.shift(bdry_dir,2*bdry_side-1);
-                  this_J.plus(this_J,src_box,dst_box,0,0,1);
+                  if(this_bc=="axis") {
+                     this_J.minus(this_J,src_box,dst_box,0,0,1); // Jth
+#if CH_SPACEDIM==1
+                     this_J.plus(this_J,src_box,dst_box,1,1,1); // Jz
+#endif
+                  }
+                  else this_J.plus(this_J,src_box,dst_box,0,0,this_J.nComp());
                }
             }
 #endif

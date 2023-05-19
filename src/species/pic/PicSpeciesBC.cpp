@@ -72,6 +72,11 @@ void PicSpeciesBC::parseParameters( ParmParse&  a_pp,
             m_inflow_bc_ptr_vect[b] = InflowBCPtr(inflow_bc);
          }
          if(m_bc_type[b]=="axis" && !m_mesh.axisymmetric()) m_bc_type[b] = "symmetry";
+         if(m_bc_type[b]=="symmetry" && m_mesh.axisymmetric()) {
+            int bdry_side(this_bdry_layout.side());
+            const RealVect& Xmin(m_mesh.getXmin());
+            if(bdry_side==0 && Xmin[0]==0.0) m_bc_type[b] = "axis";
+         }
       }
    
       // below is needed for charge-conserving interp      
@@ -327,7 +332,7 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
    // This rho is added back to the interior. For symmetry boundaries, this is equivalent
    // to the rho that would come from mirror particles across the boundary. For other BCs,
    // adding the rho deposited to the ghost cells back to the interior amounts to using
-   // a lower-order scheme near the boundary is makes is such that interior rho is conserved.
+   // a lower-order scheme near the boundary and makes is such that interior rho is conserved.
    // Right on the boundary, a factor of 2 is way to account for a 1/2 factor in dV.
 
    // loop over non-periodic boundaries and apply BCs to Rho
@@ -456,57 +461,6 @@ void PicSpeciesBC::zeroDeltas( )
    }
 }   
 
-void PicSpeciesBC::repositionOutflowParticles( List<JustinsParticle>&  a_outcast_list )
-{
-   CH_TIME("PicSpeciesBC::repositionOutflowParticles()");
-   
-   // This is only called during iterative particle advance for implicit schemes.
-   // loop over non-periodic boundaries and reposition outflow particles that are 
-   // out of bounds to be just inside the physical domain and move them to the
-   // outcast list.   
-
-   const RealVect& Xmin(m_mesh.getXmin());
-   const RealVect& Xmax(m_mesh.getXmax());
-   const RealVect& dX(m_mesh.getdX());
-
-   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
-   for (int b(0); b<bdry_layout.size(); b++) {
-      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const int bdry_dir = this_bdry_layout.dir();
-      const int bdry_side(this_bdry_layout.side());
-      List<JustinsParticle>&  outflow_list = m_outflow_list_vector[b];
-      if(bdry_side==0 && m_bc_binary[b]) { 
-         ListIterator<JustinsParticle> lit(outflow_list);
-         for(lit.begin(); lit.ok();) {
-            JustinsParticle& this_particle = lit();
-            RealVect& this_x = this_particle.position();
-            if(this_x[bdry_dir] < Xmin[bdry_dir]) {
-               this_x[bdry_dir] = Xmin[bdry_dir] + 1.0e-4*dX[bdry_dir];
-               a_outcast_list.transfer(lit);
-            }
-            else {
-               ++lit;
-            } 
-         }
-      }
-      if(bdry_side==1 && m_bc_binary[b]) { 
-         ListIterator<JustinsParticle> lit(outflow_list);
-         for(lit.begin(); lit.ok();) {
-            JustinsParticle& this_particle = lit();
-            RealVect& this_x = this_particle.position();
-            if(this_x[bdry_dir] >= Xmax[bdry_dir]) {
-               this_x[bdry_dir] = Xmax[bdry_dir] - 1.0e-4*dX[bdry_dir]; 
-               a_outcast_list.transfer(lit);
-            } 
-            else {
-               ++lit;
-            } 
-         }
-      }
-   }
-   
-}
-
 void PicSpeciesBC::injectInflowParticles( ParticleData<JustinsParticle>&  a_data )
 {
    CH_TIME("PicSpeciesBC::injectInflowParticles()");
@@ -540,31 +494,49 @@ void PicSpeciesBC::injectInflowParticles( ParticleData<JustinsParticle>&  a_data
          const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
          ListBox<JustinsParticle>& this_listbox = a_data[interior_dit];
          List<JustinsParticle>& valid_list = this_listbox.listItems();
+   
+         Real gbpsq, gammap;
 
          if(bdry_side==0) {
             for(lit.begin(); lit.ok();) {
+
                const Real& wp = lit().weight();
-               //const std::array<Real,3>& vp = lit().velocity(); // actually beta
-               const std::array<Real,3>& vp = lit().velocity_old(); // actually beta
+               const std::array<Real,3>& up = lit().velocity_old();
                m_delta_MassIn_lo[bdry_dir] += wp;
-               m_delta_MomXIn_lo[bdry_dir] += wp*vp[0];
-               m_delta_MomYIn_lo[bdry_dir] += wp*vp[1];
-               m_delta_MomZIn_lo[bdry_dir] += wp*vp[2];
-               m_delta_EnergyIn_lo[bdry_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
+               m_delta_MomXIn_lo[bdry_dir] += wp*up[0];
+               m_delta_MomYIn_lo[bdry_dir] += wp*up[1];
+               m_delta_MomZIn_lo[bdry_dir] += wp*up[2];
+
+               gbpsq = up[0]*up[0] + up[1]*up[1] + up[2]*up[2];
+#ifdef RELATIVISTIC_PARTICLES
+               gammap = sqrt(1.0 + gbpsq);
+#else
+               gammap = 1.0;
+#endif
+               m_delta_EnergyIn_lo[bdry_dir] += wp*gbpsq/(gammap + 1.0);
                valid_list.transfer(lit);
+
             }
          }
          if(bdry_side==1) {
             for(lit.begin(); lit.ok();) {
+
                const Real& wp = lit().weight();
-               //const std::array<Real,3>& vp = lit().velocity(); // actually beta
-               const std::array<Real,3>& vp = lit().velocity_old(); // actually beta
+               const std::array<Real,3>& up = lit().velocity_old();
                m_delta_MassIn_hi[bdry_dir] += wp;
-               m_delta_MomXIn_hi[bdry_dir] += wp*vp[0];
-               m_delta_MomYIn_hi[bdry_dir] += wp*vp[1];
-               m_delta_MomZIn_hi[bdry_dir] += wp*vp[2];
-               m_delta_EnergyIn_hi[bdry_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
+               m_delta_MomXIn_hi[bdry_dir] += wp*up[0];
+               m_delta_MomYIn_hi[bdry_dir] += wp*up[1];
+               m_delta_MomZIn_hi[bdry_dir] += wp*up[2];
+               
+               gbpsq = up[0]*up[0] + up[1]*up[1] + up[2]*up[2];
+#ifdef RELATIVISTIC_PARTICLES
+               gammap = sqrt(1.0 + gbpsq);
+#else
+               gammap = 1.0;
+#endif
+               m_delta_EnergyIn_hi[bdry_dir] += wp*gbpsq/(gammap + 1.0);
                valid_list.transfer(lit);
+
             }
          }
 
@@ -577,7 +549,8 @@ void PicSpeciesBC::injectInflowParticles( ParticleData<JustinsParticle>&  a_data
 void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDensity,
                                           LevelData<NodeFArrayBox>&  a_currentDensity_virtual, 
                                     const MeshInterp&                a_meshInterp, 
-                                    const InterpType                 a_interpJToGrid )
+                                    const InterpType                 a_interpJToGrid,
+                                    const bool                       a_from_explicit_solver )
 {
    CH_TIME("PicSpeciesBC::depositInflowOutflowJ()");
    
@@ -610,7 +583,9 @@ void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDe
                                       J_virtual,
 #endif
                                       outflow_list,
-                                      a_interpJToGrid );
+                                      a_interpJToGrid,
+                                      false,
+                                      a_from_explicit_solver );
 
          // deposit inflow particles
          a_meshInterp.depositCurrent( J_inPlane[0],
@@ -625,7 +600,9 @@ void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDe
                                       J_virtual,
 #endif
                                       inflow_list,
-                                      a_interpJToGrid );
+                                      a_interpJToGrid,
+                                      false,
+                                      a_from_explicit_solver );
 
       } 
       
@@ -721,8 +698,8 @@ void PicSpeciesBC::axis( List<JustinsParticle>&  a_list,
       JustinsParticle& this_particle = lit();
       RealVect& this_xold = this_particle.position_old();
       RealVect& this_x = this_particle.position();
-      std::array<Real,3>&  this_vold = this_particle.velocity_old(); // actually beta
-      std::array<Real,3>&  this_v = this_particle.velocity(); // actually beta
+      std::array<Real,3>&  this_vold = this_particle.velocity_old();
+      std::array<Real,3>&  this_v = this_particle.velocity();
       
       if (this_x[a_dir] < 0.0) {
          this_x[a_dir] = -this_x[a_dir];
@@ -757,8 +734,8 @@ void PicSpeciesBC::symmetry_Lo( List<JustinsParticle>&  a_list,
       JustinsParticle& this_particle = lit();
       RealVect& this_xold = this_particle.position_old();
       RealVect& this_x = this_particle.position();
-      std::array<Real,3>&  this_vold = this_particle.velocity_old(); // actually beta
-      std::array<Real,3>&  this_v = this_particle.velocity(); // actually beta
+      std::array<Real,3>&  this_vold = this_particle.velocity_old();
+      std::array<Real,3>&  this_v = this_particle.velocity();
       
       if (this_x[a_dir] <= a_leftEdge) {
          this_x[a_dir] = 2.*a_leftEdge - this_x[a_dir];
@@ -786,8 +763,8 @@ void PicSpeciesBC::symmetry_Hi( List<JustinsParticle>&  a_list,
       JustinsParticle& this_particle = lit();
       RealVect& this_xold = this_particle.position_old();
       RealVect& this_x = this_particle.position();
-      std::array<Real,3>&  this_vold = this_particle.velocity_old(); // actually beta
-      std::array<Real,3>&  this_v = this_particle.velocity(); // actually beta
+      std::array<Real,3>&  this_vold = this_particle.velocity_old();
+      std::array<Real,3>&  this_v = this_particle.velocity();
       
       if (this_x[a_dir] >= a_rightEdge) {
          this_x[a_dir] = 2.*a_rightEdge - this_x[a_dir];
@@ -862,6 +839,8 @@ void PicSpeciesBC::inflow_Lo( List<JustinsParticle>&  a_outcast_list,
 {
 
    CH_TIME("PicSpeciesBC::inflow_Lo");
+   
+   Real gbpsq, gammap;
 
    ListIterator<JustinsParticle> lit(a_inflow_list);
       
@@ -871,14 +850,23 @@ void PicSpeciesBC::inflow_Lo( List<JustinsParticle>&  a_outcast_list,
          const JustinsParticle& this_particle = lit();
          const RealVect& this_xp = this_particle.position();
          if(this_xp[a_dir] >= a_leftEdge) {
+
             const Real& wp = lit().weight();
-            const std::array<Real,3>& vpold = lit().velocity_old();
+            const std::array<Real,3>& upold = lit().velocity_old();
             m_delta_MassIn_lo[a_dir] += wp;
-            m_delta_MomXIn_lo[a_dir] += wp*vpold[0];
-            m_delta_MomYIn_lo[a_dir] += wp*vpold[1];
-            m_delta_MomZIn_lo[a_dir] += wp*vpold[2];
-            m_delta_EnergyIn_lo[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
+            m_delta_MomXIn_lo[a_dir] += wp*upold[0];
+            m_delta_MomYIn_lo[a_dir] += wp*upold[1];
+            m_delta_MomZIn_lo[a_dir] += wp*upold[2];
+            
+            gbpsq = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
+#ifdef RELATIVISTIC_PARTICLES
+            gammap = sqrt(1.0 + gbpsq);
+#else
+            gammap = 1.0;
+#endif
+            m_delta_EnergyIn_lo[a_dir] += wp*gbpsq/(gammap + 1.0);
             a_outcast_list.transfer(lit); // this updates iterator
+
          }
          else ++lit; // should never be here
       }   
@@ -888,24 +876,33 @@ void PicSpeciesBC::inflow_Lo( List<JustinsParticle>&  a_outcast_list,
       
       for(lit.begin(); lit.ok();) {
          
-         // convert vpbar and xpbar to vpnew and xpnew 
+         // convert upbar and xpbar to upnew and xpnew 
          JustinsParticle& this_particle = lit();
          RealVect& xp = this_particle.position();
-         std::array<Real,3>& vp = lit().velocity();
+         std::array<Real,3>& up = lit().velocity();
          const RealVect& xpold = this_particle.position_old();
-         const std::array<Real,3>& vpold = lit().velocity_old();
+         const std::array<Real,3>& upold = lit().velocity_old();
          for(int n=0; n<SpaceDim; n++) xp[n] = 2.0*xp[n] - xpold[n];
-         for(int n=0; n<3; n++) vp[n] = 2.0*vp[n] - vpold[n];
+         for(int n=0; n<3; n++) up[n] = 2.0*up[n] - upold[n];
         
          // update probes and transfer to outcast_list 
          if(xp[a_dir] >= a_leftEdge) {
+
             const Real& wp = lit().weight();
             m_delta_MassIn_lo[a_dir] += wp;
-            m_delta_MomXIn_lo[a_dir] += wp*vpold[0];
-            m_delta_MomYIn_lo[a_dir] += wp*vpold[1];
-            m_delta_MomZIn_lo[a_dir] += wp*vpold[2];
-            m_delta_EnergyIn_lo[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
+            m_delta_MomXIn_lo[a_dir] += wp*upold[0];
+            m_delta_MomYIn_lo[a_dir] += wp*upold[1];
+            m_delta_MomZIn_lo[a_dir] += wp*upold[2];
+            
+            gbpsq = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
+#ifdef RELATIVISTIC_PARTICLES
+            gammap = sqrt(1.0 + gbpsq);
+#else
+            gammap = 1.0;
+#endif
+            m_delta_EnergyIn_lo[a_dir] += wp*gbpsq/(gammap + 1.0);
             a_outcast_list.transfer(lit); // this updates iterator
+
          }
          else { // possible to be here when using sub-orbit model for inflow particles
             a_inflow_list.remove(lit); // this updates iterator
@@ -925,6 +922,8 @@ void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
 {
 
    CH_TIME("PicSpeciesBC::inflow_Hi");
+   
+   Real gbpsq, gammap;
 
    if(a_intermediate_advance) {
    
@@ -933,14 +932,23 @@ void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
          const JustinsParticle& this_particle = lit();
          const RealVect& this_xp = this_particle.position();
          if(this_xp[a_dir] < a_rightEdge) {
+
             const Real& wp = lit().weight();
-            const std::array<Real,3>& vpold = lit().velocity_old();
+            const std::array<Real,3>& upold = lit().velocity_old();
             m_delta_MassIn_hi[a_dir] += wp;
-            m_delta_MomXIn_hi[a_dir] += wp*vpold[0];
-            m_delta_MomYIn_hi[a_dir] += wp*vpold[1];
-            m_delta_MomZIn_hi[a_dir] += wp*vpold[2];
-            m_delta_EnergyIn_hi[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
+            m_delta_MomXIn_hi[a_dir] += wp*upold[0];
+            m_delta_MomYIn_hi[a_dir] += wp*upold[1];
+            m_delta_MomZIn_hi[a_dir] += wp*upold[2];
+            
+            gbpsq = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
+#ifdef RELATIVISTIC_PARTICLES
+            gammap = sqrt(1.0 + gbpsq);
+#else
+            gammap = 1.0;
+#endif
+            m_delta_EnergyIn_hi[a_dir] += wp*gbpsq/(gammap + 1.0);
             a_outcast_list.transfer(lit); // this updates iterator
+
          }
          else ++lit;
       }   
@@ -951,24 +959,33 @@ void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
       ListIterator<JustinsParticle> lit(a_inflow_list);
       for(lit.begin(); lit.ok();) {
 
-         // convert vpbar and xpbar to vpnew and xpnew 
+         // convert upbar and xpbar to upnew and xpnew 
          JustinsParticle& this_particle = lit();
          RealVect& xp = this_particle.position();
-         std::array<Real,3>& vp = lit().velocity();
+         std::array<Real,3>& up = lit().velocity();
          const RealVect& xpold = this_particle.position_old();
-         const std::array<Real,3>& vpold = lit().velocity_old();
+         const std::array<Real,3>& upold = lit().velocity_old();
          for(int n=0; n<SpaceDim; n++) xp[n] = 2.0*xp[n] - xpold[n];
-         for(int n=0; n<3; n++) vp[n] = 2.0*vp[n] - vpold[n];
+         for(int n=0; n<3; n++) up[n] = 2.0*up[n] - upold[n];
 
          // update probes and transfer to outcast_list 
          if(xp[a_dir] < a_rightEdge) {
+
             const Real& wp = lit().weight();
             m_delta_MassIn_hi[a_dir] += wp;
-            m_delta_MomXIn_hi[a_dir] += wp*vpold[0];
-            m_delta_MomYIn_hi[a_dir] += wp*vpold[1];
-            m_delta_MomZIn_hi[a_dir] += wp*vpold[2];
-            m_delta_EnergyIn_hi[a_dir] += 0.5*wp*(vpold[0]*vpold[0] + vpold[1]*vpold[1] + vpold[2]*vpold[2]);
+            m_delta_MomXIn_hi[a_dir] += wp*upold[0];
+            m_delta_MomYIn_hi[a_dir] += wp*upold[1];
+            m_delta_MomZIn_hi[a_dir] += wp*upold[2];
+         
+            gbpsq = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
+#ifdef RELATIVISTIC_PARTICLES
+            gammap = sqrt(1.0 + gbpsq);
+#else
+            gammap = 1.0;
+#endif
+            m_delta_EnergyIn_hi[a_dir] += wp*gbpsq/(gammap + 1.0);
             a_outcast_list.transfer(lit); // this updates iterator
+
          }
          else { // possible to be here when using sub-orbit model for inflow particles
             a_inflow_list.remove(lit); // this updates iterator
@@ -986,6 +1003,8 @@ void PicSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
 {
 
    CH_TIME("PicSpeciesBC::remove_Lo");
+   
+   Real gbpsq, gammap;
 
    ListIterator<JustinsParticle> lit(a_list);
    for(lit.begin(); lit.ok();) {
@@ -993,14 +1012,23 @@ void PicSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
       JustinsParticle& this_particle = lit();
       RealVect& this_x = this_particle.position();
       if(this_x[a_dir] < a_leftEdge) {
+
          const Real& wp = lit().weight();
-         const std::array<Real,3>& vp = lit().velocity(); // actually beta
+         const std::array<Real,3>& up = lit().velocity();
          m_delta_MassOut_lo[a_dir] += wp;
-         m_delta_MomXOut_lo[a_dir] += wp*vp[0];
-         m_delta_MomYOut_lo[a_dir] += wp*vp[1];
-         m_delta_MomZOut_lo[a_dir] += wp*vp[2];
-         m_delta_EnergyOut_lo[a_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
+         m_delta_MomXOut_lo[a_dir] += wp*up[0];
+         m_delta_MomYOut_lo[a_dir] += wp*up[1];
+         m_delta_MomZOut_lo[a_dir] += wp*up[2];
+         
+         gbpsq = up[0]*up[0] + up[1]*up[1] + up[2]*up[2];
+#ifdef RELATIVISTIC_PARTICLES
+         gammap = sqrt(1.0 + gbpsq);
+#else
+         gammap = 1.0;
+#endif
+         m_delta_EnergyOut_lo[a_dir] += wp*gbpsq/(gammap + 1.0);
          a_list.remove(lit); // this updates iterator
+
       }
       else {
          ++lit;
@@ -1017,20 +1045,31 @@ void PicSpeciesBC::remove_Hi( List<JustinsParticle>&  a_list,
 
    CH_TIME("PicSpeciesBC::remove_Hi");
 
+   Real gbpsq, gammap;
+
    ListIterator<JustinsParticle> lit(a_list);
    for(lit.begin(); lit.ok();) {
       
       JustinsParticle& this_particle = lit();
       RealVect& this_x = this_particle.position();
       if(this_x[a_dir] >= a_rightEdge) {
+
          const Real& wp = lit().weight();
-         const std::array<Real,3>& vp = lit().velocity(); // actually beta
+         const std::array<Real,3>& up = lit().velocity();
          m_delta_MassOut_hi[a_dir] += wp;
-         m_delta_MomXOut_hi[a_dir] += wp*vp[0];
-         m_delta_MomYOut_hi[a_dir] += wp*vp[1];
-         m_delta_MomZOut_hi[a_dir] += wp*vp[2];
-         m_delta_EnergyOut_hi[a_dir] += 0.5*wp*(vp[0]*vp[0] + vp[1]*vp[1] + vp[2]*vp[2]);
+         m_delta_MomXOut_hi[a_dir] += wp*up[0];
+         m_delta_MomYOut_hi[a_dir] += wp*up[1];
+         m_delta_MomZOut_hi[a_dir] += wp*up[2];
+
+         gbpsq = up[0]*up[0] + up[1]*up[1] + up[2]*up[2];
+#ifdef RELATIVISTIC_PARTICLES
+         gammap = sqrt(1.0 + gbpsq);
+#else
+         gammap = 1.0;
+#endif
+         m_delta_EnergyOut_hi[a_dir] += wp*gbpsq/(gammap + 1.0);
          a_list.remove(lit); // this updates iterator
+
       }
       else {
          ++lit;

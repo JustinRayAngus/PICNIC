@@ -40,6 +40,7 @@ public:
   int numSpecies() const {return m_num_species;}
   int writeSpeciesRho() const {return m_writeSpeciesChargeDensity;}
   int writeSpeciesJ() const {return m_writeSpeciesCurrentDensity;}
+  int writeSpeciesNppc() const {return m_writeSpeciesNppc;}
 
   PicSpeciesPtrVect& getPtrVect() {return m_pic_species_ptr_vect;}; 
   const PicSpeciesPtrVect& getPtrVect() const {return m_pic_species_ptr_vect;}; 
@@ -69,7 +70,6 @@ public:
                         const Real                    a_time );
   
   void computeJfromMassMatrices( const ElectroMagneticFields&  a_emfields );
-  void redefineJtilde( const ElectroMagneticFields&  a_emfields );
   
   void addInflowJ( LevelData<EdgeDataBox>&    a_J,
                    LevelData<NodeFArrayBox>&  a_Jv,
@@ -112,11 +112,11 @@ public:
   bool useMassMatrices() const { return m_use_mass_matrices; }
 
   // const references to mass matrix containers
-  const LevelData<EdgeDataBox>& getJtilde() const {return m_Jtilde;}
+  const LevelData<EdgeDataBox>& getJ0() const {return m_J0;}
   const LevelData<EdgeDataBox>& getSigmaxx() const {return m_sigma_xx;}
   const LevelData<EdgeDataBox>& getSigmaxy() const {return m_sigma_xy;}
   const LevelData<EdgeDataBox>& getSigmaxz() const {return m_sigma_xz;}
-  const LevelData<NodeFArrayBox>& getVirtualJtilde() const {return m_Jtilde_virtual;}
+  const LevelData<NodeFArrayBox>& getVirtualJ0() const {return m_J0_virtual;}
 #if CH_SPACEDIM==1
   const LevelData<NodeFArrayBox>& getSigmayx() const {return m_sigma_yx;}
   const LevelData<NodeFArrayBox>& getSigmayy() const {return m_sigma_yy;}
@@ -132,11 +132,11 @@ public:
 #endif
 
   // non-const references to mass matrix containers
-  LevelData<EdgeDataBox>& getJtilde() {return m_Jtilde;}
+  LevelData<EdgeDataBox>& getJ0() {return m_J0;}
   LevelData<EdgeDataBox>& getSigmaxx() {return m_sigma_xx;}
   LevelData<EdgeDataBox>& getSigmaxy() {return m_sigma_xy;}
   LevelData<EdgeDataBox>& getSigmaxz() {return m_sigma_xz;}
-  LevelData<NodeFArrayBox>& getVirtualJtilde() {return m_Jtilde_virtual;}
+  LevelData<NodeFArrayBox>& getVirtualJ0() {return m_J0_virtual;}
 #if CH_SPACEDIM==1
   LevelData<NodeFArrayBox>& getSigmayx() {return m_sigma_yx;}
   LevelData<NodeFArrayBox>& getSigmayy() {return m_sigma_yy;}
@@ -154,6 +154,7 @@ private:
   bool m_verbosity;    
   bool m_writeSpeciesChargeDensity;
   bool m_writeSpeciesCurrentDensity;
+  bool m_writeSpeciesNppc;
       
   bool m_part_order_swap;
   bool m_iter_min_two;
@@ -171,7 +172,6 @@ private:
   Real m_courant_dt;
 
   Real m_cvac_norm;
-  Real m_volume_scale;
 
   PicSpeciesPtrVect m_pic_species_ptr_vect;
 
@@ -188,9 +188,9 @@ private:
 #endif
   
   // containers for semi-implicit mass matrix
-  LevelData<EdgeDataBox> m_Jtilde;
+  LevelData<EdgeDataBox> m_J0, m_E0;
   LevelData<EdgeDataBox> m_sigma_xx, m_sigma_xy, m_sigma_xz;
-  LevelData<NodeFArrayBox> m_Jtilde_virtual;
+  LevelData<NodeFArrayBox> m_J0_virtual, m_E0_virtual;
 #if CH_SPACEDIM==1
   LevelData<NodeFArrayBox> m_sigma_yx, m_sigma_yy, m_sigma_yz;
 #endif

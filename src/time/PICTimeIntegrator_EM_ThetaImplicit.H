@@ -26,6 +26,7 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
 
       m_theta = 0.5;
       m_pc_update_freq = INT_MAX;
+      m_pc_update_newton = true;
       m_is_defined = false;
       m_ec_semi_implicit = false;
     }
@@ -125,6 +126,7 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     NonlinearSolver<ODEVector<System>, System>* m_nlsolver;
 
     int m_pc_update_freq;
+    bool m_pc_update_newton;
 
   private:
 

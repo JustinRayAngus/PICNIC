@@ -110,7 +110,7 @@ void PICTimeIntegrator_EM_SemiImplicit::postTimeStep( const Real a_time,
 
   for (int s=0; s<m_particles.size(); s++) {
      auto this_picSpecies(m_particles[s]);
-     this_picSpecies->advanceVelocities_2ndHalf();
+     this_picSpecies->advanceVelocities_2ndHalf(a_dt);
      this_picSpecies->advancePositions_2ndHalf();
      this_picSpecies->applyInertialForces(a_dt,true,true);
      this_picSpecies->applyBCs(false);

@@ -77,49 +77,6 @@ void ScatteringUtils::computeDeltaU( std::array<Real,3>&  a_deltaU,
    
 }
 
-Real ScatteringUtils::linearInterp( int&                a_index,
-                              const std::vector<Real>&  a_X,
-                              const std::vector<Real>&  a_Y,
-                              const Real                a_X0 )
-{
-     
-   Real Y0;
-   const int N = a_X.size();
-
-   CH_assert(N==a_Y.size());        
-   CH_assert(a_X0>=a_X.front());        
-   CH_assert(a_X0<=a_X.back());        
- 
-   int index = N/2;
-   while (a_X0 < a_X[index]) index--;
-   while (a_X0 > a_X[index+1]) index++;
-       
-   Y0 = ( a_Y[index+1]*(a_X0 - a_Y[index]) 
-      +   a_Y[index]*(a_X[index+1] - a_X0) )
-      / ( a_X[index+1] - a_X[index] );
-
-   a_index = index;
-   return Y0;
-
-}
-   
-Real ScatteringUtils::linearInterp( const std::vector<Real>&  a_X,
-                                    const std::vector<Real>&  a_Y,
-                                    const Real                a_X0,
-                                    const int                 a_index )
-{
-     
-   Real Y0;
-   CH_assert(a_index<a_X.size()-1);
-       
-   Y0 = ( a_Y[a_index+1]*(a_X0 - a_X[a_index]) 
-      +   a_Y[a_index]*(a_X[a_index+1] - a_X0) )
-      / ( a_X[a_index+1] - a_X[a_index] );
-
-   return Y0;
-
-}
-
 Real ScatteringUtils::semilogInterp( const std::vector<Real>&  a_X,
                                      const std::vector<Real>&  a_Y,
                                      const Real                a_X0,

@@ -72,6 +72,12 @@ int main(int a_argc, char* a_argv[])
 #ifdef MASS_MATRIX_TEST
          cout << "MASS_MATRIX_TEST flag is defined" << endl;
 #endif
+#ifdef MASS_MATRIX_COST_TEST
+         cout << "MASS_MATRIX_COST_TEST flag is defined" << endl;
+#endif
+#ifdef RELATIVISTIC_PARTICLES
+         cout << "RELATIVISTIC_PARTICLES flag is defined" << endl;
+#endif
          cout << "input file = " << a_argv[1] << endl << endl;
       }
 

@@ -98,9 +98,29 @@ public:
   
   const InterpType& getInterpType() const {return m_interpJToGrid;}
   
-  virtual bool borisInertia() const { return m_use_axisymmetric_boris; }
-  virtual bool isSpecies( const string& name ) const;
+  virtual bool planarPush() const { 
+     if(m_push_type==PLANAR) return true;
+     else return false; 
+  }
   
+  virtual bool borisInertia() const { 
+     if(m_push_type==CYL_BORIS) return true;
+     else return false; 
+  }
+  
+  virtual bool hybridInertia() const { 
+     if(m_push_type==CYL_HYBRID) return true;
+     else return false; 
+  }
+
+  virtual bool isSpecies( const string& name ) const;  
+
+  void inspectParticles( List<JustinsParticle>&  a_pList,
+                   const Box&          a_cell_box,
+                   const EdgeDataBox&  a_Efield_inPlane,
+                   const FluxBox&      a_Bfield_inPlane,
+                   const FArrayBox&    a_Efield_virtual,
+                   const FArrayBox&    a_Bfield_virtual ) const;
 
   // return non-const reference to particle data containers
   virtual ParticleData<JustinsParticle>& partData() {return m_data;}
@@ -126,8 +146,11 @@ public:
     return m_density_binfab;
   }
 
+  void setNppc();
   void setNumberDensity();
   void setNumberDensityFromBinFab();
+  
+  const LevelData<FArrayBox>& getNppc() const {return m_Nppc;}
   
   virtual void setParticleSolverParams( const bool  a_iter_order_swap, 
                                         const bool  a_iter_min_two,
@@ -188,8 +211,8 @@ public:
                                LevelData<NodeFArrayBox>&  a_sigma_zx,
                                LevelData<NodeFArrayBox>&  a_sigma_zy,
                                LevelData<NodeFArrayBox>&  a_sigma_zz,  
-                               LevelData<EdgeDataBox>&    a_Jtilde,
-                               LevelData<NodeFArrayBox>&  a_Jtildev,
+                               LevelData<EdgeDataBox>&    a_J0,
+                               LevelData<NodeFArrayBox>&  a_J0v,
                          const ElectroMagneticFields&     a_em_fields,
                          const Real                       a_dt ) const;
   
@@ -206,23 +229,35 @@ public:
   
   void interpolateFieldsToParticles( const ElectroMagneticFields&  a_em_fields );
 
-  void interpolateFieldsToOutcasts( const ElectroMagneticFields&  a_em_fields );
-
   void addExternalFieldsToParticles( const ElectroMagneticFields&  a_em_fields );
 
-  void repositionOutcastsAndApplyForces( const ElectroMagneticFields&   a_em_fields,
-                                         const Real  a_dt, 
-                                         const bool  a_byHalfDt );
-
-  void advancePositions( const Real  a_full_dt,
-                         const bool  a_half_step = false );
+  void advancePositionsExplicit( const Real  a_full_dt,
+                                 const bool  a_half_step = false );
+  
+  void advancePositionsExplicit( List<JustinsParticle>&  a_pList,
+                           const Real                    a_cnormDt );
+  
+  void advancePositionsImplicit( const Real  a_full_dt,
+                                 const bool  a_half_step = false );
+  
+  void advancePositionsImplicit( List<JustinsParticle>&  a_pList,
+                           const Real                    a_cnormDt );
+ 
+  void advancePositionsCYLCAR( List<JustinsParticle>&  a_pList,
+                          const Real                    a_cnormDt );
+  
+  void advanceInflowPositions( List<JustinsParticle>&  a_pList,
+                         const int                     a_bdry_dir, 
+                         const int                     a_bdry_side, 
+                         const Real                    a_cnormDt );
+  
   void advancePositions_2ndHalf();
   
   void applyBCs( const bool  a_intermediate_advance );
 
   void advanceVelocities( const Real  a_full_dt, 
                           const bool  a_half_step );
-  void advanceVelocities_2ndHalf();
+  void advanceVelocities_2ndHalf( const Real  a_dt = 0.0 );
   
   void applyInertialForces( const Real  a_dt,
                             const bool  a_use_avg_velocity,
@@ -278,8 +313,15 @@ private:
   int  m_charge;   // species charge / electron charge
   Real m_Uint;     // species internal energy [eV]
   
-  bool m_use_axisymmetric_boris; 
-  int  m_axisymmetric_iter_max; 
+  enum PushType {
+     PLANAR, 
+     CYL_BORIS, // uses Boris trick for cylindrical push
+     CYL_CYL,   // uses predictor-corrector for dtheta used in inertia term
+     CYL_HYBRID, // uses Car for velocity, Cyl for position
+     CYL_CAR    // uses Car for velocity, Car for position
+  };
+  
+  PushType m_push_type;
 
   PicSpeciesBC* m_species_bc;
   std::string m_BC_type_lower, m_BC_type_upper;
@@ -324,7 +366,6 @@ private:
   InterpType m_interpJToGrid;    // method to interpolate current density to grid
   InterpType m_interpEToParts;   // method to interpolate electric field to particle
   bool m_interp_bc_check;
-  bool m_deposit_bdry_J;
   bool m_suborbit_inflowJ;
 
   bool m_motion;
@@ -332,7 +373,7 @@ private:
   bool m_scatter;
   bool m_write_all_part_comps;
   bool m_charge_conserving_deposit;
-
+  
   const DomainGrid& m_mesh;
   MeshInterp* m_meshInterp;
   
@@ -340,6 +381,7 @@ private:
   LevelData<BinFab<JustinsParticlePtr>> m_data_binfab_ptr; // container for storing array of lists of ptrs to JustinsParticles 
                                          // each grid cell has a list of all particles living in that cell
 
+  mutable LevelData<FArrayBox> m_Nppc;        // number of macro particles per cell
   mutable LevelData<FArrayBox> m_density;     // density moment at cell center
   mutable LevelData<FArrayBox> m_density_binfab;   // density moment from binfab
   mutable LevelData<FArrayBox> m_momentum;    // mean momentum density at cell center
@@ -356,14 +398,6 @@ private:
   // physical quantities
   mutable LevelData<FArrayBox> m_temperature; // temperature [eV] at cell center
   mutable LevelData<FArrayBox> m_velocity;    // velocity [m/s] at cell center
-
-  void advancePositions( List<JustinsParticle>&  a_pList,
-                   const Real   a_cnormDt );
-  
-  void advanceInflowPositions( List<JustinsParticle>&  a_pList,
-                         const int                     a_bdry_dir, 
-                         const int                     a_bdry_side, 
-                         const Real   a_cnormDt );
 
   void applyForces( List<JustinsParticle>&  a_pList,
               const Real   a_cnormDt, 
@@ -409,6 +443,7 @@ private:
 
   int newtonParticleUpdate( List<JustinsParticle>&  a_pList,
                       const Real          a_cnormDt, 
+                      const ElectroMagneticFields&  a_em_fields,
                       const EdgeDataBox&  a_Efield_inPlane,
                       const FluxBox&      a_Bfield_inPlane,
                       const FArrayBox&    a_Efield_virtual,

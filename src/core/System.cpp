@@ -144,10 +144,10 @@ void System::createProblemDomain()
          cout << endl;
          if (m_config_decomp.size() > 0) {
             cout << "  configuration decomposition = ";
-         for (int i=0; i<m_config_decomp.size(); i++)
-            cout << m_config_decomp[i] << " ";
+            for (int i=0; i<m_config_decomp.size(); i++)
+               cout << m_config_decomp[i] << " ";
             cout << endl << endl;
-         }
+	 }
    }
 
    if(!procID()) cout << "Constructing ProblemDomain" << endl;
@@ -1043,7 +1043,7 @@ void System::adaptDt( bool&  a_adapt_dt )
 
 void System::preRHSOp( const ODEVector<System>&  a_U,
                        const Real                a_dt,
-                       const int                 a_nonlinear_iter,
+                       const int,
                        const bool                a_from_emjacobian )
 {  
   CH_TIME("System::preRHSOp()");

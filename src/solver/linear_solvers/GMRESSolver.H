@@ -29,7 +29,7 @@ class GMRESSolver : public LinearFunctionSolver<Vec,Ops>
     void clearData();
     void setConvergenceMetrics(double a_metric, double a_tolerance);
 
-    void define(LinearFunction<Vec,Ops>* const, const Vec&);
+    void define(Ops* const, LinearFunction<Vec,Ops>* const, const Vec&);
     void solve(Vec& a_phi, const Vec& a_rhs, int a_its = -1);
   
     int restartLen() const { return m_restrtLen; }
@@ -150,7 +150,8 @@ GMRESSolver<Vec,Ops>::~GMRESSolver()
 }
 
 template <class Vec,class Ops>
-void GMRESSolver<Vec,Ops>::define(  LinearFunction<Vec,Ops>* const a_func,
+void GMRESSolver<Vec,Ops>::define(  Ops* const,
+                                    LinearFunction<Vec,Ops>* const a_func,
                                     const Vec& )
 {
   ParmParse ppGmres ( "gmres" );

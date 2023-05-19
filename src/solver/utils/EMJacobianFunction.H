@@ -16,7 +16,7 @@ class EMJacobianFunction: public LinearFunction<T,Ops>
       m_is_Defined = false; 
       m_is_linear = false;
       m_epsJFNK = 1e-6;
-      m_usePreCond = false;
+      m_usePreCond = true;
       m_pc_type = _EM_MATRIX_PC_;
     }
 
@@ -50,8 +50,7 @@ class EMJacobianFunction: public LinearFunction<T,Ops>
       return;
     }
 
-    inline void updatePreCondMat( const T&  a_X,
-                                  int       a_step )
+    inline void updatePreCondMat( const T&  a_X )
     {
       CH_TIME("EMJacobianFunction::updatePreCondMat()");
       if (m_usePreCond) m_preCond->update( a_X );
@@ -194,6 +193,9 @@ void EMJacobianFunction<T,Ops>::define( const T&     a_U,
       m_preCond = new EMMatrixPreconditioner<T,Ops>;
     } else {
       MayDay::Error("Invalid choice of preconditioner type");
+    }
+    if (!procID()) {
+      printf("EMJacobianFunction: preconditioner type is %s.\n", m_pc_type.c_str());
     }
     m_preCond->define(a_U, a_ops, a_dtfac);
     m_preCond->setJFNKEps( m_epsJFNK );

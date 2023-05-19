@@ -21,7 +21,7 @@ class EMMatrixPreconditioner : public Preconditioner<T,Ops>
       m_is_defined = false;
       m_pc_mat = nullptr;
       m_pc_solver = nullptr;
-      m_pc_solver_type = _LINSOLVER_GMRES_;
+      m_pc_solver_type = _LINSOLVER_GAUSSSEIDEL_;
       m_op_indent = "";
       return;
     }
@@ -157,7 +157,10 @@ void EMMatrixPreconditioner<T,Ops>::define( const T&      a_x,
       MayDay::Error("Invalid choice of pc solver type");
   }
 
-  m_pc_solver->define(m_pc_mat, a_x);
+  if (!procID()) {
+    printf("EMMatrixPreconditioner: native solve is %s.\n", m_pc_solver_type.c_str());
+  }
+  m_pc_solver->define(a_ops, m_pc_mat, a_x);
   m_is_defined = true;
   return;
 }

@@ -157,6 +157,8 @@ void BandedMatrix::copyToPetscMat(Mat A)
   val[0] = (double*) calloc (m_nbands,sizeof(double));
 
   MatZeroEntries(A);
+  MatSetOption(A, MAT_NEW_NONZERO_LOCATION_ERR, PETSC_FALSE);
+  MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
   for (int row=0; row<m_nrow; row++) {
     irow = m_irow[row]; 
     for (int i=0; i<m_ncols[row]; i++) {

@@ -66,12 +66,11 @@ class PicSpeciesBC
    
    Vector<List<JustinsParticle>>& getInflowListVect() {return m_inflow_list_vector;}
  
-   void repositionOutflowParticles( List<JustinsParticle>&  a_outcast_list );
-
    void depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_J_inPlane,
                                LevelData<NodeFArrayBox>&  a_J_virtual, 
                          const MeshInterp&                a_meshInterp, 
-                         const InterpType                 a_interpJToGrid );
+                         const InterpType                 a_interpJToGrid,
+                         const bool                       a_from_explicit_solver );
    
    void depositInflowJ( LevelData<EdgeDataBox>&    a_J_inPlane,
                         LevelData<NodeFArrayBox>&  a_J_virtual, 

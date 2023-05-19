@@ -6,6 +6,7 @@
 #include "EdgeDataBox.H"
 #include "NodeFArrayBox.H"
 #include "LevelData.H"
+#include "SpaceUtils.H"
 
 /* Fortran ordering */
 #define _BoxIndexDOF_(p,i,N,ndims) \
@@ -46,10 +47,16 @@ class GlobalDOF
       return m_mpi_offset; 
     }
     
-    inline const LevelData<T>& dofData() const 
+    inline const LevelData<T>& dofDataLHS() const 
     { 
       CH_assert(isDefined());
-      return m_gdofs; 
+      return m_gdofs_lhs; 
+    }
+
+    inline const LevelData<T>& dofDataRHS() const 
+    { 
+      CH_assert(isDefined());
+      return m_gdofs_rhs; 
     }
 
     virtual void define(  const int           a_offset,
@@ -62,28 +69,22 @@ class GlobalDOF
       auto phys_domain( grids.physDomain() );
       const int ncomp(a_data.nComp());
       auto gvec(a_data.ghostVect());
-      m_gdofs.define( grids, ncomp, gvec );
+      m_gdofs_lhs.define( grids, ncomp, gvec );
+      m_gdofs_rhs.define( grids, ncomp, gvec );
 
       {
         long box_offset(0);
         for (auto dit(a_data.dataIterator()); dit.ok(); ++dit) {
-          m_gdofs[dit].setVal(-1);
-          box_offset += setDOF( m_gdofs[dit], 
+          m_gdofs_lhs[dit].setVal(-1);
+          box_offset += setDOF( m_gdofs_lhs[dit], 
                                 phys_domain,
                                 (a_mpi_offset+a_offset+box_offset), 
                                 gvec );
         }
       }
-      consistentExchange( m_gdofs );
-      {
-        long box_offset(0);
-        for (auto dit(a_data.dataIterator()); dit.ok(); ++dit) {
-          box_offset += setDOF( m_gdofs[dit], 
-                                phys_domain,
-                                (a_mpi_offset+a_offset+box_offset), 
-                                gvec );
-        }
-      }
+
+      SpaceUtils::copyLevelData( m_gdofs_lhs, m_gdofs_rhs );
+      consistentExchange( m_gdofs_rhs );
     
       m_mpi_offset = a_mpi_offset;
       m_is_defined = true;
@@ -121,7 +122,7 @@ class GlobalDOF
 
     bool m_is_defined;
     int m_mpi_offset;
-    LevelData<T> m_gdofs;
+    LevelData<T> m_gdofs_lhs, m_gdofs_rhs;
 
   private:
 
@@ -151,28 +152,52 @@ class GlobalDOFEMFields
 
     inline bool isDefined() const { return m_is_defined; }
 
-    inline const LevelData<FluxBox>& dofDataB() const
+    inline const LevelData<FluxBox>& dofDataLHSB() const
     {
       CH_assert(isDefined());
-      return m_gdof_B.dofData();
+      return m_gdof_B.dofDataLHS();
     }
 
-    inline const LevelData<FArrayBox>& dofDataBv() const
+    inline const LevelData<FArrayBox>& dofDataLHSBv() const
     {
       CH_assert( isDefined() && (SpaceDim<3) );
-      return m_gdof_Bv.dofData();
+      return m_gdof_Bv.dofDataLHS();
     }
 
-    inline const LevelData<EdgeDataBox>& dofDataE() const
+    inline const LevelData<EdgeDataBox>& dofDataLHSE() const
     {
       CH_assert(isDefined());
-      return m_gdof_E.dofData();
+      return m_gdof_E.dofDataLHS();
     }
 
-    inline const LevelData<NodeFArrayBox>& dofDataEv() const
+    inline const LevelData<NodeFArrayBox>& dofDataLHSEv() const
     {
       CH_assert( isDefined() && (SpaceDim<3) );
-      return m_gdof_Ev.dofData();
+      return m_gdof_Ev.dofDataLHS();
+    }
+
+    inline const LevelData<FluxBox>& dofDataRHSB() const
+    {
+      CH_assert(isDefined());
+      return m_gdof_B.dofDataRHS();
+    }
+
+    inline const LevelData<FArrayBox>& dofDataRHSBv() const
+    {
+      CH_assert( isDefined() && (SpaceDim<3) );
+      return m_gdof_Bv.dofDataRHS();
+    }
+
+    inline const LevelData<EdgeDataBox>& dofDataRHSE() const
+    {
+      CH_assert(isDefined());
+      return m_gdof_E.dofDataRHS();
+    }
+
+    inline const LevelData<NodeFArrayBox>& dofDataRHSEv() const
+    {
+      CH_assert( isDefined() && (SpaceDim<3) );
+      return m_gdof_Ev.dofDataRHS();
     }
 
   protected:

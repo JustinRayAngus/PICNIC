@@ -37,27 +37,32 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
 
    a_pp.query("conservative_wall",m_conservative_wall);
 
-   for (int i(0); i<bdry_layout.size(); i++) {
-      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[i]) );
-      m_bdry_name[i] = this_bdry_layout.name();
+   for (int b(0); b<bdry_layout.size(); b++) {
+      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+      m_bdry_name[b] = this_bdry_layout.name();
       std::string prefix( a_pp.prefix() );
-      prefix += "." + m_bdry_name[i];
+      prefix += "." + m_bdry_name[b];
       ParmParse fpp( prefix.c_str() );
       if( fpp.contains("type") ) {
-         fpp.get( "type", m_bc_type[i] );
-         CH_assert( m_bc_type[i] == "symmetry" ||    
-                    m_bc_type[i] == "odd" ||
-                    m_bc_type[i] == "even" ||
-                    m_bc_type[i] == "zero" ||
-                    m_bc_type[i] == "conductor" ||
-                    m_bc_type[i] == "axis" ||
-                    m_bc_type[i] == "extrapolate" || 
-                    m_bc_type[i] == "extrapolate_zeroBv" || 
-                    m_bc_type[i] == "insulator_conductor" );
-         if(m_bc_type[i]=="insulator_conductor") {
-            m_InsulatorBC[i] = RefCountedPtr<InsulatorBC> (new InsulatorBC(i,m_bdry_name[i],m_mesh));
+         fpp.get( "type", m_bc_type[b] );
+         CH_assert( m_bc_type[b] == "symmetry" ||    
+                    m_bc_type[b] == "odd" ||
+                    m_bc_type[b] == "even" ||
+                    m_bc_type[b] == "zero" ||
+                    m_bc_type[b] == "conductor" ||
+                    m_bc_type[b] == "axis" ||
+                    m_bc_type[b] == "extrapolate" || 
+                    m_bc_type[b] == "extrapolate_zeroBv" || 
+                    m_bc_type[b] == "insulator_conductor" );
+         if(m_bc_type[b]=="insulator_conductor") {
+            m_InsulatorBC[b] = RefCountedPtr<InsulatorBC> (new InsulatorBC(b,m_bdry_name[b],m_mesh));
          }
-         if(m_bc_type[i]=="axis" && !m_mesh.axisymmetric()) m_bc_type[i] = "symmetry";
+         if(m_bc_type[b]=="axis" && !m_mesh.axisymmetric()) m_bc_type[b] = "symmetry";
+         if(m_bc_type[b]=="symmetry" && m_mesh.axisymmetric()) {
+            int bdry_side(this_bdry_layout.side());
+            const RealVect& Xmin(m_mesh.getXmin());
+            if(bdry_side==0 && Xmin[0]==0.0) m_bc_type[b] = "axis";
+         }
       }
    }
    
@@ -186,7 +191,7 @@ void FieldBC::applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
    CH_TIME("FieldBC::applyOnAxisCurlBC()");
    if(!m_mesh.axisymmetric()) return;      
          
-   // set boundry value for curlB assuming B~r ==> 1/r*d(rB)/dr = 4*B(1/2)/X(1/2)
+   // set boundry value for curlB assuming B~r ==> 1/r*d(rB)/dr = 4*B(1/2)/dX
    
    const RealVect& dX(m_mesh.getdX());      
 
@@ -351,11 +356,17 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
    const BoundaryBoxLayoutPtrVect& all_bdry_layouts = m_mesh.getBoundaryLayout();
 
    const RealVect& dA(m_mesh.getMappedFaceArea());      
-   const LevelData<EdgeDataBox>& masked_Jec = m_mesh.getMaskedJec();
    const LevelData<NodeFArrayBox>& masked_Jnc = m_mesh.getMaskedJnc();
+#if CH_SPACEDIM==1 
+   const LevelData<FArrayBox>& Xcc = m_mesh.getXcc();
+   const LevelData<NodeFArrayBox>& Xnc = m_mesh.getXnc();
+#elif CH_SPACEDIM==2 
+   const LevelData<EdgeDataBox>& masked_Jec = m_mesh.getMaskedJec();
+#endif
       
    for(int b(0); b<all_bdry_layouts.size(); b++) {
       const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
+      const std::string this_bc_type (m_bc_type[b]);
          
       const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
@@ -379,33 +390,48 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
          if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
          if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
 
-         if(SpaceDim==1) {
+#if CH_SPACEDIM==1
+         const FArrayBox& this_Xcc( Xcc[bdry_layout.dataIndex(dit)] );         
+         const FArrayBox& this_Xnc( Xnc[bdry_layout.dataIndex(dit)].getFab() );         
             
-            FArrayBox EyBz(node_box,1);
-            FArrayBox EzBy(node_box,1);
+         FArrayBox EyBz(node_box,1);
+         FArrayBox EzBy(node_box,1);
 
-            // Ey*Bz
-            SpaceUtils::interpolateStag(EyBz,node_box,0,this_Bv,1,bdry_dir);
-            EyBz.mult(this_Ev,node_box,0,0,1);
+         // Ey*Bz
+         SpaceUtils::interpolateStag(EyBz,node_box,0,this_Bv,1,bdry_dir);
+         EyBz.mult(this_Ev,node_box,0,0,1);
          
-            // Ez*By
+         // Ez*By
+         if(m_mesh.axisymmetric()) {
+            if(this_bc_type=="axis") EzBy.setVal(0.0);
+            else {
+               FArrayBox rBy(this_Bv.box(),1);
+               rBy.copy(this_Bv,0,0,1);           
+               rBy.mult(this_Xcc,this_Bv.box(),0,0,1);           
+               SpaceUtils::interpolateStag(EzBy,node_box,0,rBy,0,bdry_dir);
+               EzBy.mult(this_Ev,node_box,1,0,1);
+               EzBy.divide(this_Xnc,node_box,0,0,1);
+            }
+         }
+         else {
             SpaceUtils::interpolateStag(EzBy,node_box,0,this_Bv,0,bdry_dir);
             EzBy.mult(this_Ev,node_box,1,0,1);
+         }
 
-            //if(bdry_side==0) a_intSdA_lo[bdry_dir] = -(EyBz.sum(0) - EzBy.sum(0))*bdry_dA; 
-            //if(bdry_side==1) a_intSdA_hi[bdry_dir] =  (EyBz.sum(0) - EzBy.sum(0))*bdry_dA; 
-            if(bdry_side==0) {
-               a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_Jnc,node_box) 
-                                     -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA;
-            } 
-            if(bdry_side==1) {
-               a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_Jnc,node_box) 
-                                     -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA; 
-            }
-
+         //if(bdry_side==0) a_intSdA_lo[bdry_dir] = -(EyBz.sum(0) - EzBy.sum(0))*bdry_dA; 
+         //if(bdry_side==1) a_intSdA_hi[bdry_dir] =  (EyBz.sum(0) - EzBy.sum(0))*bdry_dA; 
+         if(bdry_side==0) {
+            a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_Jnc,node_box) 
+                                  -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA;
          } 
+         if(bdry_side==1) {
+            a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_Jnc,node_box) 
+                                  -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA; 
+         }
+
+#elif CH_SPACEDIM==2 
             
-         if(SpaceDim==2 && bdry_dir==0) {
+         if(bdry_dir==0) {
 
             const FArrayBox& this_Ey( a_E[bdry_layout.dataIndex(dit)][1] );
             const FArrayBox& this_By( a_B[bdry_layout.dataIndex(dit)][1] );
@@ -434,7 +460,7 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
 
          } 
             
-         if(SpaceDim==2 && bdry_dir==1) {
+         else if(bdry_dir==1) {
             
             const FArrayBox& this_Ex( a_E[bdry_layout.dataIndex(dit)][0] );
             const FArrayBox& this_Bx( a_B[bdry_layout.dataIndex(dit)][0] );
@@ -462,6 +488,7 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
             }
 
          }
+#endif 
 
       }
  
@@ -486,6 +513,8 @@ void FieldBC::prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
                           LevelData<NodeFArrayBox>&  a_Jv,
                     const LevelData<EdgeDataBox>&    a_Jx0,
                     const LevelData<NodeFArrayBox>&  a_Jv0,
+                    const LevelData<EdgeDataBox>&    a_Ex0,
+                    const LevelData<NodeFArrayBox>&  a_Ev0,
                     const LevelData<EdgeDataBox>&    a_Ex,
                     const LevelData<NodeFArrayBox>&  a_Ev,
                     const LevelData<EdgeDataBox>&    a_sigma_xx,
@@ -496,8 +525,7 @@ void FieldBC::prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
                     const LevelData<NodeFArrayBox>&  a_sigma_yz,
                     const LevelData<NodeFArrayBox>&  a_sigma_zx,
                     const LevelData<NodeFArrayBox>&  a_sigma_zy,
-                    const LevelData<NodeFArrayBox>&  a_sigma_zz,
-                    const Real                       a_volume_scale ) const
+                    const LevelData<NodeFArrayBox>&  a_sigma_zz ) const
 {
    CH_TIME("FieldBC::prepJforBC()");
    
@@ -526,6 +554,8 @@ void FieldBC::prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
          const FArrayBox& Ev( a_Ev[interior_dit].getFab() );
          const FArrayBox& Jx0( a_Jx0[interior_dit][0] );
          const FArrayBox& Jv0( a_Jv0[interior_dit].getFab() );
+         const FArrayBox& Ex0( a_Ex0[interior_dit][0] );
+         const FArrayBox& Ev0( a_Ev0[interior_dit].getFab() );
           
          //
          // compute Jx in ghost cells from deposited mass matrices
@@ -544,12 +574,14 @@ void FieldBC::prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
                                                 CHF_CONST_FRA(sigxx),
                                                 CHF_CONST_FRA(sigxy),
                                                 CHF_CONST_FRA(sigxz),
+                                                CHF_CONST_FRA1(Ex0,0),
                                                 CHF_CONST_FRA1(Ex,0),
+                                                CHF_CONST_FRA1(Ev0,0),
                                                 CHF_CONST_FRA1(Ev,0),
+                                                CHF_CONST_FRA1(Ev0,1),
                                                 CHF_CONST_FRA1(Ev,1),
                                                 CHF_CONST_FRA1(Jx0,0),
                                                 CHF_FRA1(Jx,0) );
-         Jx.mult(1.0/a_volume_scale,edge_box,0,1);
 
          //
          // compute Jy and Jz in ghost cells from deposited mass matrices
@@ -574,24 +606,28 @@ void FieldBC::prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
                                                 CHF_CONST_FRA(sigyx),
                                                 CHF_CONST_FRA(sigyy),
                                                 CHF_CONST_FRA(sigyz),
+                                                CHF_CONST_FRA1(Ex0,0),
                                                 CHF_CONST_FRA1(Ex,0),
+                                                CHF_CONST_FRA1(Ev0,0),
                                                 CHF_CONST_FRA1(Ev,0),
+                                                CHF_CONST_FRA1(Ev0,z_comp),
                                                 CHF_CONST_FRA1(Ev,z_comp),
                                                 CHF_CONST_FRA1(Jv0,0),
                                                 CHF_FRA1(Jv,0) );
-         Jv.mult(1.0/a_volume_scale,node_box,0,1);
          
          FORT_COMPUTE_JZ_BDRY_FROM_MASS_MATRIX( CHF_BOX(node_box),
                                                 CHF_CONST_INT(bdry_side),
                                                 CHF_CONST_FRA(sigzx),
                                                 CHF_CONST_FRA(sigzy),
                                                 CHF_CONST_FRA(sigzz),
+                                                CHF_CONST_FRA1(Ex0,0),
                                                 CHF_CONST_FRA1(Ex,0),
+                                                CHF_CONST_FRA1(Ev0,0),
                                                 CHF_CONST_FRA1(Ev,0),
+                                                CHF_CONST_FRA1(Ev0,z_comp),
                                                 CHF_CONST_FRA1(Ev,z_comp),
                                                 CHF_CONST_FRA1(Jv0,z_comp),
                                                 CHF_FRA1(Jv,z_comp) );
-         Jv.mult(1.0/a_volume_scale,node_box,z_comp,1);
          
       }
       
