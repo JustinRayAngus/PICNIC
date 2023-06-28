@@ -4,7 +4,6 @@
 #include <iostream>
 
 #include "REAL.H"
-#include "ParmParse.H"
 #include "Box.H"
 
 #include "NamespaceHeader.H"
@@ -25,8 +24,6 @@ class CodeUnits
          TEMPERATURE,      // [eV]
          NUMBER_DENSITY,   // [num/m^3]
          LENGTH,           // [m]
-         AREA,             // [m^2]
-         VOLUME,           // [m^3]
          TIME,             // [s]
          ELECTRIC_FIELD,   // [kV/cm]
          MAGNETIC_FIELD,   // [kV/cm/CVAC]
@@ -34,7 +31,7 @@ class CodeUnits
       
 
       // Constructor.
-      CodeUnits( ParmParse& parm_parse, const bool axisymmetric );
+      CodeUnits();
 
       // Default Destructor.
       ~CodeUnits() {;}
@@ -44,7 +41,6 @@ class CodeUnits
       Real getScale( const CHAR_SCALE& type ) const { checkType( type ); return m_scale[type]; }
       
       Real CvacNorm() const { return m_CVAC_NORM; }
-      Real NumDenNorm() const { return m_NUM_DEN_NORM; }
       Real wpNorm() const { return m_WP_NORM; }
      
    private:
@@ -52,7 +48,6 @@ class CodeUnits
       Real m_scale[COUNT];
       
       Real m_CVAC_NORM;
-      Real m_NUM_DEN_NORM;
       Real m_WP_NORM;
 
       // Check that the input type is valid.

@@ -307,7 +307,6 @@ void PicSpeciesBC::applyToRho( LevelData<FluxBox>&  a_Rho )
                }
             }
             else { // node centered
-               if(this_bc!="axis") this_Rho.mult(2.0,face_box,0,this_Rho.nComp());
                Box dst_box = face_box;
                Box src_box = face_box;
                for(int n=0; n<nG; n++) {
@@ -333,7 +332,6 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
    // to the rho that would come from mirror particles across the boundary. For other BCs,
    // adding the rho deposited to the ghost cells back to the interior amounts to using
    // a lower-order scheme near the boundary and makes is such that interior rho is conserved.
-   // Right on the boundary, a factor of 2 is way to account for a 1/2 factor in dV.
 
    // loop over non-periodic boundaries and apply BCs to Rho
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -356,7 +354,6 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
          if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
                
          FArrayBox& this_Rho( a_Rho[interior_dit].getFab() );
-         if(this_bc!="axis") this_Rho.mult(2.0,node_box,0,this_Rho.nComp());
          Box dst_box = node_box;
          Box src_box = node_box;
          const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;

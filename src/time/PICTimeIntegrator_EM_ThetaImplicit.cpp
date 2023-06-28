@@ -39,6 +39,8 @@ void PICTimeIntegrator_EM_ThetaImplicit::define(  System* const             a_sy
   } else if (     (m_nlsolver_type == _NLSOLVER_PETSCSNES_) 
               ||  (m_nlsolver_type == "petsc") /* backward compatibility */) {
 
+  if(m_nlsolver_type=="petsc") m_nlsolver_type = _NLSOLVER_PETSCSNES_;
+
 #ifdef with_petsc
     m_nlsolver = new PetscSNESWrapper<ODEVector<System>, System>;
     m_func = new EMResidualFunction<ODEVector<System>, System>;

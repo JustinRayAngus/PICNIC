@@ -1,0 +1,344 @@
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+pic_species.write_species_nppc = true
+
+#system.advance_method = "PIC_EM_EXPLICIT"
+system.advance_method = "PIC_EM_THETA_IMPLICIT"
+
+pic_species.iter_max_particles = 11
+pic_species.rtol_particles = 1.0e-10
+pic_species.newton_num_guess = 30
+pic_species.quasi_freeze_particles_jacobian = true
+pic_species.use_mass_matrices = true
+pic_species.mod_init_advance = true
+
+pic_em_theta_implicit.pc_update_newton = true
+em_fields.pc_mass_matrix_width = 1
+em_fields.pc_mass_matrix_include_ij = true
+
+pic_em_theta_implicit.solver_type = "petsc"
+pic_em_theta_implicit.pc_update_freq = 1
+jacobian.with_pc = true
+
+newton.verbose = false
+newton.atol = 1.0e-12
+newton.rtol = 1.0e-8
+newton.maxits = 100
+
+gmres.verbose = false
+gmres.atol = 1.0e-12
+gmres.rtol = 1.0e-4
+gmres.maxits = 100
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 200
+simulation.max_step            = 1000000000
+simulation.max_time            = 500.0 
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 4.0e-4
+#simulation.plot_interval       = 1000
+simulation.dt_scatter_interval = 100 
+simulation.plot_time_interval  = 5.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 200
+
+history.precision = 8
+history.solver_probes = true
+history.field_probes = true
+history.field_bdry_probes = true
+history.species_bdry_probes = true
+history.scattering_probes = true
+history.species0_probes = true
+history.species1_probes = true
+history.species2_probes = true
+history.species3_probes = true
+#
+simulation.checkpoint_time_interval = 50.0
+#simulation.restart_file = "checkpoint_data/chk207800.1d.hdf5"
+simulation.wall_time_hrs = 15.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 720
+grid.is_periodic   = 0
+grid.config_decomp = 144
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 11.50
+grid.X_max = 12.22
+grid.verbosity = 1
+grid.write_jacobians = true
+grid.write_corrected_jacobians = true
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = true
+em_fields.advance_electric_field = 1 0 1
+em_fields.advance_magnetic_field = 0 1 0
+em_fields.write_rho = true
+em_fields.write_divs = true
+#em_fields.write_curls = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+BC.em_fields.conservative_wall = true
+BC.em_fields.dir0_upper.type = "symmetry"
+BC.em_fields.dir0_lower.type = "insulator_conductor"
+BC.insulator.dir0_lower.X0_min = 11.00
+BC.insulator.dir0_lower.X0_max = 11.50
+BC.insulator.dir0_lower.time_function.type = "table"
+BC.insulator.dir0_lower.time_function.count = 11
+BC.insulator.dir0_lower.time_function.display_data = true
+BC.insulator.dir0_lower.time_function.table_data0 = 0.0   50.0  100.0  # time/tscale
+                                                    150.0 200.0 250.0 300.0 
+                                                    350.0 400.0 450.0 500.0
+BC.insulator.dir0_lower.time_function.table_data1 = 0.0   625.7 1.142e3 # By(x=Rp0)/Bscale
+                                                    1.434e3 1.350e3 1.585e3 2.054e3
+                                                    2.602e3 2.826e3 2.925e3 3.024e3
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# Species 0
+
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = true
+pic_species.0.scatter = true
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "CC1"
+pic_species.0.interp_type_E = "CC1"
+pic_species.0.interp_bc_check = true
+
+IC.electron.X_min = 11.50
+IC.electron.X_max = 11.52
+IC.electron.use_float_for_weights = true
+IC.electron.parts_per_cell = 10
+IC.electron.density.type = "constant"
+IC.electron.density.value = 6.44e21 # [number/m^3]
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 1.0 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 1.0 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 1.0 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 0.0
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+BC.electron.dir0_lower.type = "outflow"
+BC.electron.dir0_upper.type = "symmetry"
+
+# Species 1 (ground state neutral D2)
+
+pic_species.1.name   = "D1s"
+pic_species.1.mass   = 3671.5
+pic_species.1.potential = 0.0
+pic_species.1.charge = 0
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = true
+
+IC.D1s.X_min = 11.52
+IC.D1s.X_max = 12.22
+IC.D1s.use_float_for_weights = true
+IC.D1s.parts_per_cell = 1000
+IC.D1s.density.type = "constant"
+IC.D1s.density.value = 6.44e23 # [number/m^3]
+IC.D1s.temperature_0.type = "constant"
+IC.D1s.temperature_0.value = 25.9e-3 # [eV]
+IC.D1s.temperature_1.type = "constant"
+IC.D1s.temperature_1.value = 25.9e-3 # [eV]
+IC.D1s.temperature_2.type = "constant"
+IC.D1s.temperature_2.value = 25.9e-3 # [eV]
+IC.D1s.velocity_0.type = "constant"
+IC.D1s.velocity_0.value = 0.0
+IC.D1s.velocity_1.type = "constant"
+IC.D1s.velocity_1.value = 0.0
+IC.D1s.velocity_2.type = "constant"
+IC.D1s.velocity_2.value = 0.0
+
+IC_1.D1s.X_min = 11.50
+IC_1.D1s.X_max = 11.52
+IC_1.D1s.use_float_for_weights = true
+IC_1.D1s.parts_per_cell = 990
+IC_1.D1s.density.type = "constant"
+IC_1.D1s.density.value = 6.3756e23 # [number/m^3]
+IC_1.D1s.temperature_0.type = "constant"
+IC_1.D1s.temperature_0.value = 25.9e-3 # [eV]
+IC_1.D1s.temperature_1.type = "constant"
+IC_1.D1s.temperature_1.value = 25.9e-3 # [eV]
+IC_1.D1s.temperature_2.type = "constant"
+IC_1.D1s.temperature_2.value = 25.9e-3 # [eV]
+IC_1.D1s.velocity_0.type = "constant"
+IC_1.D1s.velocity_0.value = 0.0
+IC_1.D1s.velocity_1.type = "constant"
+IC_1.D1s.velocity_1.value = 0.0
+IC_1.D1s.velocity_2.type = "constant"
+IC_1.D1s.velocity_2.value = 0.0
+
+BC.D1s.dir0_lower.type = "symmetry"
+BC.D1s.dir0_upper.type = "symmetry"
+
+# Species 2 (excited state neutral D2)
+
+pic_species.2.name   = "D2s2p"
+pic_species.2.mass   = 3671.5
+pic_species.2.potential = 10.20
+pic_species.2.charge = 0
+pic_species.2.motion = true
+pic_species.2.forces = true
+pic_species.2.scatter = true
+
+BC.D2s2p.dir0_lower.type = "symmetry"
+BC.D2s2p.dir0_upper.type = "symmetry"
+
+# Species 3 (D2 ion)
+
+pic_species.3.name   = "Dion"
+pic_species.3.mass   = 3670.5
+pic_species.3.potential = 0.0
+pic_species.3.charge = 1
+pic_species.3.motion = true
+pic_species.3.forces = true
+pic_species.3.scatter = true
+pic_species.3.interp_type_N = "TSC"
+pic_species.3.interp_type_J = "CC1"
+pic_species.3.interp_type_E = "CC1"
+pic_species.3.interp_bc_check = true
+
+IC.Dion.X_min = 11.50
+IC.Dion.X_max = 11.52
+IC.Dion.use_float_for_weights = true
+IC.Dion.parts_per_cell = 10
+IC.Dion.density.type = "constant"
+IC.Dion.density.value = 6.44e21 # [number/m^3]
+IC.Dion.temperature_0.type = "constant"
+IC.Dion.temperature_0.value = 25.9e-3 # [eV]
+IC.Dion.temperature_1.type = "constant"
+IC.Dion.temperature_1.value = 25.9e-3 # [eV]
+IC.Dion.temperature_2.type = "constant"
+IC.Dion.temperature_2.value = 25.9e-3 # [eV]
+IC.Dion.velocity_0.type = "constant"
+IC.Dion.velocity_0.value = 0.0
+IC.Dion.velocity_1.type = "constant"
+IC.Dion.velocity_1.value = 0.0
+IC.Dion.velocity_2.type = "constant"
+IC.Dion.velocity_2.value = 0.0
+
+BC.Dion.dir0_lower.type = "outflow"
+BC.Dion.dir0_upper.type = "symmetry"
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.weight_method = "conservative"
+scattering.model_search_count_max = 200
+scattering.coulomb.all = true
+scattering.coulomb.model = "COULOMB"
+scattering.coulomb.angular_scattering = "NANBU"
+scattering.coulomb.coulomb_logarithm = 10.0
+
+#
+#   electron impact reactions
+#
+
+scattering.0.model = "MCN"
+scattering.0.speciesA = 0
+scattering.0.speciesB = 1
+scattering.0.angular_scattering = "okhrimovskyy"
+scattering.0.weight_method = "conservative"
+scattering.0.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D1s_xsecs_forPICNIC.txt"
+scattering.0.num_exc = 1 # must match that in text file
+scattering.0.exc_species = 2
+scattering.0.num_dis = 0 # must match that in text file
+scattering.0.num_izn = 1 # must match that in text file
+scattering.0.izn_speciesE = 0
+scattering.0.izn_speciesI = 3
+
+scattering.1.model = "MCN"
+scattering.1.speciesA = 0
+scattering.1.speciesB = 2
+scattering.1.angular_scattering = "okhrimovskyy"
+scattering.1.weight_method = "conservative"
+scattering.1.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D2s2p_xsecs_forPICNIC.txt"
+scattering.1.num_exc = 1 # must match that in text file
+scattering.1.exc_species = 1
+scattering.1.num_dis = 0 # must match that in text file
+scattering.1.num_izn = 1 # must match that in text file
+scattering.1.izn_speciesE = 0
+scattering.1.izn_speciesI = 3
+
+#
+#   elastic reactions
+#
+
+scattering.2.model = "HS"
+scattering.2.speciesA = 1
+scattering.2.speciesB = 1
+
+scattering.3.model = "HS"
+scattering.3.speciesA = 2
+scattering.3.speciesB = 2
+
+scattering.4.model = "HS"
+scattering.4.speciesA = 1
+scattering.4.speciesB = 2
+
+#
+#   charge exchange reactions
+#
+
+scattering.5.model = "CEX"
+scattering.5.speciesA = 3
+scattering.5.speciesB = 1
+scattering.5.cross_section_type = "text file"
+scattering.5.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D1s_charge_exchange.txt"
+scattering.5.weight_method = "conservative"
+
+scattering.6.model = "CEX"
+scattering.6.speciesA = 3
+scattering.6.speciesB = 2
+scattering.6.cross_section_type = "text file"
+scattering.6.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/deuterium/D1s_charge_exchange.txt"
+scattering.6.weight_method = "conservative"
+
+#####################################################
+

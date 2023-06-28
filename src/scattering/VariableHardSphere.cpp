@@ -12,14 +12,16 @@
 #include "NamespaceHeader.H"
 
 
-void VariableHardSphere::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
-                                     const DomainGrid&         a_mesh )
+void VariableHardSphere::initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                                     const DomainGrid&           a_mesh )
 {
    CH_TIME("VariableHardSphere::initialize()");
+   
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
 
    int this_sp = m_sp1;
-   CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species(a_picSpeciesPtrVect[this_sp]);
+   CH_assert(m_sp1<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species(pic_species_ptr_vect[this_sp]);
 
    //if(!this_species->scatter()) return;
    //CH_assert(this_species->scatter()); // assert that collisions are allowed for this species
@@ -47,36 +49,36 @@ void VariableHardSphere::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVe
       cout << " inter-species VHS collisions not yet implemented !!!!!!!!!! " << endl;
    }
    
-   //
-   // set the mean free time
-   //
-   
-   if(this_species->scatter()) {
-   
-      // define references to picSpecies1
-      const LevelData<FArrayBox>& numberDensity1 = this_species->getNumberDensity(false); // pre-computed
-      const LevelData<FArrayBox>& energyDensity1 = this_species->getEnergyDensity(true);
-   
-      if(m_sp1==m_sp2) {
-         setMeanFreeTime(numberDensity1,energyDensity1);
-      }
-      else {
-         //const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(false);
-         //const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(true);
-         //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
-      }
-
-   }
-
    if (m_verbosity)  printParameters();
 
 }
 
-
-void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
-                                          const LevelData<FArrayBox>&  a_energyDensity ) const
+void VariableHardSphere::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const 
 {
    CH_TIME("VariableHardSphere::setMeanFreeTime()");
+   
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+      
+   const PicSpeciesPtr this_species1 = pic_species_ptr_vect[m_sp1];
+   if(!this_species1->scatter()) return;
+   
+   const bool setMoments = false;
+   const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
+
+   if(m_sp1==m_sp2) setIntraMFT(numberDensity1,energyDensity1);
+   else {
+      //const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(false);
+      //const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(false);
+      //setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+   }
+
+}
+
+void VariableHardSphere::setIntraMFT( const LevelData<FArrayBox>&  a_numberDensity,
+                                      const LevelData<FArrayBox>&  a_energyDensity ) const
+{
+   CH_TIME("VariableHardSphere::setIntraMFT()");
    
    Real mass = m_mass1;
    
@@ -131,14 +133,14 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
    //m_scatter_dt = m_scatter_dt/tscale;
 
 }
-/*
-void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
-                                          const LevelData<FArrayBox>&  a_energyDensity1,
-                                          const LevelData<FArrayBox>&  a_numberDensity2,
-                                          const LevelData<FArrayBox>&  a_energyDensity2 )
+
+void VariableHardSphere::setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
+                                      const LevelData<FArrayBox>&  a_energyDensity1,
+                                      const LevelData<FArrayBox>&  a_numberDensity2,
+                                      const LevelData<FArrayBox>&  a_energyDensity2 ) const
 {
-   CH_TIME("VariableHardSphere::setMeanFreeTime()");
-   
+   /*
+   CH_TIME("VariableHardSphere::setInterMFT()");
    Real mass = m_mass1;
    
    // predefine some variables
@@ -184,24 +186,26 @@ void VariableHardSphere::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberD
 //   MPI_Allreduce( &box_nuMax, &global_nuMax, 1, MPI_CH_REAL, MPI_MAX, MPI_COMM_WORLD ); 
 //#endif
    m_scatter_dt = 1.0/global_nuMax; // mean free time [s]
+   */
 
 }
-*/
 
-void VariableHardSphere::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                                    const DomainGrid&         a_mesh,
-                                    const Real                a_dt_sec ) const
+void VariableHardSphere::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                                    const DomainGrid&           a_mesh,
+                                    const Real                  a_dt_sec ) const
 {
    CH_TIME("VariableHardSphere::applyScattering()");
+   
+   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
       
-   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
    if(!this_species1->scatter()) return;
 
    if(m_sp1==m_sp2) {
       applySelfScattering( *this_species1, a_mesh, a_dt_sec );
    }
    else {
-      PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+      PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
       if(!this_species2->scatter()) return;
       applyInterScattering( *this_species1, *this_species2, a_mesh, a_dt_sec );
    }
@@ -388,9 +392,6 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    this_part2_ptr = NULL;
    delete this_part1_ptr;
    delete this_part2_ptr;
-   
-   // While we are here, update the mean free time
-   //setMeanFreeTime(numberDensity,energyDensity);
    
 }
 

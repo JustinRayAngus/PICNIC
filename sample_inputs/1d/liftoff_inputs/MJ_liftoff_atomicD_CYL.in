@@ -2,15 +2,21 @@
 # Verbosity and writing Definitions
 #####################################################
 simulation.verbosity = 10
-system.write_species_charge_density = false
-system.write_species_current_density = false
+pic_species.write_species_nppc = true
 
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.iter_max_particles = 8
+pic_species.iter_max_particles = 11
+pic_species.rtol_particles = 1.0e-10
+pic_species.newton_num_guess = 30
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
+pic_species.mod_init_advance = true
+
+pic_em_theta_implicit.pc_update_newton = true
+em_fields.pc_mass_matrix_width = 1
+em_fields.pc_mass_matrix_include_ij = true
 
 pic_em_theta_implicit.solver_type = "petsc"
 pic_em_theta_implicit.pc_update_freq = 1
@@ -19,10 +25,12 @@ jacobian.with_pc = true
 newton.verbose = false
 newton.atol = 1.0e-12
 newton.rtol = 1.0e-8
+newton.maxits = 100
 
 gmres.verbose = false
 gmres.atol = 1.0e-12
 gmres.rtol = 1.0e-4
+gmres.maxits = 1000
 
 #####################################################
 # Time Stepping Definitions
@@ -52,8 +60,8 @@ history.species2_probes = true
 history.species3_probes = true
 #
 simulation.checkpoint_time_interval = 50.0
-#simulation.restart_file = "checkpoint_data/chk072300.1d.hdf5"
-simulation.wall_time_hrs = 23.95
+#simulation.restart_file = "checkpoint_data/chk201700.1d.hdf5"
+simulation.wall_time_hrs = 15.95
 
 #####################################################
 # Computational Grid Definitions
@@ -61,12 +69,15 @@ simulation.wall_time_hrs = 23.95
 grid.num_cells     = 720
 grid.is_periodic   = 0
 grid.config_decomp = 144
-grid.geometry      = "cartesian"
+grid.geometry      = "cyl_R"
+grid.volume_correction = "conservative"
 grid.num_ghosts    = 2
 
 grid.X_min = 11.50
 grid.X_max = 12.22
 grid.verbosity = 1
+grid.write_jacobians = true
+grid.write_corrected_jacobians = true
 
 #####################################################
 # Units Definitions
@@ -132,11 +143,13 @@ pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
 pic_species.0.interp_bc_check = true
-pic_species.0.deposit_outflow_J = true
+pic_species.0.push_type = "CYL_CYL"
 
 IC.electron.X_min = 11.50
 IC.electron.X_max = 11.52
+IC.electron.uniform_particle_weights = true
 IC.electron.use_float_for_weights = true
+IC.electron.fixed_weight = 4.6535293570640970e15
 IC.electron.parts_per_cell = 10
 IC.electron.density.type = "constant"
 IC.electron.density.value = 6.44e21 # [number/m^3]
@@ -165,10 +178,13 @@ pic_species.1.charge = 0
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
+#pic_species.1.push_type = "CYL_BORIS"
 
 IC.D1s.X_min = 11.52
 IC.D1s.X_max = 12.22
+IC.D1s.uniform_particle_weights = true
 IC.D1s.use_float_for_weights = true
+IC.D1s.fixed_weight = 4.6535293570640970e15
 IC.D1s.parts_per_cell = 1000
 IC.D1s.density.type = "constant"
 IC.D1s.density.value = 6.44e23 # [number/m^3]
@@ -187,7 +203,9 @@ IC.D1s.velocity_2.value = 0.0
 
 IC_1.D1s.X_min = 11.50
 IC_1.D1s.X_max = 11.52
+IC_1.D1s.uniform_particle_weights = true
 IC_1.D1s.use_float_for_weights = true
+IC_1.D1s.fixed_weight = 4.6535293570640970e15
 IC_1.D1s.parts_per_cell = 990
 IC_1.D1s.density.type = "constant"
 IC_1.D1s.density.value = 6.3756e23 # [number/m^3]
@@ -216,6 +234,7 @@ pic_species.2.charge = 0
 pic_species.2.motion = true
 pic_species.2.forces = true
 pic_species.2.scatter = true
+#pic_species.2.push_type = "CYL_BORIS"
 
 BC.D2s2p.dir0_lower.type = "symmetry"
 BC.D2s2p.dir0_upper.type = "symmetry"
@@ -233,11 +252,13 @@ pic_species.3.interp_type_N = "TSC"
 pic_species.3.interp_type_J = "CC1"
 pic_species.3.interp_type_E = "CC1"
 pic_species.3.interp_bc_check = true
-pic_species.3.deposit_outflow_J = true
+pic_species.3.push_type = "CYL_CYL"
 
 IC.Dion.X_min = 11.50
 IC.Dion.X_max = 11.52
+IC.Dion.uniform_particle_weights = true
 IC.Dion.use_float_for_weights = true
+IC.Dion.fixed_weight = 4.6535293570640970e15
 IC.Dion.parts_per_cell = 10
 IC.Dion.density.type = "constant"
 IC.Dion.density.value = 6.44e21 # [number/m^3]
@@ -261,10 +282,11 @@ BC.Dion.dir0_upper.type = "symmetry"
 # Scattering Definitions
 #####################################################
 
-scattering.weight_method = "conservative"
-scattering.model_search_count_max = 200
+#scattering.weight_method = "conservative"
+#scattering.model_search_count_max = 200
 scattering.coulomb.all = true
-scattering.coulomb.model = "TA"
+scattering.coulomb.model = "COULOMB"
+scattering.coulomb.angular_scattering = "NANBU"
 scattering.coulomb.coulomb_logarithm = 10.0
 
 #

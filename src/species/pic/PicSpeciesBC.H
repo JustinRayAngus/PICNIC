@@ -2,6 +2,7 @@
 #define _PIC_SPECIES_BC_H_
 
 #include "DomainGrid.H"
+#include "ParmParse.H"
 #include "List.H"
 #include "ParticleData.H"
 #include "JustinsParticle.H"

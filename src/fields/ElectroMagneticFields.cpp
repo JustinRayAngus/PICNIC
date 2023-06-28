@@ -113,12 +113,12 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    const Real Escale = a_units.getScale(a_units.ELECTRIC_FIELD);
    m_rhoCnorm_factor = qe/ep0*Xscale/Escale;
    
-   const Real volume_scale = a_units.getScale(a_units.VOLUME);
+   const Real volume_scale = m_mesh.getVolumeScale();
    const Real dVolume = m_mesh.getMappedCellVolume()*volume_scale; // SI units
    m_energyE_factor = 0.5*Escale*Escale*ep0*dVolume;
    m_energyB_factor = 0.5*Bscale*Bscale/mu0*dVolume;
    
-   const Real area_scale = a_units.getScale(a_units.AREA);
+   const Real area_scale = m_mesh.getAreaScale();
    m_SdA_factor = Escale*Bscale/mu0*area_scale;
    m_time_scale = a_units.getScale(a_units.TIME);
    

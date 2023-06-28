@@ -21,6 +21,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
      m_iter_min_two(false),
      m_iter_max_particles(0),
      m_rtol_particles(1.0e-12),
+     m_newton_num_guess(1),
      m_freeze_particles_jacobian(false),
      m_quasi_freeze_particles_jacobian(false),
      m_use_mass_matrices(false),
@@ -40,6 +41,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    pp.query("iter_min_two",m_iter_min_two);
    pp.query("iter_max_particles",m_iter_max_particles);
    pp.query("rtol_particles",m_rtol_particles);
+   pp.query("newton_num_guess",m_newton_num_guess);
    //
    pp.query("freeze_particles_jacobian",m_freeze_particles_jacobian);
    pp.query("quasi_freeze_particles_jacobian",m_quasi_freeze_particles_jacobian);
@@ -63,6 +65,8 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    
    m_currentDensity.define(grids,1,ghostVect);
    m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);
+   
+   m_DebyeLength.define(grids,1,ghostVect);
    
 }
 
@@ -127,16 +131,10 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
          species->setParticleSolverParams( m_part_order_swap,
                                            m_iter_min_two,
                                            m_iter_max_particles,
-                                           m_rtol_particles );
+                                           m_rtol_particles,
+                                           m_newton_num_guess );
       }
   
-      // set moments for initial mean free path calculation
-      if(species->scatter()) {
-         species->binTheParticles();
-         species->setNumberDensity();
-         species->setEnergyDensity();
-      }
-
    }
     
    // additional species-pair initialization
@@ -165,6 +163,7 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
          cout << "  iter_min_two = " << m_iter_min_two << endl;
          cout << "  iter_max_particles = " << m_iter_max_particles << endl;
          cout << "  rtol_particles = " << m_rtol_particles << endl;
+         cout << "  newton_num_guess = " << m_newton_num_guess << endl;
          cout << "  freeze_particles_jacobian = " << m_freeze_particles_jacobian << endl;
          cout << "  quasi_freeze_particles_jacobian = " << m_quasi_freeze_particles_jacobian << endl;
          cout << "  use_mass_matrices = " << m_use_mass_matrices << endl;
@@ -1055,19 +1054,106 @@ void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
 
 }
 
-void PicSpeciesInterface::prepForScatter()
+void PicSpeciesInterface::prepForScatter( const int   a_num_coulomb,
+	                                  const bool  a_from_scatterDt )
 {
    CH_TIME("PicSpeciesInterface::prepForScatter()");
    
    // prepare all species to be scattered for scattering
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
       PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->scatter()) {
-         species->binTheParticles();
-         species->setNumberDensity();
+      species->binTheParticles();
+      species->setNumberDensityFromBinFab();
+      if(a_from_scatterDt) {
+         species->setMomentumDensityFromBinFab();
+         species->setEnergyDensityFromBinFab();
+      }
+      else if(a_num_coulomb>0 && species->charge()!=0) {
+         species->setMomentumDensityFromBinFab();
+         species->setEnergyDensityFromBinFab();
       }
    }
- 
+   
+   if(a_num_coulomb>0) setDebyeLength();
+
+}
+
+void PicSpeciesInterface::setDebyeLength() 
+{
+   CH_TIME("PicSpeciesInterface::setDebyeLength()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+
+   Real mcSq_eV = Constants::ME*Constants::CVAC*Constants::CVAC*Constants::EV_PER_JOULE;
+   SpaceUtils::zero( m_DebyeLength );
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
+
+      PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      if(species->charge()==0) continue;
+
+      // job of caller to make sure the momentus are precomputed
+      const LevelData<FArrayBox>& numDen = species->getNumberDensityFromBinFab();
+      const LevelData<FArrayBox>& momDen = species->getMomentumDensityFromBinFab();
+      const LevelData<FArrayBox>& eneDen = species->getEnergyDensityFromBinFab();
+      const Real Aconst = Constants::EP0/Constants::QE/(species->charge()*species->charge());
+   
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+   
+               FArrayBox& this_LDe = m_DebyeLength[dit];
+         const FArrayBox& this_numDen = numDen[dit];
+         const FArrayBox& this_momDen = momDen[dit];
+         const FArrayBox& this_eneDen = eneDen[dit];
+     
+         const Box gridBox = grids.get(dit);
+         BoxIterator gbit(gridBox);
+         for (gbit.begin(); gbit.ok(); ++gbit) {
+
+            const IntVect ig = gbit();
+       
+            Real N = this_numDen.get(ig,0); // [1/m^3]
+            if(N == 0.0) continue;
+            Real rho = N*species->mass();
+
+	    Real rhoUx = this_momDen.get(ig,0); // [m/s*1/m^3]
+	    Real rhoUy = this_momDen.get(ig,1); // [m/s*1/m^3]
+	    Real rhoUz = this_momDen.get(ig,2); // [m/s*1/m^3]
+	    const Real meanE = (rhoUx*rhoUx + rhoUy*rhoUy + rhoUz*rhoUz)/rho/2.0;
+         
+            Real rhoE = 0.0;
+            for( int dir=0; dir<3; dir++) rhoE += this_eneDen.get(ig,dir); 
+            
+            Real T_eV = 2.0/3.0*(rhoE - meanE)/N*mcSq_eV;
+	    T_eV = std::max(T_eV, 0.01);
+            //if(!procID()) cout << "JRA: species = " << species->name() << endl;
+            //if(!procID()) cout << "JRA: numDen = " << N << endl;
+            //if(!procID()) cout << "JRA: meanE[ig="<<ig<<"] = " << meanE << endl;
+            //if(!procID()) cout << "JRA: T_eV[ig="<<ig<<"]  = " << T_eV << endl;
+	    const Real LDe_sq = Aconst*T_eV/N; // [m^2] 
+
+	    // store sum of 1/LDe^2 in LDe container
+	    Real sumLDe_sq_inv = this_LDe.get(ig,0);
+	    sumLDe_sq_inv += 1.0/LDe_sq;
+	    this_LDe.set(ig,0,sumLDe_sq_inv);
+
+	 }
+
+      }
+
+   }
+
+   // invert sum of species inverse Debye lengths squared and take square root
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      FArrayBox& this_LDe = m_DebyeLength[dit];
+      const Box gridBox = grids.get(dit);
+      BoxIterator gbit(gridBox);
+      for (gbit.begin(); gbit.ok(); ++gbit) {
+         const IntVect ig = gbit();
+         Real LDe_sq_inv = this_LDe.get(ig,0);
+	 Real LDe = 1.0/std::sqrt(LDe_sq_inv);
+	 this_LDe.set(ig,0,LDe);
+         //if(!procID()) cout << "JRA: LDe[ig="<<ig<<"] = " << LDe << " m" << endl;
+      }
+   }
+
 } 
 
 Real 

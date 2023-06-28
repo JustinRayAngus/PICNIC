@@ -51,7 +51,7 @@ class Simulation
 {
    public:
 
-      Simulation( ParmParse& pp );
+      Simulation( ParmParse& pp, const std::time_t a_main_start );
       ~Simulation();
 
       bool notDone();
@@ -137,7 +137,7 @@ class Simulation
 #endif
 
       /* Walltime measurements */
-      clock_t m_main_start, m_solve_start, m_main_end, m_solve_end;
+      time_t m_main_start, m_solve_start;
 };
 
 #include "NamespaceFooter.H"

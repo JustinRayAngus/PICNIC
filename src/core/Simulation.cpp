@@ -10,7 +10,7 @@
 
 #include "NamespaceHeader.H"
 
-Simulation::Simulation( ParmParse& a_pp )
+Simulation::Simulation( ParmParse& a_pp, const std::time_t a_main_start )
    :   m_verbosity(0),
        m_cur_step(0),
        m_max_step(0),
@@ -55,7 +55,7 @@ Simulation::Simulation( ParmParse& a_pp )
        m_shutdown_timer( NULL )
 #endif
 {
-   m_main_start = clock();
+   m_main_start = a_main_start;
 #ifdef CH_USE_TIMER
    initializeTimers();
    m_all_timer->start();
@@ -134,7 +134,8 @@ Simulation::Simulation( ParmParse& a_pp )
 #ifdef CH_USE_TIMER
    solve_timer->start();
 #endif
-   m_solve_start = clock();
+   auto now = std::chrono::system_clock::now();
+   m_solve_start = std::chrono::system_clock::to_time_t(now);
 
 }
 
@@ -322,18 +323,20 @@ bool Simulation::notDone()
          commandFile.close();
          std::remove(fileName.c_str());
       }
-
+      
       // check run time vs max wall time
-      double main_time_now = clock();
-      double main_walltime = ((double) (main_time_now - m_main_start)) / CLOCKS_PER_SEC;
-      double main_walltime_hrs = main_walltime/3600.0;
-      double main_walltime_hrs_g;
+      auto now = std::chrono::system_clock::now();
+      std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+      double wall_time_sec = ((double) (now_time - m_main_start));
+      double wall_time_hrs = wall_time_sec/3600.0;
+      double wall_time_hrs_g;
+
 #ifdef CH_MPI
-      MPI_Allreduce(&main_walltime_hrs,&main_walltime_hrs_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+      MPI_Allreduce(&wall_time_hrs,&wall_time_hrs_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 #else
-      main_walltime_hrs_g = main_walltime_hrs;
+      wall_time_hrs_g = wall_time_hrs;
 #endif
-      if(main_walltime_hrs_g > m_max_wall_time_hrs && !procID()){
+      if(wall_time_hrs_g > m_max_wall_time_hrs && !procID()){
          cout << endl;
          cout << "Maximum wall time reached. Terminating simulation..." << endl;
          cout << endl;
@@ -381,10 +384,12 @@ void Simulation::advance()
    }
    m_system->timeStep( m_cur_time, m_cur_dt, m_cur_step );
    postTimeStep();
+   
+   auto now = std::chrono::system_clock::now();
+   std::time_t now_time = std::chrono::system_clock::to_time_t(now);
 
-   clock_t m_now = clock();
    double walltime, walltime_g;
-   walltime = ((double) (m_now - m_solve_start)) / CLOCKS_PER_SEC;
+   walltime = ((double) (now_time - m_solve_start));
 #ifdef CH_MPI
    MPI_Allreduce(&walltime,&walltime_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 #else
@@ -407,10 +412,10 @@ void Simulation::advance()
    writeFiles();
 }
 
-
 void Simulation::finalize()
 {
-   m_solve_end = clock();
+   auto now = std::chrono::system_clock::now();
+   std::time_t solve_end = std::chrono::system_clock::to_time_t(now);
 #ifdef CH_USE_TIMER
    solve_timer->stop();
 #endif
@@ -426,21 +431,21 @@ void Simulation::finalize()
       writeCheckpointFile();
    }
 
-   m_main_end = clock();
-
-   double main_walltime = ((double) (m_main_end - m_main_start)) / CLOCKS_PER_SEC;
-   double solve_walltime = ((double) (m_solve_end - m_solve_start)) / CLOCKS_PER_SEC;
-   double main_walltime_g, solve_walltime_g;
+   now = std::chrono::system_clock::now();
+   std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+   double wall_time_sec = ((double) (now_time - m_main_start));
+   double solve_walltime = ((double) (solve_end - m_solve_start));
+   double wall_time_sec_g, solve_walltime_g;
 #ifdef CH_MPI
-   MPI_Allreduce(&main_walltime,&main_walltime_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+   MPI_Allreduce(&wall_time_sec,&wall_time_sec_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
    MPI_Allreduce(&solve_walltime,&solve_walltime_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 #else
-   main_walltime_g = main_walltime;
+   wall_time_sec_g = wall_time_sec;
    solve_walltime_g = solve_walltime;
 #endif
    if(!procID()) {
      cout << "Solve wall time (in seconds): " << solve_walltime_g << "\n";
-     cout << "Total wall time (in seconds): " << main_walltime_g << "\n";
+     cout << "Total wall time (in seconds): " << wall_time_sec_g << "\n";
    }
 
 #ifdef CH_USE_TIMER

@@ -2,6 +2,7 @@
 #define _FIELD_BC_H_
 
 #include "DomainGrid.H"
+#include "ParmParse.H"
 #include "InsulatorBC.H"
 
 #include "NamespaceHeader.H"

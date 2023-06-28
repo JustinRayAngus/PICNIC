@@ -11,7 +11,7 @@
 #define ScatteringInterface_h
 
 #include "PicSpecies.H"
-#include "CodeUnits.H"
+#include "PicSpeciesInterface.H"
 
 #include "Scattering.H"
 #include "ScatteringFactory.H"
@@ -23,24 +23,25 @@ class ScatteringInterface
 
 public:
 
-  ScatteringInterface( const CodeUnits&          a_units,
-                       const PicSpeciesPtrVect&  a_pic_species_ptr_vect );
+  ScatteringInterface( const PicSpeciesInterface&  a_pic_species_intf );
   
   virtual ~ScatteringInterface() {;}
      
-  void initialize( const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                   const DomainGrid&         a_mesh,
-                   const std::string&        a_restart_file_name );
+  void initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                   const DomainGrid&           a_mesh,
+                   const std::string&          a_restart_file_name );
    
-  void applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                  const DomainGrid&         a_mesh,
-                  const Real                a_dt_sec );
+  void applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                  const DomainGrid&           a_mesh,
+                  const Real                  a_dt_sec );
 
   void setScatteringProbes();
 
   int numScatter() const { return m_scattering_ptr_vect.size(); }
+  
+  int numCoulomb() const { return m_num_coulomb; }
 
-  Real scatterDt( const PicSpeciesPtrVect&  a_pic_species_ptr_vect );
+  Real scatterDt( const PicSpeciesInterface&  a_pic_species_intf );
   
   Real ionizationEnergy() const { return m_izn_energy_joules; }
   
@@ -54,8 +55,7 @@ private:
 
   void createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
                    const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                   const ParmParse&          a_pp_scatterC,
-                   const CodeUnits&          a_units ) const;
+                   const ParmParse&          a_pp_scatterC ) const;
   
   bool m_verbosity;    
   Real m_scatterDt = DBL_MAX;

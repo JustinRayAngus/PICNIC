@@ -56,6 +56,8 @@ public:
   void setCurrentDensity( const bool  a_from_explicit_solver = false );
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
+  
+  const LevelData<FArrayBox>& getDebyeLength() const {return m_DebyeLength;}
 
   void preRHSOp( const bool                    a_from_emjacobian, 
                  const ElectroMagneticFields&  a_emfields,
@@ -76,7 +78,9 @@ public:
              const ElectroMagneticFields&     a_emfields,
              const Real                       a_dt );
  
-  void prepForScatter();
+  void prepForScatter( const int   a_num_coulomb,
+		       const bool  a_from_scatterDt );
+  void setDebyeLength();
   
   void postTimeStep() {
      for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
@@ -160,6 +164,7 @@ private:
   bool m_iter_min_two;
   int m_iter_max_particles;
   Real m_rtol_particles;
+  int m_newton_num_guess;
       
   bool m_freeze_particles_jacobian;
   bool m_quasi_freeze_particles_jacobian;
@@ -186,6 +191,8 @@ private:
   LevelData<EdgeDataBox> m_currentDensity_TEST;          
   LevelData<NodeFArrayBox> m_currentDensity_virtual_TEST;
 #endif
+  
+  LevelData<FArrayBox> m_DebyeLength;
   
   // containers for semi-implicit mass matrix
   LevelData<EdgeDataBox> m_J0, m_E0;

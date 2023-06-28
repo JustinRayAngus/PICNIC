@@ -35,18 +35,17 @@ System::System( ParmParse&  a_pp )
    DisjointBoxLayout grids;
    getDisjointBoxLayout( grids );
    
-   // initialize the coordinates and grid
-   ParmParse ppgrid( "grid" );
-   m_mesh = new DomainGrid( ppgrid, m_num_ghosts, m_domain, grids ); 
-   
-   m_units = new CodeUnits( ppsys, m_mesh->axisymmetric() );
+   m_units = new CodeUnits();
    m_units->printParameters();
+
+   const Real length_scale = m_units->getScale(m_units->LENGTH);
+   m_mesh = new DomainGrid( m_domain, grids, m_num_ghosts, length_scale ); 
 
    m_dataFile = new dataFileIO( ppsys, *m_mesh, *m_units );
      
    createState();
    
-   m_scattering = new ScatteringInterface( *m_units, m_pic_species->getPtrVect() ); 
+   m_scattering = new ScatteringInterface( *m_pic_species ); 
 
    createSpecialOperators();
 
@@ -345,7 +344,8 @@ void System::initialize( const int           a_cur_step,
    m_pic_species->initialize( *m_units, m_implicit_advance, a_cur_time, a_restart_file_name );
    
    // initialize the scattering operators
-   m_scattering->initialize( m_pic_species->getPtrVect(), *m_mesh, a_restart_file_name );
+   //m_pic_species->prepForScatter(m_scattering->numCoulomb(),true);
+   m_scattering->initialize( *m_pic_species, *m_mesh, a_restart_file_name );
       
    // initialize the electromagnetic fields
    if(m_emfields.isNull()) {CH_assert(!m_pic_species->forces());}
@@ -983,8 +983,8 @@ void System::scatterParticles( const Real&  a_dt )
    const Real tscale = m_units->getScale(m_units->TIME);
    const Real dt_sec = a_dt*tscale;      
 
-   m_pic_species->prepForScatter();
-   m_scattering->applyScattering( m_pic_species->getPtrVect(), *m_mesh, dt_sec );
+   m_pic_species->prepForScatter(m_scattering->numCoulomb(),false);
+   m_scattering->applyScattering( *m_pic_species, *m_mesh, dt_sec );
    
 }   
 
@@ -1009,17 +1009,12 @@ Real System::scatterDt( const int a_step_number )
 {
 
    Real scatterDt = DBL_MAX;
-   
    if(m_scattering->numScatter()>0) {
-
-      scatterDt = m_scattering->scatterDt( m_pic_species->getPtrVect() );
- 
-      // convert to code units
+      m_pic_species->prepForScatter(m_scattering->numCoulomb(),true);
+      scatterDt = m_scattering->scatterDt( *m_pic_species );
       const Real tscale = m_units->getScale(m_units->TIME);
       scatterDt = scatterDt/tscale;
-   
    }
-   
    return scatterDt;
 
 }

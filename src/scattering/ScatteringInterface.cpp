@@ -5,8 +5,7 @@
 
 #include "NamespaceHeader.H"
 
-ScatteringInterface::ScatteringInterface( const CodeUnits&          a_units,
-                                          const PicSpeciesPtrVect&  a_pic_species_ptr_vect )
+ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_species_intf )
    : m_verbosity(true),
      m_scatterDt(DBL_MAX),
      m_weight_method(PROBABILISTIC),
@@ -47,7 +46,8 @@ ScatteringInterface::ScatteringInterface( const CodeUnits&          a_units,
    bool coulomb_all = false;
    pp_scatterC.query("all",coulomb_all);
    if(coulomb_all) {
-      createAllCoulomb( coulomb_ptr_vect, a_pic_species_ptr_vect, pp_scatterC, a_units );
+      const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+      createAllCoulomb( coulomb_ptr_vect, pic_species_ptr_vect, pp_scatterC );
    } 
 
    //bool more_scattering_models(true);
@@ -61,7 +61,7 @@ ScatteringInterface::ScatteringInterface( const CodeUnits&          a_units,
      
       // Create scattering object and add it to the scattering vector
       if(pp_scatter.contains("model")) {
-         ScatteringPtr this_scattering = scatteringFactory.create( pp_scatter, a_units, m_weight_method, 1 );
+         ScatteringPtr this_scattering = scatteringFactory.create( pp_scatter, m_weight_method, 1 );
          if(this_scattering->getScatteringType()==COULOMB) {
             coulomb_ptr_vect.push_back(this_scattering);
          }
@@ -99,16 +99,16 @@ ScatteringInterface::ScatteringInterface( const CodeUnits&          a_units,
 }
   
 void 
-ScatteringInterface::initialize( const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                                 const DomainGrid&         a_mesh,
-                                 const std::string&        a_restart_file_name )
+ScatteringInterface::initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                                 const DomainGrid&           a_mesh,
+                                 const std::string&          a_restart_file_name )
 {
       
    if(!procID()) cout << "Initializing scattering objects..." << endl << endl;
-
+   
    for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
       ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-      this_scattering->initialize( a_pic_species_ptr_vect, a_mesh );
+      this_scattering->initialize( a_pic_species_intf, a_mesh );
    }
 
    if(!procID()) {
@@ -127,43 +127,30 @@ ScatteringInterface::initialize( const PicSpeciesPtrVect&  a_pic_species_ptr_vec
 }
   
 void 
-ScatteringInterface::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                                const DomainGrid&         a_mesh,
-                                const Real                a_dt_sec )
+ScatteringInterface::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                                const DomainGrid&           a_mesh,
+                                const Real                  a_dt_sec )
 {
    CH_TIME("ScatteringInterface::applyScattering()");
    
-   // Should we shuffle the m_scattering_ptr_vect each time ?
-   //for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
-   //   ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-   //   this_scattering->applyScattering( a_pic_species_ptr_vect, a_mesh, a_dt_sec );
-   //}
-
-   // separete the loop up into logical pieces for clarity
-
    // do Coulomb first
    for (int sct=0; sct<m_num_coulomb; sct++) {
       ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-      this_scattering->applyScattering( a_pic_species_ptr_vect, a_mesh, a_dt_sec );
+      this_scattering->applyScattering( a_pic_species_intf, a_mesh, a_dt_sec );
    }
    int offset = m_num_coulomb;
 
    // do all other elastic collisions second
    for (int sct=offset; sct<offset+m_num_elastic; sct++) {
       ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-      //CH_assert(this_scattering->getScatteringType()==ELASTIC ||
-      //          this_scattering->getScatteringType()==CHARGE_EXCHANGE)
-      this_scattering->applyScattering( a_pic_species_ptr_vect, a_mesh, a_dt_sec );
+      this_scattering->applyScattering( a_pic_species_intf, a_mesh, a_dt_sec );
    }
    offset += m_num_elastic;
    
    // do inelastic last
    for (int sct=offset; sct<offset+m_num_inelastic; sct++) {
       ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-      //CH_assert(this_scattering->getScatteringType()!=COULOMB &&
-      //          this_scattering->getScatteringType()!=ELASTIC &&
-      //          this_scattering->getScatteringType()!=CHARGE_EXCHANGE);
-      this_scattering->applyScattering( a_pic_species_ptr_vect, a_mesh, a_dt_sec );
+      this_scattering->applyScattering( a_pic_species_intf, a_mesh, a_dt_sec );
    }
    CH_assert(offset+m_num_inelastic==m_scattering_ptr_vect.size());
 
@@ -215,47 +202,17 @@ void ScatteringInterface::setScatteringProbes()
 }
 
 Real
-ScatteringInterface::scatterDt( const PicSpeciesPtrVect&  a_pic_species_ptr_vect )
+ScatteringInterface::scatterDt( const PicSpeciesInterface&  a_pic_species_intf )
 {
    CH_TIME("System::scatterDt()");
 
    Real scatterDt_local = DBL_MAX;
-      
-   // compute the density and energy moments for mean free time calculation
-   for (int sp=0; sp<a_pic_species_ptr_vect.size(); sp++) {
-      PicSpeciesPtr species(a_pic_species_ptr_vect[sp]);
-      if(species->scatter()) {
-         species->setNumberDensity();
-         species->setEnergyDensity();
-      }
-   }
-
+   
    // set mean free time for each scattering object
    for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
-
       ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
-      int sp1 = this_scattering->species1();
-      const PicSpeciesPtr this_picSpecies1 = a_pic_species_ptr_vect[sp1];
-      const LevelData<FArrayBox>& numberDensity1 = this_picSpecies1->getNumberDensity();
-      const LevelData<FArrayBox>& energyDensity1 = this_picSpecies1->getEnergyDensity();
-         
-      if(!this_picSpecies1->scatter()) continue;
-
-      int sp2 = this_scattering->species2();
-      if(sp1==sp2) {
-         this_scattering->setMeanFreeTime(numberDensity1,energyDensity1);
-      }
-      else {
-         PicSpeciesPtr this_picSpecies2 = a_pic_species_ptr_vect[sp2];
-         if(!this_picSpecies2->scatter()) continue;
-         const LevelData<FArrayBox>& numberDensity2 = this_picSpecies2->getNumberDensity();
-         const LevelData<FArrayBox>& energyDensity2 = this_picSpecies2->getEnergyDensity();
-         this_scattering->setMeanFreeTime( numberDensity1, energyDensity1,
-                                           numberDensity2, energyDensity2 );
-      }
-
+      this_scattering->setMeanFreeTime( a_pic_species_intf );
       scatterDt_local = Min(scatterDt_local,this_scattering->scatterDt()); // [s]
-
    }
 
    Real m_scatterDt = scatterDt_local;
@@ -309,8 +266,7 @@ ScatteringInterface::readCheckpoint( HDF5Handle&  a_handle )
 void 
 ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
                                  const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                                 const ParmParse&          a_pp_scatterC,
-                                 const CodeUnits&          a_units ) const
+                                 const ParmParse&          a_pp_scatterC ) const
 {
          
   if(!procID()) { 
@@ -318,9 +274,12 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
     cout << " objects for all charged species pairs..." << endl;
   }
  
-  // query the Coulomb logarithm 
-  Real Clog10 = 10.0;
-  a_pp_scatterC.query("coulomb_logarithm",Clog10);
+  // query for fixed Coulomb logarithm 
+  Real Clog = 0.0;
+  if(a_pp_scatterC.contains("coulomb_logarithm")) {
+     a_pp_scatterC.get( "coulomb_logarithm", Clog ); 
+     CH_assert(Clog>=2.0);
+  }
   
   // query the Coulomb collision model type       
   std::string model = "TA";
@@ -330,9 +289,14 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
   std::string angular_model = "TAKIZUKA";
   a_pp_scatterC.query("angular_scattering",angular_model);
   
+  // query for weight method type used for Coulomb class
+  std::string weight_method = "PROBABILISTIC";
+  a_pp_scatterC.query("weight_method",weight_method);
+  
   if(!procID()) { 
     cout << "ScatteringInterface: Coulomb model type:       " << model << endl;
     cout << "ScatteringInterface: angular scattering model: " << angular_model << endl;
+    cout << "ScatteringInterface: weight method:            " << weight_method << endl;
   }
 
   ScatteringFactory scatteringFactory;
@@ -346,7 +310,8 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
     if(!use_scattering || charge==0.0) continue;
             
     // Create scattering object and add it to the scattering vector
-    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, Clog10, model, angular_model, a_units, 1 );
+    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, Clog, model, angular_model, 
+		                                                     weight_method, 1 );
     a_coulomb_ptr_vect.push_back(this_scattering);
             
   }
@@ -367,7 +332,8 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
       if(!use_scattering2 || charge2==0.0) continue;
                
       // Create scattering object and add it to the scattering vector
-      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, Clog10, model, angular_model, a_units, 1 );
+      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, Clog, model, angular_model, 
+		                                                       weight_method, 1 );
       a_coulomb_ptr_vect.push_back(this_scattering);
 
     }

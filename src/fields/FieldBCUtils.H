@@ -95,19 +95,8 @@ namespace FieldBCUtils {
          // reduce grown fill_box to insulator box
          getInsulatorBox(insulator_box,this_ICbinary,bdry_dir);     
                
-         // extrapolate if 1D to get other comp set
-         if(SpaceDim==1) {
-            const string extrap_bc_type = "extrapolate";
-            BoundaryConditions::setBC( this_dst,
-                                       insulator_box,
-                                       1,
-                                       extrap_bc_type,
-                                       bdry_dir,
-                                       a_bdry_layout.side() );
-         }
-
          // set the value in the boundary for the appropriate comp
-         const int comp = 0; // this should come from insulator_bc object
+         const int TEM_comp = 0; // this should come from insulator_bc object
          IntVect ib;         // cell index
          Real local_X, local_val;
          BoxIterator bit(insulator_box); // grid indices for boundary box    
@@ -118,7 +107,10 @@ namespace FieldBCUtils {
                local_val = bdry_val*Xmin_insulator[bdry_dir]/local_X;
             }
             else local_val = bdry_val;
-            this_dst.set(ib,comp,local_val);
+	    for (int n=0; n<this_dst.nComp(); n++) {
+               if(n==TEM_comp) this_dst.set(ib,n,local_val);
+	       else this_dst.set(ib,n,0.0);
+	    }
          }
 
       }
@@ -774,16 +766,6 @@ namespace FieldBCUtils {
       // species or from fields, which are not necessarily the same. This leaves
       // room for a potential future bug. Need to fix this.
       //
-      // Comment on factor of 2 for J on boundary (and parallel to it).
-      // If the boundary is a symmetry plane (except for axis in axisymmetric), 
-      // then the 2 comes from the ghost charge. If it is not a symmetry plane,
-      // then a factor of 2 is because the Area that should be divided should be
-      // 1/2 that if non-boundary cells, but we don't do that because it messes
-      // up J in periodic case when should not have 1/2 factor. In future, I should
-      // set up the Jacobian used to compute dA such that it correctly contains 1/2
-      // on boundaries (except periodic and except axis for axisymmetric). Then
-      // I would not need to do anything to J parallel here
-      //
       // Comment on J normal to boundary. For Symmetry, we subtract ghost Jnorm
       // from mirror location across boundary, which is the same as depositing
       // the mirror current to the interior. For other boundaries, we add ghost
@@ -836,7 +818,6 @@ namespace FieldBCUtils {
 
                }
                else {
-                  if(this_bc!="axis") this_J.mult(2.0,edge_box,0,this_J.nComp());
                   if(this_bc=="symmetry" || this_bc=="axis") { 
                                             // add ghost J|| back to interior. Needed
                                             // for shape functions higher order than CIC and
@@ -865,7 +846,6 @@ namespace FieldBCUtils {
             if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
 
             FArrayBox& this_J( a_J_virtual[interior_dit].getFab() );
-            if(this_bc!="axis") this_J.mult(2.0,node_box,0,this_J.nComp());
             if(this_bc=="symmetry" || this_bc=="axis") { 
                                       // add ghost J|| back to interior. Needed
                                       // for shape functions higher order than CIC and
@@ -887,7 +867,7 @@ namespace FieldBCUtils {
                   }
                   else this_J.plus(this_J,src_box,dst_box,0,0,this_J.nComp());
                }
-            }
+	    }
 #endif
             
          } // end loop over boxes

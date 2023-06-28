@@ -121,75 +121,83 @@ public:
                    const FluxBox&      a_Bfield_inPlane,
                    const FArrayBox&    a_Efield_virtual,
                    const FArrayBox&    a_Bfield_virtual ) const;
-
-  // return non-const reference to particle data containers
-  virtual ParticleData<JustinsParticle>& partData() {return m_data;}
-  virtual LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() {return m_data_binfab_ptr;}
-  
-  // return const reference to particle data containers
-  virtual const ParticleData<JustinsParticle>& partData() const {return m_data;}
-  virtual const LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() const {return m_data_binfab_ptr;}
-  
-  // ways to get/set number density member
-  virtual void numberDensity( LevelData<FArrayBox>& a_rho );
-  
-  virtual const LevelData<FArrayBox>& getNumberDensity() const {return m_density;}
-  virtual const LevelData<FArrayBox>& getNumberDensity( const bool&  setData )
-  { 
-    if(setData) setNumberDensity();
-    return m_density;
-  }
-  
-  virtual const LevelData<FArrayBox>& getNumberDensityFromBinFab()
-  { 
-    setNumberDensityFromBinFab();
-    return m_density_binfab;
-  }
-
-  void setNppc();
-  void setNumberDensity();
-  void setNumberDensityFromBinFab();
-  
-  const LevelData<FArrayBox>& getNppc() const {return m_Nppc;}
   
   virtual void setParticleSolverParams( const bool  a_iter_order_swap, 
                                         const bool  a_iter_min_two,
                                         const int   a_iter_max,
-                                        const Real  a_rtol) 
+                                        const Real  a_rtol, 
+                                        const int   a_newton_num_guess) 
   { 
      m_iter_order_swap = a_iter_order_swap; 
      m_iter_min_two = a_iter_min_two; 
      m_iter_max = a_iter_max; 
      m_rtol = a_rtol; 
+     m_newton_num_guess = a_newton_num_guess;
   }
 
-  // ways to get/set momentum density member
-  virtual void momentumDensity( LevelData<FArrayBox>& a_mom );
+  // return non-const reference to particle data containers
+  ParticleData<JustinsParticle>& partData() {return m_data;}
+  LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() {return m_data_binfab_ptr;}
   
-  virtual const LevelData<FArrayBox>& getMomentumDensity() const {return m_momentum;}
-  virtual const LevelData<FArrayBox>& getMomentumDensity( const bool&  setData )
+  // return const reference to particle data containers
+  const ParticleData<JustinsParticle>& partData() const {return m_data;}
+  const LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() const {return m_data_binfab_ptr;}
+  
+  // ways to get/set number density member
+  void numberDensity( LevelData<FArrayBox>& a_rho );
+  const LevelData<FArrayBox>& getNumberDensity( const bool  setData = false ) const
+  { 
+    if(setData) setNumberDensity();
+    return m_density;
+  }
+  
+  const LevelData<FArrayBox>& getNumberDensityFromBinFab( const bool  setData = false ) const
+  { 
+    if(setData) setNumberDensityFromBinFab();
+    return m_density;
+  }
+
+  void setNppc() const;
+  void setNumberDensity() const;
+  void setNumberDensityFromBinFab() const;
+  
+  const LevelData<FArrayBox>& getNppc() const {return m_Nppc;}
+  
+  // ways to get/set momentum density member
+  void momentumDensity( LevelData<FArrayBox>& a_mom );
+  const LevelData<FArrayBox>& getMomentumDensity( const bool  setData = false ) const
   { 
     if(setData) setMomentumDensity();
     return m_momentum;
   }
   
-  void setMomentumDensity();
+  const LevelData<FArrayBox>& getMomentumDensityFromBinFab( const bool  setData = false ) const
+  { 
+    if(setData) setMomentumDensityFromBinFab();
+    return m_momentum;
+  }
+  
+  void setMomentumDensity() const;
+  void setMomentumDensityFromBinFab() const;
   
   // ways to get/set energy density member
-  //
-  virtual void energyDensity( LevelData<FArrayBox>& a_ene );
-  
-  virtual const LevelData<FArrayBox>& getEnergyDensity() const {return m_energy;}
-  virtual const LevelData<FArrayBox>& getEnergyDensity( const bool setData = false )
+  void energyDensity( LevelData<FArrayBox>& a_ene );
+  const LevelData<FArrayBox>& getEnergyDensity( const bool  setData = false ) const
   { 
     if(setData) setEnergyDensity();
     return m_energy;
   }
   
-  void setEnergyDensity();
+  const LevelData<FArrayBox>& getEnergyDensityFromBinFab( const bool  setData = false ) const
+  { 
+    if(setData) setEnergyDensityFromBinFab();
+    return m_energy;
+  }
+  
+  void setEnergyDensity() const;
+  void setEnergyDensityFromBinFab() const;
   
   // ways to get/set current density member
-  //
   void currentDensity( LevelData<FArrayBox>&  a_currentDensity );
   
   void setCurrentDensity( const bool  a_from_explicit_solver = false );
@@ -327,7 +335,6 @@ private:
   std::string m_BC_type_lower, m_BC_type_upper;
 
   Real m_cvac_norm; 
-  Real m_volume_scale; 
   Real m_stable_dt = DBL_MAX; 
   Real m_fnorm_const; // normalization constant for particle force
 
@@ -335,6 +342,7 @@ private:
   bool m_iter_min_two = false; 
   int m_iter_max = 0; 
   Real m_rtol = 1.0e-12; 
+  int m_newton_num_guess = 1; 
   uint64_t m_num_parts_its = 0;
   uint64_t m_num_apply_its = 0;
 
@@ -383,7 +391,6 @@ private:
 
   mutable LevelData<FArrayBox> m_Nppc;        // number of macro particles per cell
   mutable LevelData<FArrayBox> m_density;     // density moment at cell center
-  mutable LevelData<FArrayBox> m_density_binfab;   // density moment from binfab
   mutable LevelData<FArrayBox> m_momentum;    // mean momentum density at cell center
   mutable LevelData<FArrayBox> m_energy;      // mean energy density at cell center
   
@@ -462,6 +469,22 @@ private:
                               const Real                   a_numDen_scale,
                               const Real                   a_cell_volume,
                               const int                    a_partsPerCell ) const;
+
+  void zeroFields() {
+    CH_TIME("PicSpecies::zeroFields()");
+    const BoxLayout& BL = m_data.getBoxes();
+    DataIterator dit(BL);
+    for(dit.begin(); dit.ok(); ++dit) {
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+      ListIterator<JustinsParticle> lit(pList);
+      for(lit.begin(); lit.ok(); ++lit) {
+        std::array<Real,3> zero_array = {0.0,0.0,0.0};
+        lit().setElectricField(zero_array);
+        lit().setMagneticField(zero_array);
+      }
+    }
+  }
 
 };
 

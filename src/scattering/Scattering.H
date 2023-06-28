@@ -2,6 +2,7 @@
 #define _SCATTERING_H_
 
 #include "REAL.H"
+#include "PicSpeciesInterface.H"
 #include "PicSpecies.H"
 #include "LevelData.H"
 
@@ -42,19 +43,10 @@ class Scattering
       
       virtual int species2() const = 0;
       
-      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
-                                    const LevelData<FArrayBox>&  a_energyDensity ) const
-      {};
+      virtual void setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const = 0;
       
-      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
-                                    const LevelData<FArrayBox>&  a_energyDensity1,
-                                    const LevelData<FArrayBox>&  a_numberDensity2,
-                                    const LevelData<FArrayBox>&  a_energyDensity2 ) const
-      {};
-      
-      virtual void initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
-                               const DomainGrid&         a_mesh )
-      {};
+      virtual void initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                               const DomainGrid&           a_mesh ) = 0;
       
       virtual Real scatterDt() const { return DBL_MAX; }
       
@@ -64,16 +56,15 @@ class Scattering
       virtual Real getDeltaEexc() const { return 0.0; }
       virtual void zeroDeltaEexc() const {;} 
       
-      virtual void applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                              const DomainGrid&         a_mesh,
-                              const Real                a_dt_sec ) const = 0;
+      virtual void applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                              const DomainGrid&           a_mesh,
+                              const Real                  a_dt_sec ) const = 0;
       
       virtual void printParameters() const = 0;
    
    protected:
    
       bool m_verbosity;
-      bool m_volume_scale;
   
 };
 

@@ -14,26 +14,28 @@
 #include "NamespaceHeader.H"
 
 
-void Ionization::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
-                             const DomainGrid&         a_mesh )
+void Ionization::initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                             const DomainGrid&           a_mesh )
 {
    CH_TIME("Ionization::initialize()");
    
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   
    // get pointer to species 1
-   CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species1(a_picSpeciesPtrVect[m_sp1]);
+   CH_assert(m_sp1<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
 
    // get pointer to species 2
-   CH_assert(m_sp2<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species2(a_picSpeciesPtrVect[m_sp2]);
+   CH_assert(m_sp2<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    
    // get pointer to electron species
-   CH_assert(m_spE<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_speciesE(a_picSpeciesPtrVect[m_spE]);
+   CH_assert(m_spE<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_speciesE(pic_species_ptr_vect[m_spE]);
    
    // get pointer to ion species
-   CH_assert(m_spI<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_speciesI(a_picSpeciesPtrVect[m_spI]);
+   CH_assert(m_spI<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_speciesI(pic_species_ptr_vect[m_spI]);
 
    // set the species names
    m_species1_name = this_species1->name();
@@ -55,24 +57,7 @@ void Ionization::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
    if(m_xsec_type == TEXT_FILE) {
       readCrossSectionFile();
    }
-
-   //
-   // set the mean free time
-   //
    
-   if(this_species1->scatter() && this_species2->scatter()) {
-   
-      const bool setMoments = true;
-      const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
-      const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
- 
-      setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
-
-   }
-
    if (m_verbosity)  printParameters();
 
 }
@@ -124,12 +109,33 @@ void Ionization::readCrossSectionFile()
    
 }
 
-void Ionization::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
-                                  const LevelData<FArrayBox>&  a_energyDensity1,
-                                  const LevelData<FArrayBox>&  a_numberDensity2,
-                                  const LevelData<FArrayBox>&  a_energyDensity2 ) const
+void Ionization::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const 
 {
    CH_TIME("Ionization::setMeanFreeTime()");
+   
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   
+   if(!this_species1->scatter() || !this_species2->scatter()) return;
+   
+   const bool setMoments = false;
+   const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
+   
+   const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
+ 
+   setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+
+}
+
+void Ionization::setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
+                              const LevelData<FArrayBox>&  a_energyDensity1,
+                              const LevelData<FArrayBox>&  a_numberDensity2,
+                              const LevelData<FArrayBox>&  a_energyDensity2 ) const
+{
+   CH_TIME("Ionization::setInterMFT()");
   
    Real local_numberDensity1, local_betaSqEff1;
    Real local_numberDensity2, local_betaSqEff2;
@@ -183,19 +189,21 @@ void Ionization::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
 
 }
 
-void Ionization::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                            const DomainGrid&         a_mesh,
-                            const Real                a_dt_sec ) const
+void Ionization::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                            const DomainGrid&           a_mesh,
+                            const Real                  a_dt_sec ) const
 {
    CH_TIME("Ionization::applyScattering()");
+   
+   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
       
-   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    if(!this_species1->scatter()) return;
    if(!this_species2->scatter()) return;
    
-   PicSpeciesPtr this_speciesE(a_pic_species_ptr_vect[m_spE]);
-   PicSpeciesPtr this_speciesI(a_pic_species_ptr_vect[m_spI]);
+   PicSpeciesPtr this_speciesE(pic_species_ptr_vect[m_spE]);
+   PicSpeciesPtr this_speciesI(pic_species_ptr_vect[m_spI]);
 
    // electron impact ionizaton e + A => e + e + A+
    electronImpact( *this_species1, *this_species2, 
@@ -223,7 +231,7 @@ void Ionization::electronImpact( PicSpecies&  a_picSpecies1,
    LevelData<BinFab<JustinsParticlePtr>>& data2_binfab_ptr = a_picSpecies2.partData_binfab();
    // get/set density here from binfab_ptr, which  doesn't contain particles created
    // during inelastic events, but does know about those that are killed ... 
-   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensityFromBinFab();
+   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensityFromBinFab(true);
   
    // predefine some variables
    Real local_numberDensity2;
@@ -385,7 +393,7 @@ void Ionization::electronImpact( PicSpecies&  a_picSpecies1,
                // lower the density by wpEI for next collision probability
                // local_numberDensity2 -= wpEI/dV_phys/Jacobian;
                //const LevelData<FArrayBox>& Jacobian = a_mesh.getJcc();  
-               //const Real volume_scale = a_units.getScale(a_units.VOLUME);
+               //const Real volume_scale = a_mesh.getVolumeScale();
                //const Real dV_mapped = a_mesh.getMappedCellVolume();
                //const Real dV_phys = dV_mapped*volume_scale;
 

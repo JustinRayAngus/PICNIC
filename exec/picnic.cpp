@@ -9,6 +9,7 @@
 #endif
 
 #include <random>
+#include <chrono>
 
 #include "CH_HDF5.H"
 #include "ParmParse.H"
@@ -51,11 +52,14 @@ std::mt19937 global_rand_gen;
 
 int main(int a_argc, char* a_argv[])
 {
+  
 #ifdef CH_MPI
-   // Start MPI
    MPI_Init( &a_argc, &a_argv );
    setChomboMPIErrorHandler();
 #endif
+   
+   auto now = std::chrono::system_clock::now();
+   std::time_t start_time = std::chrono::system_clock::to_time_t(now);
 
 #ifdef with_petsc
   PetscInitialize(&a_argc,&a_argv,(char*)0,help);
@@ -66,7 +70,7 @@ int main(int a_argc, char* a_argv[])
    if (status==0) {
 
       if(!procID()) {
-         cout << endl;
+         cout << "PICNIC: main start time = " << std::ctime(&start_time);
          cout << "PICNIC: number of procs = " << numProc() << endl;
          cout << "PICNIC: SpaceDim = " << SpaceDim << endl;
 #ifdef MASS_MATRIX_TEST
@@ -78,11 +82,11 @@ int main(int a_argc, char* a_argv[])
 #ifdef RELATIVISTIC_PARTICLES
          cout << "RELATIVISTIC_PARTICLES flag is defined" << endl;
 #endif
-         cout << "input file = " << a_argv[1] << endl << endl;
+         cout << "PICNIC: input file = " << a_argv[1] << endl << endl;
       }
 
       ParmParse pp( a_argc-2, a_argv+2, NULL, a_argv[1] );
-      Simulation sim( pp ); 
+      Simulation sim( pp, start_time ); 
       while ( sim.notDone() ) sim.advance();
       sim.finalize();
    }
@@ -100,6 +104,11 @@ int main(int a_argc, char* a_argv[])
    }
    MPI_Finalize();
 #endif
+      
+   now = std::chrono::system_clock::now();
+   std::time_t end_time = std::chrono::system_clock::to_time_t(now);
+   if(!procID()) cout << endl;
+   if(!procID()) cout << "PICNIC: main end time = " << std::ctime(&end_time);
 
    return status;
 }

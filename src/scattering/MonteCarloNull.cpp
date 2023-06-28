@@ -13,18 +13,20 @@
 #include "NamespaceHeader.H"
 
 
-void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
-                             const DomainGrid&         a_mesh )
+void MonteCarloNull::initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                                 const DomainGrid&           a_mesh )
 {
    CH_TIME("MonteCarloNull::initialize()");
    
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   
    // get pointer to species 1
-   CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species1(a_picSpeciesPtrVect[m_sp1]);
+   CH_assert(m_sp1<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
 
    // get pointer to species 2
-   CH_assert(m_sp2<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species2(a_picSpeciesPtrVect[m_sp2]);
+   CH_assert(m_sp2<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    
    // set the species names
    m_species1_name = this_species1->name();
@@ -91,7 +93,6 @@ void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
       cout << " after: energy [eV] = " << energy_after*m_mcSq << endl;
       cout << " energy diff [eV] = " << (energy_after - energy_before)*m_mcSq << endl;
       cout << endl;
-                  
 
    }
 
@@ -99,7 +100,7 @@ void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
    for (int n=0; n<m_num_exc; n++) {
       int spc = m_exc_species[n];
       if (spc<0) continue;
-      PicSpeciesPtr exc_species(a_picSpeciesPtrVect[spc]);
+      PicSpeciesPtr exc_species(pic_species_ptr_vect[spc]);
       Real this_mass = exc_species->mass();
       int this_q = exc_species->charge();
       CH_assert(this_mass==m_mass2);
@@ -110,8 +111,8 @@ void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
       int spc1 = m_dis_species1[n];
       int spc2 = m_dis_species2[n];
       if (spc1<0 || spc2<0) continue;
-      PicSpeciesPtr dis_species1(a_picSpeciesPtrVect[spc1]);
-      PicSpeciesPtr dis_species2(a_picSpeciesPtrVect[spc2]);
+      PicSpeciesPtr dis_species1(pic_species_ptr_vect[spc1]);
+      PicSpeciesPtr dis_species2(pic_species_ptr_vect[spc2]);
       Real this_mass1 = dis_species1->mass();
       Real this_mass2 = dis_species2->mass();
       Real mass_tot = this_mass1 + this_mass2;
@@ -120,7 +121,7 @@ void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
       int q_tot = this_q1 + this_q2;
       int spc3 = m_dis_species3[n];
       if(spc3>=0) {
-         PicSpeciesPtr dis_species3(a_picSpeciesPtrVect[spc3]);
+         PicSpeciesPtr dis_species3(pic_species_ptr_vect[spc3]);
          Real this_mass3 = dis_species3->mass();
          int this_q3 = dis_species3->charge();
          q_tot += this_q3;
@@ -154,8 +155,8 @@ void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
       int spcE = m_izn_speciesE[n];
       int spcI = m_izn_speciesI[n];
       if (spcE<0 || spcI<0) continue;
-      PicSpeciesPtr izn_speciesE(a_picSpeciesPtrVect[spcE]);
-      PicSpeciesPtr izn_speciesI(a_picSpeciesPtrVect[spcI]);
+      PicSpeciesPtr izn_speciesE(pic_species_ptr_vect[spcE]);
+      PicSpeciesPtr izn_speciesI(pic_species_ptr_vect[spcI]);
       Real this_massE = izn_speciesE->mass();
       Real this_massI = izn_speciesI->mass();
       int this_qE = izn_speciesE->charge();
@@ -163,23 +164,6 @@ void MonteCarloNull::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
       CH_assert(this_massE+this_massI==m_mass2);
       CH_assert(this_massE+this_massI==m_mass2);
       CH_assert(this_qE+this_qI==this_species2->charge());
-   }
-
-   //
-   // set the mean free time
-   //
-   
-   if(this_species1->scatter() && this_species2->scatter()) {
-   
-      const bool setMoments = true;
-      const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
-      const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
- 
-      setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
-
    }
 
    if (m_verbosity)  printParameters();
@@ -399,12 +383,33 @@ void MonteCarloNull::printCrossSections() const
    cout.flags(f);
 }
 
-void MonteCarloNull::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
-                               const LevelData<FArrayBox>&  a_energyDensity1,
-                               const LevelData<FArrayBox>&  a_numberDensity2,
-                               const LevelData<FArrayBox>&  a_energyDensity2 ) const
+void MonteCarloNull::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const 
 {
    CH_TIME("MonteCarloNull::setMeanFreeTime()");
+   
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   
+   if(!this_species1->scatter() || !this_species2->scatter()) return;
+   
+   const bool setMoments = false;
+   const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
+   
+   const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
+ 
+   setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+
+}
+
+void MonteCarloNull::setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
+                                  const LevelData<FArrayBox>&  a_energyDensity1,
+                                  const LevelData<FArrayBox>&  a_numberDensity2,
+                                  const LevelData<FArrayBox>&  a_energyDensity2 ) const
+{
+   CH_TIME("MonteCarloNull::setInterMFT()");
   
    Real local_numberDensity1, local_betaSqEff1;
    Real local_numberDensity2, local_betaSqEff2;
@@ -458,22 +463,24 @@ void MonteCarloNull::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensi
 
 }
 
-void MonteCarloNull::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                                const DomainGrid&         a_mesh,
-                                const Real                a_dt_sec ) const
+void MonteCarloNull::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                                const DomainGrid&           a_mesh,
+                                const Real                  a_dt_sec ) const
 {
    CH_TIME("MonteCarloNull::applyScattering()");
+   
+   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
       
-   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    if(!this_species1->scatter()) return;
    if(!this_species2->scatter()) return;
    
    // set vector of pointers to species created by excitation
    std::vector<PicSpeciesPtr> exc_species(m_num_exc);
    for (int n=0; n<m_num_exc; n++) {
-      if(m_exc_species.at(n)<a_pic_species_ptr_vect.size() && m_exc_species.at(n)>=0) {
-         exc_species.at(n) = a_pic_species_ptr_vect[m_exc_species.at(n)];
+      if(m_exc_species.at(n)<pic_species_ptr_vect.size() && m_exc_species.at(n)>=0) {
+         exc_species.at(n) = pic_species_ptr_vect[m_exc_species.at(n)];
       }
    }   
    
@@ -482,12 +489,12 @@ void MonteCarloNull::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect
    std::vector<PicSpeciesPtr> dis_species2(m_num_dis);
    std::vector<PicSpeciesPtr> dis_species3(m_num_dis);
    for (int n=0; n<m_num_dis; n++) {
-      if(m_dis_species1.at(n)<a_pic_species_ptr_vect.size() && m_dis_species1.at(n)>=0) {
-         dis_species1.at(n) = a_pic_species_ptr_vect[m_dis_species1.at(n)];
-         dis_species2.at(n) = a_pic_species_ptr_vect[m_dis_species2.at(n)];
+      if(m_dis_species1.at(n)<pic_species_ptr_vect.size() && m_dis_species1.at(n)>=0) {
+         dis_species1.at(n) = pic_species_ptr_vect[m_dis_species1.at(n)];
+         dis_species2.at(n) = pic_species_ptr_vect[m_dis_species2.at(n)];
       }
-      if(m_dis_species3.at(n)<a_pic_species_ptr_vect.size() && m_dis_species3.at(n)>=0) {
-         dis_species3.at(n) = a_pic_species_ptr_vect[m_dis_species3.at(n)];
+      if(m_dis_species3.at(n)<pic_species_ptr_vect.size() && m_dis_species3.at(n)>=0) {
+         dis_species3.at(n) = pic_species_ptr_vect[m_dis_species3.at(n)];
       }
    }
 
@@ -495,9 +502,9 @@ void MonteCarloNull::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect
    std::vector<PicSpeciesPtr> izn_speciesE(m_num_izn);
    std::vector<PicSpeciesPtr> izn_speciesI(m_num_izn);
    for (int n=0; n<m_num_izn; n++) {
-      if(m_izn_speciesI.at(n)<a_pic_species_ptr_vect.size() && m_izn_speciesI.at(n)>=0) {
-         izn_speciesE.at(n) = a_pic_species_ptr_vect[m_izn_speciesE.at(n)];
-         izn_speciesI.at(n) = a_pic_species_ptr_vect[m_izn_speciesI.at(n)];
+      if(m_izn_speciesI.at(n)<pic_species_ptr_vect.size() && m_izn_speciesI.at(n)>=0) {
+         izn_speciesE.at(n) = pic_species_ptr_vect[m_izn_speciesE.at(n)];
+         izn_speciesI.at(n) = pic_species_ptr_vect[m_izn_speciesI.at(n)];
       }
    }   
    
@@ -533,7 +540,7 @@ void MonteCarloNull::electronImpact( PicSpecies&  a_picSpecies1,
    LevelData<BinFab<JustinsParticlePtr>>& data2_binfab_ptr = a_picSpecies2.partData_binfab();
    // get/set density here from binfab_ptr, which  doesn't contain particles created
    // during inelastic events, but does know about those that are killed ... 
-   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensityFromBinFab();
+   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensityFromBinFab(true);
 
    // predefine some variables
    Real local_numberDensity2;

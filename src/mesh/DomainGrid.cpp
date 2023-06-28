@@ -1,6 +1,7 @@
 
 #include "DomainGrid.H"
 #include "DomainGridF_F.H"
+#include "ParmParse.H"
 #include <array>
 #include <cmath>
 #include "BoxIterator.H"
@@ -9,22 +10,22 @@
 
 #include "NamespaceHeader.H"
 
-DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
-                  const int                 a_numGhosts,
-                  const ProblemDomain&      a_domain,
-                  const DisjointBoxLayout&  a_grids )
+DomainGrid::DomainGrid( const ProblemDomain&      a_domain,
+                        const DisjointBoxLayout&  a_grids,
+                        const int                 a_numGhosts,
+                        const Real                a_length_scale )
    : m_axisymmetric(false),
      m_anticyclic(false),
      m_write_jacobians(false),
      m_write_corrected_jacobians(false),
      m_ghosts(a_numGhosts),
-     m_volume_correction(NONE),
+     m_volume_correction(CONSERVATIVE),
      m_mapped_cell_volume(1.0)
 {
    m_grids  = a_grids;
    m_domain = a_domain;
    IntVect dimensions = a_domain.size(); 
-  
+   
    // standard ghost exchange copier
    m_forwardCopier.define( m_grids, m_grids, 
                            m_domain, m_ghosts*IntVect::Unit, true );
@@ -34,27 +35,28 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
                            m_domain, m_ghosts*IntVect::Unit, true );
    m_reverseCopier.reverse();
    
-   a_ppgrid.query( "write_jacobians", m_write_jacobians );
-   a_ppgrid.query( "write_corrected_jacobians", m_write_corrected_jacobians );
+   ParmParse ppgrid( "grid" );
+   ppgrid.query( "write_jacobians", m_write_jacobians );
+   ppgrid.query( "write_corrected_jacobians", m_write_corrected_jacobians );
 
-   a_ppgrid.get( "geometry", m_geom_type );
+   ppgrid.get( "geometry", m_geom_type );
    if(m_geom_type=="cartesian") {
 
-      a_ppgrid.get("X_min", m_Xmin[0]);
-      a_ppgrid.get("X_max", m_Xmax[0]);
+      ppgrid.get("X_min", m_Xmin[0]);
+      ppgrid.get("X_max", m_Xmax[0]);
       m_dX[0] = (m_Xmax[0] - m_Xmin[0])/(double)dimensions[0];    
 
       if(SpaceDim==2) {
-         a_ppgrid.get("Z_min", m_Xmin[1]);
-         a_ppgrid.get("Z_max", m_Xmax[1]);
+         ppgrid.get("Z_min", m_Xmin[1]);
+         ppgrid.get("Z_max", m_Xmax[1]);
          m_dX[1] = (m_Xmax[1] - m_Xmin[1])/(double)dimensions[1];    
       }
       if(SpaceDim==3) {
-         a_ppgrid.get("Y_min", m_Xmin[1]);
-         a_ppgrid.get("Y_max", m_Xmax[1]);
+         ppgrid.get("Y_min", m_Xmin[1]);
+         ppgrid.get("Y_max", m_Xmax[1]);
          m_dX[1] = (m_Xmax[1] - m_Xmin[1])/(double)dimensions[1];    
-         a_ppgrid.get("Z_min", m_Xmin[2]);
-         a_ppgrid.get("Z_max", m_Xmax[2]);
+         ppgrid.get("Z_min", m_Xmin[2]);
+         ppgrid.get("Z_max", m_Xmax[2]);
          m_dX[2] = (m_Xmax[2] - m_Xmin[2])/(double)dimensions[2];    
       }
    
@@ -64,10 +66,10 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
       CH_assert(SpaceDim==1);
       m_axisymmetric = true;
       
-      if(a_ppgrid.contains("X_min")) a_ppgrid.get("X_min", m_Xmin[0]);
-      else a_ppgrid.get("R_min", m_Xmin[0]);
-      if(a_ppgrid.contains("X_max")) a_ppgrid.get("X_max", m_Xmax[0]);
-      else a_ppgrid.get("R_max", m_Xmax[0]);
+      if(ppgrid.contains("X_min")) ppgrid.get("X_min", m_Xmin[0]);
+      else ppgrid.get("R_min", m_Xmin[0]);
+      if(ppgrid.contains("X_max")) ppgrid.get("X_max", m_Xmax[0]);
+      else ppgrid.get("R_max", m_Xmax[0]);
       
       m_dX[0] = (m_Xmax[0] - m_Xmin[0])/(double)dimensions[0];    
 
@@ -76,12 +78,12 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
  
       CH_assert(SpaceDim==2);
 
-      a_ppgrid.get("R_min", m_Xmin[0]);
-      a_ppgrid.get("R_max", m_Xmax[0]);
+      ppgrid.get("R_min", m_Xmin[0]);
+      ppgrid.get("R_max", m_Xmax[0]);
       m_dX[0] = (m_Xmax[0] - m_Xmin[0])/(double)dimensions[0];    
       
-      a_ppgrid.get("TH_min", m_Xmin[1]);
-      a_ppgrid.get("TH_max", m_Xmax[1]);
+      ppgrid.get("TH_min", m_Xmin[1]);
+      ppgrid.get("TH_max", m_Xmax[1]);
       m_dX[1] = (m_Xmax[1] - m_Xmin[1])/(double)dimensions[1];
 
    }
@@ -91,19 +93,19 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
       m_axisymmetric = true;
       m_anticyclic = true;
 
-      if(a_ppgrid.contains("X_min") && a_ppgrid.contains("X_max")) {
-         a_ppgrid.get("X_min", m_Xmin[0]);
-         a_ppgrid.get("X_max", m_Xmax[0]);
+      if(ppgrid.contains("X_min") && ppgrid.contains("X_max")) {
+         ppgrid.get("X_min", m_Xmin[0]);
+         ppgrid.get("X_max", m_Xmax[0]);
       }
       else {
-         a_ppgrid.get("R_min", m_Xmin[0]);
-         a_ppgrid.get("R_max", m_Xmax[0]);
+         ppgrid.get("R_min", m_Xmin[0]);
+         ppgrid.get("R_max", m_Xmax[0]);
       }
       CH_assert(m_Xmin[0]>=0.0 && m_Xmax[0]>m_Xmin[0]);
       m_dX[0] = (m_Xmax[0] - m_Xmin[0])/(double)dimensions[0];    
       
-      a_ppgrid.get("Z_min", m_Xmin[1]);
-      a_ppgrid.get("Z_max", m_Xmax[1]);
+      ppgrid.get("Z_min", m_Xmin[1]);
+      ppgrid.get("Z_max", m_Xmax[1]);
       CH_assert(m_Xmax[1]>m_Xmin[1]);
       m_dX[1] = (m_Xmax[1] - m_Xmin[1])/(double)dimensions[1];
 
@@ -122,49 +124,44 @@ DomainGrid::DomainGrid( ParmParse&          a_ppgrid,
       }
    }
 
-   if(a_ppgrid.contains("axisymmetric")) { // can manually turn this on/off
-      a_ppgrid.get("axisymmetric", m_axisymmetric);
+   if(ppgrid.contains("axisymmetric")) { // can manually turn this on/off
+      ppgrid.get("axisymmetric", m_axisymmetric);
       if(m_axisymmetric && SpaceDim==3) {
          MayDay::Error("DomainGrid(): Cannot specify axisymmetry in 3D");
       }
    }
    
-   if(m_axisymmetric) {
-
-      std::string volume_correction;
-      a_ppgrid.query( "volume_correction", volume_correction );   
-      if(!volume_correction.empty()) {
-         if(volume_correction=="none") {
-            m_volume_correction = NONE;
-         }
-         else if(volume_correction=="verboncoeur") { //see J.P. Verboncoeur JCP 2001
-            m_volume_correction = VERBONCOEUR;
-         }
-         else if(volume_correction=="conservative") { // for theta implicit
-            m_volume_correction = CONSERVATIVE;
-         }
-         else {
-            if(!procID()) {
-               cout << "DomainGrid: volume_correction = " << volume_correction;
-               cout << " is not valid." << endl;
-               cout << " valid options: none, verboncoeur, and conservative" << endl;
-               exit(EXIT_FAILURE);
-            }
-         }
+   // set the volume/area scales for converting from code to SI unit
+   m_volume_scale = a_length_scale;
+   for (int dir=1; dir<SpaceDim; dir++) m_volume_scale *= a_length_scale; 
+   if(m_axisymmetric) m_volume_scale *= a_length_scale;   
+   m_area_scale = m_volume_scale/a_length_scale;
+   
+   std::string volume_correction;
+   ppgrid.query( "volume_correction", volume_correction );   
+   if(!volume_correction.empty()) {
+      if(volume_correction=="none") {
+         m_volume_correction = NONE;
+      }
+      else if(volume_correction=="verboncoeur") { //see J.P. Verboncoeur JCP 2001
+         m_volume_correction = VERBONCOEUR;
+	 CH_assert(m_axisymmetric);
+      }
+      else if(volume_correction=="conservative") { // for theta implicit
+         m_volume_correction = CONSERVATIVE;
       }
       else {
          if(!procID()) {
-            cout << "DomainGrid: must specify volume_correction for axisymmetric geometries" << endl;
+            cout << "DomainGrid: volume_correction = " << volume_correction;
+            cout << " is not valid." << endl;
             cout << " valid options: none, verboncoeur, and conservative" << endl;
             exit(EXIT_FAILURE);
          }
       }
-
    }
    
-   
    int grid_verbosity;
-   a_ppgrid.query( "verbosity", grid_verbosity );
+   ppgrid.query( "verbosity", grid_verbosity );
    if(!procID() && grid_verbosity) {
       //cout << "====================== Spatial Grid Parameters =====================" << endl;
       cout << " geometry = " << m_geom_type << endl;
@@ -327,10 +324,10 @@ void DomainGrid::setJacobian()
       m_corrected_Jnc[dit].getFab().copy(m_Jnc[dit].getFab()); 
    }
 
-   // redefine J on r-nodes if using cyl coords
+   // redefine J on physical boundaries for non-periodic domains
    auto phys_domain( m_grids.physDomain() );
    
-   if(m_axisymmetric) {
+   if(!m_domain.isPeriodic(0)) {
       
       for(DataIterator dit(m_grids); dit.ok(); ++dit) {
 
@@ -376,13 +373,72 @@ void DomainGrid::setJacobian()
                ig = gbit(); // grid index
                Real rj = m_Xnc[dit].getFab().get(ig,0);
                if(ig[dir0]==dir0_bdry_lo) {
-                  if(rj==0.0) local_J = Pi*m_dX[dir0]/4.0;
-                  else local_J = Pi*rj;
-                  this_Jnc.set(ig,0,local_J);
+                  if(m_axisymmetric && rj==0.0) {
+		     local_J = Pi*m_dX[dir0]/4.0;
+                     this_Jnc.set(ig,0,local_J);
+		  }
+                  else this_Jnc.set(ig,0,0.5*this_Jnc.get(ig,0));
                }
                if(ig[dir0]==dir0_bdry_hi) {
-                  local_J = Pi*rj;
-                  this_Jnc.set(ig,0,local_J);
+                  this_Jnc.set(ig,0,0.5*this_Jnc.get(ig,0));
+               }
+            }
+         }
+
+      }
+
+      for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+
+         // get the domain box on face
+         const int dir0=0;
+         Box domain_face_box = phys_domain.domainBox();
+         domain_face_box.surroundingNodes(dir0);
+         int dir0_bdry_hi = domain_face_box.bigEnd(dir0);
+         int dir0_bdry_lo = domain_face_box.smallEnd(dir0);
+
+         // get Jacobian on faces and define local face box
+         FArrayBox& this_Jfc(m_corrected_Jfc[dit][dir0]);
+         Box face_box = m_grids[dit];
+         face_box.surroundingNodes(dir0);
+
+         Real local_J;
+         IntVect ig;
+
+         if(m_volume_correction==VERBONCOEUR) {
+            IntVect shift_vect = IntVect::Zero;
+            shift_vect[dir0] = 1;
+            BoxIterator gbit(face_box);
+            for(gbit.begin(); gbit.ok(); ++gbit) {
+               ig = gbit(); // grid index
+               Real rj = m_Xfc[dit][dir0].get(ig,0);
+               Real rjp1 = m_Xfc[dit][dir0].get(ig+shift_vect,0);
+               Real rjm1 = m_Xfc[dit][dir0].get(ig-shift_vect,0);
+               if(ig[dir0]==dir0_bdry_lo) {
+                  local_J = Pi/3.0*(rjp1 - rj)*(2*rj + rjp1)/m_dX[dir0];
+               }
+               else if(ig[dir0]==dir0_bdry_hi) {
+                  local_J = Pi/3.0*(rj - rjm1)*(2*rjm1 + 2*rj)/m_dX[dir0];
+               }
+               else {
+                  local_J = Pi/3.0*(rjp1*(rj + rjp1) - rjm1*(rjm1 + rj))/m_dX[dir0];
+               }
+               this_Jfc.set(ig,0,local_J);
+            }
+         }
+         else if(m_volume_correction==CONSERVATIVE) {
+            BoxIterator gbit(face_box);
+            for(gbit.begin(); gbit.ok(); ++gbit) {
+               ig = gbit(); // grid index
+               Real rj = m_Xfc[dit][dir0].get(ig,0);
+               if(ig[dir0]==dir0_bdry_lo) {
+                  if(m_axisymmetric && rj==0.0) {
+		     local_J = Pi*m_dX[dir0]/4.0;
+                     this_Jfc.set(ig,0,local_J);
+		  }
+                  else this_Jfc.set(ig,0,0.5*this_Jfc.get(ig,0));
+               }
+               if(ig[dir0]==dir0_bdry_hi) {
+                  this_Jfc.set(ig,0,0.5*this_Jfc.get(ig,0));
                }
             }
          }
@@ -391,8 +447,8 @@ void DomainGrid::setJacobian()
 
    }
    
-   // redefine J on r-edges if using cyl coords
-   if( m_geom_type=="cyl_RZ" && m_axisymmetric ) {
+#if CH_SPACEDIM==2
+   if(!m_domain.isPeriodic(1)) {
       
       for(DataIterator dit(m_grids); dit.ok(); ++dit) {
          const int dir0=0;
@@ -441,13 +497,14 @@ void DomainGrid::setJacobian()
                ig = gbit(); // grid index
                Real rj = m_Xec[dit][dir1].get(ig,0);
                if(ig[dir0]==dir0_bdry_lo) {
-                  if(rj==0.0) local_J = Pi*m_dX[dir0]/4.0;
-                  else local_J = Pi*rj;
-                  this_Jec.set(ig,0,local_J);
+                  if(m_axisymmetric && rj==0.0) {
+	             local_J = Pi*m_dX[dir0]/4.0;
+                     this_Jec.set(ig,0,local_J);
+		  }
+                  else this_Jec.set(ig,0,0.5*this_Jec.get(ig,0));
                }
                if(ig[dir0]==dir0_bdry_hi) {
-                  local_J = Pi*rj;
-                  this_Jec.set(ig,0,local_J);
+                  this_Jec.set(ig,0,0.5*this_Jec.get(ig,0));
                }
             }
          }
@@ -455,68 +512,7 @@ void DomainGrid::setJacobian()
       }
 
    }
-   
-   // define corected J on r-face if using cyl coords
-   if(m_axisymmetric ) {
-      
-      for(DataIterator dit(m_grids); dit.ok(); ++dit) {
-         const int dir0=0;
-
-         // get the domain box on face
-         Box domain_face_box = phys_domain.domainBox();
-         domain_face_box.surroundingNodes(dir0);
-         int dir0_bdry_hi = domain_face_box.bigEnd(dir0);
-         int dir0_bdry_lo = domain_face_box.smallEnd(dir0);
-
-         // get Jacobian on faces and define local face box
-         FArrayBox& this_Jfc(m_corrected_Jfc[dit][dir0]);
-         Box face_box = m_grids[dit];
-         face_box.surroundingNodes(dir0);
-
-         Real local_J;
-         IntVect ig;
-
-         if(m_volume_correction==VERBONCOEUR) {
-            IntVect shift_vect = IntVect::Zero;
-            shift_vect[dir0] = 1;
-            BoxIterator gbit(face_box);
-            for(gbit.begin(); gbit.ok(); ++gbit) {
-               ig = gbit(); // grid index
-               Real rj = m_Xfc[dit][dir0].get(ig,0);
-               Real rjp1 = m_Xfc[dit][dir0].get(ig+shift_vect,0);
-               Real rjm1 = m_Xfc[dit][dir0].get(ig-shift_vect,0);
-               if(ig[dir0]==dir0_bdry_lo) {
-                  local_J = Pi/3.0*(rjp1 - rj)*(2*rj + rjp1)/m_dX[dir0];
-               }
-               else if(ig[dir0]==dir0_bdry_hi) {
-                  local_J = Pi/3.0*(rj - rjm1)*(2*rjm1 + 2*rj)/m_dX[dir0];
-               }
-               else {
-                  local_J = Pi/3.0*(rjp1*(rj + rjp1) - rjm1*(rjm1 + rj))/m_dX[dir0];
-               }
-               this_Jfc.set(ig,0,local_J);
-            }
-         }
-         else if(m_volume_correction==CONSERVATIVE) {
-            BoxIterator gbit(face_box);
-            for(gbit.begin(); gbit.ok(); ++gbit) {
-               ig = gbit(); // grid index
-               Real rj = m_Xfc[dit][dir0].get(ig,0);
-               if(ig[dir0]==dir0_bdry_lo) {
-                  if(rj==0.0) local_J = Pi*m_dX[dir0]/4.0;
-                  else local_J = Pi*rj;
-                  this_Jfc.set(ig,0,local_J);
-               }
-               if(ig[dir0]==dir0_bdry_hi) {
-                  local_J = Pi*rj;
-                  this_Jfc.set(ig,0,local_J);
-               }
-            }
-         }
-
-      }
-
-   }
+#endif
 
    //
    // define masked nodal Jacobians that include scale factors 
@@ -546,8 +542,8 @@ void DomainGrid::setJacobian()
          Box internal_box = face_box;
          internal_box.grow(dir,-1);
 
-         // correct internal_box on physical boundaries for axisymm
-         if( m_axisymmetric ) {
+         // correct internal_box on physical boundaries
+         if(!m_domain.isPeriodic(dir)) {
              Box domain_face_box = phys_domain.domainBox();
              domain_face_box.surroundingNodes(dir);
              if(face_box.bigEnd(dir)==domain_face_box.bigEnd(dir)) {
@@ -578,8 +574,8 @@ void DomainGrid::setJacobian()
             internal_box.grow(adir,-1);
          }
          
-         // correct internal_box on physical boundaries for axisymm
-         if( m_axisymmetric ) {
+         // correct internal_box on physical boundaries
+         if(!m_domain.isPeriodic(dir)) {
              Box domain_edge_box = phys_domain.domainBox();
              domain_edge_box.surroundingNodes();
              domain_edge_box.enclosedCells(dir);
@@ -615,18 +611,17 @@ void DomainGrid::setJacobian()
       Box internal_box = node_box;
       for (int dir=0; dir<SpaceDim; dir++) internal_box.grow(dir,-1);
          
-      // correct internal_box on physical boundaries for axisymm
+      // correct internal_box on physical boundaries
       // Is the correct for SpaceDim > 1 ?...
-      if( m_axisymmetric ) {
-         Box domain_node_box = phys_domain.domainBox();
-         domain_node_box.surroundingNodes();
-         for (int dir=0; dir<SpaceDim; dir++) {
-            if(node_box.bigEnd(dir)==domain_node_box.bigEnd(dir)) {
-               internal_box.growHi(dir,1);
-            }
-            if(node_box.smallEnd(dir)==domain_node_box.smallEnd(dir)) {
-               internal_box.growLo(dir,1);
-            }
+      Box domain_node_box = phys_domain.domainBox();
+      domain_node_box.surroundingNodes();
+      for (int dir=0; dir<SpaceDim; dir++) {
+         if(m_domain.isPeriodic(dir)) continue;
+         if(node_box.bigEnd(dir)==domain_node_box.bigEnd(dir)) {
+            internal_box.growHi(dir,1);
+         }
+         if(node_box.smallEnd(dir)==domain_node_box.smallEnd(dir)) {
+            internal_box.growLo(dir,1);
          }
       }
 
@@ -657,6 +652,117 @@ void DomainGrid::setJacobian()
 #endif
 
       m_masked_Jnc[dit].getFab().mult(mask);
+   }
+   
+   //   display the Jacobian values for verification
+   //if(procID()==0) displayJacobianData();
+
+}
+
+void DomainGrid::displayJacobianData() {
+
+   for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+
+      cout << "procID() = " << procID() << endl;
+            
+      Box Jnc_box = m_Jnc[dit].getFab().box();
+      cout << "JRA: m_Jnc.box() = " << Jnc_box << endl;      
+      BoxIterator gbit(Jnc_box);
+      for(gbit.begin(); gbit.ok(); ++gbit) {
+         IntVect ig = gbit(); // grid index
+         Real localJ = m_Jnc[dit].getFab().get(ig,0);
+	 cout << "JRA: Jnc(ig="<<ig<<") = " << localJ << endl;
+      }
+      cout << endl;
+
+      Box corrected_Jnc_box = m_corrected_Jnc[dit].getFab().box();
+      cout << "JRA: m_corrected_Jnc.box() = " << corrected_Jnc_box << endl;      
+      BoxIterator gbit2(corrected_Jnc_box);
+      for(gbit2.begin(); gbit2.ok(); ++gbit2) {
+         IntVect ig = gbit2(); // grid index
+         Real localJ = m_corrected_Jnc[dit].getFab().get(ig,0);
+	 cout << "JRA: corrected Jnc(ig="<<ig<<") = " << localJ << endl;
+      }
+      cout << endl;
+      
+      Box masked_Jnc_box = m_masked_Jnc[dit].getFab().box();
+      cout << "JRA: m_masked_Jnc.box() = " << masked_Jnc_box << endl;      
+      BoxIterator gbit3(masked_Jnc_box);
+      for(gbit3.begin(); gbit3.ok(); ++gbit3) {
+         IntVect ig = gbit3(); // grid index
+         Real localJ = m_masked_Jnc[dit].getFab().get(ig,0);
+	 cout << "JRA: masked Jnc(ig="<<ig<<") = " << localJ << endl;
+      }
+      cout << endl;
+
+      for (int dir=0; dir<SpaceDim; dir++) {
+	 cout << "JRA: dir = " << dir << endl;
+         Box Jfc_box = m_Jfc[dit][dir].box();
+         cout << "JRA: m_Jfc.box() = " << Jfc_box << endl;      
+         BoxIterator gbit(Jfc_box);
+         for(gbit.begin(); gbit.ok(); ++gbit) {
+            IntVect ig = gbit(); // grid index
+            Real localJ = m_Jfc[dit][dir].get(ig,0);
+	    cout << "JRA: Jfc(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+         }
+         cout << endl;
+
+	 Box corrected_Jfc_box = m_corrected_Jfc[dit][dir].box();
+         cout << "JRA: m_corrected_Jfc.box() = " << corrected_Jfc_box << endl;      
+         BoxIterator gbit2(corrected_Jfc_box);
+         for(gbit2.begin(); gbit2.ok(); ++gbit2) {
+            IntVect ig = gbit2(); // grid index
+            Real localJ = m_corrected_Jfc[dit][dir].get(ig,0);
+	    cout << "JRA: Jfc(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+         }
+         cout << endl;
+	 
+	 Box masked_Jfc_box = m_masked_Jfc[dit][dir].box();
+         cout << "JRA: m_masked_Jfc.box() = " << masked_Jfc_box << endl;      
+         BoxIterator gbit3(masked_Jfc_box);
+         for(gbit3.begin(); gbit3.ok(); ++gbit3) {
+            IntVect ig = gbit3(); // grid index
+            Real localJ = m_masked_Jfc[dit][dir].get(ig,0);
+	    cout << "JRA: Jfc(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+         }
+         cout << endl;
+
+      }
+
+      for (int dir=0; dir<SpaceDim; dir++) {
+	 cout << "JRA: dir = " << dir << endl;
+         Box Jec_box = m_Jec[dit][dir].box();
+         cout << "JRA: m_Jec.box() = " << Jec_box << endl;      
+         BoxIterator gbit(Jec_box);
+         for(gbit.begin(); gbit.ok(); ++gbit) {
+            IntVect ig = gbit(); // grid index
+            Real localJ = m_Jec[dit][dir].get(ig,0);
+	    cout << "JRA: Jec(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+         }
+         cout << endl;
+
+	 Box corrected_Jec_box = m_corrected_Jec[dit][dir].box();
+         cout << "JRA: m_corrected_Jec.box() = " << corrected_Jec_box << endl;      
+         BoxIterator gbit2(corrected_Jec_box);
+         for(gbit2.begin(); gbit2.ok(); ++gbit2) {
+            IntVect ig = gbit2(); // grid index
+            Real localJ = m_corrected_Jec[dit][dir].get(ig,0);
+	    cout << "JRA: Jec(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+         }
+         cout << endl;
+	 
+	 Box masked_Jec_box = m_masked_Jec[dit][dir].box();
+         cout << "JRA: m_masked_Jec.box() = " << masked_Jec_box << endl;      
+         BoxIterator gbit3(masked_Jec_box);
+         for(gbit3.begin(); gbit3.ok(); ++gbit3) {
+            IntVect ig = gbit3(); // grid index
+            Real localJ = m_masked_Jec[dit][dir].get(ig,0);
+	    cout << "JRA: Jec(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+         }
+         cout << endl;
+
+      }
+
    }
 
 }

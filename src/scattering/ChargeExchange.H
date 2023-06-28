@@ -38,13 +38,10 @@ class ChargeExchange : public Scattering
       
       virtual int species2() const { return m_sp2; }
       
-      virtual void setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
-                                    const LevelData<FArrayBox>&  a_energyDensity1,
-                                    const LevelData<FArrayBox>&  a_numberDensity2,
-                                    const LevelData<FArrayBox>&  a_energyDensity2 ) const;
-    
-      virtual void initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
-                               const DomainGrid&         a_mesh );
+      virtual void setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const; 
+      
+      virtual void initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                               const DomainGrid&           a_mesh );
 
       virtual Real scatterDt() const { return m_scatter_dt; }
 
@@ -64,16 +61,21 @@ class ChargeExchange : public Scattering
          }
       }
       
-      virtual void applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                              const DomainGrid&         a_mesh,
-                              const Real                a_dt_sec ) const;
+      virtual void applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                              const DomainGrid&           a_mesh,
+                              const Real                  a_dt_sec ) const;
       
    private:
       
-      virtual void ionImpact( PicSpecies&  a_picSpecies1,
-                              PicSpecies&  a_picSpecies2,
-                        const DomainGrid&  a_mesh,
-                        const Real         a_dt_sec ) const;
+      void ionImpact( PicSpecies&  a_picSpecies1,
+                      PicSpecies&  a_picSpecies2,
+                const DomainGrid&  a_mesh,
+                const Real         a_dt_sec ) const;
+      
+      void setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
+                        const LevelData<FArrayBox>&  a_energyDensity1,
+                        const LevelData<FArrayBox>&  a_numberDensity2,
+                        const LevelData<FArrayBox>&  a_energyDensity2 ) const;
       
       void readCrossSectionFile();
       

@@ -7,7 +7,6 @@
 #ifndef DomainGrid_h
 #define DomainGrid_h
 
-#include "ParmParse.H"
 #include "FArrayBox.H"
 #include "FluxBox.H"
 #include "EdgeDataBox.H"
@@ -26,10 +25,10 @@ class DomainGrid
 
 public:
 
-  DomainGrid( ParmParse&          ppgrid,
-        const int                 numGhosts,
-        const ProblemDomain&      domain,
-        const DisjointBoxLayout&  grids );
+  DomainGrid( const ProblemDomain&      domain,
+              const DisjointBoxLayout&  grids,
+              const int                 numGhosts,
+              const Real                length_scale );
   
   virtual ~DomainGrid() {;}
 
@@ -68,7 +67,11 @@ public:
   
   const Copier reverseCopier() const { return m_reverseCopier; }
   
-  virtual const double getMappedCellVolume() const { return m_mapped_cell_volume; }
+  const Real getMappedCellVolume() const { return m_mapped_cell_volume; }
+  
+  const Real getVolumeScale() const { return m_volume_scale; }
+  
+  const Real getAreaScale() const { return m_area_scale; }
   
   virtual const RealVect& getMappedFaceArea() const { return m_mapped_face_area; }
   
@@ -123,8 +126,10 @@ private:
   VOLUME_CORRECTION m_volume_correction;
 
   RealVect m_Xmin, m_Xmax, m_dX;
-  double m_mapped_cell_volume;
+  Real m_mapped_cell_volume;
   RealVect m_mapped_face_area;  
+  Real m_volume_scale;
+  Real m_area_scale;
   
   ProblemDomain m_domain;
   DisjointBoxLayout m_grids;
@@ -157,6 +162,8 @@ private:
   
   void setJacobian();
 
+  void displayJacobianData();
+  
   void defineBoundaryBoxLayout();
 
 };

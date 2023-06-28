@@ -3,14 +3,23 @@
 #####################################################
 # Verbosity and writing Definitions
 #####################################################
+
+###   initial plasma parameter:
+###   N1 = 1.0e17/cm^3, T = 1.00 eV, R = 1.5 cm
+###   1/wpe = 5.61e-5 ns
+###   de = cvac/wpe =  0.0017 cm
+###
+###   planar pinch driven by B field associated with
+###   200 kA current: B = mu*I/2/pi/R = 2.667 Tesla
+###   1/wce = 2.13e-3 ns
+
 simulation.verbosity = 10
 simulation.fixed_random_seed = 1983
-pic_species.write_species_nppc = true
 
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.iter_max_particles = 101
+pic_species.iter_max_particles = 100
 pic_species.rtol_particles = 1.0e-10
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
@@ -21,18 +30,20 @@ em_fields.pc_mass_matrix_width = 1
 em_fields.pc_mass_matrix_include_ij = true
 
 #pic_em_theta_implicit.solver_type = "newton"
-pic_em_theta_implicit.solver_type = "petsc"
+pic_em_theta_implicit.solver_type = "petsc_snes"
+pic_em_theta_implicit.ec_semi_implicit = true
 pic_em_theta_implicit.pc_update_freq = 1
 jacobian.with_pc = true
 
 newton.verbose = false
+newton.line_search.type = "basic"
 newton.atol = 1.0e-12
-newton.rtol = 1.0e-10
-newton.maxits = 100
+newton.rtol = 1.0e-8
+newton.maxits = 2
 
 gmres.verbose = false
 gmres.atol = 1.0e-12
-gmres.rtol = 1.0e-4
+gmres.rtol = 1.0e-6
 gmres.maxits = 1000
 
 #####################################################
@@ -40,18 +51,18 @@ gmres.maxits = 1000
 #####################################################
 simulation.max_step            = 200
 #simulation.max_step            = 1000000000
-simulation.max_time            = 164.0 # t0 = Rp0/u0
+simulation.max_time            = 220.0 # 1.35*t0
 #simulation.cfl_number          = 0.7
 #simulation.cfl_scatter         = 0.5
 simulation.fixed_dt            = 1.0e-3
 #simulation.plot_interval       = 1000
 simulation.dt_scatter_interval = 100 
-simulation.plot_time_interval  = 1.64
+simulation.plot_time_interval  = 2.2
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
 
-history.precision = 8
+history.precision = 5
 history.solver_probes = true
 history.species_solver_probes = true
 history.field_probes = true
@@ -59,8 +70,9 @@ history.field_bdry_probes = true
 history.species0_probes = true
 history.species1_probes = true
 #
-#simulation.checkpoint_time_interval = 8.2
-#simulation.restart_file = "checkpoint_data/chk090200.1d.hdf5"
+simulation.checkpoint_time_interval = 22.0
+#simulation.restart_file = "checkpoint_data/chk000500.1d.hdf5"
+#simulation.wall_time_hrs = 5.95
 simulation.wall_time_hrs = 0.95
 
 #####################################################
@@ -69,16 +81,12 @@ simulation.wall_time_hrs = 0.95
 grid.num_cells     = 216
 grid.is_periodic   = 0
 grid.config_decomp = 27
-#grid.geometry      = "cartesian"
-grid.geometry      = "cyl_R"
-grid.volume_correction = "conservative"
-#grid.axisymmetric = false
+grid.geometry      = "cartesian"
 grid.num_ghosts    = 3
 
 grid.X_min = 0.0
 grid.X_max = 1.54
 grid.verbosity = 1
-grid.write_jacobians = true
 
 #####################################################
 # Units Definitions
@@ -97,7 +105,7 @@ em_fields.advance_electric_field = 1 0 1
 em_fields.advance_magnetic_field = 0 1 0
 em_fields.write_rho = true
 em_fields.write_divs = true
-em_fields.write_curls = true
+#em_fields.write_curls = true
 
 IC.em_fields.magnetic.0.type = "constant"
 IC.em_fields.magnetic.0.value = 0.0
@@ -113,14 +121,13 @@ IC.em_fields.electric.1.value = 0.0
 IC.em_fields.electric.2.type = "constant"
 IC.em_fields.electric.2.value = 0.0
 
-#BC.em_fields.dir0_lower.type = "axis"
 BC.em_fields.dir0_lower.type = "symmetry"
 BC.em_fields.dir0_upper.type = "insulator_conductor"
 BC.insulator.dir0_upper.X0_min = 1.54
 BC.insulator.dir0_upper.X0_max = 1.60
 BC.insulator.dir0_upper.time_function.type = "ramp"
-BC.insulator.dir0_upper.time_function.rise_time = 8.2 # t0/20 = Rp0/u0/20
-BC.insulator.dir0_upper.time_function.amplitude = 7.7688e3 # mu0*I0/(2*pi*(Rmax+dr/2))/Bscale
+BC.insulator.dir0_upper.time_function.rise_time = 8.1541 # t0/20 = u0/Rp0/20
+BC.insulator.dir0_upper.time_function.amplitude = 7.9944e3 # By(x=x0_max)
 
 #####################################################
 # Species Definitions
@@ -137,13 +144,10 @@ pic_species.0.scatter = true
 pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
-pic_species.0.push_type = "CYL_CYL"
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 1.5
-IC.electron.parts_per_cell = 2
-IC.electron.uniform_particle_weights = true
-IC.electron.use_float_for_weights = true
+IC.electron.parts_per_cell = 100
 IC.electron.density.type = "constant"
 IC.electron.density.value = 1.0e23 # [number/m^3]
 IC.electron.temperature_0.type = "constant"
@@ -159,7 +163,6 @@ IC.electron.velocity_1.value = 0.0
 IC.electron.velocity_2.type = "constant"
 IC.electron.velocity_2.value = 0.0
 
-#BC.electron.dir0_lower.type = "axis"
 BC.electron.dir0_lower.type = "symmetry"
 BC.electron.dir0_upper.type = "outflow"
 
@@ -174,13 +177,10 @@ pic_species.1.scatter = true
 pic_species.1.interp_type_N = "TSC"
 pic_species.1.interp_type_J = "CC1"
 pic_species.1.interp_type_E = "CC1"
-pic_species.1.push_type = "CYL_CYL"
 
 IC.deuterium.X_min = 0.0
 IC.deuterium.X_max = 1.5
-IC.deuterium.parts_per_cell = 2
-IC.deuterium.uniform_particle_weights = true
-IC.deuterium.use_float_for_weights = true
+IC.deuterium.parts_per_cell = 100
 IC.deuterium.density.type = "constant"
 IC.deuterium.density.value = 1.0e23 # [number/m^3]
 IC.deuterium.temperature_0.type = "constant"
@@ -196,7 +196,6 @@ IC.deuterium.velocity_1.value = 0.0
 IC.deuterium.velocity_2.type = "constant"
 IC.deuterium.velocity_2.value = 0.0
 
-#BC.deuterium.dir0_lower.type = "axis"
 BC.deuterium.dir0_lower.type = "symmetry"
 BC.deuterium.dir0_upper.type = "outflow"
 
@@ -204,23 +203,20 @@ BC.deuterium.dir0_upper.type = "outflow"
 # Scattering Definitions
 #####################################################
 
-scattering.0.model = "COULOMB"
+scattering.0.model = "TA"
 scattering.0.speciesA = 0
 scattering.0.speciesB = 0
-scattering.0.angular_scattering = "NANBU"
-#scattering.0.coulomb_logarithm = 10.0
+scattering.0.coulomb_logarithm = 10.0
 
-scattering.1.model = "COULOMB"
+scattering.1.model = "TA"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
-scattering.1.angular_scattering = "NANBU"
-#scattering.1.coulomb_logarithm = 10.0
+scattering.1.coulomb_logarithm = 10.0
 
-scattering.2.model = "COULOMB"
+scattering.2.model = "TA"
 scattering.2.speciesA = 1
 scattering.2.speciesB = 0
-scattering.2.angular_scattering = "NANBU"
-#scattering.2.coulomb_logarithm = 10.0
+scattering.2.coulomb_logarithm = 10.0
 
 #####################################################
 

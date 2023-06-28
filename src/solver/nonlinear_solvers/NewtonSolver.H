@@ -261,10 +261,13 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
     cout << "iter = " << m_its << endl;
     cout << "rel_norm = " << m_norm/m_norm0 << endl;
   }
-  if((!procID()) && (m_exitStatus==5)) {
-    cout << "Warning: Newton solver max iterations reached" << endl;
-    cout << "iter = " << m_its << endl;
-    cout << "rel_norm = " << m_norm/m_norm0 << endl;
+
+  if(m_maxits>1) { // if maxits==1, using ec_semi_implicit
+    if((!procID()) && (m_exitStatus==5)) {
+      cout << "Warning: Newton solver max iterations reached" << endl;
+      cout << "iter = " << m_its << endl;
+      cout << "rel_norm = " << m_norm/m_norm0 << endl;
+    }
   }
 
   m_count += m_its;

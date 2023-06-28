@@ -87,9 +87,11 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       SNESConvergedReason reason;
       SNESGetConvergedReason( m_nlsolver, &reason );
       const int exit_status = (int)reason;
-      if(!procID() && exit_status < 0) {
-         cout << "SNES solver diverged: exit status = " << exit_status << endl;
-         cout << "see https://petsc.org/release/docs/manualpages/SNES/SNESConvergedReason/" << endl;
+      if(m_newton_maxits > 2) { // if maxits==2, using ec_semi_implicit
+        if(!procID() && exit_status < 0) {
+          cout << "SNES solver diverged: exit status = " << exit_status << endl;
+          cout << "see https://petsc.org/release/docs/manualpages/SNES/SNESConvergedReason/" << endl;
+        }
       }
 
       return;

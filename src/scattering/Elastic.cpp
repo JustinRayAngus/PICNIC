@@ -14,18 +14,20 @@
 #include "NamespaceHeader.H"
 
 
-void Elastic::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
-                             const DomainGrid&         a_mesh )
+void Elastic::initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                          const DomainGrid&           a_mesh )
 {
    CH_TIME("Elastic::initialize()");
    
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   
    // get pointer to species 1
-   CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species1(a_picSpeciesPtrVect[m_sp1]);
+   CH_assert(m_sp1<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
 
    // get pointer to species 2
-   CH_assert(m_sp2<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species2(a_picSpeciesPtrVect[m_sp2]);
+   CH_assert(m_sp2<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    
    // set the species names
    m_species1_name = this_species1->name();
@@ -46,22 +48,7 @@ void Elastic::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
       setOkhrimovskyyXI();
    }
 
-   //
-   // set the mean free time
-   //
-   
-   if(this_species1->scatter() && this_species2->scatter()) {
-   
-      const bool setMoments = true;
-      const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
-      const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
- 
-      setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
-
-   }
+   //setMeanFreeTime( a_pic_species_intf );
 
    if (m_verbosity)  printParameters();
 
@@ -134,12 +121,33 @@ void Elastic::printCrossSections() const
    cout.flags(f);
 }
 
-void Elastic::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
-                               const LevelData<FArrayBox>&  a_energyDensity1,
-                               const LevelData<FArrayBox>&  a_numberDensity2,
-                               const LevelData<FArrayBox>&  a_energyDensity2 ) const
+void Elastic::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const 
 {
    CH_TIME("Elastic::setMeanFreeTime()");
+   
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp1]);
+   
+   if(!this_species1->scatter() || !this_species2->scatter()) return;
+   
+   const bool setMoments = false;
+   const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
+   
+   const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
+ 
+   setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+
+}
+
+void Elastic::setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
+                           const LevelData<FArrayBox>&  a_energyDensity1,
+                           const LevelData<FArrayBox>&  a_numberDensity2,
+                           const LevelData<FArrayBox>&  a_energyDensity2 ) const
+{
+   CH_TIME("Elastic::setInterMFT()");
    
    Real local_numberDensity1, local_betaSqEff1;
    Real local_numberDensity2, local_betaSqEff2;
@@ -194,14 +202,16 @@ void Elastic::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
 
 }
 
-void Elastic::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                            const DomainGrid&         a_mesh,
-                            const Real                a_dt_sec ) const
+void Elastic::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                         const DomainGrid&           a_mesh,
+                         const Real                  a_dt_sec ) const
 {
    CH_TIME("Elastic::applyScattering()");
+   
+   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
       
-   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    if(!this_species1->scatter()) return;
    if(!this_species2->scatter()) return;
    
@@ -229,7 +239,7 @@ void Elastic::electronImpact( PicSpecies&  a_picSpecies1,
    LevelData<BinFab<JustinsParticlePtr>>& data2_binfab_ptr = a_picSpecies2.partData_binfab();
    // get/set density here from binfab_ptr, which  doesn't contain particles created
    // during inelastic events, but does know about those that are killed ... 
-   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensityFromBinFab();
+   const LevelData<FArrayBox>& numberDensity2 = a_picSpecies2.getNumberDensityFromBinFab(true);
   
    // predefine some variables
    Real local_numberDensity2;

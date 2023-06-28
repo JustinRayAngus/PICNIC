@@ -3,7 +3,6 @@
 
 #include "ParmParse.H"
 #include "Scattering.H"
-#include "CodeUnits.H"
 
 #include "HardSphere.H"
 #include "VariableHardSphere.H"
@@ -44,7 +43,6 @@ class ScatteringFactory
        * routine is responsible for de-allocating the memory.
        */
       inline RefCountedPtr<Scattering> create( ParmParse&    a_pp,
-                                         const CodeUnits&    a_units,
                                          const WeightMethod  a_weight_method,
                                          const int           a_verbosity = 0 );
       
@@ -53,7 +51,7 @@ class ScatteringFactory
                                                       const Real  a_Clog,
                                                       const std::string  a_model,
                                                       const std::string  a_angular_model,
-                                                      const CodeUnits&   a_units,
+                                                      const std::string  a_weight_method,
                                                       const int   a_verbosity = 0 );
 
 };
@@ -61,7 +59,6 @@ class ScatteringFactory
 
 inline
 RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&    a_pp,
-                                               const CodeUnits&    a_units,
                                                const WeightMethod  a_weight_method,
                                                const int           a_verbosity )
 {
@@ -81,7 +78,7 @@ RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&    a_pp,
       result = RefCountedPtr<Scattering>( new TakizukaAbe( a_pp, a_verbosity ) );
    }
    else if (model == "coulomb" || model=="COULOMB") {
-      result = RefCountedPtr<Scattering>( new Coulomb( a_pp, a_units, a_verbosity ) );
+      result = RefCountedPtr<Scattering>( new Coulomb( a_pp,  a_weight_method, a_verbosity ) );
    }
    else if (model == "ela" || model=="ELA") {
       result = RefCountedPtr<Scattering>( new Elastic( a_pp, a_weight_method, a_verbosity ) );
@@ -114,7 +111,7 @@ RefCountedPtr<Scattering> ScatteringFactory::createCoulomb( const int   a_sp1,
                                                             const Real  a_Clog,
                                                             const std::string  a_model,
                                                             const std::string  a_angular_model,
-                                                            const CodeUnits&   a_units,
+                                                            const std::string  a_weight_method,
                                                             const int   a_verbosity )
 {
    RefCountedPtr<Scattering> result(NULL);
@@ -122,9 +119,8 @@ RefCountedPtr<Scattering> ScatteringFactory::createCoulomb( const int   a_sp1,
       result = RefCountedPtr<Scattering>( new TakizukaAbe( a_sp1, a_sp2, a_Clog, a_verbosity ) );
    }
    else if (a_model == "coulomb" || a_model=="COULOMB") {
-      const Real volume_scale = a_units.getScale(a_units.VOLUME);
-      result = RefCountedPtr<Scattering>( new Coulomb( a_sp1, a_sp2, a_Clog, volume_scale, 
-                                                       a_angular_model, a_verbosity ) );
+      result = RefCountedPtr<Scattering>( new Coulomb( a_sp1, a_sp2, a_Clog, a_angular_model, 
+			                               a_weight_method, a_verbosity ) );
    }
    else {
       cout << "model = " << a_model << endl;

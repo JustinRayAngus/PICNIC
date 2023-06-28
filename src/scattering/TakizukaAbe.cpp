@@ -11,19 +11,21 @@
 #include "NamespaceHeader.H"
 
 
-void TakizukaAbe::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
-                              const DomainGrid&         a_mesh )
+void TakizukaAbe::initialize( const PicSpeciesInterface&  a_pic_species_intf,
+                              const DomainGrid&           a_mesh )
 {
    CH_TIME("TakizukaAbe::initialize()");
    
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   
    // get pointer to species 1 and assert collisions allowed
-   CH_assert(m_sp1<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species1(a_picSpeciesPtrVect[m_sp1]);
+   CH_assert(m_sp1<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
    //CH_assert(this_sSpecies1->scatter());
       
    // get pointer to species 2 and assert collisions allowed
-   CH_assert(m_sp2<a_picSpeciesPtrVect.size());
-   PicSpeciesPtr this_species2(a_picSpeciesPtrVect[m_sp2]);
+   CH_assert(m_sp2<pic_species_ptr_vect.size());
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    //CH_assert(this_species2->scatter());
 
    // set the species names
@@ -48,32 +50,37 @@ void TakizukaAbe::initialize( const PicSpeciesPtrVect&  a_picSpeciesPtrVect,
    m_b90_fact = abs(m_charge1*m_charge2)/(m_mu*cvacSq)*m_b90_codeToPhys; 
 #endif
 
-   // set the mean free time
-   if(this_species1->scatter() && this_species2->scatter()) {
-   
-      const bool setMoments = true;
-      const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
-      const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
-      if(m_sp1==m_sp2) {
-         setMeanFreeTime(numberDensity1,energyDensity1);
-      }
-      else {
-         const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
-         const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
-         setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
-      }
-
-   }
-
    if (m_verbosity)  printParameters();
 
 }
 
-void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
-                                   const LevelData<FArrayBox>&  a_energyDensity ) const
+void TakizukaAbe::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const 
 {
    CH_TIME("TakizukaAbe::setMeanFreeTime()");
+   
+   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   
+   if(!this_species1->scatter() || !this_species2->scatter()) return;
+   
+   const bool setMoments = false;
+   const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
+   const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
+   
+   if(m_sp1==m_sp2) setIntraMFT(numberDensity1,energyDensity1);
+   else {
+      const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
+      const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
+      setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
+   }
+
+}
+
+void TakizukaAbe::setIntraMFT( const LevelData<FArrayBox>&  a_numberDensity,
+                               const LevelData<FArrayBox>&  a_energyDensity ) const
+{
+   CH_TIME("TakizukaAbe::setIntraMFT()");
  
    Real Teff_eV, numberDensity, energyDensity;
    Real tau;
@@ -127,12 +134,12 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity,
    
 }
 
-void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1,
-                                   const LevelData<FArrayBox>&  a_energyDensity1,
-                                   const LevelData<FArrayBox>&  a_numberDensity2,
-                                   const LevelData<FArrayBox>&  a_energyDensity2 ) const
+void TakizukaAbe::setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
+                               const LevelData<FArrayBox>&  a_energyDensity1,
+                               const LevelData<FArrayBox>&  a_numberDensity2,
+                               const LevelData<FArrayBox>&  a_energyDensity2 ) const
 {
-   CH_TIME("TakizukaAbe::setMeanFreeTime()");
+   CH_TIME("TakizukaAbe::setInterMFT()");
  
    //std::array<Real,8> x0 = {0.1,0.5,1.0,3.0,6.0,9.0,10.0,100};
    //for (auto i=0; i<x0.size(); i++) {
@@ -231,20 +238,22 @@ void TakizukaAbe::setMeanFreeTime( const LevelData<FArrayBox>&  a_numberDensity1
 
 }
 
-void TakizukaAbe::applyScattering( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
-                             const DomainGrid&         a_mesh,
-                             const Real                a_dt_sec ) const
+void TakizukaAbe::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
+                             const DomainGrid&           a_mesh,
+                             const Real                  a_dt_sec ) const
 {
    CH_TIME("TakizukaAbe::applyScattering()");
+   
+   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
       
-   PicSpeciesPtr this_species1(a_pic_species_ptr_vect[m_sp1]);
+   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
    if(!this_species1->scatter()) return;
 
    if(m_sp1==m_sp2) {
       applySelfScattering( *this_species1, a_mesh, a_dt_sec );
    }
    else {
-      PicSpeciesPtr this_species2(a_pic_species_ptr_vect[m_sp2]);
+      PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
       if(!this_species2->scatter()) return;
       applyInterScattering( *this_species1, *this_species2, a_mesh, a_dt_sec );
    }
@@ -390,9 +399,6 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
    delete this_part1_ptr;
    delete this_part2_ptr;
    
-   // While we are here, update the mean free time (assuming energyDensity1 has not changed much)
-   //setMeanFreeTime(numberDensity,energyDensity);
-
 }
 
 void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
@@ -526,9 +532,6 @@ void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
    this_part2_ptr = NULL;
    delete this_part1_ptr;
    delete this_part2_ptr;
-   
-   // While we are here, update the mean free time (assuming energyDensity1 and 2 have not changed much)
-   //setMeanFreeTime(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
 
 }
 
