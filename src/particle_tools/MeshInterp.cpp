@@ -229,8 +229,43 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
                    CHF_CONST_REAL(kernal2),
                    CHF_CONST_REAL(a_weight) );
       break;
-    case heatFlux:
-      MayDay::Error("heatFlux type in MeshInterp::momentParticle not defined yet");
+    case energyOffDiag:
+#ifdef RELATIVISTIC_PARTICLES
+      for (int n=0; n<3; n++) gammap += a_velocity[n]*a_velocity[n];
+      gammap = sqrt(gammap);
+#endif
+      kernal = a_species_mass/(gammap + 1.0);
+      kernal0 = kernal*a_velocity[0]*a_velocity[1];
+      kernal1 = kernal*a_velocity[0]*a_velocity[2];
+      kernal2 = kernal*a_velocity[1]*a_velocity[2];
+      FORT_MOMENT3V_DEPOSIT( CHF_FRA(a_moment),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position),
+                   CHF_CONST_REAL(kernal0),
+                   CHF_CONST_REAL(kernal1),
+                   CHF_CONST_REAL(kernal2),
+                   CHF_CONST_REAL(a_weight) );
+      break;
+    case energyFlux:
+#ifdef RELATIVISTIC_PARTICLES
+      for (int n=0; n<3; n++) gammap += a_velocity[n]*a_velocity[n];
+      gammap = sqrt(gammap);
+#endif
+      kernal = 0.0;
+      for (int n=0; n<3; n++) kernal += a_velocity[n]*a_velocity[n];
+      kernal *= a_species_mass/(gammap + 1.0);
+      kernal0 = kernal*a_velocity[0];
+      kernal1 = kernal*a_velocity[1];
+      kernal2 = kernal*a_velocity[2];
+      FORT_MOMENT3V_DEPOSIT( CHF_FRA(a_moment),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position),
+                   CHF_CONST_REAL(kernal0),
+                   CHF_CONST_REAL(kernal1),
+                   CHF_CONST_REAL(kernal2),
+                   CHF_CONST_REAL(a_weight) );
       break;
     default:
       MayDay::Error("Invalid moment type in MeshInterp::momentParticle");

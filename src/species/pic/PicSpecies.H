@@ -63,6 +63,7 @@ public:
   virtual Real stableDt() const { return m_stable_dt; }
    
   bool suborbit_inflowJ() const { return m_suborbit_inflowJ; }
+  bool use_suborbit_model() const { return m_use_suborbit_model; }
   
   const RealVect& getMassOut_lo() const { return m_MassOut_lo; }
   const RealVect& getMassOut_hi() const { return m_MassOut_hi; }
@@ -126,12 +127,14 @@ public:
                                         const bool  a_iter_min_two,
                                         const int   a_iter_max,
                                         const Real  a_rtol, 
+                                        const int   a_newton_maxits, 
                                         const int   a_newton_num_guess) 
   { 
      m_iter_order_swap = a_iter_order_swap; 
      m_iter_min_two = a_iter_min_two; 
      m_iter_max = a_iter_max; 
      m_rtol = a_rtol; 
+     m_newton_maxits = a_newton_maxits;
      m_newton_num_guess = a_newton_num_guess;
   }
 
@@ -144,7 +147,6 @@ public:
   const LevelData<BinFab<JustinsParticlePtr>>& partData_binfab() const {return m_data_binfab_ptr;}
   
   // ways to get/set number density member
-  void numberDensity( LevelData<FArrayBox>& a_rho );
   const LevelData<FArrayBox>& getNumberDensity( const bool  setData = false ) const
   { 
     if(setData) setNumberDensity();
@@ -164,7 +166,6 @@ public:
   const LevelData<FArrayBox>& getNppc() const {return m_Nppc;}
   
   // ways to get/set momentum density member
-  void momentumDensity( LevelData<FArrayBox>& a_mom );
   const LevelData<FArrayBox>& getMomentumDensity( const bool  setData = false ) const
   { 
     if(setData) setMomentumDensity();
@@ -181,7 +182,6 @@ public:
   void setMomentumDensityFromBinFab() const;
   
   // ways to get/set energy density member
-  void energyDensity( LevelData<FArrayBox>& a_ene );
   const LevelData<FArrayBox>& getEnergyDensity( const bool  setData = false ) const
   { 
     if(setData) setEnergyDensity();
@@ -197,6 +197,22 @@ public:
   void setEnergyDensity() const;
   void setEnergyDensityFromBinFab() const;
   
+  // ways to get/set energyOffDiag member
+  const LevelData<FArrayBox>& getEnergyOffDiag( const bool  setData = false ) const
+  { 
+    if(setData) setEnergyOffDiag();
+    return m_energyOffDiag;
+  }
+  void setEnergyOffDiag() const;
+  
+  // ways to get/set energy density flux member
+  const LevelData<FArrayBox>& getEnergyDensityFlux( const bool  setData = false ) const
+  { 
+    if(setData) setEnergyDensityFlux();
+    return m_energyFlux;
+  }
+  void setEnergyDensityFlux() const;
+  
   // ways to get/set current density member
   void currentDensity( LevelData<FArrayBox>&  a_currentDensity );
   
@@ -207,6 +223,12 @@ public:
   void setInflowJ( const Real  a_dt );
   const LevelData<EdgeDataBox>& getInflowJ() const {return m_inflowJ;}
   const LevelData<NodeFArrayBox>& getInflowJ_virtual() const {return m_inflowJ_virtual;}
+  
+  void advanceSubOrbitParticlesAndSetJ( const ElectroMagneticFields&  a_em_fields, 
+		                        const Real                    a_dt,
+                                        const bool                    a_from_emjacobian ); 
+  const LevelData<EdgeDataBox>& getSubOrbitJ() const {return m_suborbitJ;}
+  const LevelData<NodeFArrayBox>& getSubOrbitJ_virtual() const {return m_suborbitJ_virtual;}
 
   void accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx, 
                                LevelData<EdgeDataBox>&    a_sigma_xy,
@@ -261,11 +283,21 @@ public:
   
   void advancePositions_2ndHalf();
   
+  void advancePositions_2ndHalf( List<JustinsParticle>&  a_pList );
+  
   void applyBCs( const bool  a_intermediate_advance );
 
   void advanceVelocities( const Real  a_full_dt, 
                           const bool  a_half_step );
+  
   void advanceVelocities_2ndHalf( const Real  a_dt = 0.0 );
+  
+  void advanceVelocities_2ndHalf( List<JustinsParticle>&  a_pList );
+
+  void advanceVelocities_CYL_HYB_2ndHalf( const Real  a_dt,
+		              List<JustinsParticle>&  a_pList );
+  
+  void advanceParticles_CYL_CAR_2ndHalf( List<JustinsParticle>&  a_pList );
   
   void applyInertialForces( const Real  a_dt,
                             const bool  a_use_avg_velocity,
@@ -279,7 +311,9 @@ public:
                                     const Real                    a_dt );
   
   void advanceInflowParticlesIteratively( const ElectroMagneticFields&  a_em_fields,
-                                    const Real                    a_dt );
+                                          const Real                    a_dt );
+  
+  void mergeSubOrbitParticles();
   
   void removeOutflowParticles();
   
@@ -342,6 +376,7 @@ private:
   bool m_iter_min_two = false; 
   int m_iter_max = 0; 
   Real m_rtol = 1.0e-12; 
+  int m_newton_maxits = 20; 
   int m_newton_num_guess = 1; 
   uint64_t m_num_parts_its = 0;
   uint64_t m_num_apply_its = 0;
@@ -375,6 +410,8 @@ private:
   InterpType m_interpEToParts;   // method to interpolate electric field to particle
   bool m_interp_bc_check;
   bool m_suborbit_inflowJ;
+  bool m_use_suborbit_model;
+  bool m_suborbit_testing = false; 
 
   bool m_motion;
   bool m_forces;
@@ -386,17 +423,26 @@ private:
   MeshInterp* m_meshInterp;
   
   ParticleData<JustinsParticle> m_data; // container for storing list of particles for each box
-  LevelData<BinFab<JustinsParticlePtr>> m_data_binfab_ptr; // container for storing array of lists of ptrs to JustinsParticles 
-                                         // each grid cell has a list of all particles living in that cell
+  LevelData<BinFab<JustinsParticlePtr>> m_data_binfab_ptr; // cell-based container for storing lists of ptrs to particles 
 
-  mutable LevelData<FArrayBox> m_Nppc;        // number of macro particles per cell
-  mutable LevelData<FArrayBox> m_density;     // density moment at cell center
-  mutable LevelData<FArrayBox> m_momentum;    // mean momentum density at cell center
-  mutable LevelData<FArrayBox> m_energy;      // mean energy density at cell center
+  ParticleData<JustinsParticle> m_data_suborbit; // container for temporarily storing particles that are
+                                                 // A) difficult to converge with Picard (subcycling needed)
+						 // B) CFL-violating (to avoid need for extended MM stencil)
+						 // These particles will not contribute to the mass matrices.
+						 // Instead, their contribution to J will be computed directly
+						 // during the linear iterations of PS-JFNK. At end of time step, 
+						 // the particles are transferred back to the main container (m_data).
+
+  mutable LevelData<FArrayBox> m_Nppc;           // number of macro particles per cell
+  mutable LevelData<FArrayBox> m_density;        // density moment at cell center
+  mutable LevelData<FArrayBox> m_momentum;       // momentum density at cell center
+  mutable LevelData<FArrayBox> m_energy;         // energy density (diagonal elements of energy tensory) at cell center
+  mutable LevelData<FArrayBox> m_energyOffDiag;  // off-diagonal (XY, XZ, and YZ) elements of energy tensor
+  mutable LevelData<FArrayBox> m_energyFlux;     // energy density flux at cell center
   
   // define containers for current density
-  mutable LevelData<EdgeDataBox> m_currentDensity, m_inflowJ;
-  mutable LevelData<NodeFArrayBox> m_currentDensity_virtual, m_inflowJ_virtual;  // needed for 1D/2D simulations
+  mutable LevelData<EdgeDataBox> m_currentDensity, m_inflowJ, m_suborbitJ;
+  mutable LevelData<NodeFArrayBox> m_currentDensity_virtual, m_inflowJ_virtual, m_suborbitJ_virtual;
   //mutable BoxLayoutData<FArrayBox> m_testBLD;          
   mutable LevelData<FArrayBox> m_chargeDensity;          
   mutable LevelData<FluxBox> m_chargeDensity_faces;          

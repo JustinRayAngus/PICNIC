@@ -1206,6 +1206,8 @@ void dataFileIO::writePicSpecies( const PicSpeciesInterface&  a_pic_species,
    const bool writeRho = a_pic_species.writeSpeciesRho();
    const bool writeJ = a_pic_species.writeSpeciesJ();
    const bool writeNppc = a_pic_species.writeSpeciesNppc();
+   const bool writeEnergyOffDiag = a_pic_species.writeSpeciesEnergyOffDiag();
+   const bool writeEnergyFlux = a_pic_species.writeSpeciesEnergyFlux();
 
    const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species.getPtrVect();
    for (int sp=0; sp<pic_species_ptr_vect.size(); sp++) {
@@ -1216,10 +1218,12 @@ void dataFileIO::writePicSpecies( const PicSpeciesInterface&  a_pic_species,
       species->setEnergyDensity();
       
       if(writeNppc) species->setNppc();
+      if(writeEnergyOffDiag) species->setEnergyOffDiag();
+      if(writeEnergyFlux) species->setEnergyDensityFlux();
 
       if(species->charge() == 0) {
-         writeNeutralSpeciesDataFile( *species, sp,
-                                      a_step, a_time, writeNppc );
+         writeNeutralSpeciesDataFile( *species, sp, a_step, a_time,
+                                      writeNppc, writeEnergyOffDiag, writeEnergyFlux );
       }
       else {
          if(writeRho) {
@@ -1230,8 +1234,8 @@ void dataFileIO::writePicSpecies( const PicSpeciesInterface&  a_pic_species,
          if(writeJ) species->setCurrentDensity();
          writeChargedSpeciesDataFile( *species, sp,
                                       a_step, a_time,
-                                      writeRho,
-                                      writeJ, writeNppc );
+                                      writeRho, writeJ, writeNppc,
+                                      writeEnergyOffDiag, writeEnergyFlux );
       }
 
    }
@@ -1242,7 +1246,9 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                               const int          a_species,
                                               const int          a_cur_step,
                                               const double       a_cur_time,
-                                              const bool         a_write_nppc )
+                                              const bool         a_write_nppc,
+                                              const bool         a_write_energy_off_diag,
+                                              const bool         a_write_energy_flux )
 {
    CH_TIME("dataFileIO::writeNeutralSpeciesDataFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -1257,7 +1263,9 @@ void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
    writeSpeciesParticleFile( a_picSpecies, a_species, a_cur_step, a_cur_time );
    
    // write the species moment data file
-   writeSpeciesMomentsFile( a_picSpecies, a_species, a_cur_step, a_cur_time, false, false, a_write_nppc );
+   writeSpeciesMomentsFile( a_picSpecies, a_species, a_cur_step, a_cur_time, 
+		            false, false, a_write_nppc, a_write_energy_off_diag, 
+			    a_write_energy_flux );
    
    if(!procID()) cout << "finished writing neutral species data file" << endl << endl;
 
@@ -1269,7 +1277,9 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
                                               const double       a_cur_time,
                                               const bool         a_write_charge_density,
                                               const bool         a_write_current_density,
-                                              const bool         a_write_nppc )
+                                              const bool         a_write_nppc,
+                                              const bool         a_write_energy_off_diag,
+                                              const bool         a_write_energy_flux )
 {
    CH_TIME("dataFileIO::writeChargedSpeciesDataFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -1285,7 +1295,8 @@ void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
    
    // write the species moment data file
    writeSpeciesMomentsFile( a_picSpecies, a_species, a_cur_step, a_cur_time, 
-                            a_write_charge_density, a_write_current_density, a_write_nppc );
+                            a_write_charge_density, a_write_current_density, 
+			    a_write_nppc, a_write_energy_off_diag, a_write_energy_flux );
    
    if(!procID()) cout << "finished writing charged species data file" << endl << endl;
 
@@ -1410,7 +1421,9 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
                                           const double       a_cur_time,
                                           const bool         a_write_charge_density,
                                           const bool         a_write_current_density,
-                                          const bool         a_write_nppc )
+                                          const bool         a_write_nppc,
+                                          const bool         a_write_energy_off_diag,
+                                          const bool         a_write_energy_flux )
 {
    CH_TIME("dataFileIO::writeSpeciesMomentsFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -1636,6 +1649,50 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    
       write(handleParts, Nppc.boxLayout());
       write(handleParts, Nppc, "data", Nppc.ghostVect());
+
+   }
+   
+   if(a_write_energy_off_diag) {
+      
+      //
+      // write the off-diagonal components of the energy density tensor
+      //
+   
+      const LevelData<FArrayBox>& energyOD  = a_picSpecies.getEnergyOffDiag();
+      
+      const std::string groupName = std::string("cell_centered_energy_off_diag");
+      handleParts.setGroup(groupName);
+   
+      headerParts.clear();
+      headerParts.m_int["is_cellbox"] = 1;
+      headerParts.m_int["num_components"] = energyOD.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, energyOD.boxLayout());
+      write(handleParts, energyOD, "data", energyOD.ghostVect());
+
+   }
+   
+   if(a_write_energy_flux) {
+      
+      //
+      // write the energy density flux
+      //
+   
+      const LevelData<FArrayBox>& energyFlux  = a_picSpecies.getEnergyDensityFlux();
+      
+      const std::string groupName = std::string("cell_centered_energy_flux");
+      handleParts.setGroup(groupName);
+   
+      headerParts.clear();
+      headerParts.m_int["is_cellbox"] = 1;
+      headerParts.m_int["num_components"] = energyFlux.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, energyFlux.boxLayout());
+      write(handleParts, energyFlux, "data", energyFlux.ghostVect());
 
    }
    

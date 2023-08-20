@@ -89,6 +89,8 @@ class dataFileIO
                                         const int          a_species, 
                                         const int          a_cur_step, 
                                         const double       a_cur_time,
+                                        const bool         a_write_energy_off_diag,
+                                        const bool         a_write_energy_flux,
                                         const bool         a_write_nppc );
       
       void writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
@@ -97,6 +99,8 @@ class dataFileIO
                                         const double       a_cur_time,
                                         const bool         a_write_charge_density,
                                         const bool         a_write_current_density,
+                                        const bool         a_write_energy_off_diag,
+                                        const bool         a_write_energy_flux,
                                         const bool         a_write_nppc );
       
       void writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
@@ -110,6 +114,8 @@ class dataFileIO
                                     const double       a_cur_time,
                                     const bool         a_write_charge_density,
                                     const bool         a_write_current_density,
+                                    const bool         a_write_energy_off_diag,
+                                    const bool         a_write_energy_flux,
                                     const bool         a_write_nppc );
       
       void writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,

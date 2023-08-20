@@ -17,10 +17,13 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
      m_writeSpeciesChargeDensity(false),
      m_writeSpeciesCurrentDensity(false),
      m_writeSpeciesNppc(false),
+     m_writeSpeciesEnergyOffDiag(false),
+     m_writeSpeciesEnergyFlux(false),
      m_part_order_swap(false),
      m_iter_min_two(false),
      m_iter_max_particles(0),
      m_rtol_particles(1.0e-12),
+     m_newton_maxits(20),
      m_newton_num_guess(1),
      m_freeze_particles_jacobian(false),
      m_quasi_freeze_particles_jacobian(false),
@@ -36,11 +39,15 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    pp.query("write_species_charge_density", m_writeSpeciesChargeDensity);
    pp.query("write_species_current_density", m_writeSpeciesCurrentDensity);
    pp.query("write_species_nppc", m_writeSpeciesNppc);
+   pp.query("write_species_energy_off_diagonal", m_writeSpeciesEnergyOffDiag);
+   pp.query("write_species_energy_flux", m_writeSpeciesEnergyFlux);
+   if(m_writeSpeciesEnergyFlux) m_writeSpeciesEnergyOffDiag = true;
    //
    pp.query("part_order_swap",m_part_order_swap);
    pp.query("iter_min_two",m_iter_min_two);
    pp.query("iter_max_particles",m_iter_max_particles);
    pp.query("rtol_particles",m_rtol_particles);
+   pp.query("newton_maxits",m_newton_maxits);
    pp.query("newton_num_guess",m_newton_num_guess);
    //
    pp.query("freeze_particles_jacobian",m_freeze_particles_jacobian);
@@ -132,6 +139,7 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
                                            m_iter_min_two,
                                            m_iter_max_particles,
                                            m_rtol_particles,
+                                           m_newton_maxits,
                                            m_newton_num_guess );
       }
   
@@ -157,12 +165,15 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
       cout << " write species charge density  = " << m_writeSpeciesChargeDensity << endl;
       cout << " write species current density = " << m_writeSpeciesCurrentDensity << endl;
       cout << " write species nppc = " << m_writeSpeciesNppc << endl;
+      cout << " write species energy off diagonal = " << m_writeSpeciesEnergyOffDiag << endl;
+      cout << " write species energy flux = " << m_writeSpeciesEnergyFlux << endl;
       if (a_implicit_advance) {
          cout << " implicit advance parameters:" << endl;
          cout << "  part_order_swap = " << m_part_order_swap << endl;
          cout << "  iter_min_two = " << m_iter_min_two << endl;
          cout << "  iter_max_particles = " << m_iter_max_particles << endl;
          cout << "  rtol_particles = " << m_rtol_particles << endl;
+         cout << "  newton_maxits = " << m_newton_maxits << endl;
          cout << "  newton_num_guess = " << m_newton_num_guess << endl;
          cout << "  freeze_particles_jacobian = " << m_freeze_particles_jacobian << endl;
          cout << "  quasi_freeze_particles_jacobian = " << m_quasi_freeze_particles_jacobian << endl;
@@ -580,7 +591,7 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
 #endif
 
       //
-      // compute Jx = Jx0 + sigma*E
+      // compute Jx = Jx0 + sigma*(E-E0)
       //
 
       const FArrayBox& sigxx = m_sigma_xx[dit][0];      
@@ -617,7 +628,7 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
                                         CHF_FRA1(Jx,0) );
 
       //
-      // compute Jy = Jy0 + sigma*E
+      // compute Jy = Jy0 + sigma*(E-E0)
       //
 
 #if CH_SPACEDIM==1
@@ -668,7 +679,7 @@ void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&
 #endif
 
       //
-      // compute Jz = Jz0 + sigma*E
+      // compute Jz = Jz0 + sigma*(E-E0)
       //
 
       const FArrayBox& sigzx = m_sigma_zx[dit].getFab();
@@ -918,6 +929,7 @@ void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacob
    LevelData<EdgeDataBox>& J = m_currentDensity;
    LevelData<NodeFArrayBox>& Jv = m_currentDensity_virtual;
    addInflowJ( J, Jv, a_emfields, a_dt );   
+   addSubOrbitJ( J, Jv, a_emfields, a_dt, a_from_emjacobian );
 
 }
  
@@ -1050,6 +1062,47 @@ void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
          a_Jv[dit].getFab().plus(inflowJv,0,0,a_Jv.nComp());
       }
 #endif
+   }
+
+}
+
+void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
+                                        LevelData<NodeFArrayBox>&  a_Jv,
+                                  const ElectroMagneticFields&     a_emfields,
+                                  const Real                       a_dt,
+                                  const bool                       a_from_emjacobian ) 
+{
+   CH_TIME("PicSpeciesInterface::addSubOrbitJ()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   
+   // if using the sub-orbit model for bulk particles, loop over particle sub-orbits, 
+   // update the particle quantities, and contribute their current for each sub-orbit
+
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
+
+      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      if(species->charge()==0) continue;
+      if(!species->use_suborbit_model()) continue;
+
+      // advance of suborbit particles and setting of J are done in same routine  
+      species->advanceSubOrbitParticlesAndSetJ( a_emfields, a_dt, a_from_emjacobian );
+      
+      // add suborbit J to the total J 
+      const LevelData<EdgeDataBox>& this_suborbitJ = species->getSubOrbitJ();
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         for (int dir=0; dir<SpaceDim; dir++) {
+            const FArrayBox& suborbitJ_dir = this_suborbitJ[dit][dir];
+            a_J[dit][dir].plus(suborbitJ_dir,0,0,1);
+         }
+      }
+#if CH_SPACEDIM<3
+      const LevelData<NodeFArrayBox>& this_suborbitJv = species->getSubOrbitJ_virtual();
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         const FArrayBox& suborbitJv = this_suborbitJv[dit].getFab();
+         a_Jv[dit].getFab().plus(suborbitJv,0,0,a_Jv.nComp());
+      }
+#endif
+   
    }
 
 }

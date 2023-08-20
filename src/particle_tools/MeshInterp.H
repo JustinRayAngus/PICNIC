@@ -22,7 +22,7 @@
 
 #include "NamespaceHeader.H"
 
-typedef enum {number, density, momentum, energy, heatFlux} MomentType;
+typedef enum {number, density, momentum, energy, energyOffDiag, energyFlux} MomentType;
 typedef enum {UNKNOWN, NGP, CIC, TSC, W4, CC0, CC1} InterpType;
 
 /**

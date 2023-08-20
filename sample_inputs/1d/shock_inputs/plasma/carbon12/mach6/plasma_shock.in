@@ -1,25 +1,33 @@
 #####################################################
-#TEST np=36, timelimit=00:05:00
-#####################################################
 # Verbosity Definitions
 #####################################################
 simulation.verbosity = 10
-simulation.fixed_random_seed = 1983
 pic_species.write_species_nppc = true
+pic_species.write_species_energy_off_diagonal = true
+pic_species.write_species_energy_flux = true
 
-###   some fundamental parameters for
-###   N1 = 9.082e24/m^3, T1 = 1.00 eV:
-###   N2 = 3.353e25/m^3, T2 = 12.12 eV:
-###   1/wpe2 = 3.06e-15 s
-###   de2 = cvac/wpe2 =  9.18e-7 m
-###   lamdaDe2 = Ve2/wpe2 =  4.47e-9 m
-###   taui2 = 2.62e-12 s
-###   mfpi2 = Vi2*taui2 = 8.94e-8 m
+###   upstream parameters:
+###   Ni1 = 3.2461e19/m^3, U1 = 42353.8 m/s, T1 = 1.00 eV
+###   Ne1 = 6*Ni1
+###
+###   Mach 6 shock (us/u1 = 6):
+###   N2/N1 = 3.6923, P2/P1 = 44.75
+###
+###   downstream parameters:
+###   Ni2 = 1.19856e20/m^3, U2 = 0, T2 = 12.12 eV
+###   Ne2 = 6*Ni1
+###
+###   fundamental downstream scales:
+###   1/wpe2 = 6.6101e-13 s
+###   de2 = cvac/wpe2 =  1.9817-5 m
+###   taui2 = 1.9560e-09 s
+###   mfpi2 = Vi2*taui2 = 1.9302e-5 m
 
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
 pic_species.iter_max_particles = 21
-pic_species.rtol_particles = 1.0e-10
+pic_species.rtol_particles = 1.0e-8
+pic_species.newton_maxits = 100
 pic_species.newton_num_guess = 30
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
@@ -46,12 +54,12 @@ gmres.maxits = 1000
 #####################################################
 # Time Stepping Definitions
 #####################################################
-simulation.max_step            = 200
-#simulation.max_step            = 10000000
-simulation.max_time            = 160.0
+#simulation.max_step            = 10
+simulation.max_step            = 10000000
+simulation.max_time            = 800.0
 simulation.fixed_dt            = 1.0e-3
 simulation.dt_scatter_interval = 100
-simulation.plot_time_interval  = 2.0
+simulation.plot_time_interval  = 8.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
@@ -65,21 +73,21 @@ history.species_bdry_probes = true
 history.species0_probes = true
 history.species1_probes = true
 
-simulation.checkpoint_time_interval = 20.0
-#simulation.restart_file = "checkpoint_data/chk140000.1d.hdf5"
-simulation.wall_time_hrs = 0.95
+simulation.checkpoint_time_interval = 24.0
+#simulation.restart_file = "checkpoint_data/chk160000.1d.hdf5"
+simulation.wall_time_hrs = 23.95
 
 #####################################################
 # Computational Grid Definitions
 #####################################################
-grid.num_cells     = 288
+grid.num_cells     = 1792
 grid.is_periodic   = 0
-grid.config_decomp = 36
+grid.config_decomp = 224
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 2
+grid.num_ghosts    = 3
 
 grid.X_min = 0.0
-grid.X_max = 200.0 # [mfpi]
+grid.X_max = 3200.0 # [mfpi]
 grid.verbosity = 1
 
 #####################################################
@@ -87,9 +95,8 @@ grid.verbosity = 1
 #####################################################
 units.number_density = 1.0  # num/m^3
 units.temperature    = 1.0  # eV
-units.length         = 8.941e-8   # m
-units.time           = 2.624e-12  # s
-#units.time           = 3.062e-15  # s
+units.length         = 1.9302e-5  # m
+units.time           = 1.9560e-9  # s
 
 #####################################################
 # Fields Definitions
@@ -143,10 +150,11 @@ pic_species.0.interp_bc_check = true
 pic_species.0.suborbit_inflow_J = true
 
 IC.electron.X_min = 0.0
-IC.electron.X_max = 200.0
-IC.electron.parts_per_cell = 200
+IC.electron.X_max = 3200.0
+IC.electron.parts_per_cell = 800
+IC.electron.use_float_for_weights = true
 IC.electron.density.type = "constant"
-IC.electron.density.value = 9.082e24 # [number/m^3]
+IC.electron.density.value = 19.4766e19 # [number/m^3]
 IC.electron.temperature_0.type = "constant"
 IC.electron.temperature_0.value = 1.0 # [eV]
 IC.electron.temperature_1.type = "constant"
@@ -154,7 +162,7 @@ IC.electron.temperature_1.value = 1.0 # [eV]
 IC.electron.temperature_2.type = "constant"
 IC.electron.temperature_2.value = 1.0 # [eV]
 IC.electron.velocity_0.type = "constant"
-IC.electron.velocity_0.value = 78154.2 # [m/s]
+IC.electron.velocity_0.value = 42353.8 # [m/s]
 IC.electron.velocity_1.type = "constant"
 IC.electron.velocity_1.value = 0.0
 IC.electron.velocity_2.type = "constant"
@@ -162,18 +170,18 @@ IC.electron.velocity_2.value = 0.0
 
 BC.electron.dir0_lower.type = "inflow_outflow"
 BC.electron.dir0_lower.inflow.impose_neumann_density = true
-BC.electron.dir0_lower.inflow.discrete_samples = 200
-BC.electron.dir0_lower.inflow.density = 9.082e24
+BC.electron.dir0_lower.inflow.discrete_samples = 800
+BC.electron.dir0_lower.inflow.density = 19.4766e19
 BC.electron.dir0_lower.inflow.temperature = 1.0 1.0 1.0
-BC.electron.dir0_lower.inflow.velocity = 78154.2 0.0 0.0
+BC.electron.dir0_lower.inflow.velocity = 42353.8 0.0 0.0
 
 BC.electron.dir0_upper.type = "symmetry"
 
-# Species 2: protons
+# Species 2: carbon12
 
-pic_species.1.name   = "proton"
-pic_species.1.mass   = 1836
-pic_species.1.charge = 1
+pic_species.1.name   = "carbon12"
+pic_species.1.mass   = 21888.7
+pic_species.1.charge = 6
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = true
@@ -183,32 +191,33 @@ pic_species.1.interp_type_E = "CC1"
 pic_species.1.interp_bc_check = true
 pic_species.1.suborbit_inflow_J = true
 
-IC.proton.X_min = 0.0
-IC.proton.X_max = 200.0
-IC.proton.parts_per_cell = 200
-IC.proton.density.type = "constant"
-IC.proton.density.value = 9.082e24 # [number/m^3]
-IC.proton.temperature_0.type = "constant"
-IC.proton.temperature_0.value = 1.0 # [eV]
-IC.proton.temperature_1.type = "constant"
-IC.proton.temperature_1.value = 1.0 # [eV]
-IC.proton.temperature_2.type = "constant"
-IC.proton.temperature_2.value = 1.0 # [eV]
-IC.proton.velocity_0.type = "constant"
-IC.proton.velocity_0.value = 78154.2
-IC.proton.velocity_1.type = "constant"
-IC.proton.velocity_1.value = 0.0
-IC.proton.velocity_2.type = "constant"
-IC.proton.velocity_2.value = 0.0
+IC.carbon12.X_min = 0.0
+IC.carbon12.X_max = 3200.0
+IC.carbon12.parts_per_cell = 400
+IC.carbon12.use_float_for_weights = true
+IC.carbon12.density.type = "constant"
+IC.carbon12.density.value = 3.2461e19 # [number/m^3]
+IC.carbon12.temperature_0.type = "constant"
+IC.carbon12.temperature_0.value = 1.0 # [eV]
+IC.carbon12.temperature_1.type = "constant"
+IC.carbon12.temperature_1.value = 1.0 # [eV]
+IC.carbon12.temperature_2.type = "constant"
+IC.carbon12.temperature_2.value = 1.0 # [eV]
+IC.carbon12.velocity_0.type = "constant"
+IC.carbon12.velocity_0.value = 42353.8
+IC.carbon12.velocity_1.type = "constant"
+IC.carbon12.velocity_1.value = 0.0
+IC.carbon12.velocity_2.type = "constant"
+IC.carbon12.velocity_2.value = 0.0
 
-BC.proton.dir0_lower.type = "inflow_outflow"
-BC.proton.dir0_lower.inflow.impose_neumann_density = true
-BC.proton.dir0_lower.inflow.discrete_samples = 200
-BC.proton.dir0_lower.inflow.density = 9.082e24
-BC.proton.dir0_lower.inflow.temperature = 1.0 1.0 1.0
-BC.proton.dir0_lower.inflow.velocity = 78154.2 0.0 0.0
+BC.carbon12.dir0_lower.type = "inflow_outflow"
+BC.carbon12.dir0_lower.inflow.impose_neumann_density = true
+BC.carbon12.dir0_lower.inflow.discrete_samples = 400
+BC.carbon12.dir0_lower.inflow.density = 3.2461e19
+BC.carbon12.dir0_lower.inflow.temperature = 1.0 1.0 1.0
+BC.carbon12.dir0_lower.inflow.velocity = 42353.8 0.0 0.0
 
-BC.proton.dir0_upper.type = "symmetry"
+BC.carbon12.dir0_upper.type = "symmetry"
 
 #####################################################
 # Scattering Definitions
@@ -219,18 +228,30 @@ scattering.0.speciesA = 0
 scattering.0.speciesB = 0
 scattering.0.angular_scattering = "NANBU"
 scattering.0.coulomb_logarithm = 10.0
+scattering.0.enforce_conservations = false
+scattering.0.max_subcycles = 20
+scattering.0.sort_weighted_particles = true
+scattering.0.energy_fraction = 0.02
 
 scattering.1.model = "COULOMB"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
 scattering.1.angular_scattering = "NANBU"
 scattering.1.coulomb_logarithm = 10.0
+scattering.1.enforce_conservations = false
+scattering.1.max_subcycles = 20
+scattering.1.sort_weighted_particles = true
+scattering.1.energy_fraction = 0.02
 
 scattering.2.model = "COULOMB"
 scattering.2.speciesA = 0
 scattering.2.speciesB = 1
 scattering.2.angular_scattering = "NANBU"
 scattering.2.coulomb_logarithm = 10.0
+scattering.2.enforce_conservations = true
+scattering.2.max_subcycles = 20
+scattering.2.sort_weighted_particles = true
+scattering.2.energy_fraction = 0.02
 
 #####################################################
 

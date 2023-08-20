@@ -1,26 +1,32 @@
 #####################################################
-#TEST np=36, timelimit=00:05:00
-#####################################################
 # Verbosity Definitions
 #####################################################
 simulation.verbosity = 10
-simulation.fixed_random_seed = 1983
 pic_species.write_species_nppc = true
+pic_species.write_species_energy_off_diagonal = true
+pic_species.write_species_energy_flux = true
 
-###   some fundamental parameters for
-###   N1 = 9.082e24/m^3, T1 = 1.00 eV:
-###   N2 = 3.353e25/m^3, T2 = 12.12 eV:
-###   1/wpe2 = 3.06e-15 s
-###   de2 = cvac/wpe2 =  9.18e-7 m
-###   lamdaDe2 = Ve2/wpe2 =  4.47e-9 m
-###   taui2 = 2.62e-12 s
-###   mfpi2 = Vi2*taui2 = 8.94e-8 m
+###   upstream parameters:
+###   N1 = 9.082e24/m^3, U1 = 159.658 km/s, T1 = 1.00 eV
+###
+###   Mach 12 shock (us/u1 = 12):
+###   N2/N1 = 3.9184, P2/P1 = 179.75
+###
+###   downstream parameters:
+###   N2 = 3.559e25/m^3, U2 = 0.0, T2 = 45.8737 eV
+###
+###   fundamental downstream scales:
+###   1/wpe2 = 2.9714e-15 s
+###   de2 = cvac/wpe2 =  8.9081e-7 m
+###   lamdaDe2 = Ve2/wpe2 =  8.4403e-9 m
+###   taui2 = 1.8208e-11 s
+###   mfpi2 = Vi2*taui2 = 1.2070e-6 m
 
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
 pic_species.iter_max_particles = 21
-pic_species.rtol_particles = 1.0e-10
 pic_species.newton_num_guess = 30
+pic_species.rtol_particles = 1.0e-10
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
 pic_species.mod_init_advance = true
@@ -46,37 +52,37 @@ gmres.maxits = 1000
 #####################################################
 # Time Stepping Definitions
 #####################################################
-simulation.max_step            = 200
-#simulation.max_step            = 10000000
+#simulation.max_step            = 10
+simulation.max_step            = 10000000
 simulation.max_time            = 160.0
-simulation.fixed_dt            = 1.0e-3
 simulation.dt_scatter_interval = 100
+simulation.fixed_dt            = 1.0e-3
 simulation.plot_time_interval  = 2.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
 
 history.precision = 8
-history.field_probes = true
 history.solver_probes = true
 history.species_solver_probes = true
+history.field_probes = true
 history.field_bdry_probes = true
 history.species_bdry_probes = true
 history.species0_probes = true
 history.species1_probes = true
 
 simulation.checkpoint_time_interval = 20.0
-#simulation.restart_file = "checkpoint_data/chk140000.1d.hdf5"
+#simulation.restart_file = "checkpoint_data/chk044000.1d.hdf5"
 simulation.wall_time_hrs = 0.95
 
 #####################################################
 # Computational Grid Definitions
 #####################################################
-grid.num_cells     = 288
+grid.num_cells     = 896
 grid.is_periodic   = 0
-grid.config_decomp = 36
+grid.config_decomp = 224
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 2
+grid.num_ghosts    = 3
 
 grid.X_min = 0.0
 grid.X_max = 200.0 # [mfpi]
@@ -87,9 +93,8 @@ grid.verbosity = 1
 #####################################################
 units.number_density = 1.0  # num/m^3
 units.temperature    = 1.0  # eV
-units.length         = 8.941e-8   # m
-units.time           = 2.624e-12  # s
-#units.time           = 3.062e-15  # s
+units.length         = 1.2070e-6   # m
+units.time           = 1.8208e-11  # s
 
 #####################################################
 # Fields Definitions
@@ -118,7 +123,7 @@ IC.em_fields.electric.2.value = 0.0
 
 BC.em_fields.conservative_wall = true # false will use extrap
 BC.em_fields.dir0_lower.type = "insulator_conductor"
-BC.insulator.dir0_lower.X0_min = -0.1
+BC.insulator.dir0_lower.X0_min = -1.0
 BC.insulator.dir0_lower.X0_max = 0.0
 BC.insulator.dir0_lower.time_function.type = "zero"
 
@@ -144,7 +149,7 @@ pic_species.0.suborbit_inflow_J = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 200.0
-IC.electron.parts_per_cell = 200
+IC.electron.parts_per_cell = 400
 IC.electron.density.type = "constant"
 IC.electron.density.value = 9.082e24 # [number/m^3]
 IC.electron.temperature_0.type = "constant"
@@ -154,7 +159,7 @@ IC.electron.temperature_1.value = 1.0 # [eV]
 IC.electron.temperature_2.type = "constant"
 IC.electron.temperature_2.value = 1.0 # [eV]
 IC.electron.velocity_0.type = "constant"
-IC.electron.velocity_0.value = 78154.2 # [m/s]
+IC.electron.velocity_0.value = 159658.0
 IC.electron.velocity_1.type = "constant"
 IC.electron.velocity_1.value = 0.0
 IC.electron.velocity_2.type = "constant"
@@ -162,17 +167,17 @@ IC.electron.velocity_2.value = 0.0
 
 BC.electron.dir0_lower.type = "inflow_outflow"
 BC.electron.dir0_lower.inflow.impose_neumann_density = true
-BC.electron.dir0_lower.inflow.discrete_samples = 200
+BC.electron.dir0_lower.inflow.discrete_samples = 400
 BC.electron.dir0_lower.inflow.density = 9.082e24
 BC.electron.dir0_lower.inflow.temperature = 1.0 1.0 1.0
-BC.electron.dir0_lower.inflow.velocity = 78154.2 0.0 0.0
+BC.electron.dir0_lower.inflow.velocity = 159658.0 0.0 0.0
 
 BC.electron.dir0_upper.type = "symmetry"
 
 # Species 2: protons
 
 pic_species.1.name   = "proton"
-pic_species.1.mass   = 1836
+pic_species.1.mass   = 1836.0
 pic_species.1.charge = 1
 pic_species.1.motion = true
 pic_species.1.forces = true
@@ -185,7 +190,7 @@ pic_species.1.suborbit_inflow_J = true
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 200.0
-IC.proton.parts_per_cell = 200
+IC.proton.parts_per_cell = 400
 IC.proton.density.type = "constant"
 IC.proton.density.value = 9.082e24 # [number/m^3]
 IC.proton.temperature_0.type = "constant"
@@ -195,7 +200,7 @@ IC.proton.temperature_1.value = 1.0 # [eV]
 IC.proton.temperature_2.type = "constant"
 IC.proton.temperature_2.value = 1.0 # [eV]
 IC.proton.velocity_0.type = "constant"
-IC.proton.velocity_0.value = 78154.2
+IC.proton.velocity_0.value = 159658.0
 IC.proton.velocity_1.type = "constant"
 IC.proton.velocity_1.value = 0.0
 IC.proton.velocity_2.type = "constant"
@@ -203,10 +208,10 @@ IC.proton.velocity_2.value = 0.0
 
 BC.proton.dir0_lower.type = "inflow_outflow"
 BC.proton.dir0_lower.inflow.impose_neumann_density = true
-BC.proton.dir0_lower.inflow.discrete_samples = 200
+BC.proton.dir0_lower.inflow.discrete_samples = 400
 BC.proton.dir0_lower.inflow.density = 9.082e24
 BC.proton.dir0_lower.inflow.temperature = 1.0 1.0 1.0
-BC.proton.dir0_lower.inflow.velocity = 78154.2 0.0 0.0
+BC.proton.dir0_lower.inflow.velocity = 159658.0 0.0 0.0
 
 BC.proton.dir0_upper.type = "symmetry"
 

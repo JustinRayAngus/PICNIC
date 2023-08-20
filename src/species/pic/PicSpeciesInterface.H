@@ -41,6 +41,8 @@ public:
   int writeSpeciesRho() const {return m_writeSpeciesChargeDensity;}
   int writeSpeciesJ() const {return m_writeSpeciesCurrentDensity;}
   int writeSpeciesNppc() const {return m_writeSpeciesNppc;}
+  int writeSpeciesEnergyOffDiag() const {return m_writeSpeciesEnergyOffDiag;}
+  int writeSpeciesEnergyFlux() const {return m_writeSpeciesEnergyFlux;}
 
   PicSpeciesPtrVect& getPtrVect() {return m_pic_species_ptr_vect;}; 
   const PicSpeciesPtrVect& getPtrVect() const {return m_pic_species_ptr_vect;}; 
@@ -77,6 +79,12 @@ public:
                    LevelData<NodeFArrayBox>&  a_Jv,
              const ElectroMagneticFields&     a_emfields,
              const Real                       a_dt );
+  
+  void addSubOrbitJ( LevelData<EdgeDataBox>&   a_J,
+                    LevelData<NodeFArrayBox>&  a_Jv,
+              const ElectroMagneticFields&     a_emfields,
+              const Real                       a_dt,
+              const bool                       a_from_emjacobian ); 
  
   void prepForScatter( const int   a_num_coulomb,
 		       const bool  a_from_scatterDt );
@@ -159,11 +167,14 @@ private:
   bool m_writeSpeciesChargeDensity;
   bool m_writeSpeciesCurrentDensity;
   bool m_writeSpeciesNppc;
+  bool m_writeSpeciesEnergyOffDiag;
+  bool m_writeSpeciesEnergyFlux;
       
   bool m_part_order_swap;
   bool m_iter_min_two;
   int m_iter_max_particles;
   Real m_rtol_particles;
+  int m_newton_maxits;
   int m_newton_num_guess;
       
   bool m_freeze_particles_jacobian;

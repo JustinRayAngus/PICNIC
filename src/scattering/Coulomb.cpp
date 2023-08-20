@@ -87,7 +87,7 @@ void Coulomb::setIntraMFT( const LevelData<FArrayBox>&  a_debyeLength,
  
    //  tau = 1/nu90 with nu90 = n*vR*sigma90, sigma90 = 8/pi*b90^2*Clog,
    //  b90 = abs(q1*q2)/(2*pi*ep0*muR*vR^2), muR = m1*m2/(m1+m2), and
-   //  vR = 3*VT1 + 3*VT2 + |U1 - U2|^2
+   //  vR^2 = 3*VT1^2 + 3*VT2^2 + |U1 - U2|^2
 
    Real T_eV, numDen, rho, meanE, eneDen;
    Real g12sq, g12sq_norm, bmax, bmin;
@@ -191,7 +191,7 @@ void Coulomb::setInterMFT( const LevelData<FArrayBox>&  a_debyeLength,
    
    //  tau = 1/nu90 with nu90 = n*vR*sigma90, sigma90 = 8/pi*b90^2*Clog,
    //  b90 = abs(q1*q2)/(2*pi*ep0*muR*vR^2), muR = m1*m2/(m1+m2), and
-   //  vR = 3*VT1 + 3*VT2 + |U1 - U2|^2
+   //  vR^2 = 3*VT1^2 + 3*VT2^2 + |U1 - U2|^2
  
    Real T1_eV, numDen1, rho1, eneDen1, meanE1, VT1;
    Real T2_eV, numDen2, rho2, eneDen2, meanE2, VT2;
@@ -1250,9 +1250,20 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
 	    Etot12 *= m_mass2;
 	    const long double Etot1 = Etot11 + Etot12;
 	    const long double deltaE = Etot1 - Etot0;
-	    long double deltaEp1 = Etot11/Etot1*deltaE;
-	    long double deltaEp2 = Etot12/Etot1*deltaE;
-            
+	    long double deltaEp1, deltaEp2;
+            if(numCell1==1) {
+               deltaEp1 = 0.0;
+	       deltaEp2 = deltaE;
+	    }
+	    else if(numCell2==1) { 
+	       deltaEp1 = deltaE;
+               deltaEp2 = 0.0;
+	    }
+	    else {
+	       deltaEp1 = Etot11/Etot1*deltaE;
+	       deltaEp2 = Etot12/Etot1*deltaE;
+	    }
+
             // sort particles by weight to bias adjusting particles below to
 	    // heavier weight ones and to get pairs that have similar weights
 	    if(m_sort_weighted_particles) {
@@ -1266,6 +1277,7 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
 
 	    // adjust species 1 particles to absorb deltaEp1
             for (int p=0; p<vector_part1_ptrs.size(); p++) {
+	       if(deltaEp1==0.0) break;
                int p1 = p;
    	       p++;
 	       if(p==vector_part1_ptrs.size()) p = 0;
@@ -1285,12 +1297,12 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
 
 	       // zero angle inelastic scatter
                modEnergyPairwise(betap1, betap2, m_mass1*wp1, m_mass1*wp2, deltaEp1);
-	       if(deltaEp1==0.0) break;
 	       if(p==vector_part1_ptrs.size()-1) p = -1;
 	    }
 	    
 	    // adjust species 2 particles to absorb deltaEp1
             for (int p=0; p<vector_part2_ptrs.size(); p++) {
+	       if(deltaEp2==0.0) break;
                int p1 = p;
    	       p++;
 	       if(p==vector_part2_ptrs.size()) p = 0;
@@ -1310,7 +1322,6 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
 
 	       // zero angle inelastic scatter
                modEnergyPairwise(betap1, betap2, m_mass2*wp1, m_mass2*wp2, deltaEp2);
-	       if(deltaEp2==0.0) break;
 	       if(p==vector_part2_ptrs.size()-1) p = -1;
 	    }
 

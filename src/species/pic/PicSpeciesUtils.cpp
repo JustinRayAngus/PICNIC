@@ -174,7 +174,7 @@ PicSpeciesUtils::applyForcesAxisymm( List<JustinsParticle>&  a_pList,
       
       Real dtheta = lit().position_virt(0);
       bool set_dtheta = false; 
-      if(dtheta==0.0) {
+      if(dtheta==0.0) { // first-order predictor for dtheta
          dtheta = a_cnormDt/2.0*upold[dirp[1]]/xpold[dirp[0]]/gammap;
          set_dtheta = true;
       }
@@ -193,7 +193,7 @@ PicSpeciesUtils::applyForcesAxisymm( List<JustinsParticle>&  a_pList,
       up[dirp[1]] = vm1 + (vpr2*bp0 - vpr0*bp2)/denom;
       up[dirp[2]] = vm2 + (vpr0*bp1 - vpr1*bp0)/denom;
       
-      if(set_dtheta) {
+      if(set_dtheta) { // 2nd-order corrector for dtheta
          Real rpbar = xpold[dirp[0]] + a_cnormDt/2.0*up[dirp[0]];
          dtheta = a_cnormDt/2.0*up[dirp[1]]/rpbar/gammap;
          std::array<Real,2>& position_virt = lit().position_virt();

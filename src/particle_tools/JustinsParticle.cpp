@@ -64,10 +64,20 @@ void JustinsParticle::setKillTag()
 {
   m_kill_tag = 1;
 }
-
+  
 const int& JustinsParticle::killTag() const
 {
   return m_kill_tag;
+}
+
+void JustinsParticle::setNumSubOrbits( const int a_num_suborbits )
+{
+  m_num_suborbits = a_num_suborbits;
+}
+
+const int& JustinsParticle::numSubOrbits() const
+{
+  return m_num_suborbits;
 }
 
 void JustinsParticle::setID(const uint64_t a_ID)
@@ -284,6 +294,7 @@ bool JustinsParticle::operator == (const JustinsParticle& a_p) const
 {
   return ( m_ID        == a_p.m_ID       &&
            m_kill_tag  == a_p.m_kill_tag &&
+           m_num_suborbits  == a_p.m_num_suborbits &&
            m_weight    == a_p.m_weight   &&
            m_position  == a_p.m_position &&
            m_position_old  == a_p.m_position_old &&

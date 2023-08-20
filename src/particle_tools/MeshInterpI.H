@@ -980,6 +980,8 @@ void MeshInterp::moment( FArrayBox&  a_moment,
 
   if(a_momentType==momentum) CH_assert(a_moment.nComp()==3);
   if(a_momentType==energy) CH_assert(a_moment.nComp()==3);
+  if(a_momentType==energyOffDiag) CH_assert(a_moment.nComp()==3);
+  if(a_momentType==energyFlux) CH_assert(a_moment.nComp()==3);
 
   for (ListIterator<P> lit(a_particleList); lit; ++lit)
   {

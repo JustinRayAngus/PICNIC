@@ -77,9 +77,12 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    // flags for energy/charge conservation at physical boundaries
    m_interp_bc_check = false;
    m_suborbit_inflowJ = false;
+   m_use_suborbit_model = false;
    if(m_charge_conserving_deposit) m_interp_bc_check = true;
    a_ppspc.query( "interp_bc_check", m_interp_bc_check );
    a_ppspc.query( "suborbit_inflow_J", m_suborbit_inflowJ );
+   a_ppspc.query( "use_suborbit_model", m_use_suborbit_model );
+   if(m_use_suborbit_model) a_ppspc.query("suborbit_testing",m_suborbit_testing);
 
    a_ppspc.get( "mass", m_mass );
    a_ppspc.get( "charge", m_charge ); 
@@ -104,8 +107,12 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       cout << "  interpolate E/B scheme = " << interp_type_E << endl;
       cout << "  interpolate bc check = " << m_interp_bc_check << endl;
       cout << "  suborbit inflow J = " << m_suborbit_inflowJ << endl;
-      if(m_push_type==CYL_BORIS) cout << "  push type = CYL_BORIS" << endl;
-      if(m_push_type==CYL_CYL)   cout << "  push type = CYL_CYL" << endl;
+      cout << "  use suborbit model = " << m_use_suborbit_model << endl;
+      if(m_suborbit_testing) {
+	 cout << "  suborbit testing = true (fixed suborbit iter_max = 10)" << endl;
+      }
+      if(m_push_type==CYL_BORIS)  cout << "  push type = CYL_BORIS" << endl;
+      if(m_push_type==CYL_CYL)    cout << "  push type = CYL_CYL" << endl;
       if(m_push_type==CYL_HYBRID) cout << "  push type = CYL_HYBRID" << endl;
       if(m_push_type==CYL_CAR) cout << "  push type = CYL_CAR" << endl;
       cout << "  motion = " << m_motion << endl;
@@ -128,12 +135,16 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    m_density.define(grids,1,ghostVect);
    m_momentum.define(grids,3,ghostVect);
    m_energy.define(grids,3,ghostVect); // direction-dependent energy
+   m_energyOffDiag.define(grids,3,ghostVect);
+   m_energyFlux.define(grids,3,ghostVect);
 
    m_currentDensity.define(grids,1,ghostVect);
    m_inflowJ.define(grids,1,ghostVect);
+   m_suborbitJ.define(grids,1,ghostVect);
 #if CH_SPACEDIM<3
    m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);
    m_inflowJ_virtual.define(grids,3-SpaceDim,ghostVect);
+   m_suborbitJ_virtual.define(grids,3-SpaceDim,ghostVect);
 #endif
    m_chargeDensity.define(grids,1,ghostVect);
    m_chargeDensity_faces.define(grids,1,ghostVect);
@@ -146,6 +157,8 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       m_density[dit].setVal(0.0);
       m_momentum[dit].setVal(0.0);
       m_energy[dit].setVal(0.0);
+      m_energyOffDiag[dit].setVal(0.0);
+      m_energyFlux[dit].setVal(0.0);
       m_temperature[dit].setVal(0.0);
       m_velocity[dit].setVal(0.0);
    } 
@@ -163,6 +176,9 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    // ghosts?
    m_data.define(grids, domain, fixedBoxSize,
                  meshSpacing, meshOrigin);
+   
+   m_data_suborbit.define(grids, domain, fixedBoxSize,
+                          meshSpacing, meshOrigin);
   
    // In order to initialize a LevelData<BinFab<T>>, first need to define a
    // BinFabFactory. The factor has a "create" function to define "new" pointers
@@ -507,22 +523,23 @@ void PicSpecies::advancePositions_2ndHalf()
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
    for(dit.begin(); dit.ok(); ++dit) {
-
       ListBox<JustinsParticle>& box_list = m_data[dit];
       List<JustinsParticle>& pList = box_list.listItems();
-      ListIterator<JustinsParticle> lit(pList);
-      for(lit.begin(); lit.ok(); ++lit) {
-
-         const RealVect& xpold = lit().position_old();
-         RealVect& xp = lit().position();
-         for(int dir=0; dir<SpaceDim; dir++) {
-            xp[dir] = 2.0*xp[dir] - xpold[dir];
-         }
-
-      }
-  
+      advancePositions_2ndHalf(pList);
    }
 
+}
+
+void PicSpecies::advancePositions_2ndHalf( List<JustinsParticle>&  a_pList )
+{
+   ListIterator<JustinsParticle> lit(a_pList);
+   for(lit.begin(); lit.ok(); ++lit) {
+      const RealVect& xpold = lit().position_old();
+      RealVect& xp = lit().position();
+      for(int dir=0; dir<SpaceDim; dir++) {
+         xp[dir] = 2.0*xp[dir] - xpold[dir];
+      }
+   }
 }
 
 void PicSpecies::applyBCs( const bool  a_intermediate_advance )
@@ -586,136 +603,24 @@ void PicSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
    CH_TIME("PicSpecies::advanceVelocities_2ndHalf()");
    
    if(m_push_type==CYL_HYBRID) {
-   
-      // convert velocities from t_{n+1/2} to t_{n+1}
-      const Real cnormDt = a_dt*m_cvac_norm;
-         
-      std::array<int,3> dirp = {0,1,2};
-      if(m_mesh.anticyclic()) {
-         dirp[1] = 2;
-         dirp[2] = 1;
-      }
- 
+
       const BoxLayout& BL = m_data.getBoxes();
       DataIterator dit(BL);
       for(dit.begin(); dit.ok(); ++dit) {
-      
          ListBox<JustinsParticle>& box_list = m_data[dit];
          List<JustinsParticle>& pList = box_list.listItems();
-         ListIterator<JustinsParticle> lit(pList);
-      
-         for(lit.begin(); lit.ok(); ++lit) {
-         
-            std::array<Real,3>& up = lit().velocity();
-            const std::array<Real,3>& upold = lit().velocity_old();
-            const RealVect& xpold = lit().position_old();
-            std::array<Real,2>& position_virt = lit().position_virt();
-            
-            const Real thetabar = position_virt[0];
-            Real cos_thp = std::cos(thetabar);
-            Real sin_thp = std::sin(thetabar);
-         
-            // convert upbar from CYL to CAR
-            Real upr  = up[dirp[0]];
-            Real upth = up[dirp[1]];
-            up[dirp[0]] = cos_thp*upr - sin_thp*upth; 
-            up[dirp[1]] = sin_thp*upr + cos_thp*upth;
-            
-            // compute theta at t^{n+1}
-            const Real xpnew = xpold[dirp[0]] + cnormDt*up[dirp[0]];
-            const Real ypnew = cnormDt*up[dirp[1]];
-            const Real thetanew = std::atan2(ypnew,xpnew);
-            cos_thp = std::cos(thetanew);
-            sin_thp = std::sin(thetanew);
-            
-            // convert CAR upbar from time-centered to new
-            up[0] = 2.0*up[0] - upold[0];
-            up[1] = 2.0*up[1] - upold[1];
-            up[2] = 2.0*up[2] - upold[2];
-            
-            // convert upnew from CAR to CYL
-            Real upx = up[dirp[0]];
-            Real upy = up[dirp[1]];
-            up[dirp[0]] =  cos_thp*upx + sin_thp*upy; 
-            up[dirp[1]] = -sin_thp*upx + cos_thp*upy;
-            
-            // reset theta back to zero
-            position_virt[0] = 0.0;
-
-         }
-
+	 advanceVelocities_CYL_HYB_2ndHalf( a_dt, pList );
       }
 
    }
    else if(m_push_type==CYL_CAR) {
    
-      // convert velocities from t_{n+1/2} to t_{n+1}
-         
-      std::array<int,3> dirp = {0,1,2};
-      if(m_mesh.anticyclic()) {
-         dirp[1] = 2;
-         dirp[2] = 1;
-      }
- 
       const BoxLayout& BL = m_data.getBoxes();
       DataIterator dit(BL);
       for(dit.begin(); dit.ok(); ++dit) {
-      
          ListBox<JustinsParticle>& box_list = m_data[dit];
          List<JustinsParticle>& pList = box_list.listItems();
-         ListIterator<JustinsParticle> lit(pList);
-      
-         for(lit.begin(); lit.ok(); ++lit) {
-
-            std::array<Real,3>& up = lit().velocity();
-            const std::array<Real,3>& upold = lit().velocity_old();
-            std::array<Real,2>& position_virt = lit().position_virt();
-            
-            const RealVect& xpold = lit().position_old();
-            RealVect& xpbar = lit().position();
-
-            long double costhp = position_virt[0];
-            long double sinthp = position_virt[1];
- 
-            // rotate time-centered up from CYL to CAR
-            //const long double upr = up[dirp[0]];
-            //const long double upth = up[dirp[1]];
-            //const long double ratio = 1.0/(costhp*costhp + sinthp*sinthp);
-            //up[dirp[0]] = ratio*(costhp*upr - sinthp*upth); 
-            //up[dirp[1]] = ratio*(sinthp*upr + costhp*upth);
-            
-            // compute rpnew
-            const Real xpbar0 = costhp*xpbar[0];
-            const Real ypbar0 = sinthp*xpbar[0];
-            const Real xpnew = 2.0*xpbar0 - xpold[0];
-            const Real ypnew = 2.0*ypbar0;
-            const Real rpnew = sqrt(xpnew*xpnew + ypnew*ypnew);
-            
-            // convert CAR up from time-centered to new
-            up[0] = 2.0*up[0] - upold[0];
-            up[1] = 2.0*up[1] - upold[1];
-            up[2] = 2.0*up[2] - upold[2];
-            
-            // rotate new up from CAR to CYL
-            costhp = xpnew/rpnew;
-            sinthp = ypnew/rpnew;
-            const Real upx = up[dirp[0]];
-            const Real upy = up[dirp[1]];
-            up[dirp[0]] =  costhp*upx + sinthp*upy; 
-            up[dirp[1]] = -sinthp*upx + costhp*upy;
-  
-            // update positions 
-            xpbar[0] = rpnew;
-            //xpbar[0] = 2.0*xpbar[0] - xpold[0];
-#if CH_SPACEDIM==2
-            xpbar[1] = 2.0*xpbar[1] - xpold[1];
-#endif
-            // rebase virtual costhp and sinthp back to theta = 0
-            position_virt[0] = 1.0;
-            position_virt[1] = 0.0;
-         
-         }
-
+	 advanceParticles_CYL_CAR_2ndHalf( pList );
       }
 
    }
@@ -727,28 +632,162 @@ void PicSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
       
          ListBox<JustinsParticle>& box_list = m_data[dit];
          List<JustinsParticle>& pList = box_list.listItems();
-         ListIterator<JustinsParticle> lit(pList);
-
-         for(lit.begin(); lit.ok(); ++lit) {
-
-            std::array<Real,3>& up = lit().velocity();
-            const std::array<Real,3>& upold = lit().velocity_old();
-
-            up[0] = 2.0*up[0] - upold[0];
-            up[1] = 2.0*up[1] - upold[1];
-            up[2] = 2.0*up[2] - upold[2];
-   
-            if(m_push_type==CYL_CYL) {
-               std::array<Real,2>& position_virt = lit().position_virt();
-               position_virt[0] = 0.0;
-            }
-      
-         }
+	 advanceVelocities_2ndHalf( pList );
 
       }
       
    }
 
+}
+
+void PicSpecies::advanceVelocities_2ndHalf( List<JustinsParticle>&  a_pList )
+{
+
+   ListIterator<JustinsParticle> lit(a_pList);
+   for(lit.begin(); lit.ok(); ++lit) {
+         
+      std::array<Real,3>& up = lit().velocity();
+      const std::array<Real,3>& upold = lit().velocity_old();
+       
+      up[0] = 2.0*up[0] - upold[0];
+      up[1] = 2.0*up[1] - upold[1];
+      up[2] = 2.0*up[2] - upold[2];
+   
+      if(m_push_type==CYL_CYL) {
+         std::array<Real,2>& position_virt = lit().position_virt();
+         position_virt[0] = 0.0;
+      }
+
+   }
+
+}
+
+void PicSpecies::advanceVelocities_CYL_HYB_2ndHalf( const Real  a_dt,
+		                        List<JustinsParticle>&  a_pList )
+{
+   
+   // convert particle velocities from CYL at t_{n+1/2} to CYL at t_{n+1}
+   // 1) use thetapbar to convert time-centered up from CYL to CAR
+   // 2) use upbar in CAR to compute xpnew and ypnew ==>  thetapnew
+   // 3) convert CAR upbar to new
+   // 4) use thetapnew to convert new up from CAR to CYL
+
+   const Real cnormDt = a_dt*m_cvac_norm;
+         
+   std::array<int,3> dirp = {0,1,2};
+   if(m_mesh.anticyclic()) {
+      dirp[1] = 2;
+      dirp[2] = 1;
+   }
+ 
+   ListIterator<JustinsParticle> lit(a_pList);
+   for(lit.begin(); lit.ok(); ++lit) {
+         
+      std::array<Real,3>& up = lit().velocity();
+      const std::array<Real,3>& upold = lit().velocity_old();
+         
+      const RealVect& xpold = lit().position_old();
+            
+      std::array<Real,2>& position_virt = lit().position_virt();
+      const Real thetabar = position_virt[0];
+      Real cos_thp = std::cos(thetabar);
+      Real sin_thp = std::sin(thetabar);
+         
+      // convert upbar from CYL to CAR
+      Real upr  = up[dirp[0]];
+      Real upth = up[dirp[1]];
+      up[dirp[0]] = cos_thp*upr - sin_thp*upth; 
+      up[dirp[1]] = sin_thp*upr + cos_thp*upth;
+            
+      // compute theta at t^{n+1}
+      const Real xpnew = xpold[dirp[0]] + cnormDt*up[dirp[0]];
+      const Real ypnew = cnormDt*up[dirp[1]];
+      const Real thetanew = std::atan2(ypnew,xpnew);
+      cos_thp = std::cos(thetanew);
+      sin_thp = std::sin(thetanew);
+            
+      // convert CAR upbar from time-centered to new
+      up[0] = 2.0*up[0] - upold[0];
+      up[1] = 2.0*up[1] - upold[1];
+      up[2] = 2.0*up[2] - upold[2];
+            
+      // convert upnew from CAR to CYL
+      Real upx = up[dirp[0]];
+      Real upy = up[dirp[1]];
+      up[dirp[0]] =  cos_thp*upx + sin_thp*upy; 
+      up[dirp[1]] = -sin_thp*upx + cos_thp*upy;
+            
+      // reset theta back to zero
+      position_virt[0] = 0.0;
+
+   }
+
+}
+
+void PicSpecies::advanceParticles_CYL_CAR_2ndHalf( List<JustinsParticle>&  a_pList )
+{
+   
+   // convert particle positions from CYL at t_{n+1/2} to CYL at t_{n+1}
+   // convert particle velocities from CAR at t_{n+1/2} to CYL at t_{n+1}
+         
+   std::array<int,3> dirp = {0,1,2};
+   if(m_mesh.anticyclic()) {
+      dirp[1] = 2;
+      dirp[2] = 1;
+   }
+   
+   ListIterator<JustinsParticle> lit(a_pList);
+   for(lit.begin(); lit.ok(); ++lit) {
+
+      RealVect& xp = lit().position();           // time-centered {rp,zp}
+      std::array<Real,3>& up = lit().velocity(); // time-centered CAR
+            
+      const RealVect& xpold = lit().position_old();
+      const std::array<Real,3>& upold = lit().velocity_old();
+
+      std::array<Real,2>& position_virt = lit().position_virt();
+      long double costhp = position_virt[0];
+      long double sinthp = position_virt[1];
+ 
+      // rotate time-centered up from CYL to CAR
+      //const long double upr = up[dirp[0]];
+      //const long double upth = up[dirp[1]];
+      //const long double ratio = 1.0/(costhp*costhp + sinthp*sinthp);
+      //up[dirp[0]] = ratio*(costhp*upr - sinthp*upth); 
+      //up[dirp[1]] = ratio*(sinthp*upr + costhp*upth);
+            
+      // compute rp new
+      const Real xpbar0 = costhp*xp[0]; // time-centered xp
+      const Real ypbar0 = sinthp*xp[0]; // time-centered yp
+      const Real xpnew = 2.0*xpbar0 - xpold[0];
+      const Real ypnew = 2.0*ypbar0;
+      const Real rpnew = sqrt(xpnew*xpnew + ypnew*ypnew);
+            
+      // convert CAR up from time-centered to new
+      up[0] = 2.0*up[0] - upold[0];
+      up[1] = 2.0*up[1] - upold[1];
+      up[2] = 2.0*up[2] - upold[2];
+            
+      // rotate up new from CAR to CYL
+      costhp = xpnew/rpnew;
+      sinthp = ypnew/rpnew;
+      const Real upx = up[dirp[0]];
+      const Real upy = up[dirp[1]];
+      up[dirp[0]] =  costhp*upx + sinthp*upy; 
+      up[dirp[1]] = -sinthp*upx + costhp*upy;
+  
+      // convert time-centered {rp,zp} to new
+      xp[0] = rpnew;
+      //xp[0] = 2.0*xp[0] - xpold[0];
+#if CH_SPACEDIM==2
+      xp[1] = 2.0*xp[1] - xpold[1];
+#endif
+      // rebase virtual costhp and sinthp back to theta = 0
+      position_virt[0] = 1.0;
+      position_virt[1] = 0.0;
+         
+   }
+ 
 }
 
 void PicSpecies::applyInertialForces( const Real  a_dt, 
@@ -943,9 +982,9 @@ void PicSpecies::advanceParticlesIteratively( const ElectroMagneticFields&  a_em
 
          if(iter>=m_iter_max) {
          
-            int num_not_converged = temp_pList.length();
-            //exit(EXIT_FAILURE);
+            if(m_use_suborbit_model) break;
 
+            int num_not_converged = temp_pList.length();
 #if CH_SPACEDIM==1
             // use Newton method to update particles that won't converge with Picard
             if(m_push_type!=CYL_CAR && m_push_type!=CYL_HYBRID) {
@@ -974,19 +1013,26 @@ void PicSpecies::advanceParticlesIteratively( const ElectroMagneticFields&  a_em
                }
             }
             break;
-
          }
          iter += 1;
 
       }
 
-      // put back particles that could not converge...     
-      ListIterator<JustinsParticle> lit(temp_pList);
-      for(lit.begin(); lit.ok();) pList.transfer(lit);
-        
-      // make sure we got all the particles
-      const int pListLengthEnd = pList.length();      
-      if(pListLengthEnd!=pListLengthStart) exit(EXIT_FAILURE);
+      if( m_use_suborbit_model ) { // move non-converged particles to sub-orbit container
+         ListBox<JustinsParticle>& box_list_suborbit = m_data_suborbit[dit];
+         List<JustinsParticle>& pList_suborbit = box_list_suborbit.listItems();
+         ListIterator<JustinsParticle> lit(temp_pList);
+         for(lit.begin(); lit.ok();) { 
+            lit().setNumSubOrbits( 2 );
+	    pList_suborbit.transfer(lit); 
+	 }
+      }
+      else { // put back particles that could not converge...     
+         ListIterator<JustinsParticle> lit(temp_pList);
+         for(lit.begin(); lit.ok();) { pList.transfer(lit); }
+         const int pListLengthEnd = pList.length();      
+         if(pListLengthEnd!=pListLengthStart) exit(EXIT_FAILURE);
+      }
                
    } // end loop over boxes on this proc
  
@@ -1099,6 +1145,37 @@ void PicSpecies::advanceInflowParticlesIteratively( const ElectroMagneticFields&
          if(pListLengthEnd!=pListLengthStart) exit(EXIT_FAILURE);
 
       }
+   }
+
+}
+
+void PicSpecies::mergeSubOrbitParticles()
+{
+   CH_TIME("PicSpecies::mergeSubOrbitParticles()");
+   if(!m_use_suborbit_model) return;
+
+   // this function is called at the end of the pic advance prior to
+   // converting xp and vp from time-centered to new time values
+
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+    
+      ListBox<JustinsParticle>& box_list_suborbit = m_data_suborbit[dit];
+      List<JustinsParticle>& pList_suborbit = box_list_suborbit.listItems();
+      
+      if(pList_suborbit.length()==0) continue;
+
+      // return the suborbit particle back into the main list
+      ListIterator<JustinsParticle> lit(pList_suborbit);
+      for(lit.begin(); lit.ok();) { 
+         lit().setNumSubOrbits( 0 );
+         pList.transfer(lit); 
+      }
+
    }
 
 }
@@ -1901,9 +1978,6 @@ void PicSpecies::setEnergyDensity() const
       
       FArrayBox& box_ene = m_energy[dit];
       box_ene.setVal(0.0);
-      for (auto n=0; n<m_energy.nComp(); n++) {
-         SpaceUtils::setVal(box_ene,0.0,n);
-      }
       const ListBox<JustinsParticle>& box_list = m_data[dit];
       
       MomentType thisMoment = energy;
@@ -1919,6 +1993,64 @@ void PicSpecies::setEnergyDensity() const
 
    }
    m_energy.exchange(); 
+     
+}
+
+void PicSpecies::setEnergyOffDiag() const
+{
+   CH_TIME("PicSpecies::setEnergyOffDiag()");
+    
+   const Real volume_scale = m_mesh.getVolumeScale();
+   const DisjointBoxLayout& grids = m_energyOffDiag.disjointBoxLayout();
+   const LevelData<FArrayBox>& Jacobian = m_mesh.getJcc();  
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      
+      FArrayBox& box_eneOF = m_energyOffDiag[dit];
+      box_eneOF.setVal(0.0);
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
+      
+      MomentType thisMoment = energyOffDiag;
+      m_meshInterp->moment( box_eneOF,
+                            box_list.listItems(),
+                            m_mass/volume_scale,
+                            thisMoment ); 
+      
+      const FArrayBox& box_Ja = Jacobian[dit];
+      for (auto n=0; n<box_eneOF.nComp(); ++n) { 
+         box_eneOF.divide(box_Ja,0,n,1);
+      }
+
+   }
+   m_energyOffDiag.exchange(); 
+     
+}
+
+void PicSpecies::setEnergyDensityFlux() const
+{
+   CH_TIME("PicSpecies::setEnergyDensityFlux()");
+    
+   const Real volume_scale = m_mesh.getVolumeScale();
+   const DisjointBoxLayout& grids = m_energyFlux.disjointBoxLayout();
+   const LevelData<FArrayBox>& Jacobian = m_mesh.getJcc();  
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      
+      FArrayBox& box_eneF = m_energyFlux[dit];
+      box_eneF.setVal(0.0);
+      const ListBox<JustinsParticle>& box_list = m_data[dit];
+      
+      MomentType thisMoment = energyFlux;
+      m_meshInterp->moment( box_eneF,
+                            box_list.listItems(),
+                            m_mass/volume_scale,
+                            thisMoment ); 
+      
+      const FArrayBox& box_Ja = Jacobian[dit];
+      for (auto n=0; n<box_eneF.nComp(); ++n) { 
+         box_eneF.divide(box_Ja,0,n,1);
+      }
+
+   }
+   m_energyFlux.exchange(); 
      
 }
 
@@ -2378,6 +2510,266 @@ void PicSpecies::setInflowJ( const Real  a_dt )
   
 }
 
+void PicSpecies::advanceSubOrbitParticlesAndSetJ( const ElectroMagneticFields&  a_em_fields,
+		                                  const Real                    a_dt,
+                                                  const bool                    a_from_emjacobian )
+{
+   CH_TIME("PicSpecies::advanceSubOrbitParticlesAndSetJ()");
+
+   bool cyl_car = false;
+   if(m_push_type==CYL_CAR) cyl_car = true;
+ 
+   int iter_max = m_iter_max;
+   if(m_suborbit_testing) iter_max = std::max(10,iter_max); // used for CYL pusher test
+   if(a_from_emjacobian) iter_max += iter_max; // increase iters for buffer
+
+   SpaceUtils::zero( m_suborbitJ );
+   SpaceUtils::zero( m_suborbitJ_virtual );
+
+   const Real cnormDt = a_dt*m_cvac_norm;
+
+   const LevelData<EdgeDataBox>& Efield = a_em_fields.getElectricField();
+   const LevelData<FluxBox>&     Bfield = a_em_fields.getMagneticField();
+   const LevelData<NodeFArrayBox>& Efield_virt = a_em_fields.getVirtualElectricField();
+   const LevelData<FArrayBox>&     Bfield_virt = a_em_fields.getVirtualMagneticField();
+              
+   const BoxLayout& BL = m_data_suborbit.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      const EdgeDataBox& Efield_inPlane = Efield[dit];
+      const FluxBox&     Bfield_inPlane = Bfield[dit];
+      const FArrayBox& Efield_virtual = Efield_virt[dit].getFab();
+      const FArrayBox& Bfield_virtual = Bfield_virt[dit];
+
+      // define references to suborbitJ containers on this box      
+      EdgeDataBox& local_J = m_suborbitJ[dit]; 
+      FArrayBox& local_Jv  = m_suborbitJ_virtual[dit].getFab(); 
+     
+      // define local containers to store J from a single particle
+      EdgeDataBox this_Jp(local_J.box(),local_J.nComp());
+      FArrayBox this_Jpv(local_Jv.box(),local_Jv.nComp()); // is this correct?
+      
+      // Loop over each particle in the list and advance/deposit for each suborbit
+      ListBox<JustinsParticle>& box_list = m_data_suborbit[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+
+      List<JustinsParticle> temp_pList, finished_pList;
+
+      ListIterator<JustinsParticle> lit(pList);
+      for(lit.begin(); lit.ok();) { 
+         
+     	 const int num_part_suborbits = lit().numSubOrbits();
+         int num_suborbits = num_part_suborbits;
+         Real cnormDt_sub = cnormDt/num_suborbits;
+   
+	 // zero containers to store J from a single particle
+	 this_Jp.setVal(0.0);
+	 this_Jpv.setVal(0.0);
+
+	 // save the old position and velocity
+         const RealVect& xpold = lit().position_old();
+	 const RealVect xpold0 = xpold;
+	 const std::array<Real,3>& vpold = lit().velocity_old();
+         const std::array<Real,3> vpold0 = vpold;
+
+	 // set xpbar and vpbar to old values for initial guess of first suborbit
+	 lit().setPosition(xpold);
+	 lit().setVelocity(vpold);
+         if(m_push_type==CYL_CYL || m_push_type==CYL_HYBRID) { // reset dthetap to zero
+            std::array<Real,2>& position_virt = lit().position_virt();
+            position_virt[0] = 0.0;
+	 }
+         if(m_push_type==CYL_CAR) { // reset costhp = 1, sinthp = 0
+            std::array<Real,2>& position_virt = lit().position_virt();
+            position_virt[0] = 1.0;
+            position_virt[1] = 0.0;
+	 }
+
+	 // put this particle in a list all by itself
+         List<JustinsParticle> single_pList;
+	 single_pList.transfer(lit);
+	 
+	 // loop over suborbits for this particle
+	 for (int nv = 0; nv<num_suborbits; nv++) {
+
+            int iter(0);
+            while(single_pList.length()>0) {
+               interpolateFieldsToParticles( single_pList, Efield_inPlane, Bfield_inPlane, 
+                                             Efield_virtual, Bfield_virtual ); 
+               addExternalFieldsToParticles( single_pList, a_em_fields ); 
+               applyForces(single_pList, cnormDt_sub, true);
+         
+	       if(m_push_type==CYL_CAR) {   
+                  PicSpeciesUtils::stepNormTransferCYLCAR( temp_pList, single_pList, m_mesh.getdX(),
+                                         cnormDt_sub/2.0, m_rtol, true );
+               }
+               else {
+                  PicSpeciesUtils::stepNormTransfer( temp_pList, single_pList, m_mesh.getdX(),
+                                         cnormDt_sub/2.0, m_rtol, true );
+               }
+         
+	       if(single_pList.length()==0) break;
+
+               iter += 1;
+	       if( iter >= iter_max ) { // this suborbit did not converge
+
+                  ListIterator<JustinsParticle> lit_single(single_pList);
+	          lit_single.begin();
+		  if( !a_from_emjacobian ) { // increase # suborbits at start again
+		     cout << "JRA: iter_max reached for suborbit nv = " << nv + 1 << " of " 
+		          << num_suborbits << endl;
+                     num_suborbits++;
+		     cout << "     increasing suborbits to " << num_suborbits << endl;
+		     lit_single().setPosition(xpold0);
+		     lit_single().setOldPosition(xpold0);
+		     lit_single().setVelocity(vpold0);
+		     lit_single().setOldVelocity(vpold0);
+                     lit_single().setNumSubOrbits( num_suborbits );
+                     cnormDt_sub = cnormDt/num_suborbits;
+	             this_Jp.setVal(0.0);
+	             this_Jpv.setVal(0.0);
+                     if(m_push_type==CYL_CYL || m_push_type==CYL_HYBRID) { // reset dthetap to zero
+                        std::array<Real,2>& position_virt = lit_single().position_virt();
+                        position_virt[0] = 0.0;
+                     }
+                     if(m_push_type==CYL_CAR) { // reset costhp = 1, sinthp = 0
+                        std::array<Real,2>& position_virt = lit_single().position_virt();
+                        position_virt[0] = 1.0;
+                        position_virt[1] = 0.0;
+	             }
+		     nv = -1;
+		     break;
+		  }
+		  else {
+		     cout << "JRA: iter_max reached for suborbit nv = " << nv + 1 << " of " 
+		          << num_suborbits << " during linear stage... not ideal..." << endl;
+	             temp_pList.transfer(lit_single);
+		     break;
+		  }
+
+	       }
+         
+	    }
+	    if(nv==-1) continue;
+
+            // 3) deposit particles J for this suborbit
+            m_meshInterp->depositCurrent( this_Jp[0],
+#if CH_SPACEDIM>=2
+                                          this_Jp[1],
+#else
+                                          this_Jpv,
+#endif
+#if CH_SPACEDIM==3
+                                          this_Jp[2],
+#else
+                                          this_Jpv,
+#endif
+                                          temp_pList,
+                                          m_interpJToGrid,
+                                          cyl_car,
+                                          false );
+
+	    // 4) convert particle quantities from time-centered to new
+            if(m_push_type==CYL_HYBRID) {
+	       advanceVelocities_CYL_HYB_2ndHalf( a_dt/num_suborbits, temp_pList );
+	       advancePositions_2ndHalf( temp_pList );
+	    } 
+	    else if(m_push_type==CYL_CAR) {
+               advanceParticles_CYL_CAR_2ndHalf( temp_pList );
+	    }
+	    else {
+	       advanceVelocities_2ndHalf( temp_pList );
+	       advancePositions_2ndHalf( temp_pList );
+	    }
+
+	    // 5) reset xpold and vpold to suborbit xpnew and vpnew
+            ListIterator<JustinsParticle> lit_temp(temp_pList);
+            for(lit_temp.begin(); lit_temp.ok();) {
+               RealVect& xpold = lit_temp().position_old();
+	       std::array<Real,3>& vpold = lit_temp().velocity_old();
+	       if(nv==num_suborbits-1) {
+		  xpold = xpold0;
+	          vpold = vpold0;
+	          finished_pList.transfer(lit_temp);
+	       }
+               else { // update old values and put back in single pList
+                  const RealVect& xp = lit_temp().position();
+	          const std::array<Real,3>& vp = lit_temp().velocity();
+	          xpold = xp;
+    	          vpold = vp;
+	          single_pList.transfer(lit_temp);
+	       }
+	    }
+
+	 } // end loop over suborbits for this particle
+
+	 // divide particle J by number of suborbits and add it to the total
+	 for(int dir=0; dir<SpaceDim; dir++) {
+	    this_Jp[dir].divide(num_suborbits);
+	    local_J[dir].plus(this_Jp[dir]);
+	 }
+	 this_Jpv.divide(num_suborbits);
+	 local_Jv.plus(this_Jpv);
+
+      } // end loop over pList particles
+	 
+      // transfer the particles back to the main pList owned by m_data_suborbit
+      ListIterator<JustinsParticle> lit_final(finished_pList);
+      for(lit_final.begin(); lit_final.ok();) pList.transfer(lit_final);
+      
+   } // end loop over boxes
+
+   //////////////////////////////////////////////////////////////////////
+   //
+   //          multiply by constants, set BCs, and exchange
+   //
+   //////////////////////////////////////////////////////////////////////
+
+
+   // multiply by charge/volume
+   const Real volume_scale = m_mesh.getVolumeScale();
+   for(dit.begin(); dit.ok(); ++dit) {
+#if CH_SPACEDIM<3
+      m_suborbitJ_virtual[dit].getFab().mult(m_charge/volume_scale);
+#endif
+      for (int dir=0; dir<SpaceDim; ++dir) {
+         m_suborbitJ[dit][dir].mult(m_charge/volume_scale);
+      }
+   }
+
+   // apply BC to J (only used for symmetry BC right now)
+   m_species_bc->applyToJ(m_suborbitJ,m_suborbitJ_virtual);
+   
+   // add ghost cells to valid cells
+   LDaddEdgeOp<EdgeDataBox> addEdgeOp;
+   m_suborbitJ.exchange(m_suborbitJ.interval(), m_mesh.reverseCopier(), addEdgeOp);
+  
+   // divide by Jacobian after doing exchange (Corrected Jacobian does not have ghosts) 
+   const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
+   for(dit.begin(); dit.ok(); ++dit) {
+      EdgeDataBox& J_inPlane = m_suborbitJ[dit];
+      for (int dir=0; dir<SpaceDim; ++dir) {
+         J_inPlane[dir].divide(Jec[dit][dir],0,0,1);
+      }
+   }
+
+#if CH_SPACEDIM<3
+   LDaddNodeOp<NodeFArrayBox> addNodeOp;
+   m_suborbitJ_virtual.exchange(m_suborbitJ_virtual.interval(), 
+                              m_mesh.reverseCopier(), addNodeOp);
+   
+   const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
+   for(dit.begin(); dit.ok(); ++dit) {
+      FArrayBox& J_virtual = m_suborbitJ_virtual[dit].getFab();
+      for (int comp=0; comp<J_virtual.nComp(); ++comp) {
+         J_virtual.divide(Jnc[dit].getFab(),0,comp,1);
+      }
+   }
+#endif
+
+}
+
 void PicSpecies::accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx, 
                                          LevelData<EdgeDataBox>&    a_sigma_xy,
                                          LevelData<EdgeDataBox>&    a_sigma_xz,
@@ -2755,7 +3147,7 @@ void PicSpecies::getFieldDerivativesAtParticle( RealVect&         a_dExdy,
                                           const FArrayBox&        a_Efield_virtual,
                                           const FArrayBox&        a_Bfield_virtual )
 {
-   CH_TIME("PicSpecies::interpolateFieldsToParticle() single particle");
+   CH_TIME("PicSpecies::getFieldDerivativesAtParticle() single particle");
 
    m_meshInterp->getFieldDerivativesAtPart( a_dExdy, a_dEydy, a_dEzdy,
                                             a_dBxdy, a_dBydy, a_dBzdy,
@@ -2801,11 +3193,10 @@ int PicSpecies::newtonParticleUpdate( List<JustinsParticle>&  a_pList,
    
    CH_assert(SpaceDim==1);
    CH_assert(m_interpEToParts!=TSC); // derivative calc for TSC not implemented yet
-      
-   const int n_max = 20; 
+   
    int not_converged_count = 0;   
-
-   std::array<Real,n_max+1> yp; 
+   
+   Real *yp = new Real[m_newton_maxits+1]; 
    Real fp, dfpdy;
    RealVect dExdy, dEydy, dEzdy;
    RealVect dBxdy, dBydy, dBzdy;
@@ -2872,6 +3263,7 @@ int PicSpecies::newtonParticleUpdate( List<JustinsParticle>&  a_pList,
       
          guess_factor = 1.0 + 0.1*ng;
          if(ng>19) guess_factor = 1.0 + 0.01*(ng-19);
+         if(ng>29) guess_factor = 1.0 + 0.001*(ng-29);
                
          if(is_bdry_part && xpold[0]<Xmin[0]) {
             //if(ng<10) damping_factor = 1.0 - 0.1*ng;
@@ -2887,13 +3279,13 @@ int PicSpecies::newtonParticleUpdate( List<JustinsParticle>&  a_pList,
                RealVect& xpold_2 = lit().position_old();
                Real dxpold = (xpold[0]-Xmin[0])/pow((double)ng,2);
                xpold_2[0] = Xmin[0] + dxpold; // updates xpold[0]
-               yp0 = max(Xmin[0] - xpold[0],yp[n_max-1]);
+               yp0 = max(Xmin[0] - xpold[0],yp[m_newton_maxits]);
             }
          }
          
          yp[0] = yp0*guess_factor;
 
-         for (int n=0; n<n_max; n++) { // Newton iterations
+         for (int n=0; n<m_newton_maxits; n++) { // Newton iterations
               
             // this is a hack, but it seems to work much better 
             // than using a damping factor 
@@ -3069,7 +3461,7 @@ int PicSpecies::newtonParticleUpdate( List<JustinsParticle>&  a_pList,
       } // end initial guess loop
  
 
-      if(n_last>10) cout << "particle newton iter = " << n_last << endl;
+      if(n_last>std::round(m_newton_maxits/2)) cout << "particle newton iter = " << n_last << endl;
       if(ng_last>1) cout << "particle guess iter = " << ng_last << endl;
       //if(ng_last>1) cout << "damping factor = " << damping_factor << endl;
       if(!converged) {
@@ -3130,7 +3522,9 @@ int PicSpecies::newtonParticleUpdate( List<JustinsParticle>&  a_pList,
    // only in-plane vpbar is set above. apply Forces
    // to update all components of vpbar
    applyForces(a_pList, a_cnormDt, true);
-   
+  
+   delete[] yp;
+
    int num_converged = a_pList.length()-not_converged_count;
    return num_converged;
  
@@ -3184,42 +3578,6 @@ void PicSpecies::addExternalFieldsToParticles( List<JustinsParticle>&  a_pList,
 
    }
 
-}
-
-void PicSpecies::numberDensity( LevelData<FArrayBox>&  a_rho )
-{
-   CH_TIME("PicSpecies::numberDensity()");
- 
-   setNumberDensity();
-   const DisjointBoxLayout& grids = a_rho.disjointBoxLayout();
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      a_rho[dit].copy(m_density[dit]);   
-   }
-  
-}
-
-void PicSpecies::momentumDensity( LevelData<FArrayBox>&  a_mom )
-{
-   CH_TIME("PicSpecies::momentumDensity()");
- 
-   setMomentumDensity();
-   const DisjointBoxLayout& grids = a_mom.disjointBoxLayout();
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      a_mom[dit].copy(m_momentum[dit]);   
-   }
-  
-}
-
-void PicSpecies::energyDensity( LevelData<FArrayBox>&  a_ene )
-{
-   CH_TIME("PicSpecies::energyDensity()");
- 
-   setEnergyDensity();
-   const DisjointBoxLayout& grids = a_ene.disjointBoxLayout();
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      a_ene[dit].copy(m_energy[dit]);   
-   }
-  
 }
   
 void PicSpecies::inspectBinFab( const LevelData<BinFab<JustinsParticlePtr>>&  a_binfab_ptr)

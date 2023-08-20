@@ -66,6 +66,11 @@ public:
   
   // retrieve reference to kill tag
   const int& killTag() const;
+  
+  void setNumSubOrbits( const int a_num_suborbits );
+  
+  // retrieve reference to m_num_suborbits
+  const int& numSubOrbits() const;
 
   /// set particle weight
   void setWeight(const Real a_weight);
@@ -203,6 +208,7 @@ protected:
   uint64_t m_ID;
   //Real     m_ID;
   int      m_kill_tag = 0;
+  int      m_num_suborbits = 0;
   Real     m_weight;
   std::array<Real,3> m_velocity;
   std::array<Real,3> m_electric_field;
