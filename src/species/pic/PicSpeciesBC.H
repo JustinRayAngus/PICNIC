@@ -35,6 +35,7 @@ class PicSpeciesBC
    void applyToRho( LevelData<FArrayBox>&  a_Rho );
    void applyToRho( LevelData<FluxBox>&  a_Rho );
    void applyToRho( LevelData<NodeFArrayBox>&  a_Rho );
+   void applyToRhoInGhosts( LevelData<NodeFArrayBox>&  a_Rho );
    
    void removeOutflowParticles();
 

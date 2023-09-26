@@ -267,20 +267,12 @@ class System
 
         a_Pmat.setToIdentityMatrix();
         const Real cnormDt = a_dt*m_units->CvacNorm();
-        //bool use_mm = m_pic_species->useMassMatrices();
+        //use_mm = m_pic_species->useMassMatrices();
+        if(m_pic_species->getSigmaxx().isDefined()) {
+	   m_pic_species->setMassMatricesForPC(*m_emfields);
+	}
         m_emfields->assemblePrecondMatrix( a_Pmat,
                                            m_pic_species->getSigmaxx().isDefined(),
-                                           m_pic_species->getSigmaxx(), 
-                                           m_pic_species->getSigmaxy(), 
-                                           m_pic_species->getSigmaxz(), 
-#if CH_SPACEDIM==1
-                                           m_pic_species->getSigmayx(), 
-                                           m_pic_species->getSigmayy(), 
-                                           m_pic_species->getSigmayz(), 
-#endif                                     
-                                           m_pic_species->getSigmazx(),
-                                           m_pic_species->getSigmazy(),
-                                           m_pic_species->getSigmazz(),
                                            cnormDt );
         a_Pmat.finalAssembly();
         //a_Pmat.writeToFile("pc_matrix.txt",1);

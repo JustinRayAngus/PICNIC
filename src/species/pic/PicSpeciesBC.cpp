@@ -216,7 +216,7 @@ void PicSpeciesBC::applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
                              LevelData<NodeFArrayBox>&  a_J_virtual )
 {
    CH_TIME("PicSpeciesBC::applyToJ()");
- 
+
    FieldBCUtils::applyToJ_PIC( a_J_inPlane,
                                a_J_virtual, 
                                m_mesh,
@@ -243,16 +243,21 @@ void PicSpeciesBC::applyToRho( LevelData<FArrayBox>&  a_Rho )
 
          const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
          const Box bdry_box( bdry_grids[dit] );
+         const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+	 
+	 // set cell_box for bdry and grow ghost cells in transverse direction
+         Box cell_box( bdry_box );
+         IntVect grow_vect = a_Rho.ghostVect();
+         grow_vect[bdry_dir] = 0;
+         cell_box.grow(grow_vect);
           
          // collapse cell_box to 1 cell thick in bdry_dir direction                  
-         Box cell_box = bdry_box;
          if(bdry_side==0) cell_box.setSmall(bdry_dir,cell_box.bigEnd(bdry_dir));
          if(bdry_side==1) cell_box.setBig(bdry_dir,cell_box.smallEnd(bdry_dir));
                   
          FArrayBox& this_Rho = a_Rho[interior_dit];
          Box dst_box = cell_box;
          Box src_box = cell_box;
-         const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
          for(int n=0; n<nG; n++) {
             if(bdry_side==0) dst_box.shift(bdry_dir,1);
             if(bdry_side==1) dst_box.shift(bdry_dir,-1);
@@ -289,8 +294,13 @@ void PicSpeciesBC::applyToRho( LevelData<FluxBox>&  a_Rho )
           
          for (int dir(0); dir<SpaceDim; dir++) {
             
-            // collapse face_box to 1 cell thick in bdry_dir direction                  
+	    // set face_box for bdry and grow ghost cells in transverse direction
             Box face_box = surroundingNodes(bdry_box,dir);
+            IntVect grow_vect = a_Rho.ghostVect();
+            grow_vect[bdry_dir] = 0;
+            face_box.grow(grow_vect);
+            
+	    // collapse face_box to 1 cell thick in bdry_dir direction                  
             if(bdry_side==0) face_box.setSmall(bdry_dir,face_box.bigEnd(bdry_dir));
             if(bdry_side==1) face_box.setBig(bdry_dir,face_box.smallEnd(bdry_dir));
                   
@@ -331,7 +341,7 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
    // This rho is added back to the interior. For symmetry boundaries, this is equivalent
    // to the rho that would come from mirror particles across the boundary. For other BCs,
    // adding the rho deposited to the ghost cells back to the interior amounts to using
-   // a lower-order scheme near the boundary and makes is such that interior rho is conserved.
+   // a lower-order scheme near the boundary and makes it such that interior rho is conserved.
 
    // loop over non-periodic boundaries and apply BCs to Rho
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -347,20 +357,77 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
 
          const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
          const Box bdry_box( bdry_grids[dit] );
-          
-         // collapse node_box to 1 cell thick in bdry_dir direction                  
+         const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+	       
+	 // convert bdry_box to node_box and grow ghost cells in transverse direction
          Box node_box = surroundingNodes(bdry_box);
+         IntVect grow_vect = a_Rho.ghostVect();
+         grow_vect[bdry_dir] = 0;
+         node_box.grow(grow_vect);
+
+         // collapse node_box to 1 cell thick in bdry_dir direction                  
          if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
          if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
-               
+         
          FArrayBox& this_Rho( a_Rho[interior_dit].getFab() );
          Box dst_box = node_box;
          Box src_box = node_box;
-         const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
          for(int n=0; n<nG; n++) {
             dst_box.shift(bdry_dir,1 - 2*bdry_side);
             src_box.shift(bdry_dir,2*bdry_side - 1);
             this_Rho.plus(this_Rho,src_box,dst_box,0,0,this_Rho.nComp());
+         }
+
+      }
+
+   }
+   
+}
+
+void PicSpeciesBC::applyToRhoInGhosts( LevelData<NodeFArrayBox>&  a_Rho )
+{
+   CH_TIME("PicSpeciesBC::applyToRhoInGhosts()");
+ 
+   // this function fills the charge density container in the ghost cells
+   // this is only needed when filtering is being used
+
+   // loop over non-periodic boundaries and apply BCs to Rho
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   for (int b(0); b<bdry_layout.size(); b++) {
+
+      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
+      const int bdry_dir = this_bdry_layout.dir();
+      const std::string this_bc = m_bc_type[b];
+               
+      std::string sub_bc_type = "zero";
+      if(this_bc=="axis" || this_bc=="symmetry") sub_bc_type = "even"; 
+
+      for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+         const Box bdry_box( bdry_grids[dit] );
+               
+	 // convert to node type and grow box to include tranverse ghosts 
+         const Box fill_box( bdry_box );
+         Box fill_box_grown = surroundingNodes(fill_box);
+         IntVect grow_vect = a_Rho.ghostVect();
+         grow_vect[this_bdry_layout.dir()] = 0;
+         fill_box_grown.grow(grow_vect);
+               
+	 // dont change value on face in setBC()
+         const int ISIDE(this_bdry_layout.side());
+         if(ISIDE==0) fill_box_grown.growHi(bdry_dir,-1);
+         if(ISIDE==1) fill_box_grown.growLo(bdry_dir,-1);
+            
+         FArrayBox& this_Rho( a_Rho[interior_dit].getFab() );
+	 for (int n(0); n<this_Rho.nComp(); n++) {
+            BoundaryConditions::setBC( this_Rho,
+                                       fill_box_grown,
+                                       n,
+                                       sub_bc_type,
+                                       bdry_dir,
+                                       this_bdry_layout.side() );
          }
 
       }
@@ -707,11 +774,19 @@ void PicSpeciesBC::axis( List<JustinsParticle>&  a_list,
          this_vold[a_dir] = -this_vold[a_dir];
       }
       if (this_x[a_dir] == 0.0) {
-         int th_dir = 1;  
-         if(m_mesh.anticyclic()) th_dir = 2;
-         Real Vsq = this_v[a_dir]*this_v[a_dir] + this_v[th_dir]*this_v[th_dir];
-         this_v[a_dir] = -sqrt(Vsq);
-         this_v[th_dir] = 0.0;
+	 if(m_mesh.geomType()=="sph_R") {
+            Real Vsq = this_v[0]*this_v[0] + this_v[1]*this_v[1] + this_v[2]*this_v[2];
+	    this_v[0] = -std::sqrt(Vsq);
+	    this_v[1] = 0.0;
+	    this_v[2] = 0.0;
+	 }
+	 else{
+            int th_dir = 1;  
+            if(m_mesh.anticyclic()) th_dir = 2;
+            Real Vsq = this_v[a_dir]*this_v[a_dir] + this_v[th_dir]*this_v[th_dir];
+            this_v[a_dir] = -std::sqrt(Vsq);
+            this_v[th_dir] = 0.0;
+	 }
       }
 
    }

@@ -335,6 +335,58 @@ void dataFileIO::writeMeshDataFile()
       write(handle, JConNodes, "data", JConNodes.ghostVect());
 
    }
+   
+   if(m_mesh.writeMaskedJacobians()) {
+      
+      // write the face centered masked jacobian
+    
+      const LevelData<FluxBox>& JMonFaces(m_mesh.getMaskedJfc());
+   
+      const std::string group_JMfc_Name = std::string("face_centered_masked_jacobian");
+      handle.setGroup(group_JMfc_Name);
+   
+      header.clear();
+      header.m_int["is_fluxbox"] = 1;
+      header.m_int["num_components"] = JMonFaces.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(handle);
+   
+      write(handle, JMonFaces.boxLayout());
+      write(handle, JMonFaces, "data", JMonFaces.ghostVect());
+      
+      // write the edge centered masked jacobian
+    
+      const LevelData<EdgeDataBox>& JMonEdges(m_mesh.getMaskedJec());
+   
+      const std::string group_JMec_Name = std::string("edge_centered_masked_jacobian");
+      handle.setGroup(group_JMec_Name);
+   
+      header.clear();
+      header.m_int["is_edgebox"] = 1;
+      header.m_int["num_components"] = JMonEdges.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(handle);
+   
+      write(handle, JMonEdges.boxLayout());
+      write(handle, JMonEdges, "data", JMonEdges.ghostVect());
+
+      // write the node centered corrected jacobian
+    
+      const LevelData<NodeFArrayBox>& JMonNodes(m_mesh.getMaskedJnc());
+   
+      const std::string group_JMnc_Name = std::string("node_centered_masked_jacobian");
+      handle.setGroup(group_JMnc_Name);
+   
+      header.clear();
+      header.m_int["is_nodebox"] = 1;
+      header.m_int["num_components"] = JMonNodes.nComp();
+      header.m_box["prob_domain"] = domain.domainBox(); 
+      header.writeToFile(handle);
+   
+      write(handle, JMonNodes.boxLayout());
+      write(handle, JMonNodes, "data", JMonNodes.ghostVect());
+
+   }
 
    //
    // write node centered data test
@@ -350,7 +402,7 @@ void dataFileIO::writeMeshDataFile()
          this_nodeData.setVal(procID());
       }
       //nodeTestData.exchange();   
-      SpaceUtils::exchangeNodeFArrayBox(nodeTestData,m_mesh);   
+      SpaceUtils::exchangeNodeFArrayBox(nodeTestData);
 
       const std::string group5Name = std::string("node_centered_test");
       handle.setGroup(group5Name);
@@ -1198,6 +1250,7 @@ void dataFileIO::writeEMFieldPotential( const ElectroMagneticFields&  a_emfield,
 }
 
 void dataFileIO::writePicSpecies( const PicSpeciesInterface&  a_pic_species,
+		                  const bool                  a_use_filtering,
                                   const int                   a_step,
                                   const double                a_time )
 {
@@ -1229,7 +1282,7 @@ void dataFileIO::writePicSpecies( const PicSpeciesInterface&  a_pic_species,
          if(writeRho) {
             species->setChargeDensity();
             species->setChargeDensityOnFaces();
-            species->setChargeDensityOnNodes();
+            species->setChargeDensityOnNodes( a_use_filtering );
          }
          if(writeJ) species->setCurrentDensity();
          writeChargedSpeciesDataFile( *species, sp,

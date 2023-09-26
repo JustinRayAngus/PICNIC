@@ -1,0 +1,122 @@
+#TEST np=36, timelimit=00:05:00
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+system.write_species_charge_density = false
+system.write_species_current_density = false
+
+#system.advance_method = "PIC_EM_EXPLICIT"
+system.advance_method = "PIC_EM_THETA_IMPLICIT"
+
+#pic_em_theta_implicit.solver_type = "picard"
+#pic_em_theta_implicit.solver_type = "newton"
+
+pic_species.iter_max_particles = 11
+pic_species.rtol_particles = 1.0e-10
+pic_species.quasi_freeze_particles_jacobian = false
+pic_species.use_mass_matrices = false
+pic_species.mod_init_advance = false
+
+pic_em_theta_implicit.pc_update_newton = true
+em_fields.pc_mass_matrix_width = 1
+em_fields.pc_mass_matrix_include_ij = true
+
+#pic_em_theta_implicit.solver_type = "newton"
+pic_em_theta_implicit.solver_type = "petsc"
+pic_em_theta_implicit.pc_update_freq = 1
+jacobian.with_pc = false
+
+newton.verbose = false
+newton.atol = 1.0e-12
+newton.rtol = 1.0e-10
+newton.maxits = 100
+
+gmres.verbose = false
+gmres.atol = 1.0e-12
+gmres.rtol = 1.0e-4
+gmres.maxits = 1000
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+#simulation.max_step            = 10
+simulation.max_step            = 1000000000
+simulation.max_time            = 2.0e-2
+#simulation.cfl_number          = 0.7
+#simulation.cfl_scatter         = 0.5
+simulation.fixed_dt            = 1.0e-4
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 1.0e-2
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+history.precision = 8
+history.field_probes = true
+history.field_bdry_probes = true
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 36 36 
+grid.is_periodic   = 0  1
+grid.config_decomp = 6  6
+grid.geometry      = "cyl_RZ"
+grid.volume_correction = "conservative"
+grid.num_ghosts    = 1
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.Z_min = 2.0
+grid.Z_max = 3.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = true
+em_fields.advance_electric_field = 1 1 1
+em_fields.advance_magnetic_field = 1 1 1
+em_fields.write_rho = true
+em_fields.write_divs = true
+em_fields.write_curls = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+BC.em_fields.dir0_lower.type = "axis"
+BC.em_fields.dir0_upper.type = "insulator_conductor"
+BC.insulator.dir0_upper.X0_min = 1.0
+BC.insulator.dir0_upper.X0_max = 1.2
+BC.insulator.dir0_upper.X1_min = 2.25
+BC.insulator.dir0_upper.X1_max = 2.75
+BC.insulator.dir0_upper.time_function.type = "ramp"
+BC.insulator.dir0_upper.time_function.rise_time = "1.0e-3"
+BC.insulator.dir0_upper.time_function.amplitude = "1.0e1"
+
+#BC.em_fields.dir1_lower.type = "conductor"
+#BC.em_fields.dir1_upper.type = "conductor"
+
+#####################################################
+

@@ -152,20 +152,12 @@ public:
   Real magnetic_field(const int a_dir) const;
 
 
-#if CH_SPACEDIM<3
   //  define functions for virtual position (for 1D/2D sim)
-
-  /// set virtual position field
-  void setPositionVirt(const std::array<Real,2>& a_pos_virt);
+#if CH_SPACEDIM<3
+  void setPositionVirt(const std::array<Real,4-CH_SPACEDIM>& a_pos_virt);
   void setPositionVirt(const Real a_pos_virt, const int a_comp);
-
-  // retrieve reference virtual position field
-  std::array<Real,2>& position_virt();
-
-  // retrieve const. reference virtual position field
-  const std::array<Real,2>& position_virt() const;
-
-  // retrieve virt. pos. comp. in a given direction
+  std::array<Real,4-CH_SPACEDIM>& position_virt();
+  const std::array<Real,4-CH_SPACEDIM>& position_virt() const;
   Real position_virt(const int a_comp) const;
 #endif
 
@@ -185,8 +177,8 @@ public:
   // return size, in number of bytes, of a comp of the internal data
   //virtual size_t sizeOfComp(const int a_comp) const;
   
-  int sizeOutput() const; // JRA
-  void linearOutOutput(void* buf) const; // JRA
+  int sizeOutput() const;
+  void linearOutOutput(void* buf) const;
 
   ///
   /** Write a linear binary representation of the internal data. Assumes that
@@ -206,15 +198,14 @@ public:
 protected:
 
   uint64_t m_ID;
-  //Real     m_ID;
   int      m_kill_tag = 0;
   int      m_num_suborbits = 0;
   Real     m_weight;
   std::array<Real,3> m_velocity;
-  std::array<Real,3> m_electric_field;
-  std::array<Real,3> m_magnetic_field;
+  std::array<Real,3> m_electric_field = {0.0,0.0,0.0};
+  std::array<Real,3> m_magnetic_field = {0.0,0.0,0.0};
 #if CH_SPACEDIM<3
-  std::array<Real,2> m_pos_virt; // virtual position for 1D/2D sims
+  std::array<Real,4-CH_SPACEDIM> m_pos_virt; // virtual positions for 1D/2D sims
 #endif
   RealVect  m_position_old;
   std::array<Real,3> m_velocity_old;

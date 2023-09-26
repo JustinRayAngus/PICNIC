@@ -10,7 +10,7 @@ pic_species.write_species_nppc = true
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.iter_max_particles = 101
+pic_species.iter_max_particles = 11
 pic_species.rtol_particles = 1.0e-10
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
@@ -138,6 +138,7 @@ pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
 pic_species.0.push_type = "CYL_CYL"
+pic_species.0.use_suborbit_model = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 1.5
@@ -175,6 +176,7 @@ pic_species.1.interp_type_N = "TSC"
 pic_species.1.interp_type_J = "CC1"
 pic_species.1.interp_type_E = "CC1"
 pic_species.1.push_type = "CYL_CYL"
+pic_species.1.use_suborbit_model = true
 
 IC.deuterium.X_min = 0.0
 IC.deuterium.X_max = 1.5

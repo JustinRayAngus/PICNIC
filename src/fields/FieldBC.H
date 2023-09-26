@@ -23,10 +23,10 @@ class FieldBC
                   const Real                 a_time );
       
       void applyEdgeBC( LevelData<EdgeDataBox>&  a_dst,
-                  const Real                     a_time );
+                  const Real                     a_time ) const;
       
       void applyNodeBC( LevelData<NodeFArrayBox>&  a_dst,
-                  const Real                       a_time );
+                  const Real                       a_time ) const;
 
       void setFluxBC( LevelData<FluxBox>&  a_dst,
                 const LevelData<FluxBox>&  a_src,
@@ -54,27 +54,7 @@ class FieldBC
     
       void applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
                      LevelData<NodeFArrayBox>&  a_J_virtual ) const;
-
-#if CH_SPACEDIM==1
-      void prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
-                       LevelData<NodeFArrayBox>&  a_Jv,
-                 const LevelData<EdgeDataBox>&    a_Jx0,
-                 const LevelData<NodeFArrayBox>&  a_Jv0,
-                 const LevelData<EdgeDataBox>&    a_Ex0,
-                 const LevelData<NodeFArrayBox>&  a_Ev0,
-                 const LevelData<EdgeDataBox>&    a_Ex,
-                 const LevelData<NodeFArrayBox>&  a_Ev,
-                 const LevelData<EdgeDataBox>&    a_sigma_xx,
-                 const LevelData<EdgeDataBox>&    a_sigma_xy,
-                 const LevelData<EdgeDataBox>&    a_sigma_xz,
-                 const LevelData<NodeFArrayBox>&  a_sigma_yx,
-                 const LevelData<NodeFArrayBox>&  a_sigma_yy,
-                 const LevelData<NodeFArrayBox>&  a_sigma_yz,
-                 const LevelData<NodeFArrayBox>&  a_sigma_zx,
-                 const LevelData<NodeFArrayBox>&  a_sigma_zy,
-                 const LevelData<NodeFArrayBox>&  a_sigma_zz ) const;
-#endif
-
+  
    protected:
    
       Vector<std::string> m_bdry_name;

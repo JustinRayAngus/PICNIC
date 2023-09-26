@@ -82,6 +82,7 @@ class dataFileIO
                                   HDF5HeaderData&               a_header );
       
       void writePicSpecies( const PicSpeciesInterface&  a_pic_species,
+		            const bool                  a_use_filtering,
                             const int                   a_cur_step,
                             const double                a_cur_time );
       

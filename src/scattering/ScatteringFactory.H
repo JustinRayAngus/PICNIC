@@ -48,10 +48,7 @@ class ScatteringFactory
       
       inline RefCountedPtr<Scattering> createCoulomb( const int   a_sp1,
                                                       const int   a_sp2,
-                                                      const Real  a_Clog,
-                                                      const std::string  a_model,
-                                                      const std::string  a_angular_model,
-                                                      const std::string  a_weight_method,
+						      const ParmParse&  a_pp,
                                                       const int   a_verbosity = 0 );
 
 };
@@ -108,22 +105,27 @@ RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&    a_pp,
 inline
 RefCountedPtr<Scattering> ScatteringFactory::createCoulomb( const int   a_sp1,
                                                             const int   a_sp2,
-                                                            const Real  a_Clog,
-                                                            const std::string  a_model,
-                                                            const std::string  a_angular_model,
-                                                            const std::string  a_weight_method,
+							    const ParmParse&  a_pp,
                                                             const int   a_verbosity )
 {
+   // query the Coulomb collision model type       
+   std::string model = "TA";
+   a_pp.query("model",model);
+
    RefCountedPtr<Scattering> result(NULL);
-   if (a_model == "ta" || a_model=="TA") {
-      result = RefCountedPtr<Scattering>( new TakizukaAbe( a_sp1, a_sp2, a_Clog, a_verbosity ) );
+   if (model == "ta" || model=="TA") {
+      Real Clog = 0.0;
+      if(a_pp.contains("coulomb_logarithm")) {
+         a_pp.get( "coulomb_logarithm", Clog );
+         CH_assert(Clog>=2.0);
+      }
+      result = RefCountedPtr<Scattering>( new TakizukaAbe( a_sp1, a_sp2, Clog, a_verbosity ) );
    }
-   else if (a_model == "coulomb" || a_model=="COULOMB") {
-      result = RefCountedPtr<Scattering>( new Coulomb( a_sp1, a_sp2, a_Clog, a_angular_model, 
-			                               a_weight_method, a_verbosity ) );
+   else if (model == "coulomb" || model=="COULOMB") {
+      result = RefCountedPtr<Scattering>( new Coulomb( a_sp1, a_sp2, a_pp, a_verbosity ) );
    }
    else {
-      cout << "model = " << a_model << endl;
+      cout << "model = " << model << endl;
       MayDay::Error( "ScatteringFactory: Unimplemented scattering model selected" );
    }
    return result;

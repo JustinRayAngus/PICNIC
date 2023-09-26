@@ -4,6 +4,109 @@
 //#include "upwindSchemesF_F.H"
 
 #include "NamespaceHeader.H"
+
+void
+SpaceUtils::applyBinomialFilter( LevelData<EdgeDataBox>&  a_var )
+{
+   const IntVect var_gv = a_var.ghostVect();
+   CH_assert( var_gv >= IntVect::Unit );
+   CH_TIME("SpaceUtils::applyBinomialFilter() EdgeDataBox");
+  
+   const DisjointBoxLayout& grids( a_var.getBoxes() );
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
+      
+      for (int dir(0); dir<SpaceDim; dir++) {
+
+         FArrayBox& this_var( a_var[dit][dir] );
+
+         Box edge_box = grids[dit];
+         edge_box.surroundingNodes( );  // grow hi end by one in all dirs
+         edge_box.enclosedCells( dir ); // shrink hi end by 1 in dir
+	 applyBinomialFilter( this_var, edge_box );
+    
+      }
+
+   }
+
+}
+
+void
+SpaceUtils::applyBinomialFilter( LevelData<NodeFArrayBox>&  a_var )
+{
+   const IntVect var_gv = a_var.ghostVect();
+   CH_assert( var_gv >= IntVect::Unit );
+   CH_TIME("SpaceUtils::applyBinomialFilter() NodeFArrayBox");
+  
+   const DisjointBoxLayout& grids( a_var.getBoxes() );
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
+      
+      FArrayBox& this_var( a_var[dit].getFab() );
+
+      Box node_box = grids[dit];
+      node_box.surroundingNodes( );
+      applyBinomialFilter( this_var, node_box );
+
+   }
+
+}
+
+void
+SpaceUtils::applyBinomialFilter( FArrayBox&  a_Q,
+	                   const Box&        a_grid_box	)
+{
+   const int ncomp = a_Q.nComp();
+   FArrayBox Q2( a_Q.box(), ncomp );
+
+   BoxIterator bit(a_grid_box);
+   for (bit.begin(); bit.ok(); ++bit) {
+
+      IntVect iv = bit();
+      for (int n=0; n<ncomp; n++) {
+#if CH_SPACEDIM==1
+         IntVect iup0 = iv; iup0[0]++;  // [1 2 1]/4
+         IntVect idn0 = iv; idn0[0]--;
+         Q2(iv,n) = a_Q(iup0,n) + a_Q(idn0,n);
+#elif CH_SPACEDIM==2
+         IntVect iup0 = iv; iup0[0]++; // [1 2 1
+         IntVect idn0 = iv; idn0[0]--; //  2 4 2
+         IntVect iup1 = iv; iup1[1]++; //  1 2 1]/16
+         IntVect idn1 = iv; idn1[1]--;
+	 Q2(iv,n) = 2.0*(a_Q(iup0,n) + a_Q(idn0,n))
+	          + 2.0*(a_Q(iup1,n) + a_Q(idn1,n))
+	          + a_Q(iup0+iup1,n) + a_Q(iup0+idn1,n)
+	          + a_Q(idn0+iup1,n) + a_Q(idn0+idn1,n);
+#elif CH_SPACEDIM==3
+         IntVect iup0 = iv; iup0[0]++; // [1 2 1 ... 2 4 2 ... 1 2 1
+         IntVect idn0 = iv; idn0[0]--; //  2 4 2 ... 4 8 4 ... 2 4 2
+         IntVect iup1 = iv; iup1[1]++; //  1 2 1 ... 2 4 2 ... 1 2 1]/64
+         IntVect idn1 = iv; idn1[1]--;
+         IntVect iup2 = iv; iup2[2]++;
+         IntVect idn2 = iv; idn2[2]--;
+	 Q2(iv,n) = 4.0*(a_Q(iup0,n) + a_Q(idn0,n))
+	          + 4.0*(a_Q(iup1,n) + a_Q(idn1,n))
+	          + 4.0*(a_Q(iup2,n) + a_Q(idn2,n))
+	          + 2.0*(a_Q(iup0+iup1,n) + a_Q(iup0+idn1,n))
+	                       + 2.0*(a_Q(iup0+iup2,n) + a_Q(iup0+idn2,n))
+	                       + 2.0*(a_Q(iup1+iup2,n) + a_Q(iup1+idn2,n))
+	                       + 2.0*(a_Q(idn1+iup2,n) + a_Q(idn1+idn2,n))
+	                       + 2.0*(a_Q(idn0+iup1,n) + a_Q(idn0+idn1,n))
+	                       + 2.0*(a_Q(idn0+iup2,n) + a_Q(idn0+idn2,n))
+	                       + a_Q(iup0+iup1+iup2,n) + a_Q(iup0+iup1+idn2,n)
+	                       + a_Q(iup0+idn1+iup2,n) + a_Q(iup0+idn1+idn2,n)
+	                       + a_Q(idn0+iup1+iup2,n) + a_Q(idn0+iup1+idn2,n)
+	                       + a_Q(idn0+idn1+iup2,n) + a_Q(idn0+idn1+idn2,n);
+#endif
+      } // end loop over components
+
+   } // end loop over grid cells
+
+   const Real factor0 = std::pow(2.0,SpaceDim);
+   const Real factor1 = std::pow(2.0,2*SpaceDim);
+   a_Q.mult(factor0);
+   a_Q.plus(Q2);
+   a_Q.divide(factor1);
+      
+}
       
 void
 SpaceUtils::upWindToFaces( LevelData<FluxBox>&    a_face_phi,
@@ -1365,6 +1468,9 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
 {
    CH_TIME("SpaceUtils::exchangeEdgeDataBox()");
    
+#if CH_SPACEDIM==1
+   a_Edge.exchange();
+#else
    const DisjointBoxLayout& grids( a_Edge.getBoxes() );
    DataIterator dit = grids.dataIterator();
 
@@ -1403,6 +1509,7 @@ SpaceUtils::exchangeEdgeDataBox( LevelData<EdgeDataBox>& a_Edge )
    
    // exchange again is for the purpose of actual ghost cells (not shared cells)
    a_Edge.exchange();
+#endif
 
 }
 
@@ -1411,11 +1518,12 @@ SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node )
 {
    CH_TIME("SpaceUtils::exchangeNodeFArrayBox()");
   
-   // only tested/verified for 2D with doubly-periodic BCs
+   // tested/verified for 2D with doubly-periodic BCs, periodic only in X,
+   // periodic only in Y, and not periodic in either direction
 
    CH_assert(SpaceDim<3); // not generalized for 3D
                           // not tested in 1D
-
+      
    const DisjointBoxLayout& grids( a_Node.getBoxes() );
    DataIterator dit = grids.dataIterator();
 
@@ -1440,6 +1548,11 @@ SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node )
    domainNodeBox.surroundingNodes();
    const IntVect domainNodeHi = domainNodeBox.bigEnd();
    const IntVect domainNodeLo = domainNodeBox.smallEnd();
+   
+   bool is_periodic_any_dir = false;
+   for (int dir=0; dir<SpaceDim; dir++) {
+      if(domain.isPeriodic(dir)) {is_periodic_any_dir = true;}
+   }
 
    for (dit.begin(); dit.ok(); ++dit) {
       const Box& gridBox = grids[dit];
@@ -1470,8 +1583,9 @@ SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node )
       int copyCorner00 = 1;
       for(int dir=0; dir<SpaceDim; dir++) {
          const int thisBoxLo = NodeBox.smallEnd(dir);
-         if(thisBoxLo==domainNodeLo[dir]) {
-            copyCorner00 = copyCorner00*0;
+         if(thisBoxLo==domainNodeLo[dir] && domain.isPeriodic(dir)) {
+            const int thisBoxHi = NodeBox.bigEnd(dir);
+	    if(thisBoxHi!=domainNodeHi[dir]) copyCorner00 = copyCorner00*0;
          }
       }
       if(copyCorner00) {
@@ -1481,55 +1595,144 @@ SpaceUtils::exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_Node )
          }
          copy(this_Node,this_Temp,corner00Box);
       }
-
+      
       if(SpaceDim==2) { // this would need to be generalized for SpaceDim>2
       
          // check if high end touchs a physical in dir0, but 
          // does not touch low end in dir1
          const int thisBoxHi0 = NodeBox.bigEnd(0);
          const int thisBoxLo1 = NodeBox.smallEnd(1);
-         if(domainNodeHi[0]==thisBoxHi0 && domainNodeLo[1]!=thisBoxLo1) {
+	 bool copy_corner10 = false;
+         if(domainNodeHi[0]==thisBoxHi0) { // sufficient for periodic in X and not in Y
+	    if(domain.isPeriodic(0) && !domain.isPeriodic(1)) { copy_corner10 = true; }
+	    else if(domainNodeLo[1]!=thisBoxLo1) { copy_corner10 = true; }
+	    if(copy_corner10) {
             Box corner10Box = NodeBox;
             corner10Box.setSmall(0,NodeBox.bigEnd(0));
             corner10Box.setBig(1,NodeBox.smallEnd(1));
             copy(this_Node,this_Temp,corner10Box);
+	    }
          }
       
          // check if high end touchs a physical in dir1, but 
          // does not touch low end in dir0
          const int thisBoxHi1 = NodeBox.bigEnd(1);
          const int thisBoxLo0 = NodeBox.smallEnd(0);
-         if(domainNodeHi[1]==thisBoxHi1 && domainNodeLo[0]!=thisBoxLo0) {
+	 bool copy_corner01 = false;
+         if(domainNodeHi[1]==thisBoxHi1) { // sufficient for periodic in Y and not in X
+            if(domain.isPeriodic(1) && !domain.isPeriodic(0)) { copy_corner01 = true; }
+	    else if(domainNodeLo[0]!=thisBoxLo0) {copy_corner01 = true; }
+	    if(copy_corner01) {
             Box corner01Box = NodeBox;
             corner01Box.setSmall(1,NodeBox.bigEnd(1));
             corner01Box.setBig(0,NodeBox.smallEnd(0));
             copy(this_Node,this_Temp,corner01Box);
+	    }
          }
 
       }
 
-      // copy over upper domain corner
-      int copyCorner11 = 1;
-      Box corner11Box = NodeBox;
-      for(int dir=0; dir<SpaceDim; dir++) {
-         const int thisBoxHi = NodeBox.bigEnd(dir);
-         if(domainNodeHi[dir]==thisBoxHi) {
-            corner11Box.setSmall(dir,NodeBox.bigEnd(dir));
-         }
-         else {
-            copyCorner11 = copyCorner11*0;
-         }
-      }
-      if(copyCorner11) {
-         copy(this_Node,this_Temp,corner11Box);
-      }
+      if(is_periodic_any_dir) {
 
+         // copy over upper domain corner
+         bool copy_corner11 = true;
+         Box corner11Box = NodeBox;
+         for(int dir=0; dir<SpaceDim; dir++) {
+            const int thisBoxHi = NodeBox.bigEnd(dir);
+            if(domainNodeHi[dir]==thisBoxHi) {
+               corner11Box.setSmall(dir,NodeBox.bigEnd(dir));
+            }
+            else { copy_corner11 = false; }
+         }
+         if(copy_corner11) {
+	    copy(this_Node,this_Temp,corner11Box);
+	 }
+
+      }
+      
    }
    
    // exchange again is for the purpose of actual ghost cells (not shared cells)
-   a_Node.exchange();
+   if(is_periodic_any_dir) { a_Node.exchange(); }
    
 }
+
+void
+SpaceUtils::checkForNAN( const LevelData<FArrayBox>&  a_var,
+		         const std::string&           a_string )
+{
+  const DisjointBoxLayout& grids( a_var.getBoxes() );
+  for (DataIterator dit(grids); dit.ok(); ++dit) {
+    const FArrayBox& this_var = a_var[dit];
+    checkForNAN(this_var,a_string);
+  }
+}
+
+void
+SpaceUtils::checkForNAN( const LevelData<FluxBox>&  a_var,
+		         const std::string&         a_string )
+{
+  const DisjointBoxLayout& grids( a_var.getBoxes() );
+  for (DataIterator dit(grids); dit.ok(); ++dit) {
+    for (int dir = 0; dir<SpaceDim; dir++) {
+      const FArrayBox& this_var = a_var[dit][dir];
+      checkForNAN(this_var,a_string);
+    }
+  }
+
+}
+
+void
+SpaceUtils::checkForNAN( const LevelData<EdgeDataBox>&  a_var,
+		         const std::string&             a_string )
+{
+  const DisjointBoxLayout& grids( a_var.getBoxes() );
+  for (DataIterator dit(grids); dit.ok(); ++dit) {
+    for (int dir = 0; dir<SpaceDim; dir++) {
+      const FArrayBox& this_var = a_var[dit][dir];
+      const std::string dir_string = a_string + " at dir = " + std::to_string(dir);
+      if(procID()==0) checkForNAN(this_var,dir_string);
+    }
+  }
+
+}
+
+void
+SpaceUtils::checkForNAN( const LevelData<NodeFArrayBox>&  a_var,
+		         const std::string&               a_string )
+{
+  const DisjointBoxLayout& grids( a_var.getBoxes() );
+  for (DataIterator dit(grids); dit.ok(); ++dit) {
+    const FArrayBox& this_var = a_var[dit].getFab();
+    checkForNAN(this_var,a_string);
+  }
+}
+
+void
+SpaceUtils::checkForNAN( const FArrayBox&    a_var,
+		         const std::string&  a_string )
+{
+  int ncomp = a_var.nComp();
+  Real this_val;
+
+  BoxIterator bit(a_var.box());
+  for (bit.begin(); bit.ok(); ++bit) {
+    IntVect iv = bit();
+
+    for (int n=0; n<ncomp; n++) {
+      this_val = a_var(iv,n);
+      if(this_val!=this_val) {
+        cout << "procID() = " << procID() << endl;
+	cout << a_string << endl;
+        cout << "NAN found at iv = " << iv << " and comp = " << n << endl;
+        cout << "this_val = " << this_val << endl;
+      }
+    }
+
+  }
+
+}
+
 
 #endif
 

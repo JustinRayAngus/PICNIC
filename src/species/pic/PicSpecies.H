@@ -110,13 +110,14 @@ public:
   }
   
   virtual bool hybridInertia() const { 
-     if(m_push_type==CYL_HYBRID) return true;
+     if(m_push_type==CYL_HYB) return true;
      else return false; 
   }
 
   virtual bool isSpecies( const string& name ) const;  
 
   void inspectParticles( List<JustinsParticle>&  a_pList,
+		   const bool          a_print_fields,
                    const Box&          a_cell_box,
                    const EdgeDataBox&  a_Efield_inPlane,
                    const FluxBox&      a_Bfield_inPlane,
@@ -126,6 +127,7 @@ public:
   virtual void setParticleSolverParams( const bool  a_iter_order_swap, 
                                         const bool  a_iter_min_two,
                                         const int   a_iter_max,
+                                        const bool  a_verbose_particles,
                                         const Real  a_rtol, 
                                         const int   a_newton_maxits, 
                                         const int   a_newton_num_guess) 
@@ -133,6 +135,7 @@ public:
      m_iter_order_swap = a_iter_order_swap; 
      m_iter_min_two = a_iter_min_two; 
      m_iter_max = a_iter_max; 
+     m_verbose_particles = a_verbose_particles; 
      m_rtol = a_rtol; 
      m_newton_maxits = a_newton_maxits;
      m_newton_num_guess = a_newton_num_guess;
@@ -249,7 +252,7 @@ public:
   
   void setChargeDensity();
   void setChargeDensityOnFaces();
-  void setChargeDensityOnNodes();
+  void setChargeDensityOnNodes( const bool  a_use_filtering );
   
   const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
   const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_faces;}
@@ -273,7 +276,7 @@ public:
   void advancePositionsImplicit( List<JustinsParticle>&  a_pList,
                            const Real                    a_cnormDt );
  
-  void advancePositionsCYLCAR( List<JustinsParticle>&  a_pList,
+  void advancePositions_CYL_CAR( List<JustinsParticle>&  a_pList,
                           const Real                    a_cnormDt );
   
   void advanceInflowPositions( List<JustinsParticle>&  a_pList,
@@ -287,6 +290,8 @@ public:
   
   void applyBCs( const bool  a_intermediate_advance );
 
+  void checkForNAN( const std::string&  a_string );
+
   void advanceVelocities( const Real  a_full_dt, 
                           const bool  a_half_step );
   
@@ -297,8 +302,22 @@ public:
   void advanceVelocities_CYL_HYB_2ndHalf( const Real  a_dt,
 		              List<JustinsParticle>&  a_pList );
   
+  void advanceVelocities_SPH_HYB_2ndHalf( const Real  a_dt,
+		              List<JustinsParticle>&  a_pList );
+
   void advanceParticles_CYL_CAR_2ndHalf( List<JustinsParticle>&  a_pList );
   
+#if CH_SPACEDIM==1
+  void advanceParticles_SPH_CAR_2ndHalf( List<JustinsParticle>&  a_pList );
+  void advancePositions_SPH_CAR( List<JustinsParticle>&  a_pList,
+                          const Real                    a_cnormDt );
+#endif
+
+#if CH_SPACEDIM<3
+  void rebaseVirtualPositions( );
+  void rebaseVirtualPositions( List<JustinsParticle>&  a_pList );
+#endif
+
   void applyInertialForces( const Real  a_dt,
                             const bool  a_use_avg_velocity,
                             const bool  a_update_positions,
@@ -357,10 +376,13 @@ private:
   
   enum PushType {
      PLANAR, 
-     CYL_BORIS, // uses Boris trick for cylindrical push
-     CYL_CYL,   // uses predictor-corrector for dtheta used in inertia term
-     CYL_HYBRID, // uses Car for velocity, Cyl for position
-     CYL_CAR    // uses Car for velocity, Car for position
+     CYL_BORIS,  // uses Boris trick for cylindrical push
+     CYL_CYL,    // uses Cyl for velocity and Cyl for position
+     CYL_HYB,    // uses Car for velocity and Cyl for position
+     CYL_CAR,    // uses Car for velocity and Car for position
+     SPH_SPH,    // uses Sph for velocity and Sph for position
+     SPH_HYB,    // uses Car for velocity and Sph for position
+     SPH_CAR,    // uses Car for velocity and Car for position
   };
   
   PushType m_push_type;
@@ -375,6 +397,7 @@ private:
   bool m_iter_order_swap = false; 
   bool m_iter_min_two = false; 
   int m_iter_max = 0; 
+  bool m_verbose_particles = false; 
   Real m_rtol = 1.0e-12; 
   int m_newton_maxits = 20; 
   int m_newton_num_guess = 1; 

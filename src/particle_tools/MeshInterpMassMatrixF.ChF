@@ -33,7 +33,9 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
      &                       CHF_CONST_INT[inert_type], 
-     &                       CHF_CONST_REAL[inert_fact], 
+     &                       CHF_CONST_REAL[inert_fact1], 
+     &                       CHF_CONST_REAL[inert_fact2], 
+     &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1), idir
@@ -166,41 +168,67 @@ c     scale Bp by alphas/gammap_bar
       Bpz = alphas*Bpz
 #endif
 
-c     add inertial term to Bpz
+c     add inertial term to Bp
       if(inert_type==1) then
-          Bpz = Bpz + sin(inert_fact)
+        if(anticyclic==-1) then 
+c         Bpy = Bp[1], which is actually Bpz for anticyclic
+          Bpy = Bpy + sin(inert_fact1)
+        else
+          Bpz = Bpz + sin(inert_fact1)
+        endif
+      else if(inert_type==3) then
+          Bpx = Bpx + sin(inert_fact2)*inert_fact1
+          Bpy = Bpy - inert_fact2
+          Bpz = Bpz + cos(inert_fact2)*inert_fact1
       endif
 
 c     compute components of mass matrix kernals to deposit
       if(inert_type==2) then
-        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+c       CYL geometry with CYL_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
         
-        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
-        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
-        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(inert_fact1*Bpx*Bpy + anticyclic*Bpz)
+        fpxz = inert_fact1*arogp*(Bpx*Bpz - anticyclic*Bpy)
 
-        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
-        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
-        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
+        fpyx = inert_fact1*arogp*(inert_fact1*Bpy*Bpx - anticyclic*Bpz)
+        fpyy = inert_fact1*arogp*(inert_fact1*Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + anticyclic*Bpx)
 
-        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
-        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzx = inert_fact1*arogp*(Bpz*Bpx + anticyclic*Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - anticyclic*Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
+      else if(inert_type==4) then
+c       SPH geometry with SPH_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpz*Bpz) + Bpy*Bpy
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(Bpx*Bpy + anticyclic*Bpz)
+        fpxz = inert_fact1*arogp*(inert_fact1*Bpx*Bpz - anticyclic*Bpy)
+
+        fpyx = inert_fact1*arogp*(Bpy*Bpx - anticyclic*Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + anticyclic*Bpx)
+
+        fpzx = inert_fact1*arogp*(inert_fact1*Bpz*Bpx + anticyclic*Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - anticyclic*Bpx)
+        fpzz = inert_fact1*arogp*(inert_fact1*Bpz*Bpz + 1.0)
       else
         Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
 
         fpxx = arogp*(Bpx*Bpx + 1.0)
-        fpxy = arogp*(Bpx*Bpy + Bpz)
-        fpxz = arogp*(Bpx*Bpz - Bpy)
+        fpxy = arogp*(Bpx*Bpy + anticyclic*Bpz)
+        fpxz = arogp*(Bpx*Bpz - anticyclic*Bpy)
 
-        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyx = arogp*(Bpy*Bpx - anticyclic*Bpz)
         fpyy = arogp*(Bpy*Bpy + 1.0)
-        fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpyz = arogp*(Bpy*Bpz + anticyclic*Bpx)
 
-        fpzx = arogp*(Bpz*Bpx + Bpy)
-        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzx = arogp*(Bpz*Bpx + anticyclic*Bpy)
+        fpzy = arogp*(Bpz*Bpy - anticyclic*Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
       endif
 
@@ -210,9 +238,9 @@ c     compute components of mass matrix kernals to deposit
 c     modify mass matrix kernals for relativistic effects in Lorentz force
         upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
         gp_denom = gammap_bar**2 + Bpsq + upBp**2
-        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
-        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
-        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+        gpx = (Bpsq*upbarx - upBp*Bpx - anticyclic*(upbary*Bpz - upbarz*Bpy))/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - anticyclic*(upbarz*Bpx - upbarx*Bpz))/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - anticyclic*(upbarx*Bpy - upbary*Bpx))/gp_denom
 
         upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
         upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
@@ -255,9 +283,9 @@ c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tild
 c     compute components of Jtilde kernals to deposit
       upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
       rogp = rhop/(1.0 + Bpsq)
-      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
-      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
-      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+      fpx = rogp*(upoldx - anticyclic*(Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - anticyclic*(Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - anticyclic*(Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
 #else
 c     compute components of J0 kernals to deposit
       fpx = rhop*upbarx
@@ -417,7 +445,9 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
      &                       CHF_CONST_INT[inert_type], 
-     &                       CHF_CONST_REAL[inert_fact], 
+     &                       CHF_CONST_REAL[inert_fact1], 
+     &                       CHF_CONST_REAL[inert_fact2], 
+     &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1), idir
@@ -556,41 +586,67 @@ c     scale Bp by alphas/gammap_bar
       Bpz = alphas*Bpz
 #endif
 
-c     add inertial term to Bpz
+c     add inertial term to Bp
       if(inert_type==1) then
-          Bpz = Bpz + sin(inert_fact)
+        if(anticyclic==-1) then 
+c         Bpy = Bp[1], which is actually Bpz for anticyclic
+          Bpy = Bpy + sin(inert_fact1)
+        else
+          Bpz = Bpz + sin(inert_fact1)
+        endif
+      else if(inert_type==3) then
+          Bpx = Bpx + sin(inert_fact2)*inert_fact1
+          Bpy = Bpy - inert_fact2
+          Bpz = Bpz + cos(inert_fact2)*inert_fact1
       endif
 
 c     compute components of mass matrix kernals to deposit
       if(inert_type==2) then
-        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+c       CYL geometry with CYL_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
         
-        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
-        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
-        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(inert_fact1*Bpx*Bpy + anticyclic*Bpz)
+        fpxz = inert_fact1*arogp*(Bpx*Bpz - anticyclic*Bpy)
 
-        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
-        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
-        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
+        fpyx = inert_fact1*arogp*(inert_fact1*Bpy*Bpx - anticyclic*Bpz)
+        fpyy = inert_fact1*arogp*(inert_fact1*Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + anticyclic*Bpx)
 
-        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
-        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzx = inert_fact1*arogp*(Bpz*Bpx + anticyclic*Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - anticyclic*Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
+      else if(inert_type==4) then
+c       SPH geometry with SPH_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpz*Bpz) + Bpy*Bpy
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(Bpx*Bpy + anticyclic*Bpz)
+        fpxz = inert_fact1*arogp*(inert_fact1*Bpx*Bpz - anticyclic*Bpy)
+
+        fpyx = inert_fact1*arogp*(Bpy*Bpx - anticyclic*Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + anticyclic*Bpx)
+
+        fpzx = inert_fact1*arogp*(inert_fact1*Bpz*Bpx + anticyclic*Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - anticyclic*Bpx)
+        fpzz = inert_fact1*arogp*(inert_fact1*Bpz*Bpz + 1.0)
       else
         Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
 
         fpxx = arogp*(Bpx*Bpx + 1.0)
-        fpxy = arogp*(Bpx*Bpy + Bpz)
-        fpxz = arogp*(Bpx*Bpz - Bpy)
+        fpxy = arogp*(Bpx*Bpy + anticyclic*Bpz)
+        fpxz = arogp*(Bpx*Bpz - anticyclic*Bpy)
 
-        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyx = arogp*(Bpy*Bpx - anticyclic*Bpz)
         fpyy = arogp*(Bpy*Bpy + 1.0)
-        fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpyz = arogp*(Bpy*Bpz + anticyclic*Bpx)
 
-        fpzx = arogp*(Bpz*Bpx + Bpy)
-        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzx = arogp*(Bpz*Bpx + anticyclic*Bpy)
+        fpzy = arogp*(Bpz*Bpy - anticyclic*Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
       endif
 
@@ -600,9 +656,9 @@ c     compute components of mass matrix kernals to deposit
 c     modify mass matrix kernals for relativistic effects in Lorentz force
         upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
         gp_denom = gammap_bar**2 + Bpsq + upBp**2
-        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
-        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
-        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+        gpx = (Bpsq*upbarx - upBp*Bpx - anticyclic*(upbary*Bpz - upbarz*Bpy))/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - anticyclic*(upbarz*Bpx - upbarx*Bpz))/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - anticyclic*(upbarx*Bpy - upbary*Bpx))/gp_denom
 
         upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
         upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
@@ -645,9 +701,9 @@ c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tild
 c     compute components of Jtilde kernals to deposit
       upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
       rogp = rhop/(1.0 + Bpsq)
-      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
-      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
-      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+      fpx = rogp*(upoldx - anticyclic*(Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - anticyclic*(Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - anticyclic*(Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
 #else
 c     compute components of J0 kernals to deposit
       fpx = rhop*upbarx
@@ -811,7 +867,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
      &                       CHF_CONST_INT[inert_type], 
-     &                       CHF_CONST_REAL[inert_fact], 
+     &                       CHF_CONST_REAL[inert_fact1], 
+     &                       CHF_CONST_REAL[inert_fact2], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
@@ -934,27 +991,48 @@ c     scale Bp by alphas/gammap_bar
       Bpz = alphas*Bpz
 #endif
 
-c     add inertial term to Bpz
+c     add inertial term to Bp
       if(inert_type==1) then
-          Bpz = Bpz + sin(inert_fact)
+        Bpz = Bpz + sin(inert_fact1)
+      else if(inert_type==3) then
+        Bpx = Bpx + sin(inert_fact2)*inert_fact1
+        Bpy = Bpy - inert_fact2
+        Bpz = Bpz + cos(inert_fact2)*inert_fact1
       endif
 
 c     compute components of mass matrix kernals to deposit
       if(inert_type==2) then
-        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+c       CYL geometry with CYL_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
         
-        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
-        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
-        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(inert_fact1*Bpx*Bpy + Bpz)
+        fpxz = inert_fact1*arogp*(Bpx*Bpz - Bpy)
 
-        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
-        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
-        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
+        fpyx = inert_fact1*arogp*(inert_fact1*Bpy*Bpx - Bpz)
+        fpyy = inert_fact1*arogp*(inert_fact1*Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + Bpx)
 
-        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
-        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzx = inert_fact1*arogp*(Bpz*Bpx + Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
+      else if(inert_type==4) then
+c       SPH geometry with SPH_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpz*Bpz) + Bpy*Bpy
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(Bpx*Bpy + Bpz)
+        fpxz = inert_fact1*arogp*(inert_fact1*Bpx*Bpz - Bpy)
+
+        fpyx = inert_fact1*arogp*(Bpy*Bpx - Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + Bpx)
+
+        fpzx = inert_fact1*arogp*(inert_fact1*Bpz*Bpx + Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - Bpx)
+        fpzz = inert_fact1*arogp*(inert_fact1*Bpz*Bpz + 1.0)
       else
         Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
@@ -1244,7 +1322,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
      &                       CHF_CONST_INT[inert_type], 
-     &                       CHF_CONST_REAL[inert_fact], 
+     &                       CHF_CONST_REAL[inert_fact1], 
+     &                       CHF_CONST_REAL[inert_fact2], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1)
@@ -1360,9 +1439,13 @@ c     scale Bp by alphas/gammap_bar
       Bpz = alphas*Bpz
 #endif
 
-c     add inertial term to Bpz
+c     add inertial term to Bp
       if(inert_type==1) then
-          Bpz = Bpz + sin(inert_fact)
+        Bpz = Bpz + sin(inert_fact1)
+      else if(inert_type==3) then
+        Bpx = Bpx + sin(inert_fact2)*inert_fact1
+        Bpy = Bpy - inert_fact2
+        Bpz = Bpz + cos(inert_fact2)*inert_fact1
       endif
 
 c     determine how to set comps for xy, xz, yx, and zx components
@@ -1376,20 +1459,37 @@ c     determine how to set comps for xy, xz, yx, and zx components
 
 c     compute components of mass matrix kernals to deposit
       if(inert_type==2) then
-        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+c       CYL geometry with CYL_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
         
-        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
-        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
-        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(inert_fact1*Bpx*Bpy + Bpz)
+        fpxz = inert_fact1*arogp*(Bpx*Bpz - Bpy)
 
-        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
-        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
-        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
+        fpyx = inert_fact1*arogp*(inert_fact1*Bpy*Bpx - Bpz)
+        fpyy = inert_fact1*arogp*(inert_fact1*Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + Bpx)
 
-        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
-        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzx = inert_fact1*arogp*(Bpz*Bpx + Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
+      else if(inert_type==4) then
+c       SPH geometry with SPH_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpz*Bpz) + Bpy*Bpy
+        arogp = alphas*rhop/(1.0 + Bpsq)
+        
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(Bpx*Bpy + Bpz)
+        fpxz = inert_fact1*arogp*(inert_fact1*Bpx*Bpz - Bpy)
+
+        fpyx = inert_fact1*arogp*(Bpy*Bpx - Bpz)
+        fpyy = arogp*(Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + Bpx)
+
+        fpzx = inert_fact1*arogp*(inert_fact1*Bpz*Bpx + Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - Bpx)
+        fpzz = inert_fact1*arogp*(inert_fact1*Bpz*Bpz + 1.0)
       else
         Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
@@ -1760,7 +1860,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
      &                       CHF_CONST_INT[inert_type], 
-     &                       CHF_CONST_REAL[inert_fact], 
+     &                       CHF_CONST_REAL[inert_fact1], 
+     &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp] ) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM -1), idir
@@ -1902,41 +2003,47 @@ c     scale Bp by alphas/gammap_bar
       Bpz = alphas*Bpz
 #endif
 
-c     add inertial term to Bpz
+c     add inertial term to Bp
       if(inert_type==1) then
-        Bpz = Bpz + sin(inert_fact)
+        if(anticyclic==-1) then 
+c         Bpy = Bp[1], which is actually Bpz for anticyclic
+          Bpy = Bpy + sin(inert_fact1)
+        else
+          Bpz = Bpz + sin(inert_fact1)
+        endif
       endif
 
 c     compute components of mass matrix kernals to deposit
       if(inert_type==2) then
-        Bpsq = inert_fact*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
+c       CYL geometry with CYL_CAR pusher
+        Bpsq = inert_fact1*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
         
-        fpxx = inert_fact*arogp*(inert_fact*Bpx*Bpx + 1.0)
-        fpxy = inert_fact*arogp*(inert_fact*Bpx*Bpy + Bpz)
-        fpxz = inert_fact*arogp*(Bpx*Bpz - Bpy)
+        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
+        fpxy = inert_fact1*arogp*(inert_fact1*Bpx*Bpy + anticyclic*Bpz)
+        fpxz = inert_fact1*arogp*(Bpx*Bpz - anticyclic*Bpy)
 
-        fpyx = inert_fact*arogp*(inert_fact*Bpy*Bpx - Bpz)
-        fpyy = inert_fact*arogp*(inert_fact*Bpy*Bpy + 1.0)
-        fpyz = inert_fact*arogp*(Bpy*Bpz + Bpx)
+        fpyx = inert_fact1*arogp*(inert_fact1*Bpy*Bpx - anticyclic*Bpz)
+        fpyy = inert_fact1*arogp*(inert_fact1*Bpy*Bpy + 1.0)
+        fpyz = inert_fact1*arogp*(Bpy*Bpz + anticyclic*Bpx)
 
-        fpzx = inert_fact*arogp*(Bpz*Bpx + Bpy)
-        fpzy = inert_fact*arogp*(Bpz*Bpy - Bpx)
+        fpzx = inert_fact1*arogp*(Bpz*Bpx + anticyclic*Bpy)
+        fpzy = inert_fact1*arogp*(Bpz*Bpy - anticyclic*Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
       else
         Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
         arogp = alphas*rhop/(1.0 + Bpsq)
 
         fpxx = arogp*(Bpx*Bpx + 1.0)
-        fpxy = arogp*(Bpx*Bpy + Bpz)
-        fpxz = arogp*(Bpx*Bpz - Bpy)
+        fpxy = arogp*(Bpx*Bpy + anticyclic*Bpz)
+        fpxz = arogp*(Bpx*Bpz - anticyclic*Bpy)
 
-        fpyx = arogp*(Bpy*Bpx - Bpz)
+        fpyx = arogp*(Bpy*Bpx - anticyclic*Bpz)
         fpyy = arogp*(Bpy*Bpy + 1.0)
-        fpyz = arogp*(Bpy*Bpz + Bpx)
+        fpyz = arogp*(Bpy*Bpz + anticyclic*Bpx)
 
-        fpzx = arogp*(Bpz*Bpx + Bpy)
-        fpzy = arogp*(Bpz*Bpy - Bpx)
+        fpzx = arogp*(Bpz*Bpx + anticyclic*Bpy)
+        fpzy = arogp*(Bpz*Bpy - anticyclic*Bpx)
         fpzz = arogp*(Bpz*Bpz + 1.0)
       endif
 
@@ -1946,9 +2053,9 @@ c     compute components of mass matrix kernals to deposit
 c     modify mass matrix kernals for relativistic effects in Lorentz force
         upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
         gp_denom = gammap_bar**2 + Bpsq + upBp**2
-        gpx = (Bpsq*upbarx - upBp*Bpx - upbary*Bpz + upbarz*Bpy)/gp_denom
-        gpy = (Bpsq*upbary - upBp*Bpy - upbarz*Bpx + upbarx*Bpz)/gp_denom
-        gpz = (Bpsq*upbarz - upBp*Bpz - upbarx*Bpy + upbary*Bpx)/gp_denom
+        gpx = (Bpsq*upbarx - upBp*Bpx - anticyclic*(upbary*Bpz - upbarz*Bpy))/gp_denom
+        gpy = (Bpsq*upbary - upBp*Bpy - anticyclic*(upbarz*Bpx - upbarx*Bpz))/gp_denom
+        gpz = (Bpsq*upbarz - upBp*Bpz - anticyclic*(upbarx*Bpy - upbary*Bpx))/gp_denom
 
         upfpx = upbarx*fpxx + upbary*fpyx + upbarz*fpzx
         upfpy = upbarx*fpxy + upbary*fpyy + upbarz*fpzy
@@ -1991,9 +2098,9 @@ c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tild
 c     compute components of Jtilde kernals to deposit
       upoldBp = upoldx*Bpx + upoldy*Bpy + upoldz*Bpz
       rogp = rhop/(1.0 + Bpsq)
-      fpx = rogp*(upoldx - (Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
-      fpy = rogp*(upoldy - (Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
-      fpz = rogp*(upoldz - (Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
+      fpx = rogp*(upoldx - anticyclic*(Bpy*upoldz - Bpz*upoldy) + upoldBp*Bpx)
+      fpy = rogp*(upoldy - anticyclic*(Bpz*upoldx - Bpx*upoldz) + upoldBp*Bpy)
+      fpz = rogp*(upoldz - anticyclic*(Bpx*upoldy - Bpy*upoldx) + upoldBp*Bpz)
 #else
 c     compute components of J0 kernals to deposit
       fpx = rhop*upbarx

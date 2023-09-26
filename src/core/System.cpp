@@ -341,7 +341,8 @@ void System::initialize( const int           a_cur_step,
    }
 
    // initialize the pic species
-   m_pic_species->initialize( *m_units, m_implicit_advance, a_cur_time, a_restart_file_name );
+   m_pic_species->initialize( *m_units, m_implicit_advance, 
+		              a_cur_time, a_restart_file_name );
    
    // initialize the scattering operators
    //m_pic_species->prepForScatter(m_scattering->numCoulomb(),true);
@@ -352,6 +353,9 @@ void System::initialize( const int           a_cur_step,
    else {
       setChargeDensity();
       m_emfields->initialize(a_cur_time,a_restart_file_name);
+      if(m_implicit_advance) {
+	 m_pic_species->initializeMassMatrices( *m_emfields, a_restart_file_name );
+      }
       m_pic_species->setCurrentDensity();
       setCurrentDensity();
    }
@@ -366,7 +370,9 @@ void System::writePlotFile( const int     a_cur_step,
 {
    CH_TIME("System::writePlotFile()");
    
+   bool use_filtering = false;
    if (!m_emfields.isNull()) {
+      if(m_emfields->useFiltering()) { use_filtering = true; }
       if(m_emfields->writeRho()) setChargeDensity();
       if(m_emfields->writeExB()) m_emfields->setPoyntingFlux();
       if(m_emfields->writeDivs()) {
@@ -380,7 +386,7 @@ void System::writePlotFile( const int     a_cur_step,
                                                       a_cur_step, a_cur_time ); 
    }
 
-   m_dataFile->writePicSpecies( *m_pic_species, a_cur_step, a_cur_time);
+   m_dataFile->writePicSpecies( *m_pic_species, use_filtering, a_cur_step, a_cur_time);
 
 }
 
@@ -932,9 +938,10 @@ void System::setChargeDensity()
    CH_TIME("System::setChargeDensity()");
  
    // set the pic charge density
-   m_pic_species->setChargeDensityOnNodes();
-   const LevelData<NodeFArrayBox>& pic_rho = m_pic_species->getChargeDensityOnNodes();
-   
+   const bool use_filtering = m_emfields->useFiltering();
+   m_pic_species->setChargeDensityOnNodes( use_filtering );
+   LevelData<NodeFArrayBox>& pic_rho = m_pic_species->getChargeDensityOnNodes();
+
    // add it to the total charge density
    LevelData<NodeFArrayBox>& rho = m_emfields->getChargeDensity();
    const DisjointBoxLayout& grids(m_mesh->getDBL());

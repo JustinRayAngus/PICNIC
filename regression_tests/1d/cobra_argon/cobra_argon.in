@@ -11,6 +11,7 @@ system.advance_method = "PIC_EM_THETA_IMPLICIT"
 pic_species.iter_max_particles = 8
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
+pic_species.mod_init_advance = true
 
 pic_em_theta_implicit.solver_type = "petsc"
 pic_em_theta_implicit.pc_update_freq = 1
@@ -673,7 +674,8 @@ BC.argonXI.dir0_upper.type = "outflow"
 #####################################################
 
 scattering.coulomb.all = true
-scattering.coulomb.model = "TA"
+scattering.coulomb.model = "COULOMB"
+scattering.coulomb.angular_scattering = "NANBU"
 scattering.coulomb.coulomb_logarithm = 10.0
 
 #

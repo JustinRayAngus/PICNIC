@@ -37,51 +37,26 @@ class Coulomb : public Scattering
       {
          m_scatter_dt = DBL_MAX;
          m_Clog = 0.0;
+         parseSpecies( a_pp );
          parseParameters( a_pp );
       }
       
       Coulomb( const int   a_sp1,
                const int   a_sp2,
-               const Real  a_Clog, 
-               const std::string  a_scatter_type, 
-               const std::string  a_weight_method,
+	       const ParmParse&  a_pp_scatterC,
                const int   a_verbosity )
          : Scattering(a_verbosity),
            m_Nsubcycle_max(1),
            m_angular_scattering(TAKIZUKA),
-           m_weight_method(PROBABILISTIC)
+           m_weight_method(PROBABILISTIC),
+	   m_enforce_conservations(false),
+	   m_sort_weighted_particles(false),
+	   m_energy_fraction(0.05)
       {
          m_scatter_dt = DBL_MAX;
          m_sp1 = a_sp1;
          m_sp2 = a_sp2;
-         m_Clog = a_Clog;
-
-	 // set the angular scattering model
-	 if(a_scatter_type=="TAKIZUKA" || a_scatter_type=="takizuka") {
-            m_angular_scattering = TAKIZUKA;
-         }
-         else if(a_scatter_type=="NANBU" || a_scatter_type=="nanbu") {
-            m_angular_scattering = NANBU;
-         }
-         else {
-            cout << "angular_scattering = " << a_scatter_type << endl;
-            cout << " valid options: 1) takizuka, 2) nanbu " << endl;
-            MayDay::Error( "Coulomb: invalid angular_scattering" );
-         }
-
-	 // set the weighted particle method
-         if(a_weight_method=="PROBABILISTIC" || a_weight_method=="probabilistic") {
-            m_weight_method = PROBABILISTIC;
-         }
-	 else if(a_weight_method=="CONSERVATIVE" || a_weight_method=="conservative") {
-            m_weight_method = CONSERVATIVE;
-         }
-         else {
-            cout << "weight_method = " << a_weight_method << endl;
-            cout << " valid options: 1) PROBABILISTIC, 2) CONSERVATIVE " << endl;
-            MayDay::Error( "Coulomb: invalid weight_method" );
-	 }
-
+         parseParameters( a_pp_scatterC );
       }
 
       virtual ~Coulomb() {;}
@@ -199,12 +174,19 @@ class Coulomb : public Scattering
       // prohibit copying
       //Coulomb( const Constant& );
       //Coulomb& operator=( const Constant& );
-
-      // Parse the input database for parameters.
-      void parseParameters( ParmParse&  a_pp ) 
+      
+      // Parse the species
+      void parseSpecies( const ParmParse&  a_pp ) 
       {
          a_pp.get( "speciesA", m_sp1 ); 
          a_pp.get( "speciesB", m_sp2 );
+      }
+
+      // Parse the input database for parameters.
+      void parseParameters( const ParmParse&  a_pp ) 
+      {
+        // a_pp.get( "speciesA", m_sp1 ); 
+        // a_pp.get( "speciesB", m_sp2 );
 	 if(a_pp.contains("coulomb_logarithm")) {
             a_pp.get( "coulomb_logarithm", m_Clog ); 
 	    CH_assert(m_Clog>=2.0);

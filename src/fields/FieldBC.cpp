@@ -114,7 +114,7 @@ void FieldBC::applyFluxBC( LevelData<FluxBox>&     a_dst,
 }
 
 void FieldBC::applyEdgeBC( LevelData<EdgeDataBox>&  a_dst,
-                     const Real                     a_time )
+                     const Real                     a_time ) const
 {
    CH_TIME("FieldBC::applyEdgeBC()");
    
@@ -131,7 +131,7 @@ void FieldBC::applyEdgeBC( LevelData<EdgeDataBox>&  a_dst,
 }
 
 void FieldBC::applyNodeBC( LevelData<NodeFArrayBox>&  a_dst,
-                     const Real                       a_time )
+                     const Real                       a_time ) const
 {
    CH_TIME("FieldBC::applyNodeBC()");
 
@@ -190,7 +190,7 @@ void FieldBC::applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
 {
    CH_TIME("FieldBC::applyOnAxisCurlBC()");
    if(!m_mesh.axisymmetric()) return;      
-         
+   
    // set boundry value for curlB assuming B~r ==> 1/r*d(rB)/dr = 4*B(1/2)/dX
    
    const RealVect& dX(m_mesh.getdX());      
@@ -210,7 +210,7 @@ void FieldBC::applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
          const FArrayBox& this_B( a_B[bdry_layout.dataIndex(dit)] );
-         FArrayBox& this_curlB( a_curlB[bdry_layout.dataIndex(dit)][bdry_dir] );
+         FArrayBox& this_curlB( a_curlB[bdry_layout.dataIndex(dit)][curl_dir] );
          
          // create fill box right on axis
          const Box& bdry_box( bdry_grids[dit] );
@@ -245,7 +245,8 @@ void FieldBC::applyOnAxisCurlBC( LevelData<NodeFArrayBox>&  a_curlB,
 {
    CH_TIME("FieldBC::applyOnAxisCurlBC()");
    if(!m_mesh.axisymmetric()) return;      
-   if(a_curlB.nComp()==1) return;   
+   
+   const string& geom_type = m_mesh.geomType();
       
    // set boundry value for curlBy assuming By~r ==> d(rBy)/dr/r = 2*By(1/2)/r(1/2)
    
@@ -285,6 +286,11 @@ void FieldBC::applyOnAxisCurlBC( LevelData<NodeFArrayBox>&  a_curlB,
             B0 = this_B.get(ib+shift,0);
             bdry_val = 4.0*B0/dX[bdry_dir];
             this_curlB.set(ib,this_comp,bdry_val);
+	    if(geom_type=="sph_R") { // -d(r*Bphi)/dr/r
+               B0 = this_B.get(ib+shift,1);
+               bdry_val = -4.0*B0/dX[bdry_dir];
+               this_curlB.set(ib,0,bdry_val);
+	    }
          }
 
       }
@@ -299,9 +305,15 @@ void FieldBC::applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
    CH_TIME("FieldBC::applyOnAxisDivBC()");
    if(!m_mesh.axisymmetric()) return;      
       
-   // set boundry value for d(rEr)/dr/r assuming Er~r ==> d(rEr)/dr/r = 2*Er(1/2)/r(1/2)
+   // set boundry value for d(rEr)/dr/r assuming Er~r 
+   // cylindrical: d(rEr)/dr/r = 2*Er(1/2)/r(1/2) = 4*Er(1/2)/dr
+   // spherical: d(r^2Er)/dr/r^2 = 3*Er(1/2)/r(1/2) = 6*Er(1/2)/dr
    
    const RealVect& dX(m_mesh.getdX());      
+   const string& geom_type = m_mesh.geomType();
+
+   Real geom_factor = 4.0;
+   if(geom_type=="sph_R") geom_factor = 6.0;
 
    const BoundaryBoxLayoutPtrVect& all_bdry_layouts = m_mesh.getBoundaryLayout();
    for(int b(0); b<all_bdry_layouts.size(); b++) {
@@ -334,7 +346,7 @@ void FieldBC::applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
          for(bit.begin(); bit.ok(); ++bit) {
             ib = bit();
             E0 = this_Edir.get(ib+shift,0);
-            bdry_val = 4.0*E0/dX[bdry_dir];
+	    bdry_val = geom_factor*E0/dX[bdry_dir];
             this_divE.set(ib,0,bdry_val);
          }
 
@@ -354,15 +366,17 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
    CH_TIME("FieldBC::computIntSdA()");
 
    const BoundaryBoxLayoutPtrVect& all_bdry_layouts = m_mesh.getBoundaryLayout();
+   const string& geom_type = m_mesh.geomType();
 
    const RealVect& dA(m_mesh.getMappedFaceArea());      
    const LevelData<NodeFArrayBox>& masked_Jnc = m_mesh.getMaskedJnc();
-#if CH_SPACEDIM==1 
-   const LevelData<FArrayBox>& Xcc = m_mesh.getXcc();
+#if CH_SPACEDIM==1
    const LevelData<NodeFArrayBox>& Xnc = m_mesh.getXnc();
-#elif CH_SPACEDIM==2 
+#elif CH_SPACEDIM==2
    const LevelData<EdgeDataBox>& masked_Jec = m_mesh.getMaskedJec();
+   const LevelData<EdgeDataBox>& Xec = m_mesh.getXec();
 #endif
+   const LevelData<FArrayBox>& Xcc = m_mesh.getXcc();
       
    for(int b(0); b<all_bdry_layouts.size(); b++) {
       const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
@@ -381,6 +395,7 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
   
          const FArrayBox& this_Bv( a_Bv[bdry_layout.dataIndex(dit)] );
          const FArrayBox& this_Ev( a_Ev[bdry_layout.dataIndex(dit)].getFab() );
+         const FArrayBox& this_Xcc( Xcc[bdry_layout.dataIndex(dit)] );         
          const FArrayBox& this_Jnc( masked_Jnc[bdry_layout.dataIndex(dit)].getFab() );         
      
          // get node box
@@ -391,16 +406,28 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
          if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
 
 #if CH_SPACEDIM==1
-         const FArrayBox& this_Xcc( Xcc[bdry_layout.dataIndex(dit)] );         
          const FArrayBox& this_Xnc( Xnc[bdry_layout.dataIndex(dit)].getFab() );         
             
          FArrayBox EyBz(node_box,1);
          FArrayBox EzBy(node_box,1);
 
          // Ey*Bz
-         SpaceUtils::interpolateStag(EyBz,node_box,0,this_Bv,1,bdry_dir);
-         EyBz.mult(this_Ev,node_box,0,0,1);
-         
+         if(m_mesh.axisymmetric() && geom_type=="sph_R") {
+            if(this_bc_type=="axis") EyBz.setVal(0.0);
+            else {
+               FArrayBox rBz(this_Bv.box(),1);
+               rBz.copy(this_Bv,1,0,1);           
+               rBz.mult(this_Xcc,this_Bv.box(),0,0,1);           
+               SpaceUtils::interpolateStag(EyBz,node_box,0,rBz,0,bdry_dir);
+               EyBz.mult(this_Ev,node_box,0,0,1);
+               EyBz.divide(this_Xnc,node_box,0,0,1);
+            }
+         }
+         else {
+           SpaceUtils::interpolateStag(EyBz,node_box,0,this_Bv,1,bdry_dir);
+           EyBz.mult(this_Ev,node_box,0,0,1);
+	 }
+
          // Ez*By
          if(m_mesh.axisymmetric()) {
             if(this_bc_type=="axis") EzBy.setVal(0.0);
@@ -435,28 +462,65 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
 
             const FArrayBox& this_Ey( a_E[bdry_layout.dataIndex(dit)][1] );
             const FArrayBox& this_By( a_B[bdry_layout.dataIndex(dit)][1] );
-            const FArrayBox& this_J( masked_Jec[bdry_layout.dataIndex(dit)][1] );
+            const FArrayBox& this_Jec( masked_Jec[bdry_layout.dataIndex(dit)][1] );
+            const FArrayBox& this_Xec( Xec[bdry_layout.dataIndex(dit)][1] );
 
             Box edge_box = enclosedCells(node_box,1);
-            FArrayBox EyBz(edge_box,1);
-            FArrayBox EzBy(node_box,1);
+            
+	    if(m_mesh.axisymmetric()) { // 2D RZ geometry (anticyclic)
+            
+	       FArrayBox EyBz(node_box,1);
+               FArrayBox EzBy(edge_box,1);
+
+               if(this_bc_type=="axis") EzBy.setVal(0.0);
+               else {
+                  FArrayBox rBy(this_Bv.box(),1);
+                  rBy.copy(this_Bv,0,0,1); // this_Bv = By for this geometry          
+                  rBy.mult(this_Xcc,this_Bv.box(),0,0,1);           
+                  SpaceUtils::interpolateStag(EzBy,edge_box,0,rBy,0,bdry_dir);
+                  EzBy.mult(this_Ey,edge_box,0,0,1); // this_Ey = Ez for this geometry
+                  EzBy.divide(this_Xec,edge_box,0,0,1);
+               }
                
-            // Ey*Bz
-            SpaceUtils::interpolateStag(EyBz,edge_box,0,this_Bv,0,bdry_dir);
-            EyBz.mult(this_Ey,edge_box,0,0,1);
-               
-            // Ez*By
-            SpaceUtils::interpolateStag(EzBy,node_box,0,this_By,0,bdry_dir);
-            EzBy.mult(this_Ev,node_box,0,0,1);
-         
-            if(bdry_side==0) {
-               a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_J,edge_box) 
-                                     -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA; 
+	       if(this_bc_type=="axis") EyBz.setVal(0.0);
+               else { // this_By = Bz for this geometry
+                  SpaceUtils::interpolateStag(EyBz,node_box,0,this_By,0,bdry_dir);
+                  EyBz.mult(this_Ev,node_box,0,0,1); // this_Ev = Ey for this geometry
+               }
+
+	       if(bdry_side==0) {
+                  a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_Jnc,node_box) 
+                                        -    EzBy.dotProduct(this_Jec,edge_box) )*bdry_dA; 
+               }
+               if(bdry_side==1) {
+                  a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_Jnc,node_box) 
+                                        -    EzBy.dotProduct(this_Jec,edge_box) )*bdry_dA;
+               }
+
             }
-            if(bdry_side==1) {
-               a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_J,edge_box) 
-                                     -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA;
-            } 
+            else { // Planar 2D geometry
+            
+	       FArrayBox EyBz(edge_box,1);
+               FArrayBox EzBy(node_box,1);
+
+               // Ey*Bz
+               SpaceUtils::interpolateStag(EyBz,edge_box,0,this_Bv,0,bdry_dir);
+               EyBz.mult(this_Ey,edge_box,0,0,1);
+               
+               // Ez*By
+               SpaceUtils::interpolateStag(EzBy,node_box,0,this_By,0,bdry_dir);
+               EzBy.mult(this_Ev,node_box,0,0,1);
+         
+	       if(bdry_side==0) {
+                  a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_Jec,edge_box) 
+                                        -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA; 
+               }
+               if(bdry_side==1) {
+                  a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_Jec,edge_box) 
+                                        -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA;
+               }
+
+	    } 
 
          } 
             
@@ -464,27 +528,29 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
             
             const FArrayBox& this_Ex( a_E[bdry_layout.dataIndex(dit)][0] );
             const FArrayBox& this_Bx( a_B[bdry_layout.dataIndex(dit)][0] );
-            const FArrayBox& this_J( masked_Jec[bdry_layout.dataIndex(dit)][0] );
+            const FArrayBox& this_Jec( masked_Jec[bdry_layout.dataIndex(dit)][0] );
                
             Box edge_box = enclosedCells(node_box,0);
             FArrayBox ExBz(edge_box,1);
             FArrayBox EzBx(node_box,1);
                
-            // Ex*Bz
+            // Ex*Bz (if 2D RZ, this_Bv = By)
             SpaceUtils::interpolateStag(ExBz,edge_box,0,this_Bv,0,bdry_dir);
             ExBz.mult(this_Ex,edge_box,0,0,1);
+	    if(m_mesh.axisymmetric()) { ExBz.negate(); }
                
-            // Ez*Bx
+            // Ez*Bx (if 2D RZ, this_Ev = Ey);
             SpaceUtils::interpolateStag(EzBx,node_box,0,this_Bx,0,bdry_dir);
             EzBx.mult(this_Ev,node_box,0,0,1);
+	    if(m_mesh.axisymmetric()) { EzBx.negate(); }
          
             if(bdry_side==0) {
                a_intSdA_lo[bdry_dir] = -( EzBx.dotProduct(this_Jnc,node_box) 
-                                     -    ExBz.dotProduct(this_J,edge_box) )*bdry_dA; 
+                                     -    ExBz.dotProduct(this_Jec,edge_box) )*bdry_dA; 
             }
             if(bdry_side==1) {
                a_intSdA_hi[bdry_dir] =  ( EzBx.dotProduct(this_Jnc,node_box) 
-                                     -    ExBz.dotProduct(this_J,edge_box) )*bdry_dA; 
+                                     -    ExBz.dotProduct(this_Jec,edge_box) )*bdry_dA; 
             }
 
          }
@@ -507,133 +573,5 @@ void FieldBC::applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
                                m_bc_type );
 
 }
-
-#if CH_SPACEDIM==1
-void FieldBC::prepJforBC( LevelData<EdgeDataBox>&    a_Jx,
-                          LevelData<NodeFArrayBox>&  a_Jv,
-                    const LevelData<EdgeDataBox>&    a_Jx0,
-                    const LevelData<NodeFArrayBox>&  a_Jv0,
-                    const LevelData<EdgeDataBox>&    a_Ex0,
-                    const LevelData<NodeFArrayBox>&  a_Ev0,
-                    const LevelData<EdgeDataBox>&    a_Ex,
-                    const LevelData<NodeFArrayBox>&  a_Ev,
-                    const LevelData<EdgeDataBox>&    a_sigma_xx,
-                    const LevelData<EdgeDataBox>&    a_sigma_xy,
-                    const LevelData<EdgeDataBox>&    a_sigma_xz,
-                    const LevelData<NodeFArrayBox>&  a_sigma_yx,
-                    const LevelData<NodeFArrayBox>&  a_sigma_yy,
-                    const LevelData<NodeFArrayBox>&  a_sigma_yz,
-                    const LevelData<NodeFArrayBox>&  a_sigma_zx,
-                    const LevelData<NodeFArrayBox>&  a_sigma_zy,
-                    const LevelData<NodeFArrayBox>&  a_sigma_zz ) const
-{
-   CH_TIME("FieldBC::prepJforBC()");
-   
-   // WARNING.....
-   //
-   // NOTE THAT CARE HAS NOT BEEN TAKEN TO ENSURE CONSISTENT BEHAVIOR
-   // WITH applyToJ() CALL FROM PIC SPECIES CLASS....
-   // NEED TO ADDRESS THIS ISSUE AT SOME POINT
- 
-   // loop over non-periodic boundaries and apply BCs to J
-   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
-   for (int b(0); b<bdry_layout.size(); b++) {
-
-      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
-      const int bdry_dir = this_bdry_layout.dir();
-      const int bdry_side(this_bdry_layout.side());
-      const std::string this_bc = m_bc_type[b];
-      
-      for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-
-         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-         const Box bdry_box( bdry_grids[dit] );
-         
-         const FArrayBox& Ex( a_Ex[interior_dit][0] );
-         const FArrayBox& Ev( a_Ev[interior_dit].getFab() );
-         const FArrayBox& Jx0( a_Jx0[interior_dit][0] );
-         const FArrayBox& Jv0( a_Jv0[interior_dit].getFab() );
-         const FArrayBox& Ex0( a_Ex0[interior_dit][0] );
-         const FArrayBox& Ev0( a_Ev0[interior_dit].getFab() );
-          
-         //
-         // compute Jx in ghost cells from deposited mass matrices
-         //  
-         
-         Box edge_box = surroundingNodes(bdry_box);
-         edge_box.enclosedCells(bdry_dir);
-
-         FArrayBox& Jx( a_Jx[interior_dit][0] );
-         const FArrayBox& sigxx = a_sigma_xx[interior_dit][0];
-         const FArrayBox& sigxy = a_sigma_xy[interior_dit][0];
-         const FArrayBox& sigxz = a_sigma_xz[interior_dit][0];
-
-         FORT_COMPUTE_JX_BDRY_FROM_MASS_MATRIX( CHF_BOX(edge_box),
-                                                CHF_CONST_INT(bdry_side),
-                                                CHF_CONST_FRA(sigxx),
-                                                CHF_CONST_FRA(sigxy),
-                                                CHF_CONST_FRA(sigxz),
-                                                CHF_CONST_FRA1(Ex0,0),
-                                                CHF_CONST_FRA1(Ex,0),
-                                                CHF_CONST_FRA1(Ev0,0),
-                                                CHF_CONST_FRA1(Ev,0),
-                                                CHF_CONST_FRA1(Ev0,1),
-                                                CHF_CONST_FRA1(Ev,1),
-                                                CHF_CONST_FRA1(Jx0,0),
-                                                CHF_FRA1(Jx,0) );
-
-         //
-         // compute Jy and Jz in ghost cells from deposited mass matrices
-         //
-         
-         Box node_box = surroundingNodes(bdry_box);
-         if(bdry_side==0) node_box.growHi(bdry_dir,-1);
-         if(bdry_side==1) node_box.growLo(bdry_dir,-1);
-
-         FArrayBox& Jv( a_Jv[interior_dit].getFab() );
-         const FArrayBox& sigyx = a_sigma_yx[interior_dit].getFab();
-         const FArrayBox& sigyy = a_sigma_yy[interior_dit].getFab();
-         const FArrayBox& sigyz = a_sigma_yz[interior_dit].getFab();
-         const FArrayBox& sigzx = a_sigma_zx[interior_dit].getFab();
-         const FArrayBox& sigzy = a_sigma_zy[interior_dit].getFab();
-         const FArrayBox& sigzz = a_sigma_zz[interior_dit].getFab();
-
-         const int z_comp = 1;
-         
-         FORT_COMPUTE_JY_BDRY_FROM_MASS_MATRIX( CHF_BOX(node_box),
-                                                CHF_CONST_INT(bdry_side),
-                                                CHF_CONST_FRA(sigyx),
-                                                CHF_CONST_FRA(sigyy),
-                                                CHF_CONST_FRA(sigyz),
-                                                CHF_CONST_FRA1(Ex0,0),
-                                                CHF_CONST_FRA1(Ex,0),
-                                                CHF_CONST_FRA1(Ev0,0),
-                                                CHF_CONST_FRA1(Ev,0),
-                                                CHF_CONST_FRA1(Ev0,z_comp),
-                                                CHF_CONST_FRA1(Ev,z_comp),
-                                                CHF_CONST_FRA1(Jv0,0),
-                                                CHF_FRA1(Jv,0) );
-         
-         FORT_COMPUTE_JZ_BDRY_FROM_MASS_MATRIX( CHF_BOX(node_box),
-                                                CHF_CONST_INT(bdry_side),
-                                                CHF_CONST_FRA(sigzx),
-                                                CHF_CONST_FRA(sigzy),
-                                                CHF_CONST_FRA(sigzz),
-                                                CHF_CONST_FRA1(Ex0,0),
-                                                CHF_CONST_FRA1(Ex,0),
-                                                CHF_CONST_FRA1(Ev0,0),
-                                                CHF_CONST_FRA1(Ev,0),
-                                                CHF_CONST_FRA1(Ev0,z_comp),
-                                                CHF_CONST_FRA1(Ev,z_comp),
-                                                CHF_CONST_FRA1(Jv0,z_comp),
-                                                CHF_FRA1(Jv,z_comp) );
-         
-      }
-      
-   }
-
-}
-#endif
 
 #include "NamespaceFooter.H"

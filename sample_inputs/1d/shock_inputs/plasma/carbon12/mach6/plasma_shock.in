@@ -25,7 +25,7 @@ pic_species.write_species_energy_flux = true
 
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.iter_max_particles = 21
+pic_species.iter_max_particles = 11
 pic_species.rtol_particles = 1.0e-8
 pic_species.newton_maxits = 100
 pic_species.newton_num_guess = 30
@@ -148,6 +148,7 @@ pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
 pic_species.0.interp_bc_check = true
 pic_species.0.suborbit_inflow_J = true
+pic_species.0.use_suborbit_model = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 3200.0
@@ -190,6 +191,7 @@ pic_species.1.interp_type_J = "CC1"
 pic_species.1.interp_type_E = "CC1"
 pic_species.1.interp_bc_check = true
 pic_species.1.suborbit_inflow_J = true
+pic_species.1.use_suborbit_model = true
 
 IC.carbon12.X_min = 0.0
 IC.carbon12.X_max = 3200.0

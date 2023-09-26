@@ -6,10 +6,10 @@ simulation.verbosity = 10
 
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.part_order_swap = true
-pic_species.iter_min_two = true
-pic_species.iter_max_particles = 21
-pic_species.rtol_particles = 1.0e-14
+pic_species.part_order_swap = false
+pic_species.iter_min_two = false
+pic_species.iter_max_particles = 101
+pic_species.rtol_particles = 1.0e-15
 pic_species.mod_init_advance = false
 
 pic_em_theta_implicit.solver_type = "newton"
@@ -84,7 +84,7 @@ em_fields.external.electric.2.value = 0.0
 # Species Definitions
 #####################################################
 
-# use boris method for inertia
+# use CYL method
 
 pic_species.0.name   = "electron"
 pic_species.0.mass   = 1.0
@@ -92,7 +92,8 @@ pic_species.0.charge = -1
 pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = false
-pic_species.0.push_type = "CYL_BORIS"
+pic_species.0.push_type = "CYL_CYL"
+#pic_species.0.use_suborbit_model = true
 
 electron.particle.0.weight = 1.0
 electron.particle.0.position = 0.025
@@ -105,7 +106,7 @@ electron.particle.1.velocity = 4.2e5 1.0e5 0.0
 BC.electron.dir0_lower.type = "axis"
 BC.electron.dir0_upper.type = "symmetry"
 
-# use non-boris method for inertia with 2 iterations
+# use HYB method
 
 pic_species.1.name   = "electron1"
 pic_species.1.mass   = 1.0
@@ -113,7 +114,8 @@ pic_species.1.charge = -1
 pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = false
-pic_species.1.push_type = "CYL_CYL"
+pic_species.1.push_type = "CYL_HYB"
+#pic_species.1.use_suborbit_model = true
 
 electron1.particle.0.weight = 1.0
 electron1.particle.0.position = 0.025
@@ -126,7 +128,7 @@ electron1.particle.1.velocity = 4.2e5 1.0e5 0.0
 BC.electron1.dir0_lower.type = "axis"
 BC.electron1.dir0_upper.type = "symmetry"
 
-# use non-boris method for inertia with 6 iterations
+# use CAR method
 
 pic_species.2.name   = "electron2"
 pic_species.2.mass   = 1.0
@@ -134,7 +136,8 @@ pic_species.2.charge = -1
 pic_species.2.motion = true
 pic_species.2.forces = true
 pic_species.2.scatter = false
-pic_species.2.push_type = "CYL_HYBRID"
+pic_species.2.push_type = "CYL_CAR"
+#pic_species.2.use_suborbit_model = true
 
 electron2.particle.0.weight = 1.0
 electron2.particle.0.position = 0.025
@@ -146,27 +149,6 @@ electron2.particle.1.velocity = 4.2e5 1.0e5 0.0
 
 BC.electron2.dir0_lower.type = "axis"
 BC.electron2.dir0_upper.type = "symmetry"
-
-# use non-boris method with old values for dtheta in inertia
-
-pic_species.3.name   = "electron3"
-pic_species.3.mass   = 1.0
-pic_species.3.charge = -1
-pic_species.3.motion = true
-pic_species.3.forces = true
-pic_species.3.scatter = false
-pic_species.3.push_type = "CYL_CAR"
-
-electron3.particle.0.weight = 1.0
-electron3.particle.0.position = 0.025
-electron3.particle.0.velocity = -4.2e5 1.0e5 0.0
-
-electron3.particle.1.weight = 1.0
-electron3.particle.1.position = 0.75
-electron3.particle.1.velocity = 4.2e5 1.0e5 0.0
-
-BC.electron3.dir0_lower.type = "axis"
-BC.electron3.dir0_upper.type = "symmetry"
 
 #####################################################
 

@@ -52,6 +52,16 @@ public:
 
   void initialize( const Real          a_cur_time,
                    const std::string&  a_restart_file_name );
+  
+  void initializeMassMatricesForPC( const IntVect&  a_ncomp_xx,
+		                    const IntVect&  a_ncomp_xy,
+		                    const IntVect&  a_ncomp_xz,
+		                    const IntVect&  a_ncomp_yx,
+		                    const IntVect&  a_ncomp_yy,
+		                    const IntVect&  a_ncomp_yz,
+		                    const IntVect&  a_ncomp_zx,
+		                    const IntVect&  a_ncomp_zy,
+		                    const IntVect&  a_ncomp_zz );
 
   void initExternalFields();
   
@@ -62,6 +72,7 @@ public:
   std::array<bool,3> advanceE_comp() const { return m_advanceE_comp; }
   std::array<bool,3> advanceB_comp() const { return m_advanceB_comp; }
   
+  bool useFiltering() const { return m_use_filtering; }
   bool usePoisson() const { return m_use_poisson; }
   
   bool writeDivs() const { return m_writeDivs; }
@@ -129,6 +140,32 @@ public:
   // const references to divE and divB
   const LevelData<NodeFArrayBox>& getDivE() const {return m_divE;}
   const LevelData<FArrayBox>& getDivB() const {return m_divB;}
+  
+  // non-const references to sigmas for PC 
+  LevelData<EdgeDataBox>& getSigmaxxPC() {return m_sigma_xx_pc;}
+  LevelData<EdgeDataBox>& getSigmaxyPC() {return m_sigma_xy_pc;}
+  LevelData<EdgeDataBox>& getSigmaxzPC() {return m_sigma_xz_pc;}
+#if CH_SPACEDIM==1
+  LevelData<NodeFArrayBox>& getSigmayxPC() {return m_sigma_yx_pc;}
+  LevelData<NodeFArrayBox>& getSigmayyPC() {return m_sigma_yy_pc;}
+  LevelData<NodeFArrayBox>& getSigmayzPC() {return m_sigma_yz_pc;}
+#endif
+  LevelData<NodeFArrayBox>& getSigmazxPC() {return m_sigma_zx_pc;}
+  LevelData<NodeFArrayBox>& getSigmazyPC() {return m_sigma_zy_pc;}
+  LevelData<NodeFArrayBox>& getSigmazzPC() {return m_sigma_zz_pc;}
+  
+  const int getMassMatrixPCwidth() const {return m_pc_mass_matrix_width;}
+  const bool includeMassMatrixij() const {return m_pc_mass_matrix_include_ij;}
+  
+  const IntVect& getNcompxxPC() const {return m_ncomp_xx_pc;}
+  const IntVect& getNcompxyPC() const {return m_ncomp_xy_pc;}
+  const IntVect& getNcompxzPC() const {return m_ncomp_xz_pc;}
+  const IntVect& getNcompyxPC() const {return m_ncomp_yx_pc;}
+  const IntVect& getNcompyyPC() const {return m_ncomp_yy_pc;}
+  const IntVect& getNcompyzPC() const {return m_ncomp_yz_pc;}
+  const IntVect& getNcompzxPC() const {return m_ncomp_zx_pc;}
+  const IntVect& getNcompzyPC() const {return m_ncomp_zy_pc;}
+  const IntVect& getNcompzzPC() const {return m_ncomp_zz_pc;}
 
   // get external electric field values
   std::array<Real,3> getExternalE( const RealVect&  a_X ) const
@@ -186,6 +223,24 @@ public:
   
   // compute the poynting flux 
   void setPoyntingFlux();
+  
+  // set the filtered fields
+  void setFilteredFields() const {
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         m_electricField_filtered[dit][dir].copy(m_electricField[dit][dir]);
+      }
+    }
+    SpaceUtils::applyBinomialFilter(m_electricField_filtered);
+    const Real dummy_time = 0.0;
+    SpaceUtils::exchangeEdgeDataBox(m_electricField_filtered);
+    m_field_bc->applyEdgeBC( m_electricField_filtered, dummy_time );
+  }
+  const LevelData<EdgeDataBox>& getFilteredElectricField() const {
+    if(m_use_filtering) {return m_electricField_filtered;}
+    else {return m_electricField;}
+  }
   
   // const references to components of ExB  
   const LevelData<EdgeDataBox>& getExB() const {return m_ExB;}
@@ -256,20 +311,9 @@ public:
   void applyBCs_electricField( const Real  a_time );
   void applyBCs_magneticField( const Real  a_time );
 
-  void assemblePrecondMatrix( BandedMatrix&,
-                              const bool,
-                              const LevelData<EdgeDataBox>&,
-                              const LevelData<EdgeDataBox>&,
-                              const LevelData<EdgeDataBox>&,
-#if CH_SPACEDIM==1
-                              const LevelData<NodeFArrayBox>&,
-                              const LevelData<NodeFArrayBox>&,
-                              const LevelData<NodeFArrayBox>&,
-#endif
-                              const LevelData<NodeFArrayBox>&,
-                              const LevelData<NodeFArrayBox>&,
-                              const LevelData<NodeFArrayBox>&,
-                              const Real );
+  void assemblePrecondMatrix( BandedMatrix&  a_P,
+                              const bool     a_use_mass_matrices,
+                              const Real     a_cnormdt );
 
   inline int numPCMatBands() const 
   {
@@ -283,6 +327,7 @@ private:
   void setCurlE();
   
   const bool m_verbosity; 
+  bool m_use_filtering; 
   bool m_use_poisson; 
   bool m_enforce_gauss_startup; 
   bool m_external_fields; 
@@ -330,6 +375,9 @@ private:
   LevelData<NodeFArrayBox> m_electricField_virtual;   // needed for 1D/2D simulations
   LevelData<EdgeDataBox> m_electricField_old;
   LevelData<NodeFArrayBox> m_electricField_virtual_old;
+  
+  // containers for filtered fields
+  mutable LevelData<EdgeDataBox> m_electricField_filtered;
   
   // containers for charge/current density
   LevelData<EdgeDataBox> m_currentDensity;          
@@ -387,7 +435,22 @@ private:
   // include sigma_ij terms in mass matrix contribution
   // to preconditioner
   bool m_pc_mass_matrix_include_ij;
-  
+
+  LevelData<EdgeDataBox> m_sigma_xx_pc;
+  LevelData<EdgeDataBox> m_sigma_xy_pc;
+  LevelData<EdgeDataBox> m_sigma_xz_pc;
+#if CH_SPACEDIM==1
+  LevelData<NodeFArrayBox> m_sigma_yx_pc;
+  LevelData<NodeFArrayBox> m_sigma_yy_pc;
+  LevelData<NodeFArrayBox> m_sigma_yz_pc;
+#endif
+  LevelData<NodeFArrayBox> m_sigma_zx_pc;
+  LevelData<NodeFArrayBox> m_sigma_zy_pc;
+  LevelData<NodeFArrayBox> m_sigma_zz_pc;
+  IntVect m_ncomp_xx_pc, m_ncomp_xy_pc, m_ncomp_xz_pc;
+  IntVect m_ncomp_yx_pc, m_ncomp_yy_pc, m_ncomp_yz_pc;
+  IntVect m_ncomp_zx_pc, m_ncomp_zy_pc, m_ncomp_zz_pc;
+
 };
 
 

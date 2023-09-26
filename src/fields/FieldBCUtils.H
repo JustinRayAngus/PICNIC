@@ -355,6 +355,7 @@ namespace FieldBCUtils {
       CH_TIME("FieldBCUtils::setCellBC (virtual magnetic field)");
          
       const LevelData<FArrayBox>& Jacobian = a_mesh.getJcc();
+      const string& geom_type = a_mesh.geomType();
 
       const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
       for (int b(0); b<all_bdry_layouts.size(); b++) {
@@ -381,7 +382,7 @@ namespace FieldBCUtils {
             Box fill_box_grown = grow(fill_box,grow_vect);
          
             for (int n(0); n<this_dst.nComp(); n++) {   
-               if(this_bc_type=="axis" && n==1 && a_mesh.axisymmetric()) Bv_bc_type = "even";
+               if(this_bc_type=="axis" && n==1 && geom_type=="cyl_R") Bv_bc_type = "even";
                if(this_bc_type=="conductor" && n==0 && a_mesh.axisymmetric()) {
                   const FArrayBox& this_Ja( Jacobian[interior_dit] );
                   FArrayBox JaBy;
@@ -473,6 +474,12 @@ namespace FieldBCUtils {
                      const int ISIDE(bdry_layout.side());
                      if(ISIDE==0) fill_box_grown.growHi(bdry_layout.dir(),-1);
                      if(ISIDE==1) fill_box_grown.growLo(bdry_layout.dir(),-1);
+                     if(this_bc_type=="axis") { // enforce zero on axis for Br
+	                Box axis_box = fill_box_grown;
+                        axis_box.setBig(dir,0);
+                        axis_box.setSmall(dir,0);
+			this_dst.setVal(0.0,axis_box,0,1);
+		     }
                   } 
                   BoundaryConditions::setBC( this_dst,
                                              fill_box_grown,
@@ -627,8 +634,14 @@ namespace FieldBCUtils {
                if(ISIDE==1) fill_box_grown.growLo(bdry_layout.dir(),-1);
             
                for (int n(0); n<this_dst.nComp(); n++) {
-                  if(this_bc_type=="axis" && n==0) Ev_bc_type = "odd"; 
-                  if(this_bc_type=="axis" && n==1) Ev_bc_type = "even"; 
+                  if(this_bc_type=="axis" && n==1) Ev_bc_type = "even"; // Ez
+                  if(this_bc_type=="axis" && n==0) {
+		     Ev_bc_type = "odd";  // Eth
+	             Box axis_box = fill_box_grown;
+                     axis_box.setBig(0,0);
+                     axis_box.setSmall(0,0);
+		     this_dst.setVal(0.0,axis_box,n,1);
+		  }
                   BoundaryConditions::setBC( this_dst,
                                              fill_box_grown,
                                              n,
@@ -759,7 +772,7 @@ namespace FieldBCUtils {
                 const DomainGrid&                a_mesh,
                 const Vector<std::string>&       a_all_bc_type )
    {
-      CH_TIME("PicSpeciesBC::applyToJ_PIC()");
+      CH_TIME("FieldBCUtils::applyToJ_PIC()");
 
       // Note that this is called from pic species and from emfields when
       // computing J from mass matrices. Thus, a_all_bc_type could be that from
@@ -793,6 +806,11 @@ namespace FieldBCUtils {
                // convert cell bdry box to a edge bdry box
                Box edge_box = surroundingNodes(bdry_box);
                edge_box.enclosedCells(dir);
+
+	       // grow ghost cells in transverse direction
+               IntVect grow_vect = a_J_inPlane.ghostVect();
+               grow_vect[bdry_dir] = 0;
+               edge_box.grow(grow_vect);
 
                // collapse edge_box to 1 cell thick in bdry_dir direction                  
                if(bdry_side==0) edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir));
@@ -842,6 +860,12 @@ namespace FieldBCUtils {
             
             // collapse node_box to 1 cell thick in bdry_dir direction (on boundary)
             Box node_box = surroundingNodes(bdry_box);
+	    
+	    // grow ghost cells in transverse direction
+            IntVect grow_vect = a_J_virtual.ghostVect();
+            grow_vect[bdry_dir] = 0;
+            node_box.grow(grow_vect);
+
             if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
             if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
 
@@ -853,7 +877,17 @@ namespace FieldBCUtils {
                                       // beyond a symmetry boundary during the intermediate 
                                       // stage of the advance, where there is no assumption 
                                       // that particle BCs have been applied.
-               Box dst_box = node_box;
+
+     	       if(this_bc=="axis") { // enforce Jth = 0 right on axis
+		                     // 1 + 1 = 2 factor for Jz (done using corrected Jacobian)
+				     // 1 - 1 = 0 factor for Jth (enforced here)
+	          Box axis_box = node_box;
+                  axis_box.setBig(0,0);
+                  axis_box.setSmall(0,0);
+	          this_J.setVal(0.0,axis_box,0,1);
+	       }
+     
+	       Box dst_box = node_box;
                Box src_box = node_box;
                const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
                for (int n=0; n<nG; n++) {
@@ -875,7 +909,7 @@ namespace FieldBCUtils {
       } // end loop over boundaries
 
    } // end applyToJ_PIC()
-
+   
 }
 #include "NamespaceFooter.H"
 

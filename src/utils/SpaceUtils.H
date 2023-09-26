@@ -20,6 +20,13 @@
 #include "NamespaceHeader.H"
 
 namespace SpaceUtils {
+
+  void applyBinomialFilter( LevelData<EdgeDataBox>&  a_var );
+  
+  void applyBinomialFilter( LevelData<NodeFArrayBox>&  a_var );
+  
+  void applyBinomialFilter( FArrayBox&  a_Q,
+                      const Box&        a_grid_box );
       
   void computeLaxSplitting( LevelData<FArrayBox>&,
                             LevelData<FArrayBox>&,
@@ -201,12 +208,20 @@ namespace SpaceUtils {
   
   void exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& );
 
-  inline 
-  void exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& a_node,
-                              const DomainGrid& )
-  {
-    exchangeNodeFArrayBox( a_node );
-  }
+  void checkForNAN( const LevelData<FArrayBox>&  a_var,
+   	            const std::string&           a_string );
+  
+  void checkForNAN( const LevelData<FluxBox>&  a_var,
+   	            const std::string&         a_string );
+
+  void checkForNAN( const LevelData<EdgeDataBox>&  a_var,
+   	            const std::string&             a_string );
+  
+  void checkForNAN( const LevelData<NodeFArrayBox>&  a_var,
+   	            const std::string&               a_string );
+
+  void checkForNAN( const FArrayBox&    a_var,
+   	            const std::string&  a_string );
 
   void copyEdgeDataBox( EdgeDataBox&,
                   const EdgeDataBox& );

@@ -33,7 +33,8 @@ public:
                    const Real          a_cur_time,
                    const std::string&  a_restart_file_name );
  
-  void initializeMassMatrices( const std::string&  a_restart_file_name );
+  void initializeMassMatrices( ElectroMagneticFields&  a_emfields,
+		         const std::string&            a_restart_file_name );
   
   Real courantDt();
 
@@ -49,11 +50,12 @@ public:
  
   //void setChargeDensity();
   //void setChargeDensityOnFaces();
-  void setChargeDensityOnNodes();
-  
+  void setChargeDensityOnNodes( const bool  a_use_filtering );
+
   const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
   const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_faces;}
   const LevelData<NodeFArrayBox>& getChargeDensityOnNodes() const {return m_chargeDensity_nodes;}
+  LevelData<NodeFArrayBox>& getChargeDensityOnNodes() {return m_chargeDensity_nodes;}
   
   void setCurrentDensity( const bool  a_from_explicit_solver = false );
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
@@ -75,6 +77,8 @@ public:
   
   void computeJfromMassMatrices( const ElectroMagneticFields&  a_emfields );
   
+  void setMassMatricesForPC( ElectroMagneticFields&  a_emfields );
+  
   void addInflowJ( LevelData<EdgeDataBox>&    a_J,
                    LevelData<NodeFArrayBox>&  a_Jv,
              const ElectroMagneticFields&     a_emfields,
@@ -94,6 +98,12 @@ public:
      for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
         PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
         species->removeOutflowParticles();
+#if CH_SPACEDIM<3
+	// this is done here in order correctly set the virtual
+	// position of particles created after the pic advance,
+	// such as in scatterParticles();
+        species->rebaseVirtualPositions();
+#endif
      }
   }
   
@@ -158,12 +168,23 @@ public:
   LevelData<NodeFArrayBox>& getSigmazy() {return m_sigma_zy;}
   LevelData<NodeFArrayBox>& getSigmazz() {return m_sigma_zz;}
   
+  const IntVect& getNcompxx() const {return m_ncomp_xx;}
+  const IntVect& getNcompxy() const {return m_ncomp_xy;}
+  const IntVect& getNcompxz() const {return m_ncomp_xz;}
+  const IntVect& getNcompyx() const {return m_ncomp_yx;}
+  const IntVect& getNcompyy() const {return m_ncomp_yy;}
+  const IntVect& getNcompyz() const {return m_ncomp_yz;}
+  const IntVect& getNcompzx() const {return m_ncomp_zx;}
+  const IntVect& getNcompzy() const {return m_ncomp_zy;}
+  const IntVect& getNcompzz() const {return m_ncomp_zz;}
+  
 private:
 
   void createAllPicSpecies( const DomainGrid& a_mesh );
   void speciesPairingInit();
   
   bool m_verbosity;    
+  
   bool m_writeSpeciesChargeDensity;
   bool m_writeSpeciesCurrentDensity;
   bool m_writeSpeciesNppc;
@@ -173,6 +194,7 @@ private:
   bool m_part_order_swap;
   bool m_iter_min_two;
   int m_iter_max_particles;
+  bool m_verbose_particles;
   Real m_rtol_particles;
   int m_newton_maxits;
   int m_newton_num_guess;
@@ -191,9 +213,9 @@ private:
 
   PicSpeciesPtrVect m_pic_species_ptr_vect;
 
-  LevelData<FArrayBox> m_chargeDensity;
-  LevelData<FluxBox> m_chargeDensity_faces;
-  LevelData<NodeFArrayBox> m_chargeDensity_nodes;
+  mutable LevelData<FArrayBox> m_chargeDensity;
+  mutable LevelData<FluxBox> m_chargeDensity_faces;
+  mutable LevelData<NodeFArrayBox> m_chargeDensity_nodes;
   
   LevelData<EdgeDataBox> m_currentDensity;
   LevelData<NodeFArrayBox> m_currentDensity_virtual;
@@ -213,9 +235,14 @@ private:
   LevelData<NodeFArrayBox> m_sigma_yx, m_sigma_yy, m_sigma_yz;
 #endif
   LevelData<NodeFArrayBox> m_sigma_zx, m_sigma_zy, m_sigma_zz;
-  IntVect m_num_xx_comps, m_num_xy_comps, m_num_xz_comps;
-  IntVect m_num_yx_comps, m_num_yy_comps, m_num_yz_comps;
-  IntVect m_num_zx_comps, m_num_zy_comps, m_num_zz_comps;
+  IntVect m_ncomp_xx, m_ncomp_xy, m_ncomp_xz;
+  IntVect m_ncomp_yx, m_ncomp_yy, m_ncomp_yz;
+  IntVect m_ncomp_zx, m_ncomp_zy, m_ncomp_zz;
+
+//#define PRINT_COMPS
+#ifdef PRINT_COMPS
+  bool m_print_comps;
+#endif
 
 };
 

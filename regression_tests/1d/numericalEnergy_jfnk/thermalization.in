@@ -109,8 +109,6 @@ pic_species.0.motion = true
 pic_species.0.forces = true
 pic_species.0.scatter = false
 
-IC.electron.X_min = 0.0
-IC.electron.X_max = 10.0
 IC.electron.parts_per_cell = 100
 IC.electron.density.type = "constant"
 IC.electron.density.value = 1.0e30 # [number/m^3]
@@ -134,8 +132,6 @@ pic_species.1.motion = true
 pic_species.1.forces = true
 pic_species.1.scatter = false
 
-IC.proton.X_min = 0.0
-IC.proton.X_max = 10.0
 IC.proton.parts_per_cell = 100
 IC.proton.density.type = "constant"
 IC.proton.density.value = 1.0e30 # [number/m^3]
@@ -156,17 +152,17 @@ IC.proton.velocity_2.value = 0.0
 # Scattering Definitions
 #####################################################
 
-scattering.0.model = "TA"
+scattering.0.model = "COULOMB"
 scattering.0.speciesA = 0
 scattering.0.speciesB = 0
 scattering.0.coulomb_logarithm = 3.0
 
-scattering.1.model = "TA"
+scattering.1.model = "COULOMB"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
 scattering.1.coulomb_logarithm = 3.0
 
-scattering.2.model = "TA"
+scattering.2.model = "COULOMB"
 scattering.2.speciesA = 1
 scattering.2.speciesB = 0
 scattering.2.coulomb_logarithm = 3.0

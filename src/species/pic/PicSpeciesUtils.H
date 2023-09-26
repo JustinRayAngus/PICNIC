@@ -16,23 +16,41 @@ namespace PicSpeciesUtils {
                const bool                    a_byHalfDt,
                const bool                    a_anticyclic );
    
-   void applyForcesAxisymm( List<JustinsParticle>&  a_pList,
+   void applyForces_CYL_CYL( List<JustinsParticle>&  a_pList,
+                       const Real                    a_fnorm,
+                       const Real                    a_cnormDt, 
+                       const bool                    a_byHalfDt,
+                       const bool                    a_anticyclic );
+   
+   void applyForces_SPH_SPH( List<JustinsParticle>&  a_pList,
+                       const Real                    a_fnorm,
+                       const Real                    a_cnormDt, 
+                       const bool                    a_byHalfDt );
+   
+   void applyForces_CYL_HYB( List<JustinsParticle>&  a_pList,
                       const Real                    a_fnorm,
                       const Real                    a_cnormDt, 
-                      const bool                    a_byHalfDt,
                       const bool                    a_anticyclic );
    
-   void applyForcesHYBRID( List<JustinsParticle>&  a_pList,
-                     const Real                    a_fnorm,
-                     const Real                    a_cnormDt, 
-                     const bool                    a_anticyclic );
+   void applyForces_SPH_HYB( List<JustinsParticle>&  a_pList,
+                      const Real                    a_fnorm,
+                      const Real                    a_cnormDt );
 
-   void stepNormTransferCYLCAR( List<JustinsParticle>&  a_pList,
+   void stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_pList,
                           List<JustinsParticle>&  a_temp_pList,
                     const RealVect&               a_dX,
                     const Real                    a_cnormHalfDt, 
                     const Real                    a_rtol, 
                     const bool                    a_reverse );
+
+#if CH_SPACEDIM==1
+   void stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_pList,
+                          List<JustinsParticle>&  a_temp_pList,
+                    const RealVect&               a_dX,
+                    const Real                    a_cnormHalfDt, 
+                    const Real                    a_rtol, 
+                    const bool                    a_reverse );
+#endif
 
    void stepNormTransfer( List<JustinsParticle>&  a_pList,
                           List<JustinsParticle>&  a_temp_pList,

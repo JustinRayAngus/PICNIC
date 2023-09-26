@@ -18,6 +18,7 @@ DomainGrid::DomainGrid( const ProblemDomain&      a_domain,
      m_anticyclic(false),
      m_write_jacobians(false),
      m_write_corrected_jacobians(false),
+     m_write_masked_jacobians(false),
      m_ghosts(a_numGhosts),
      m_volume_correction(CONSERVATIVE),
      m_mapped_cell_volume(1.0)
@@ -38,6 +39,7 @@ DomainGrid::DomainGrid( const ProblemDomain&      a_domain,
    ParmParse ppgrid( "grid" );
    ppgrid.query( "write_jacobians", m_write_jacobians );
    ppgrid.query( "write_corrected_jacobians", m_write_corrected_jacobians );
+   ppgrid.query( "write_masked_jacobians", m_write_masked_jacobians );
 
    ppgrid.get( "geometry", m_geom_type );
    if(m_geom_type=="cartesian") {
@@ -61,7 +63,7 @@ DomainGrid::DomainGrid( const ProblemDomain&      a_domain,
       }
    
    }
-   else if(m_geom_type=="cyl_R") {
+   else if(m_geom_type=="cyl_R" || m_geom_type=="sph_R") {
  
       CH_assert(SpaceDim==1);
       m_axisymmetric = true;
@@ -134,7 +136,8 @@ DomainGrid::DomainGrid( const ProblemDomain&      a_domain,
    // set the volume/area scales for converting from code to SI unit
    m_volume_scale = a_length_scale;
    for (int dir=1; dir<SpaceDim; dir++) m_volume_scale *= a_length_scale; 
-   if(m_axisymmetric) m_volume_scale *= a_length_scale;   
+   if(m_axisymmetric) m_volume_scale *= a_length_scale;
+   if(m_axisymmetric && m_geom_type=="sph_R") m_volume_scale *= a_length_scale;
    m_area_scale = m_volume_scale/a_length_scale;
    
    std::string volume_correction;
@@ -167,7 +170,9 @@ DomainGrid::DomainGrid( const ProblemDomain&      a_domain,
       cout << " geometry = " << m_geom_type << endl;
       cout << " axisymmetric = " << m_axisymmetric << endl;
       cout << " anticyclic   = " << m_anticyclic << endl;
-      cout << " volume_correction  = " << m_volume_correction << endl;
+      if(m_volume_correction==NONE) {cout << " volume_correction  = NONE " << endl;}
+      else if(m_volume_correction==VERBONCOEUR) {cout << " volume_correction = VERBONCOEUR" << endl;}
+      else if(m_volume_correction==CONSERVATIVE) {cout << " volume_correction = CONSERVATIVE" << endl;}
       cout << "  X_min, X_max = " << m_Xmin[0] << ", " << m_Xmax[0] << endl;
       cout << "  dX = " << m_dX[0] << endl;
       if(SpaceDim==2) {
@@ -256,6 +261,7 @@ void DomainGrid::setJacobian()
 {
    const Real Pi = Constants::PI; 
    const Real twoPi = Constants::TWOPI; 
+   const Real fourPi = Constants::FOURPI; 
    IntVect ghostVect = m_ghosts*IntVect::Unit;
 
    //
@@ -291,17 +297,37 @@ void DomainGrid::setJacobian()
    
    if( m_axisymmetric ) {
 
-      for(DataIterator dit(m_grids); dit.ok(); ++dit) {
-         m_Jcc[dit].mult(m_Xcc[dit],0,0,1); 
-         m_Jcc[dit].mult(twoPi,0,1);
-         for(int dir=0; dir<SpaceDim; dir++) {
-            m_Jfc[dit][dir].mult(m_Xfc[dit][dir],0,0,1);
-            m_Jfc[dit][dir].mult(twoPi,0,1);
-            m_Jec[dit][dir].mult(m_Xec[dit][dir],0,0,1);
-            m_Jec[dit][dir].mult(twoPi,0,1);
+      if(m_geom_type=="sph_R") {
+         for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+            m_Jcc[dit].mult(m_Xcc[dit],0,0,1); 
+            m_Jcc[dit].mult(m_Xcc[dit],0,0,1); 
+            m_Jcc[dit].mult(fourPi,0,1);
+            for(int dir=0; dir<SpaceDim; dir++) {
+               m_Jfc[dit][dir].mult(m_Xfc[dit][dir],0,0,1);
+               m_Jfc[dit][dir].mult(m_Xfc[dit][dir],0,0,1);
+               m_Jfc[dit][dir].mult(fourPi,0,1);
+               m_Jec[dit][dir].mult(m_Xec[dit][dir],0,0,1);
+               m_Jec[dit][dir].mult(m_Xec[dit][dir],0,0,1);
+               m_Jec[dit][dir].mult(fourPi,0,1);
+            }
+            m_Jnc[dit].getFab().mult(m_Xnc[dit].getFab(),0,0,1); 
+            m_Jnc[dit].getFab().mult(m_Xnc[dit].getFab(),0,0,1); 
+            m_Jnc[dit].getFab().mult(fourPi,0,1);
          }
-         m_Jnc[dit].getFab().mult(m_Xnc[dit].getFab(),0,0,1); 
-         m_Jnc[dit].getFab().mult(twoPi,0,1);
+      }
+      else {
+         for(DataIterator dit(m_grids); dit.ok(); ++dit) {
+            m_Jcc[dit].mult(m_Xcc[dit],0,0,1); 
+            m_Jcc[dit].mult(twoPi,0,1);
+            for(int dir=0; dir<SpaceDim; dir++) {
+               m_Jfc[dit][dir].mult(m_Xfc[dit][dir],0,0,1);
+               m_Jfc[dit][dir].mult(twoPi,0,1);
+               m_Jec[dit][dir].mult(m_Xec[dit][dir],0,0,1);
+              m_Jec[dit][dir].mult(twoPi,0,1);
+            }
+            m_Jnc[dit].getFab().mult(m_Xnc[dit].getFab(),0,0,1); 
+            m_Jnc[dit].getFab().mult(twoPi,0,1);
+         }
       }
 
    }
@@ -356,13 +382,28 @@ void DomainGrid::setJacobian()
                Real rjp1 = m_Xnc[dit].getFab().get(ig+shift_vect,0);
                Real rjm1 = m_Xnc[dit].getFab().get(ig-shift_vect,0);
                if(ig[dir0]==dir0_bdry_lo) {
-                  local_J = Pi/3.0*(rjp1 - rj)*(2*rj + rjp1)/m_dX[dir0];
+		  if(m_geom_type=="sph_R") {
+		     local_J = Pi/3.0*(rjp1 - rj)*(3*rj*rj + 2*rjp1*rj + rjp1*rjp1)/m_dX[dir0];
+		  }   
+		  else{
+                     local_J = Pi/3.0*(rjp1 - rj)*(2*rj + rjp1)/m_dX[dir0];
+		  }
                }
                else if(ig[dir0]==dir0_bdry_hi) {
-                  local_J = Pi/3.0*(rj - rjm1)*(2*rjm1 + 2*rj)/m_dX[dir0];
+		  if(m_geom_type=="sph_R") {
+		     local_J = Pi/3.0*(rj - rjm1)*(rjm1*rjm1 + 2*rjm1*rj + 3*rj*rj)/m_dX[dir0];
+		  }   
+		  else{
+                     local_J = Pi/3.0*(rj - rjm1)*(2*rjm1 + 2*rj)/m_dX[dir0];
+		  }
                }
                else {
-                  local_J = Pi/3.0*(rjp1*(rj + rjp1) - rjm1*(rjm1 + rj))/m_dX[dir0];
+		  if(m_geom_type=="sph_R") {
+		     local_J = Pi/3.0*(rjp1 - rjm1)*(rjm1*rjm1 + rjm1*rj + rjm1*rjp1 + rj*rj + rj*rjp1 + rjp1*rjp1)/m_dX[dir0];
+		  }   
+		  else{
+                     local_J = Pi/3.0*(rjp1*(rj + rjp1) - rjm1*(rjm1 + rj))/m_dX[dir0];
+		  }
                }
                this_Jnc.set(ig,0,local_J);
             }
@@ -375,6 +416,7 @@ void DomainGrid::setJacobian()
                if(ig[dir0]==dir0_bdry_lo) {
                   if(m_axisymmetric && rj==0.0) {
 		     local_J = Pi*m_dX[dir0]/4.0;
+		     if(m_geom_type=="sph_R") local_J *= 2.0/3.0*m_dX[dir0];
                      this_Jnc.set(ig,0,local_J);
 		  }
                   else this_Jnc.set(ig,0,0.5*this_Jnc.get(ig,0));
@@ -414,13 +456,28 @@ void DomainGrid::setJacobian()
                Real rjp1 = m_Xfc[dit][dir0].get(ig+shift_vect,0);
                Real rjm1 = m_Xfc[dit][dir0].get(ig-shift_vect,0);
                if(ig[dir0]==dir0_bdry_lo) {
-                  local_J = Pi/3.0*(rjp1 - rj)*(2*rj + rjp1)/m_dX[dir0];
+		  if(m_geom_type=="sph_R") {
+		     local_J = Pi/3.0*(rjp1 - rj)*(3*rj*rj + 2*rjp1*rj + rjp1*rjp1)/m_dX[dir0];
+		  }   
+		  else{
+                     local_J = Pi/3.0*(rjp1 - rj)*(2*rj + rjp1)/m_dX[dir0];
+		  }
                }
                else if(ig[dir0]==dir0_bdry_hi) {
-                  local_J = Pi/3.0*(rj - rjm1)*(2*rjm1 + 2*rj)/m_dX[dir0];
+		  if(m_geom_type=="sph_R") {
+		     local_J = Pi/3.0*(rj - rjm1)*(rjm1*rjm1 + 2*rjm1*rj + 3*rj*rj)/m_dX[dir0];
+		  }   
+		  else{
+                     local_J = Pi/3.0*(rj - rjm1)*(2*rjm1 + 2*rj)/m_dX[dir0];
+		  }
                }
                else {
-                  local_J = Pi/3.0*(rjp1*(rj + rjp1) - rjm1*(rjm1 + rj))/m_dX[dir0];
+		  if(m_geom_type=="sph_R") {
+		     local_J = Pi/3.0*(rjp1 - rjm1)*(rjm1*rjm1 + rjm1*rj + rjm1*rjp1 + rj*rj + rj*rjp1 + rjp1*rjp1)/m_dX[dir0];
+		  }   
+		  else{
+                     local_J = Pi/3.0*(rjp1*(rj + rjp1) - rjm1*(rjm1 + rj))/m_dX[dir0];
+		  }
                }
                this_Jfc.set(ig,0,local_J);
             }
@@ -433,6 +490,7 @@ void DomainGrid::setJacobian()
                if(ig[dir0]==dir0_bdry_lo) {
                   if(m_axisymmetric && rj==0.0) {
 		     local_J = Pi*m_dX[dir0]/4.0;
+		     if(m_geom_type=="sph_R") local_J *= 2.0/3.0*m_dX[dir0];
                      this_Jfc.set(ig,0,local_J);
 		  }
                   else this_Jfc.set(ig,0,0.5*this_Jfc.get(ig,0));
@@ -448,7 +506,7 @@ void DomainGrid::setJacobian()
    }
    
 #if CH_SPACEDIM==2
-   if(!m_domain.isPeriodic(1)) {
+   if(!m_domain.isPeriodic(0)) {
       
       for(DataIterator dit(m_grids); dit.ok(); ++dit) {
          const int dir0=0;
@@ -534,124 +592,115 @@ void DomainGrid::setJacobian()
       m_masked_Jnc[dit].getFab().copy(m_corrected_Jnc[dit].getFab()); 
    }
    
-   // mask the face centered Jacobian
+   // mask the face centered Jacobian at shared locations
    for(DataIterator dit(m_grids); dit.ok(); ++dit) {
       for(int dir=0; dir<SpaceDim; dir++) {
-         Box face_box = m_grids[dit];
-         face_box.surroundingNodes(dir);
-         Box internal_box = face_box;
-         internal_box.grow(dir,-1);
-
-         // correct internal_box on physical boundaries
-         if(!m_domain.isPeriodic(dir)) {
-             Box domain_face_box = phys_domain.domainBox();
-             domain_face_box.surroundingNodes(dir);
-             if(face_box.bigEnd(dir)==domain_face_box.bigEnd(dir)) {
-                internal_box.growHi(dir,1);
-             }
-             if(face_box.smallEnd(dir)==domain_face_box.smallEnd(dir)) {
-                internal_box.growLo(dir,1);
-             }
-         }
+	 
+	 Box domain_face_box = phys_domain.domainBox();
+         domain_face_box.surroundingNodes(dir);
          
-         FArrayBox mask(face_box,1);
-         mask.setVal(0.5);
-         mask.plus(0.5,internal_box,0,1); 
+	 Box face_box = m_grids[dit];
+         face_box.surroundingNodes(dir);
+         
+	 FArrayBox mask(face_box,1);
+         mask.setVal(1.0);
+         
+	 // adjust lo-side for this dir
+	 Box lo_side_box = face_box;
+         lo_side_box.setBig(dir,face_box.smallEnd(dir));
+         if(face_box.smallEnd(dir)==domain_face_box.smallEnd(dir)) {
+            if(m_domain.isPeriodic(dir)) { mask.mult(0.5,lo_side_box,0,1); }
+	 }
+	 else { mask.mult(0.5,lo_side_box,0,1); }
+         
+	 // adjust hi-side for this dir
+	 Box hi_side_box = face_box;
+         hi_side_box.setSmall(dir,face_box.bigEnd(dir));
+	 if(face_box.bigEnd(dir)==domain_face_box.bigEnd(dir)) {
+            if(m_domain.isPeriodic(dir)) { mask.mult(0.5,hi_side_box,0,1); }
+	 }
+	 else { mask.mult(0.5,hi_side_box,0,1); }
 
          m_masked_Jfc[dit][dir].mult(mask);
+
       }
    }
    
-   // mask the edge centered Jacobian
+   // mask the edge centered Jacobian at shared locations
    for(DataIterator dit(m_grids); dit.ok(); ++dit) {
       for(int dir=0; dir<SpaceDim; dir++) {
+	      
+	 Box domain_edge_box = phys_domain.domainBox();
+         domain_edge_box.surroundingNodes();
+         domain_edge_box.enclosedCells(dir);
+
          Box edge_box = m_grids[dit];
          edge_box.surroundingNodes();
          edge_box.enclosedCells(dir);
-         Box internal_box = edge_box;
-         for (int adir=0; adir<SpaceDim; adir++) {
-            if(adir==dir) continue;
-            internal_box.grow(adir,-1);
-         }
-         
-         // correct internal_box on physical boundaries
-         if(!m_domain.isPeriodic(dir)) {
-             Box domain_edge_box = phys_domain.domainBox();
-             domain_edge_box.surroundingNodes();
-             domain_edge_box.enclosedCells(dir);
-             for (int adir=0; adir<SpaceDim; adir++) {
-                if (adir==dir) continue;
-                if(edge_box.bigEnd(adir)==domain_edge_box.bigEnd(adir)) {
-                   internal_box.growHi(adir,1);
-                }
-                if(edge_box.smallEnd(adir)==domain_edge_box.smallEnd(adir)) {
-                   internal_box.growLo(adir,1);
-                }
-             }
-         }
 
          FArrayBox mask(edge_box,1);
-#if CH_SPACEDIM==1
          mask.setVal(1.0);
-#elif CH_SPACEDIM==2
-         mask.setVal(0.5);
-         mask.plus(0.5,internal_box,0,1); 
-#elif CH_SPACEDIM==3
-         mask.setVal(0.25);
-         mask.plus(0.75,internal_box,0,1); 
-#endif
+
+         for (int adir=0; adir<SpaceDim; adir++) {
+            if(adir==dir) continue;
+         
+	    // adjust lo-side for this dir
+	    Box lo_side_box = edge_box;
+            lo_side_box.setBig(adir,edge_box.smallEnd(adir));
+            if(edge_box.smallEnd(adir)==domain_edge_box.smallEnd(adir)) {
+               if(m_domain.isPeriodic(adir)) { mask.mult(0.5,lo_side_box,0,1); }
+	    }
+	    else { mask.mult(0.5,lo_side_box,0,1); }
+	    
+	    // adjust hi-side for this dir
+	    Box hi_side_box = edge_box;
+            hi_side_box.setSmall(adir,edge_box.bigEnd(adir));
+            if(edge_box.bigEnd(adir)==domain_edge_box.bigEnd(adir)) {
+               if(m_domain.isPeriodic(adir)) { mask.mult(0.5,hi_side_box,0,1); }
+	    }
+	    else { mask.mult(0.5,hi_side_box,0,1); }
+         
+         }
+
          m_masked_Jec[dit][dir].mult(mask);
+
       }
    }
    
-   // mask the node centered Jacobian
+   // mask the node centered Jacobian at shared locations
    for(DataIterator dit(m_grids); dit.ok(); ++dit) {
-      Box node_box = m_grids[dit];
-      node_box.surroundingNodes();
-      Box internal_box = node_box;
-      for (int dir=0; dir<SpaceDim; dir++) internal_box.grow(dir,-1);
-         
-      // correct internal_box on physical boundaries
-      // Is the correct for SpaceDim > 1 ?...
+  
       Box domain_node_box = phys_domain.domainBox();
       domain_node_box.surroundingNodes();
-      for (int dir=0; dir<SpaceDim; dir++) {
-         if(m_domain.isPeriodic(dir)) continue;
-         if(node_box.bigEnd(dir)==domain_node_box.bigEnd(dir)) {
-            internal_box.growHi(dir,1);
-         }
-         if(node_box.smallEnd(dir)==domain_node_box.smallEnd(dir)) {
-            internal_box.growLo(dir,1);
-         }
-      }
+
+      Box node_box = m_grids[dit];
+      node_box.surroundingNodes();
 
       FArrayBox mask(node_box,1);
-#if CH_SPACEDIM==1
-      mask.setVal(0.5);
-      mask.plus(0.5,internal_box,0,1);
-#elif CH_SPACEDIM==2 // corners get 1/4, edges get 1/2
-      mask.setVal(0.25);
-      for(int dir=0; dir<SpaceDim; dir++) {
-         Box node_box0 = node_box;
-         node_box0.grow(dir,-1);
-         mask.plus(0.25,node_box0,0,1);
+      mask.setVal(1.0);
+
+      for (int dir=0; dir<SpaceDim; dir++) {
+
+         // adjust lo-side for this dir
+	 Box lo_side_box = node_box;
+         lo_side_box.setBig(dir,node_box.smallEnd(dir));
+         if(node_box.smallEnd(dir)==domain_node_box.smallEnd(dir)) {
+            if(m_domain.isPeriodic(dir)) { mask.mult(0.5,lo_side_box,0,1); }
+	 }
+	 else { mask.mult(0.5,lo_side_box,0,1); }
+
+         // adjust hi-side for this dir
+	 Box hi_side_box = node_box;
+         hi_side_box.setSmall(dir,node_box.bigEnd(dir));
+	 if(node_box.bigEnd(dir)==domain_node_box.bigEnd(dir)) {
+            if(m_domain.isPeriodic(dir)) { mask.mult(0.5,hi_side_box,0,1); }
+	 }
+	 else { mask.mult(0.5,hi_side_box,0,1); }
+
       }
-      mask.plus(0.25,internal_box,0,1);
-#elif CH_SPACEDIM==3  // corners get 1/8, edges get 1/4, faces get 1/2
-      mask.setVal(0.125);
-      for(int dir=0; dir<SpaceDim; dir++) {
-         Box node_box0 = node_box;
-         node_box0.grow(dir,-1);
-         mask.plus(0.125,node_box0,0,1);
-         //
-         Box internal_box0 = internal_box;
-         internal_box0.grow(dir,1);
-         mask.plus(0.125,internal_box0,0,1);
-      }
-      mask.plus(0.125,internal_box,0,1);
-#endif
 
       m_masked_Jnc[dit].getFab().mult(mask);
+
    }
    
    //   display the Jacobian values for verification
@@ -664,7 +713,7 @@ void DomainGrid::displayJacobianData() {
    for(DataIterator dit(m_grids); dit.ok(); ++dit) {
 
       cout << "procID() = " << procID() << endl;
-            
+      
       Box Jnc_box = m_Jnc[dit].getFab().box();
       cout << "JRA: m_Jnc.box() = " << Jnc_box << endl;      
       BoxIterator gbit(Jnc_box);
@@ -694,7 +743,7 @@ void DomainGrid::displayJacobianData() {
 	 cout << "JRA: masked Jnc(ig="<<ig<<") = " << localJ << endl;
       }
       cout << endl;
-
+      
       for (int dir=0; dir<SpaceDim; dir++) {
 	 cout << "JRA: dir = " << dir << endl;
          Box Jfc_box = m_Jfc[dit][dir].box();
@@ -713,7 +762,7 @@ void DomainGrid::displayJacobianData() {
          for(gbit2.begin(); gbit2.ok(); ++gbit2) {
             IntVect ig = gbit2(); // grid index
             Real localJ = m_corrected_Jfc[dit][dir].get(ig,0);
-	    cout << "JRA: Jfc(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+	    cout << "JRA: corrected Jfc(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
          }
          cout << endl;
 	 
@@ -723,12 +772,12 @@ void DomainGrid::displayJacobianData() {
          for(gbit3.begin(); gbit3.ok(); ++gbit3) {
             IntVect ig = gbit3(); // grid index
             Real localJ = m_masked_Jfc[dit][dir].get(ig,0);
-	    cout << "JRA: Jfc(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+	    cout << "JRA: masked Jfc(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
          }
          cout << endl;
 
       }
-
+      
       for (int dir=0; dir<SpaceDim; dir++) {
 	 cout << "JRA: dir = " << dir << endl;
          Box Jec_box = m_Jec[dit][dir].box();
@@ -747,7 +796,7 @@ void DomainGrid::displayJacobianData() {
          for(gbit2.begin(); gbit2.ok(); ++gbit2) {
             IntVect ig = gbit2(); // grid index
             Real localJ = m_corrected_Jec[dit][dir].get(ig,0);
-	    cout << "JRA: Jec(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+	    cout << "JRA: corrected Jec(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
          }
          cout << endl;
 	 
@@ -757,7 +806,7 @@ void DomainGrid::displayJacobianData() {
          for(gbit3.begin(); gbit3.ok(); ++gbit3) {
             IntVect ig = gbit3(); // grid index
             Real localJ = m_masked_Jec[dit][dir].get(ig,0);
-	    cout << "JRA: Jec(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
+	    cout << "JRA: masked Jec(ig="<<ig<<",dir="<<dir<<") = " << localJ << endl;
          }
          cout << endl;
 

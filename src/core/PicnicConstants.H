@@ -13,6 +13,7 @@ namespace Constants {
    
    // Mathematical constants
    const double PI    = M_PI;
+   const double HALFPI = M_PI / 2.0;
    const double TWOPI  = 2.0 * M_PI;
    const double FOURPI = 4.0 * M_PI;
    const double E     = exp( 1.0 );

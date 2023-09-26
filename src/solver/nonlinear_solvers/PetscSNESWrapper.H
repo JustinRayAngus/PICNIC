@@ -38,6 +38,7 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       m_newton_atol    = 1e-10;
       m_newton_stol    = 1e-14;
       m_newton_maxstep = 1e14;
+      m_newton_maxfail = 1;
       m_gmres_maxits   = 100;
       m_gmres_rtol     = 1e-3;
       m_gmres_atol     = 1e-12;
@@ -115,14 +116,20 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
     void printParams( ) const
     {
        if(procID()>0) return;
+
+       PetscInt max_fail;
+       SNESGetMaxNonlinearStepFailures( m_nlsolver, &max_fail );
+
        cout << " Petsc SNES solver parameters: " << endl;
-       cout << "   solver type = NEWTONLS" << endl;
-       cout << "   line search type = " << m_linesearch_type << endl;
-       cout << "   newton_maxstep = " << m_newton_maxstep << endl;
+       cout << "   solver_type = NEWTONLS" << endl;
+       cout << "   linesearch_type = " << m_linesearch_type << endl;
        cout << "   newton_rtol   = " << m_newton_rtol << endl;
        cout << "   newton_atol   = " << m_newton_atol << endl;
        cout << "   newton_stol   = " << m_newton_stol << endl;
        cout << "   newton_maxits = " << m_newton_maxits << endl;
+       cout << "   newton_maxstep = " << m_newton_maxstep << endl;
+       cout << "   newton_maxfail = " << (int)max_fail << endl;
+       //cout << "   newton_maxfail = " << m_newton_maxfail << endl;
        cout << "   gmres_atol   = " << m_gmres_atol << endl;
        cout << "   gmres_rtol   = " << m_gmres_rtol << endl;
        cout << "   gmres_maxits = " << m_gmres_maxits << endl;
@@ -236,6 +243,7 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
     int m_newton_maxits;
     double m_newton_rtol, m_newton_atol, m_newton_stol;
     double m_newton_maxstep;
+    int m_newton_maxfail;
     bool m_newton_verbose;
 
     int m_gmres_maxits;
@@ -407,16 +415,18 @@ void PetscSNESWrapper<T,Ops>::define( const T&                        a_U,
      SNESGetLineSearch( m_nlsolver, &linesearch );
      SNESLineSearchSetType( linesearch, SNESLINESEARCHBASIC );
   }
-
+  
   setOptions();
   SNESSetFromOptions( m_nlsolver );
-
+  
   m_is_Defined = true;
 }
 
 template <class T, class Ops>
 void PetscSNESWrapper<T,Ops>::setOptions()
 {
+  // the is_specified flag is to check if this parameter has already
+  // been set from the .petscrc file, which has priority
   {
     char option[100] = "-snes_atol";
     PetscBool is_specified;
@@ -457,6 +467,17 @@ void PetscSNESWrapper<T,Ops>::setOptions()
       PetscOptionsSetValue( NULL, option , val );
     }
   }
+  {
+    char option[100] = "-snes_max_fail";
+    PetscBool is_specified;
+    PetscOptionsHasName( NULL, NULL, option, &is_specified );
+    if (!is_specified) {
+      char val[100];
+      sprintf(val, "%d", m_newton_maxfail );
+      PetscOptionsSetValue( NULL, option , val );
+    }
+  }
+  //SNESSetMaxNonlinearStepFailures( m_nlsolver, m_newton_maxfail );
   {
     char option[100] = "-snes_max_it";
     PetscBool is_specified;
@@ -564,8 +585,9 @@ void PetscSNESWrapper<T,Ops>::parseParametersNewton( ParmParse& a_pp )
   a_pp.query("rtol",    m_newton_rtol);    /* relative tolerance */
   a_pp.query("atol",    m_newton_atol);    /* absolute tolerance */
   a_pp.query("stol",    m_newton_stol);    /* step tolerance */
-  a_pp.query("maxstep", m_newton_maxstep); /* max step for line search */
   a_pp.query("maxits",  m_newton_maxits);  /* maximum iterations */
+  a_pp.query("maxstep", m_newton_maxstep); /* max step for line search */
+  a_pp.query("maxfail", m_newton_maxfail); /* maximum step failures */
 }
 
 template <class T, class Ops>

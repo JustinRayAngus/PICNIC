@@ -60,6 +60,8 @@ public:
   virtual const bool writeJacobians() const { return m_write_jacobians; }
   
   virtual const bool writeCorrectedJacobians() const { return m_write_corrected_jacobians; }
+  
+  virtual const bool writeMaskedJacobians() const { return m_write_masked_jacobians; }
  
   virtual const int ghosts() const { return m_ghosts; }
   
@@ -110,6 +112,7 @@ private:
   bool m_anticyclic;
   bool m_write_jacobians;
   bool m_write_corrected_jacobians;
+  bool m_write_masked_jacobians;
   int m_ghosts;
  
   Copier m_forwardCopier; 

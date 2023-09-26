@@ -274,31 +274,6 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
     cout << " objects for all charged species pairs..." << endl;
   }
  
-  // query for fixed Coulomb logarithm 
-  Real Clog = 0.0;
-  if(a_pp_scatterC.contains("coulomb_logarithm")) {
-     a_pp_scatterC.get( "coulomb_logarithm", Clog ); 
-     CH_assert(Clog>=2.0);
-  }
-  
-  // query the Coulomb collision model type       
-  std::string model = "TA";
-  a_pp_scatterC.query("model",model);
-
-  // query for the angular scattering type used for Coulomb class
-  std::string angular_model = "TAKIZUKA";
-  a_pp_scatterC.query("angular_scattering",angular_model);
-  
-  // query for weight method type used for Coulomb class
-  std::string weight_method = "PROBABILISTIC";
-  a_pp_scatterC.query("weight_method",weight_method);
-  
-  if(!procID()) { 
-    cout << "ScatteringInterface: Coulomb model type:       " << model << endl;
-    cout << "ScatteringInterface: angular scattering model: " << angular_model << endl;
-    cout << "ScatteringInterface: weight method:            " << weight_method << endl;
-  }
-
   ScatteringFactory scatteringFactory;
 
   // create like-like species first
@@ -310,8 +285,7 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
     if(!use_scattering || charge==0.0) continue;
             
     // Create scattering object and add it to the scattering vector
-    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, Clog, model, angular_model, 
-		                                                     weight_method, 1 );
+    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, a_pp_scatterC, 1 );
     a_coulomb_ptr_vect.push_back(this_scattering);
             
   }
@@ -332,8 +306,7 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
       if(!use_scattering2 || charge2==0.0) continue;
                
       // Create scattering object and add it to the scattering vector
-      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, Clog, model, angular_model, 
-		                                                       weight_method, 1 );
+      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, a_pp_scatterC, 1 );
       a_coulomb_ptr_vect.push_back(this_scattering);
 
     }
