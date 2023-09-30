@@ -6,8 +6,6 @@ simulation.verbosity = 10
 
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.part_order_swap = true
-pic_species.iter_min_two = true
 pic_species.iter_max_particles = 21
 pic_species.rtol_particles = 1.0e-14
 pic_species.mod_init_advance = false

@@ -19,10 +19,9 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
      m_writeSpeciesNppc(false),
      m_writeSpeciesEnergyOffDiag(false),
      m_writeSpeciesEnergyFlux(false),
-     m_part_order_swap(false),
-     m_iter_min_two(false),
-     m_iter_max_particles(0),
      m_verbose_particles(false),
+     m_part_order_swap(false),
+     m_iter_max_particles(0),
      m_rtol_particles(1.0e-12),
      m_newton_maxits(20),
      m_newton_num_guess(1),
@@ -45,7 +44,6 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    if(m_writeSpeciesEnergyFlux) m_writeSpeciesEnergyOffDiag = true;
    //
    pp.query("part_order_swap",m_part_order_swap);
-   pp.query("iter_min_two",m_iter_min_two);
    pp.query("iter_max_particles",m_iter_max_particles);
    pp.query("verbose_particles",m_verbose_particles);
    pp.query("rtol_particles",m_rtol_particles);
@@ -142,10 +140,9 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
 
       if(a_implicit_advance) {
       
-         species->setParticleSolverParams( m_part_order_swap,
-                                           m_iter_min_two,
+         species->setParticleSolverParams( m_verbose_particles,
+			                   m_part_order_swap,
                                            m_iter_max_particles,
-                                           m_verbose_particles,
                                            m_rtol_particles,
                                            m_newton_maxits,
                                            m_newton_num_guess );
@@ -168,10 +165,9 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
       cout << " write species energy flux = " << m_writeSpeciesEnergyFlux << endl;
       if (a_implicit_advance) {
          cout << " implicit advance parameters:" << endl;
-         cout << "  part_order_swap = " << m_part_order_swap << endl;
-         cout << "  iter_min_two = " << m_iter_min_two << endl;
-         cout << "  iter_max_particles = " << m_iter_max_particles << endl;
          cout << "  verbose_particles = " << m_verbose_particles << endl;
+         cout << "  part_order_swap = " << m_part_order_swap << endl;
+         cout << "  iter_max_particles = " << m_iter_max_particles << endl;
          cout << "  rtol_particles = " << m_rtol_particles << endl;
          cout << "  newton_maxits = " << m_newton_maxits << endl;
          cout << "  newton_num_guess = " << m_newton_num_guess << endl;
@@ -907,7 +903,7 @@ void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacob
       for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
          auto species(m_pic_species_ptr_vect[sp]);
          if(a_nonlinear_iter==0 && m_mod_init_advance) {
-            species->advancePositionsImplicit( a_dt, true );
+            species->advancePositionsImplicit( a_dt );
             species->interpolateFieldsToParticles( a_emfields );
             species->addExternalFieldsToParticles( a_emfields ); 
             species->advanceVelocities( a_dt, true );
@@ -973,7 +969,7 @@ void PicSpeciesInterface::postNewtonUpdate( const ElectroMagneticFields&  a_emfi
       auto species(m_pic_species_ptr_vect[sp]);
       species->interpolateEfieldToParticles( a_emfields );
       species->advanceVelocities( a_dt, true );
-      species->advancePositionsImplicit( a_dt, true );
+      species->advancePositionsImplicit( a_dt );
    }
  
 }
@@ -1055,7 +1051,9 @@ void PicSpeciesInterface::setMassMatricesForPC( ElectroMagneticFields&  a_emfiel
   
    const int pc_mass_matrix_width = a_emfields.getMassMatrixPCwidth();
    const bool include_ij = a_emfields.includeMassMatrixij();
+#if CH_SPACEDIM==1
    const bool use_filtering = a_emfields.useFiltering();      
+#endif
 
    const IntVect& ncomp_xx_pc = a_emfields.getNcompxxPC();
    const IntVect& ncomp_xy_pc = a_emfields.getNcompxyPC();

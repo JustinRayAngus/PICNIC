@@ -191,10 +191,9 @@ private:
   bool m_writeSpeciesEnergyOffDiag;
   bool m_writeSpeciesEnergyFlux;
       
-  bool m_part_order_swap;
-  bool m_iter_min_two;
-  int m_iter_max_particles;
   bool m_verbose_particles;
+  bool m_part_order_swap;
+  int m_iter_max_particles;
   Real m_rtol_particles;
   int m_newton_maxits;
   int m_newton_num_guess;

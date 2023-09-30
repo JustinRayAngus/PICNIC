@@ -9,7 +9,6 @@ simulation.fixed_random_seed = 1983
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
 #pic_species.mod_init_advance = false
-pic_species.iter_min_two = true
 pic_species.iter_max_particles = 8
 pic_species.rtol_particles = 1.0e-14
 

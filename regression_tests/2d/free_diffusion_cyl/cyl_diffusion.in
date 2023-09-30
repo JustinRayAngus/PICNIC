@@ -20,7 +20,6 @@ pic_species.write_species_nppc = true
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 
-pic_species.iter_min_two = true
 pic_species.iter_max_particles = 11
 pic_species.rtol_particles = 1.0e-10
 pic_species.quasi_freeze_particles_jacobian = true

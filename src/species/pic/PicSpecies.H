@@ -124,18 +124,16 @@ public:
                    const FArrayBox&    a_Efield_virtual,
                    const FArrayBox&    a_Bfield_virtual ) const;
   
-  virtual void setParticleSolverParams( const bool  a_iter_order_swap, 
-                                        const bool  a_iter_min_two,
+  virtual void setParticleSolverParams( const bool  a_verbose_particles,
+                                        const bool  a_iter_order_swap,
                                         const int   a_iter_max,
-                                        const bool  a_verbose_particles,
                                         const Real  a_rtol, 
                                         const int   a_newton_maxits, 
                                         const int   a_newton_num_guess) 
   { 
-     m_iter_order_swap = a_iter_order_swap; 
-     m_iter_min_two = a_iter_min_two; 
-     m_iter_max = a_iter_max; 
      m_verbose_particles = a_verbose_particles; 
+     m_iter_order_swap = a_iter_order_swap; 
+     m_iter_max = a_iter_max; 
      m_rtol = a_rtol; 
      m_newton_maxits = a_newton_maxits;
      m_newton_num_guess = a_newton_num_guess;
@@ -270,14 +268,28 @@ public:
   void advancePositionsExplicit( List<JustinsParticle>&  a_pList,
                            const Real                    a_cnormDt );
   
-  void advancePositionsImplicit( const Real  a_full_dt,
-                                 const bool  a_half_step = false );
+  void advancePositionsImplicit( const Real  a_full_dt );
   
   void advancePositionsImplicit( List<JustinsParticle>&  a_pList,
                            const Real                    a_cnormDt );
  
   void advancePositions_CYL_CAR( List<JustinsParticle>&  a_pList,
                           const Real                    a_cnormDt );
+
+  void stepNormTransfer( List<JustinsParticle>&  a_in_pList,
+                         List<JustinsParticle>&  a_out_pList,
+                   const Real                    a_cnormDt, 
+                   const bool                    a_reverse );
+  
+  void stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
+                                 List<JustinsParticle>&  a_out_pList,
+                           const Real                    a_cnormDt, 
+                           const bool                    a_reverse );
+  
+  void stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
+                                 List<JustinsParticle>&  a_out_pList,
+                           const Real                    a_cnormDt, 
+                           const bool                    a_reverse );
   
   void advanceInflowPositions( List<JustinsParticle>&  a_pList,
                          const int                     a_bdry_dir, 
@@ -290,6 +302,9 @@ public:
   
   void applyBCs( const bool  a_intermediate_advance );
 
+  void checkForNAN( List<JustinsParticle>&  a_pList,
+	      const std::string&  a_string );
+  
   void checkForNAN( const std::string&  a_string );
 
   void advanceVelocities( const Real  a_full_dt, 
@@ -395,7 +410,6 @@ private:
   Real m_fnorm_const; // normalization constant for particle force
 
   bool m_iter_order_swap = false; 
-  bool m_iter_min_two = false; 
   int m_iter_max = 0; 
   bool m_verbose_particles = false; 
   Real m_rtol = 1.0e-12; 

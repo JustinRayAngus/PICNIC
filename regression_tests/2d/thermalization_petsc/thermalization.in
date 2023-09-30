@@ -6,7 +6,7 @@ simulation.verbosity = 10
 simulation.fixed_random_seed = 1983
 
 ###   some fundamental parameters for
-###   N = 1.0e30/m^3, Ti = 100 eV, Te = 150 eV:
+###   N = 1.0e30/m^3, Ti = 50 eV, Te = 150 eV:
 ###   1/wpe0 = 1.77e-17 s
 ###   de0 = cvac/wpe0 =  5.314e-9 m
 ###   taue0 = 3.44e-17 s
@@ -16,10 +16,9 @@ simulation.fixed_random_seed = 1983
 #system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.iter_min_two = true
-pic_species.iter_max_particles = 6
+pic_species.iter_max_particles = 21
 pic_species.verbose_particles = true
-pic_species.rtol_particles = 1.0e-10
+pic_species.rtol_particles = 1.0e-12
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
 pic_species.mod_init_advance = true
@@ -34,11 +33,11 @@ pic_em_theta_implicit.solver_type = "petsc"
 pic_em_theta_implicit.pc_update_freq = 1
 jacobian.with_pc = true
 
-newton.verbose = false
+newton.verbose = true
 newton.line_search.type = "basic"
-newton.rtol = 1.0e-12
+newton.rtol = 1.0e-14
 newton.atol = -1.0e-24
-newton.maxits = 10
+newton.maxits = 100
 newton.maxfail = 10
 
 gmres.verbose = false

@@ -143,20 +143,24 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    m_magneticField.define(grids,1,ghostVect); // FluxBox with 1 comp
    m_magneticField_old.define(grids,1);
    m_magneticField_rhs.define(grids,1);
+   SpaceUtils::zero( m_magneticField_rhs );
    if(SpaceDim<3) {
       m_magneticField_virtual.define(grids,3-SpaceDim,ghostVect); // FArrayBox
       m_magneticField_virtual_old.define(grids,3-SpaceDim);
       m_magneticField_virtual_rhs.define(grids,3-SpaceDim);
+      SpaceUtils::zero( m_magneticField_virtual_rhs );
    }
 
    // define the electric field containers
    m_electricField.define(grids,1,ghostVect); // EdgeDataBox with 1 comp
    m_electricField_old.define(grids,1,IntVect::Zero);
    m_electricField_rhs.define(grids,1,IntVect::Zero);
+   SpaceUtils::zero( m_electricField_rhs );
    if(SpaceDim<3) {
       m_electricField_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
       m_electricField_virtual_old.define(grids,3-SpaceDim,IntVect::Zero);
       m_electricField_virtual_rhs.define(grids,3-SpaceDim,IntVect::Zero);
+      SpaceUtils::zero( m_electricField_virtual_rhs );
    }
    
    // define the filtered field containers
@@ -164,26 +168,20 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    
    // define the current density containers
    m_currentDensity.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
-   if(SpaceDim<3) m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
+   if(SpaceDim<3) {m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);} // NodeFArrayBox
    m_chargeDensity.define(grids,1,IntVect::Zero);
 
    // define the curlE containers
    m_curlE.define(grids,1,IntVect::Zero);     // FluxBox with 1 comp
-   if(SpaceDim<3) {
-      m_curlE_virtual.define(grids,3-SpaceDim,IntVect::Zero); // FArrayBox
-   }
+   if(SpaceDim<3) {m_curlE_virtual.define(grids,3-SpaceDim,IntVect::Zero);} // FArrayBox
    
    // define the curlB containers
    m_curlB.define(grids,1,IntVect::Zero);     // EdgeDataBox with 1 comp
-   if(SpaceDim<3) {
-      m_curlB_virtual.define(grids,3-SpaceDim,IntVect::Zero); // NodeFArrayBox
-   }
+   if(SpaceDim<3) {m_curlB_virtual.define(grids,3-SpaceDim,IntVect::Zero);} // NodeFArrayBox
    
    // define ExB containers (poynting flux)
    m_ExB.define(grids,2,IntVect::Zero);
-   if(SpaceDim<3) {
-      m_EvxB.define(grids,6-2*SpaceDim,IntVect::Zero);
-   }
+   if(SpaceDim<3) {m_EvxB.define(grids,6-2*SpaceDim,IntVect::Zero);}
 
    // set in-plane curl to zero
    SpaceUtils::zero( m_curlE );
