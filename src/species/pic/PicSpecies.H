@@ -31,7 +31,7 @@
 #include "MeshInterp.H"
 #include "CodeUnits.H"
 
-#include "ElectroMagneticFields.H"
+#include "EMFields.H"
 #include "PicSpeciesBC.H"
 
 #include "NamespaceHeader.H"
@@ -225,9 +225,9 @@ public:
   const LevelData<EdgeDataBox>& getInflowJ() const {return m_inflowJ;}
   const LevelData<NodeFArrayBox>& getInflowJ_virtual() const {return m_inflowJ_virtual;}
   
-  void advanceSubOrbitParticlesAndSetJ( const ElectroMagneticFields&  a_em_fields, 
-		                        const Real                    a_dt,
-                                        const bool                    a_from_emjacobian ); 
+  void advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields, 
+		                        const Real       a_dt,
+                                        const bool       a_from_emjacobian ); 
   const LevelData<EdgeDataBox>& getSubOrbitJ() const {return m_suborbitJ;}
   const LevelData<NodeFArrayBox>& getSubOrbitJ_virtual() const {return m_suborbitJ_virtual;}
 
@@ -244,7 +244,7 @@ public:
                                LevelData<NodeFArrayBox>&  a_sigma_zz,  
                                LevelData<EdgeDataBox>&    a_J0,
                                LevelData<NodeFArrayBox>&  a_J0v,
-                         const ElectroMagneticFields&     a_em_fields,
+                         const EMFields&                  a_emfields,
                          const Real                       a_dt ) const;
   
   
@@ -256,11 +256,11 @@ public:
   const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_faces;}
   const LevelData<NodeFArrayBox>& getChargeDensityOnNodes() const {return m_chargeDensity_nodes;}
 
-  void interpolateEfieldToParticles( const ElectroMagneticFields&  a_em_fields );
+  void interpolateEfieldToParticles( const EMFields&  a_emfields );
   
-  void interpolateFieldsToParticles( const ElectroMagneticFields&  a_em_fields );
+  void interpolateFieldsToParticles( const EMFields&  a_emfields );
 
-  void addExternalFieldsToParticles( const ElectroMagneticFields&  a_em_fields );
+  void addExternalFieldsToParticles( const EMFields&  a_emfields );
 
   void advancePositionsExplicit( const Real  a_full_dt,
                                  const bool  a_half_step = false );
@@ -338,14 +338,14 @@ public:
                             const bool  a_update_positions,
                             const bool  a_half_positions = false );
 
-  void advanceParticles( const ElectroMagneticFields&  a_em_fields,
-                         const Real                    a_dt );
+  void advanceParticles( const EMFields&  a_emfields,
+                         const Real       a_dt );
   
-  void advanceParticlesIteratively( const ElectroMagneticFields&  a_em_fields,
-                                    const Real                    a_dt );
+  void advanceParticlesIteratively( const EMFields&  a_emfields,
+                                    const Real       a_dt );
   
-  void advanceInflowParticlesIteratively( const ElectroMagneticFields&  a_em_fields,
-                                          const Real                    a_dt );
+  void advanceInflowParticlesIteratively( const EMFields&  a_emfields,
+                                          const Real       a_dt );
   
   void mergeSubOrbitParticles();
   
@@ -510,7 +510,7 @@ private:
                               const FArrayBox&        a_Bfield_virtual );
   
   void applyForcesToInflowParticles( List<JustinsParticle>&  a_pList,
-                               const ElectroMagneticFields&  a_em_fields,
+                               const EMFields&               a_emfields,
                                const EdgeDataBox&            a_Efield_inPlane,
                                const FluxBox&                a_Bfield_inPlane,
                                const FArrayBox&              a_Efield_virtual,
@@ -533,14 +533,14 @@ private:
 
   int newtonParticleUpdate( List<JustinsParticle>&  a_pList,
                       const Real          a_cnormDt, 
-                      const ElectroMagneticFields&  a_em_fields,
+                      const EMFields&     a_emfields,
                       const EdgeDataBox&  a_Efield_inPlane,
                       const FluxBox&      a_Bfield_inPlane,
                       const FArrayBox&    a_Efield_virtual,
                       const FArrayBox&    a_Bfield_virtual );
    
   void addExternalFieldsToParticles( List<JustinsParticle>&  a_pList, 
-                               const ElectroMagneticFields&  a_em_fields );
+                               const EMFields&               a_emfields );
  
   void createMeshInterp();
 
@@ -552,6 +552,8 @@ private:
                               const Real                   a_numDen_scale,
                               const Real                   a_cell_volume,
                               const int                    a_partsPerCell ) const;
+  
+  Real minimumJacobian( ) const;
 
   void zeroFields() {
     CH_TIME("PicSpecies::zeroFields()");

@@ -11,18 +11,16 @@ system.advance_method = "PIC_EM_EXPLICIT"
 # Time Stepping Definitions
 #####################################################
 simulation.max_step            = 200
-#simulation.max_step            = 1000000000
 simulation.max_time            = 5.0
-#simulation.cfl_number          = 0.5
-#simulation.cfl_scatter         = 0.5
 simulation.fixed_dt            = 5.0e-3
 #simulation.plot_interval       = 1000
-simulation.dt_scatter_interval = 100 
-simulation.dt_check_interval = 100 
 simulation.plot_time_interval  = 1.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
+
+simulation.dt_parts_check_interval   = 100 
+simulation.dt_scatter_check_interval = 100 
 
 history.precision = 8
 history.solver_probes = true

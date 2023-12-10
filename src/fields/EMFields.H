@@ -1,5 +1,5 @@
-#ifndef ElectroMagneticFields_h
-#define ElectroMagneticFields_h
+#ifndef EMFields_h
+#define EMFields_h
 
 #include <array>
 
@@ -17,6 +17,7 @@
 #include "RefCountedPtr.H"
 #include "FieldBC.H"
 #include "GridFunctionFactory.H"
+#include "ODEVector.H"
 
 #include "MeshInterp.H"
 //#include "PicSpecies.H" // JRA, can't do this. Circular
@@ -37,18 +38,18 @@
 
 typedef enum{b_only, e_only, e_and_b} EMVecType;
 
-class ElectroMagneticFields
+class EMFields
 {
 
 public:
 
-  ElectroMagneticFields( ParmParse&,
+  EMFields( ParmParse&,
                    const DomainGrid&,
                    const CodeUnits&,
                    const bool&,
                    const EMVecType& a = e_and_b);
   
-  virtual ~ElectroMagneticFields();
+  virtual ~EMFields();
 
   void initialize( const Real          a_cur_time,
                    const std::string&  a_restart_file_name );
@@ -242,6 +243,31 @@ public:
     else {return m_electricField;}
   }
   
+  void setChargeDensity( const LevelData<NodeFArrayBox>&  a_pic_rho ) {
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    for(DataIterator dit(grids); dit.ok(); ++dit) {
+      FArrayBox& rho = m_chargeDensity[dit].getFab();
+      const FArrayBox& this_pic_rho = a_pic_rho[dit].getFab();
+      rho.copy(this_pic_rho,0,0,rho.nComp());
+    }
+  }
+  
+  void setCurrentDensity( const LevelData<EdgeDataBox>&    a_pic_J,
+		          const LevelData<NodeFArrayBox>&  a_pic_Jv ) {
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+        FArrayBox& this_J = m_currentDensity[dit][dir];
+        const FArrayBox& this_pic_J = a_pic_J[dit][dir];
+        this_J.copy(this_pic_J);
+      }
+      FArrayBox& this_Jv = m_currentDensity_virtual[dit].getFab();
+      const FArrayBox& this_pic_Jv = a_pic_Jv[dit].getFab();
+      this_Jv.copy(this_pic_Jv,0,0,this_Jv.nComp());
+    }
+  }
+  
+  
   // const references to components of ExB  
   const LevelData<EdgeDataBox>& getExB() const {return m_ExB;}
   const LevelData<NodeFArrayBox>& getEvxB() const {return m_EvxB;}
@@ -261,8 +287,13 @@ public:
   // compute the divegence of the fields 
   void setDivB();
   void setDivE();
+  
+  // compute the curl of the fields 
+  void setCurlB();
+  void setCurlE();
 
-  void enforceGaussLaw( const Real  a_time );
+  void enforceGaussLaw( const LevelData<NodeFArrayBox>&  a_rho,
+		        const Real                       a_time );
   void solvePoisson( const Real  a_time );
   void correctElectricField();
   
@@ -299,13 +330,212 @@ public:
   {
     return 2;
   }
+      
+  void copyEFromVec( const ODEVector<EMFields>&  a_vec )
+  {
+    int offset(0);
+    copyEFromVec( a_vec, offset );
+  }
+  void copyBFromVec( const ODEVector<EMFields>& a_vec)
+  {
+    int offset(0);
+    copyBFromVec( a_vec, offset );
+  }
+  void copyBToVec( ODEVector<EMFields>& a_vec ) const
+  {
+    int offset(0);
+    copyBToVec( a_vec, offset );
+  }
+  void copyEToVec( ODEVector<EMFields>& a_vec ) const
+  {
+    int offset(0);
+    copyEToVec( a_vec, offset );
+  }
+
+  void copyEoldFromVec( const ODEVector<EMFields>&  a_vec )
+  {
+    int offset(0);
+    copyEoldFromVec( a_vec, offset );
+  }
+  void copyBoldFromVec( const ODEVector<EMFields>& a_vec)
+  {
+    int offset(0);
+    copyBoldFromVec( a_vec, offset );
+  }
+  void copyBoldToVec( ODEVector<EMFields>& a_vec ) const
+  {
+    int offset(0);
+    copyBoldToVec( a_vec, offset );
+  }
+  void copyEoldToVec( ODEVector<EMFields>& a_vec ) const
+  {
+    int offset(0);
+    copyEoldToVec( a_vec, offset );
+  }
+  
+  void copyERHSFromVec( const ODEVector<EMFields>&  a_vec )
+  {
+    int offset(0);
+    copyERHSFromVec( a_vec, offset );
+  }
+  void copyBRHSFromVec( const ODEVector<EMFields>& a_vec)
+  {
+    int offset(0);
+    copyBRHSFromVec( a_vec, offset );
+  }
+  void copyBRHSToVec( ODEVector<EMFields>& a_vec ) const
+  {
+    int offset(0);
+    copyBRHSToVec( a_vec, offset );
+  }
+  void copyERHSToVec( ODEVector<EMFields>& a_vec ) const
+  {
+    int offset(0);
+    copyERHSToVec( a_vec, offset );
+  }
+
+  void copyEFromVec( const ODEVector<EMFields>&  a_vec,
+                           int&                  a_offset )
+  {
+    a_offset += SpaceUtils::copyToLevelData( m_electricField, a_vec.dataAt(a_offset) );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyToLevelData( m_electricField_virtual, a_vec.dataAt(a_offset) );
+#endif
+    return;
+  }
+  void copyBFromVec( const ODEVector<EMFields>&  a_vec,
+                           int&                  a_offset )
+  {
+    a_offset += SpaceUtils::copyToLevelData( m_magneticField, a_vec.dataAt(a_offset) );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyToLevelData( m_magneticField_virtual, a_vec.dataAt(a_offset) );
+#endif
+    return;
+  }
+  void copyEToVec( ODEVector<EMFields>&  a_vec,
+                   int&                  a_offset ) const
+  {
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_electricField );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_electricField_virtual );
+#endif
+    return;
+  }
+  void copyBToVec( ODEVector<EMFields>&  a_vec,
+                   int&                  a_offset ) const
+  {
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_magneticField );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_magneticField_virtual );
+#endif
+    return;
+  }
+
+  void copyEoldFromVec( const ODEVector<EMFields>&  a_vec,
+                              int&                  a_offset )
+  {
+    a_offset += SpaceUtils::copyToLevelData( m_electricField_old, a_vec.dataAt(a_offset) );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyToLevelData( m_electricField_virtual_old, a_vec.dataAt(a_offset) );
+#endif
+    return;
+  }
+  void copyBoldFromVec( const ODEVector<EMFields>&  a_vec,
+                              int&                  a_offset )
+  {
+    a_offset += SpaceUtils::copyToLevelData( m_magneticField_old, a_vec.dataAt(a_offset) );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyToLevelData( m_magneticField_virtual_old, a_vec.dataAt(a_offset) );
+#endif
+    return;
+  }
+  void copyEoldToVec( ODEVector<EMFields>&  a_vec,
+                      int&                  a_offset ) const
+  {
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_electricField_old );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_electricField_virtual_old );
+#endif
+    return;
+  }
+  void copyBoldToVec( ODEVector<EMFields>&  a_vec,
+                      int&                  a_offset ) const
+  {
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_magneticField_old );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_magneticField_virtual_old );
+#endif
+    return;
+  }
+
+  void copyERHSFromVec( const ODEVector<EMFields>&  a_vec,
+                              int&                  a_offset )
+  {
+    a_offset += SpaceUtils::copyToLevelData( m_electricField_rhs, a_vec.dataAt(a_offset) );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyToLevelData( m_electricField_virtual_rhs, a_vec.dataAt(a_offset) );
+#endif
+    return;
+  }
+  void copyBRHSFromVec( const ODEVector<EMFields>&  a_vec,
+                              int&                  a_offset )
+  {
+    a_offset += SpaceUtils::copyToLevelData( m_magneticField_rhs, a_vec.dataAt(a_offset) );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyToLevelData( m_magneticField_virtual_rhs, a_vec.dataAt(a_offset) );
+#endif
+    return;
+  }
+  void copyERHSToVec( ODEVector<EMFields>&  a_vec,
+                      int&                  a_offset ) const
+  {
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_electricField_rhs );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_electricField_virtual_rhs );
+#endif
+    return;
+  }
+  void copyBRHSToVec( ODEVector<EMFields>&  a_vec,
+                      int&                  a_offset ) const
+  {
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_magneticField_rhs );
+#if CH_SPACEDIM<3
+    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), m_magneticField_virtual_rhs );
+#endif
+    return;
+  }
+
+  void updatePhysicalState( ODEVector<EMFields>&  a_U,
+                      const Real                  a_time,
+                      const EMVecType&            a_vec_type )
+  {
+    CH_TIME("EMFields::updatePhysicalState()");
+    if (a_vec_type == b_only) {
+      copyBFromVec( a_U );
+      applyBCs_magneticField( a_time );
+      copyBToVec( a_U );
+    } else if (a_vec_type == e_only ) {
+      copyEFromVec( a_U );
+      applyBCs_electricField( a_time );
+      copyEToVec( a_U );
+    } else {
+      int offset(0);
+      copyBFromVec( a_U, offset );
+      copyEFromVec( a_U, offset );
+      applyBCs_magneticField( a_time );
+      applyBCs_electricField( a_time );
+      offset = 0;
+      copyBToVec( a_U, offset );
+      copyEToVec( a_U, offset );
+    }
+  }
 
   inline int vecOffsetBField() const { return m_vec_offset_bfield; }
   inline int vecOffsetBFieldVirtual() const { return m_vec_offset_bfield_virtual; }
   inline int vecOffsetEField() const { return m_vec_offset_efield; }
   inline int vecOffsetEFieldVirtual() const { return m_vec_offset_efield_virtual; }
 
-  void postTimeStep( const Real  a_dt );
+  void updateBoundaryProbes( const Real  a_dt );
   
   // applyBCs to fields
   void applyBCs_electricField( const Real  a_time );
@@ -322,10 +552,6 @@ public:
   
 private:
   
-  // compute the curl of the fields 
-  void setCurlB();
-  void setCurlE();
-  
   const bool m_verbosity; 
   bool m_use_filtering; 
   bool m_use_poisson; 
@@ -338,6 +564,7 @@ private:
   std::array<bool,3> m_advanceB_comp;
   bool m_writeDivs, m_writeCurls, m_writeRho, m_writeExB; 
   Real m_stable_dt;
+  Real m_cvacNorm;
   Real m_Jnorm_factor; // mu0*qe*cvac*Xscale/Bscale
   Real m_rhoCnorm_factor; // qe/ep0*Xscale/Escale
   Real m_energyE_factor; // Escale*Escale*ep0
@@ -363,6 +590,12 @@ private:
   const DomainGrid& m_mesh;
   
   FieldBC* m_field_bc;  
+  
+  // containers for BC masking in preconditioner matrix
+  LevelData<FluxBox> m_PC_mask_B;
+  LevelData<FArrayBox> m_PC_mask_Bv;
+  LevelData<EdgeDataBox> m_PC_mask_E;
+  LevelData<NodeFArrayBox> m_PC_mask_Ev;
 
   // containers for magnetic field
   LevelData<FluxBox> m_magneticField;          

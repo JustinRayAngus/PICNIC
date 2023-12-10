@@ -12,13 +12,15 @@ simulation.max_step            = 100
 simulation.max_time            = 9.0e-4
 simulation.cfl_number          = 0.7
 simulation.cfl_scatter         = 0.5
-simulation.dt_scatter_interval = 10
 #simulation.fixed_dt            = 1.0e-5
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 9.0e-4
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 10
+
+simulation.dt_parts_check_interval   = 1 
+simulation.dt_scatter_check_interval = 10 
 
 #####################################################
 # Computational Grid Definitions

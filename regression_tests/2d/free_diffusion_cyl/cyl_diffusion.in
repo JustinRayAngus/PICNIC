@@ -1,4 +1,4 @@
-#TEST np=25, timelimit=00:05:00
+#TEST np=72, timelimit=00:05:00
 #####################################################
 # Verbosity and writing Definitions
 #####################################################
@@ -50,13 +50,18 @@ gmres.maxits = 1000
 # Time Stepping Definitions
 #####################################################
 simulation.max_step            = 2
-#simulation.max_step            = 1000000000
-simulation.max_time            = 50.0
-simulation.fixed_dt            = 0.001
-simulation.plot_time_interval  = 0.002
+simulation.max_time            = 2.0
+simulation.fixed_dt            = 0.01
+simulation.plot_time_interval  = 0.2
+simulation.plot_parts_factor   = 5
+simulation.plot_on_restart     = false
+simulation.plot_on_final_step  = false
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 2
+
+simulation.dt_parts_check_interval   = 100
+simulation.dt_scatter_check_interval = 100
 
 history.precision = 12
 history.solver_probes = true
@@ -74,9 +79,9 @@ simulation.wall_time_hrs = 0.95
 #####################################################
 # Computational Grid Definitions
 #####################################################
-grid.num_cells     = 480 24
+grid.num_cells     = 432 24
 grid.is_periodic   = 0  1
-grid.config_decomp = 40 2
+grid.config_decomp = 36 2
 grid.geometry      = "cyl_RZ"
 grid.volume_correction = "conservative"
 grid.num_ghosts    = 3 3
@@ -150,11 +155,11 @@ pic_species.0.interp_type_E = "CC1"
 #pic_species.0.push_type = "CYL_CYL"
 #pic_species.0.push_type = "CYL_HYB"
 pic_species.0.push_type = "CYL_CAR"
-#pic_species.0.use_suborbit_model = true
+pic_species.0.use_suborbit_model = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 50.0
-IC.electron.parts_per_cell = 50 50
+IC.electron.parts_per_cell = 25 25
 #IC.electron.uniform_particle_weights = true
 IC.electron.use_float_for_weights = true
 IC.electron.density.type = "constant"
@@ -189,11 +194,11 @@ pic_species.1.interp_type_E = "CC1"
 #pic_species.1.push_type = "CYL_CYL"
 #pic_species.1.push_type = "CYL_HYB"
 pic_species.1.push_type = "CYL_CAR"
-#pic_species.1.use_suborbit_model = true
+pic_species.1.use_suborbit_model = true
 
 IC.proton.X_min = 0.0
 IC.proton.X_max = 50.0
-IC.proton.parts_per_cell = 50 50
+IC.proton.parts_per_cell = 25 25
 #IC.proton.uniform_particle_weights = true
 IC.proton.use_float_for_weights = true
 IC.proton.density.type = "constant"

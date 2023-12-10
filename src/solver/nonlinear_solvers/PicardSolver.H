@@ -138,14 +138,14 @@ void PicardSolver<Vec,Ops>::solve(  Vec&          a_U,
 
     m_Uold = a_U;
 
-    m_ops->preRHSOp( a_U, a_dt, iter);
+    m_ops->preRHSOp( a_U, a_time, a_dt, iter, false );
 
     m_F = 0;
-    for (int i(0); i < m_num_blocks; i++) {
-      m_ops->computeRHS( m_F, a_U, i, a_time, m_dtfac*a_dt, iter );
+    for (int b(0); b < m_num_blocks; b++) {
+      m_ops->computeRHS( m_F, a_U, a_time, m_dtfac*a_dt, b );
 
       a_U = a_R + m_F;
-      m_ops->updatePhysicalState( a_U, i, a_time );
+      m_ops->updatePhysicalState( a_U, b, a_time );
     }
 
     m_norm = (a_U-m_Uold).norm();

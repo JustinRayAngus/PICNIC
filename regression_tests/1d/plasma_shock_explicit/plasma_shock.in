@@ -16,23 +16,21 @@ simulation.fixed_random_seed = 1983
 ###   mfpi2 = Vi2*taui2 = 8.94e-8 m
 
 system.advance_method = "PIC_EM_EXPLICIT"
-pic_em_explicit.old_ordering = false
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 10
 simulation.max_step            = 10000000
 simulation.max_time            = 140.0
-#simulation.cfl_number          = 0.565
-#simulation.cfl_scatter         = 0.001
-#simulation.dt_scatter_interval = 10
 simulation.fixed_dt            = 0.2
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 2000.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 20
+
+simulation.dt_parts_check_interval   = 100 
+simulation.dt_scatter_check_interval = 100
 
 history.precision = 8
 history.field_probes = true

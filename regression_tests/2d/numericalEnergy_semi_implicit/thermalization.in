@@ -21,18 +21,17 @@ picard.maxits = 5
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 1
 simulation.max_step            = 1000000
 simulation.max_time            = 20.0
-#simulation.cfl_number          = 0.565
-#simulation.cfl_scatter         = 0.001
-#simulation.dt_scatter_interval = 10
 simulation.fixed_dt            = 0.10
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 200.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 20
+
+simulation.dt_parts_check_interval   = 100
+simulation.dt_scatter_check_interval = 100
 
 history.precision = 8
 history.field_probes = true
@@ -50,7 +49,7 @@ grid.num_cells     = 40 40
 grid.is_periodic   = 1  1
 grid.config_decomp = 5  5
 grid.geometry      = "cartesian"
-grid.num_ghosts    = 2
+grid.num_ghosts    = 3
 
 grid.X_min = 0.0
 grid.X_max = 10.0
@@ -74,6 +73,7 @@ em_fields.advance = true
 em_fields.write_rho = true
 em_fields.write_divs = true
 em_fields.write_curls = true
+em_fields.use_filtering = true
 
 IC.em_fields.magnetic.0.type = "constant"
 IC.em_fields.magnetic.0.value = 0.0
@@ -102,10 +102,6 @@ pic_species.0.interp_type_N = "CIC"
 pic_species.0.interp_type_J = "CC0"
 pic_species.0.interp_type_E = "CC0"
 
-IC.electron.X_min = 0.0
-IC.electron.X_max = 10.0
-IC.electron.Z_min = 0.0
-IC.electron.Z_max = 10.0
 IC.electron.parts_per_cell = 10 10
 IC.electron.density.type = "constant"
 IC.electron.density.value = 1.0e30 # [number/m^3]
@@ -132,10 +128,6 @@ pic_species.1.interp_type_N = "CIC"
 pic_species.1.interp_type_J = "CC0"
 pic_species.1.interp_type_E = "CC0"
 
-IC.proton.X_min = 0.0
-IC.proton.X_max = 10.0
-IC.proton.Z_min = 0.0
-IC.proton.Z_max = 10.0
 IC.proton.parts_per_cell = 10 10
 IC.proton.density.type = "constant"
 IC.proton.density.value = 1.0e30 # [number/m^3]

@@ -13,22 +13,19 @@ class PICTimeIntegrator_DSMC : public PICTimeIntegrator
 
     PICTimeIntegrator_DSMC() 
     {
-      m_system = nullptr;
-      m_particles.clear();
+      m_pic_species = nullptr;
       m_is_defined = false;
     }
 
     virtual ~PICTimeIntegrator_DSMC() {}
 
     virtual 
-    void define(  System* const                 a_sys,
-                  const PicSpeciesPtrVect&      a_particles,
-                  ElectroMagneticFields* const  a_fields )
+    void define( PicSpeciesInterface* const    a_pic_species,
+                 EMFields* const  a_fields )
     {
       CH_assert(!isDefined());
 
-      m_system = a_sys;
-      m_particles = a_particles;
+      m_pic_species = a_pic_species;
 
       printParams();
 
@@ -57,8 +54,7 @@ class PICTimeIntegrator_DSMC : public PICTimeIntegrator
 
     bool m_is_defined;
 
-    System*                 m_system;
-    PicSpeciesPtrVect       m_particles;
+    PicSpeciesInterface*    m_pic_species;
 
   private:
 

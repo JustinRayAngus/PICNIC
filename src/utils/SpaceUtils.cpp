@@ -57,44 +57,45 @@ SpaceUtils::applyBinomialFilter( FArrayBox&  a_Q,
    const int ncomp = a_Q.nComp();
    FArrayBox Q2( a_Q.box(), ncomp );
 
+   const IntVect ivzero = IntVect::Zero;
    BoxIterator bit(a_grid_box);
    for (bit.begin(); bit.ok(); ++bit) {
 
       IntVect iv = bit();
       for (int n=0; n<ncomp; n++) {
 #if CH_SPACEDIM==1
-         IntVect iup0 = iv; iup0[0]++;  // [1 2 1]/4
-         IntVect idn0 = iv; idn0[0]--;
-         Q2(iv,n) = a_Q(iup0,n) + a_Q(idn0,n);
+         IntVect iup0 = ivzero; iup0[0]++;  // [1 2 1]/4
+         IntVect idn0 = ivzero; idn0[0]--;
+         Q2(iv,n) = a_Q(iv+iup0,n) + a_Q(iv+idn0,n);
 #elif CH_SPACEDIM==2
-         IntVect iup0 = iv; iup0[0]++; // [1 2 1
-         IntVect idn0 = iv; idn0[0]--; //  2 4 2
-         IntVect iup1 = iv; iup1[1]++; //  1 2 1]/16
-         IntVect idn1 = iv; idn1[1]--;
-	 Q2(iv,n) = 2.0*(a_Q(iup0,n) + a_Q(idn0,n))
-	          + 2.0*(a_Q(iup1,n) + a_Q(idn1,n))
-	          + a_Q(iup0+iup1,n) + a_Q(iup0+idn1,n)
-	          + a_Q(idn0+iup1,n) + a_Q(idn0+idn1,n);
+         IntVect iup0 = ivzero; iup0[0]++; // [1 2 1
+         IntVect idn0 = ivzero; idn0[0]--; //  2 4 2
+         IntVect iup1 = ivzero; iup1[1]++; //  1 2 1]/16
+         IntVect idn1 = ivzero; idn1[1]--;
+	 Q2(iv,n) = 2.0*(a_Q(iv+iup0,n) + a_Q(iv+idn0,n))
+	          + 2.0*(a_Q(iv+iup1,n) + a_Q(iv+idn1,n))
+	          + a_Q(iv+iup0+iup1,n) + a_Q(iv+iup0+idn1,n)
+	          + a_Q(iv+idn0+iup1,n) + a_Q(iv+idn0+idn1,n);
 #elif CH_SPACEDIM==3
-         IntVect iup0 = iv; iup0[0]++; // [1 2 1 ... 2 4 2 ... 1 2 1
-         IntVect idn0 = iv; idn0[0]--; //  2 4 2 ... 4 8 4 ... 2 4 2
-         IntVect iup1 = iv; iup1[1]++; //  1 2 1 ... 2 4 2 ... 1 2 1]/64
-         IntVect idn1 = iv; idn1[1]--;
-         IntVect iup2 = iv; iup2[2]++;
-         IntVect idn2 = iv; idn2[2]--;
-	 Q2(iv,n) = 4.0*(a_Q(iup0,n) + a_Q(idn0,n))
-	          + 4.0*(a_Q(iup1,n) + a_Q(idn1,n))
-	          + 4.0*(a_Q(iup2,n) + a_Q(idn2,n))
-	          + 2.0*(a_Q(iup0+iup1,n) + a_Q(iup0+idn1,n))
-	                       + 2.0*(a_Q(iup0+iup2,n) + a_Q(iup0+idn2,n))
-	                       + 2.0*(a_Q(iup1+iup2,n) + a_Q(iup1+idn2,n))
-	                       + 2.0*(a_Q(idn1+iup2,n) + a_Q(idn1+idn2,n))
-	                       + 2.0*(a_Q(idn0+iup1,n) + a_Q(idn0+idn1,n))
-	                       + 2.0*(a_Q(idn0+iup2,n) + a_Q(idn0+idn2,n))
-	                       + a_Q(iup0+iup1+iup2,n) + a_Q(iup0+iup1+idn2,n)
-	                       + a_Q(iup0+idn1+iup2,n) + a_Q(iup0+idn1+idn2,n)
-	                       + a_Q(idn0+iup1+iup2,n) + a_Q(idn0+iup1+idn2,n)
-	                       + a_Q(idn0+idn1+iup2,n) + a_Q(idn0+idn1+idn2,n);
+         IntVect iup0 = ivzero; iup0[0]++; // [1 2 1 ... 2 4 2 ... 1 2 1
+         IntVect idn0 = ivzero; idn0[0]--; //  2 4 2 ... 4 8 4 ... 2 4 2
+         IntVect iup1 = ivzero; iup1[1]++; //  1 2 1 ... 2 4 2 ... 1 2 1]/64
+         IntVect idn1 = ivzero; idn1[1]--;
+         IntVect iup2 = ivzero; iup2[2]++;
+         IntVect idn2 = ivzero; idn2[2]--;
+	 Q2(iv,n) = 4.0*(a_Q(iv+iup0,n) + a_Q(iv+idn0,n))
+	          + 4.0*(a_Q(iv+iup1,n) + a_Q(iv+idn1,n))
+	          + 4.0*(a_Q(iv+iup2,n) + a_Q(iv+idn2,n))
+	          + 2.0*(a_Q(iv+iup0+iup1,n) + a_Q(iv+iup0+idn1,n))
+	                       + 2.0*(a_Q(iv+iup0+iup2,n) + a_Q(iv+iup0+idn2,n))
+	                       + 2.0*(a_Q(iv+iup1+iup2,n) + a_Q(iv+iup1+idn2,n))
+	                       + 2.0*(a_Q(iv+idn1+iup2,n) + a_Q(iv+idn1+idn2,n))
+	                       + 2.0*(a_Q(iv+idn0+iup1,n) + a_Q(iv+idn0+idn1,n))
+	                       + 2.0*(a_Q(iv+idn0+iup2,n) + a_Q(iv+idn0+idn2,n))
+	                       + a_Q(iv+iup0+iup1+iup2,n) + a_Q(iv+iup0+iup1+idn2,n)
+	                       + a_Q(iv+iup0+idn1+iup2,n) + a_Q(iv+iup0+idn1+idn2,n)
+	                       + a_Q(iv+idn0+iup1+iup2,n) + a_Q(iv+idn0+iup1+idn2,n)
+	                       + a_Q(iv+idn0+idn1+iup2,n) + a_Q(iv+idn0+idn1+idn2,n);
 #endif
       } // end loop over components
 
@@ -1300,14 +1301,10 @@ SpaceUtils::inspectFluxBox(const LevelData<FluxBox>&  a_Flux,
    
    for (DataIterator dit(grids); dit.ok(); ++dit) {
       
-      const FluxBox& Flux_on_patch = a_Flux[dit]; 
-      //const Box& thisbox = Flux_on_patch.box();
-
-      Box facebox( grids[dit] );
-      facebox.surroundingNodes( a_dir );
-
-      const FArrayBox& Flux_on_dir = Flux_on_patch[a_dir]; 
-      //const Box& thisbox = Flux_on_dir.box();
+      const FArrayBox& Flux_on_dir = a_Flux[dit][a_dir]; 
+      Box facebox = Flux_on_dir.box();
+      //Box facebox( grids[dit] );
+      //facebox.surroundingNodes( a_dir );
 
       FORT_INSPECT_FLUXBOX( CHF_BOX(facebox), 
                             CHF_CONST_FRA(Flux_on_dir),
@@ -1331,6 +1328,22 @@ SpaceUtils::inspectEdgeDataBox(const LevelData<EdgeDataBox>&  a_Edge,
                             CHF_CONST_FRA(Edge_on_dir),
                             CHF_CONST_INT(a_dir) );
    }
+}
+
+void 
+SpaceUtils::inspectNodeFArrayBox(const LevelData<NodeFArrayBox>&  a_F0,
+                                 const int                        a_comp )
+{
+   CH_assert(a_comp<a_F0.nComp());
+   const DisjointBoxLayout& grids( a_F0.getBoxes() );
+
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
+      const FArrayBox& F0_on_patch = a_F0[dit].getFab();   
+      const Box node_box = F0_on_patch.box();
+      FORT_INSPECT_FARRAYBOX( CHF_BOX(node_box), 
+                              CHF_CONST_FRA1(F0_on_patch,a_comp) );
+   }
+
 }
 
 #if 1

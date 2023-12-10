@@ -22,41 +22,45 @@ pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
 pic_species.mod_init_advance = true
 
+pic_em_theta_implicit.pc_update_newton = false
+em_fields.pc_mass_matrix_width = 0
+em_fields.pc_mass_matrix_include_ij = false
+
 #pic_em_theta_implicit.solver_type = "picard"
 pic_em_theta_implicit.solver_type = "newton"
 #pic_em_theta_implicit.solver_type = "petsc"
 pic_em_theta_implicit.ec_semi_implicit = true
-#pic_em_theta_implicit.pc_update_freq = 1
-jacobian.with_pc = false
+pic_em_theta_implicit.pc_update_freq = 1
+jacobian.with_pc = true
 
-newton.verbose = false
-newton.rtol = 1.0e-8
-newton.atol = 1.0e-12
-newton.maxits = 1 # if ec_semi_implicit = true above, set
-                  # maxits=1(2) for solver_type = newton(petsc)
+newton.verbose = true
+#newton.linear_solver = "petsc_ksp"
+newton.rtol = -1.0e-16
+newton.atol = -1.0e-20
+newton.stol = -1.0e-20
+newton.maxits = 2
 
-gmres.verbose = false
-gmres.rtol = 1.0e-6
+gmres.verbose = true
+gmres.rtol = 1.0e-10
 gmres.atol = 1.0e-12
 gmres.maxits = 1000
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 1
 simulation.max_step            = 1000000
 simulation.max_time            = 20.0
-#simulation.cfl_number          = 0.565
-#simulation.cfl_scatter         = 0.001
-#simulation.dt_scatter_interval = 10
 simulation.fixed_dt            = 0.10
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 200.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
-simulation.history_interval    = 20
+simulation.history_interval    = 10
 
-history.precision = 8
+simulation.dt_parts_check_interval   = 100
+simulation.dt_scatter_check_interval = 100
+
+history.precision = 16
 history.field_probes = true
 history.solver_probes = true
 history.species_solver_probes = true

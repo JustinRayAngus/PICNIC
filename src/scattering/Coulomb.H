@@ -259,6 +259,7 @@ class Coulomb : public Scattering
       bool m_enforce_conservations;
       bool m_sort_weighted_particles;
       Real m_energy_fraction;
+      int m_loop_count_max = 100; // hard coded for now
 
       // preallocate some constants to avoid redeclaring many times
       mutable Real m_s12, m_costh, m_sinth, m_phi, m_cosphi, m_sinphi;

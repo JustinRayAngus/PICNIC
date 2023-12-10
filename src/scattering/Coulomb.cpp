@@ -546,11 +546,15 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
 	     	          { return lhs.getPointer()->weight() > rhs.getPointer()->weight(); } );
 	    }
 
-            int count = 0;            
+            int count = 0;
+	    int loop_count = 0;
             for (int p=0; p<vector_part_ptrs.size(); p++) {
                int p1 = p;
    	       p++;
-	       if(p==vector_part_ptrs.size()) p = 0;
+	       if(p==vector_part_ptrs.size()) {
+		  loop_count++;
+		  p = 0;
+	       }
 	       int p2 = p;
 	    
 	       // get particle data for first particle    
@@ -573,7 +577,20 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
 		  //cout << "JRA: count = " << count << endl;
 		  break;
 	       }
-	       if(p==vector_part_ptrs.size()-1) p = -1;
+	       if(p==vector_part_ptrs.size()-1) {
+		  loop_count++;
+		  p = -1;
+	       }
+	       if(loop_count>m_loop_count_max) {
+		  cout << "Notice: loop_count > loop_count_max = " << m_loop_count_max << endl;
+		  cout << "        for species1 = " << m_species1_name << endl;
+		  cout << "        and species2 = " << m_species2_name << endl;
+		  cout << "        num_parts    = " << vector_part_ptrs.size() << endl;
+		  cout << "        ig           = " << ig << endl;
+		  cout << "        Etot0        = " << Etot0 << endl;
+		  cout << "        deltaE       = " << deltaE << endl;
+		  break;
+	       }
 	    }
 
 	 }
@@ -1274,13 +1291,17 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
 	                  []( JustinsParticlePtr& lhs, JustinsParticlePtr& rhs )
 	     	          { return lhs.getPointer()->weight() > rhs.getPointer()->weight(); } );
 	    }
-
+	    
 	    // adjust species 1 particles to absorb deltaEp1
+	    int loop1_count = 0;
             for (int p=0; p<vector_part1_ptrs.size(); p++) {
 	       if(deltaEp1==0.0) break;
                int p1 = p;
    	       p++;
-	       if(p==vector_part1_ptrs.size()) p = 0;
+	       if(p==vector_part1_ptrs.size()) {
+		  loop1_count++;
+		  p = 0;
+	       }
 	       int p2 = p;
 	    
 	       // get particle data for first particle    
@@ -1297,15 +1318,34 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
 
 	       // zero angle inelastic scatter
                modEnergyPairwise(betap1, betap2, m_mass1*wp1, m_mass1*wp2, deltaEp1);
-	       if(p==vector_part1_ptrs.size()-1) p = -1;
+	       if(p==vector_part1_ptrs.size()-1) {
+		  loop1_count++;
+		  p = -1;
+	       }
+	       if(loop1_count>m_loop_count_max) {
+		  cout << "Notice: loop1_count > loop_count_max = " << m_loop_count_max << endl;
+		  cout << "        for species1 = " << m_species1_name << endl;
+		  cout << "        and species2 = " << m_species2_name << endl;
+		  cout << "        num_parts1   = " << vector_part1_ptrs.size() << endl;
+		  cout << "        ig           = " << ig << endl;
+		  cout << "        Etot0        = " << Etot0 << endl;
+		  cout << "        Etot1        = " << Etot1 << endl;
+		  cout << "        Etot11       = " << Etot11 << endl;
+		  cout << "        deltaEp1     = " << deltaEp1 << endl;
+		  break;
+	       }
 	    }
 	    
 	    // adjust species 2 particles to absorb deltaEp1
+	    int loop2_count = 0;
             for (int p=0; p<vector_part2_ptrs.size(); p++) {
 	       if(deltaEp2==0.0) break;
                int p1 = p;
    	       p++;
-	       if(p==vector_part2_ptrs.size()) p = 0;
+	       if(p==vector_part2_ptrs.size()) {
+		  loop2_count++;
+		  p = 0;
+	       }
 	       int p2 = p;
 	    
 	       // get particle data for first particle    
@@ -1322,7 +1362,22 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
 
 	       // zero angle inelastic scatter
                modEnergyPairwise(betap1, betap2, m_mass2*wp1, m_mass2*wp2, deltaEp2);
-	       if(p==vector_part2_ptrs.size()-1) p = -1;
+	       if(p==vector_part2_ptrs.size()-1) {
+		  loop2_count++;
+		  p = -1;
+	       }
+	       if(loop2_count>m_loop_count_max) {
+		  cout << "Notice: loop2_count > loop_count_max = " << m_loop_count_max << endl;
+		  cout << "        for species1 = " << m_species1_name << endl;
+		  cout << "        and species2 = " << m_species2_name << endl;
+		  cout << "        num_parts2   = " << vector_part2_ptrs.size() << endl;
+		  cout << "        ig           = " << ig << endl;
+		  cout << "        Etot0        = " << Etot0 << endl;
+		  cout << "        Etot1        = " << Etot1 << endl;
+		  cout << "        Etot12       = " << Etot12 << endl;
+		  cout << "        deltaEp2     = " << deltaEp2 << endl;
+		  break;
+	       }
 	    }
 
 	 }

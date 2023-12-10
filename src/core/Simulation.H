@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include <time.h>
+#include <sys/time.h>
 
 #include "RefCountedPtr.H"
 #include "ParmParse.H"
@@ -64,11 +64,11 @@ class Simulation
       void parseParameters( ParmParse& ppsim );
       void printParameters();
       void loadRestartFile( ParmParse& ppsim );
-      void writePlotFile();
-      inline void writeHistFile(bool startup_flag);
+      void writePlotFile( const bool  a_plot_parts = true );
+      inline void writeHistFile(const bool  startup_flag);
       void writeCheckpointFile();
-      void setFixedTimeStep(const Real& a_dt);
       void enforceTimeStep(const Real  a_local_dt);
+      void setTimeStep(const bool  startup_flag = false);
       void preTimeStep();
       void postTimeStep();
       void writeFiles();
@@ -90,18 +90,28 @@ class Simulation
       Real m_dt_light;
       Real m_dt_parts;
       Real m_dt_scatter;
-      Real m_dt_specialOps;
-      Real m_cfl;
-      Real m_cfl_scatter;
-      int m_dt_scatter_interval;
-      int m_dt_check_interval;
+      Real m_dt_special;
+      Real m_dt_cyclotron;
+      Real m_cfl_light;
+      Real m_cfl_parts;
+      Real m_dt_scatter_factor;
+      Real m_dt_special_factor;
+      Real m_dt_cyclotron_factor;
+      int m_dt_parts_check_interval;
+      int m_dt_scatter_check_interval;
+      int m_dt_special_check_interval;
+      int m_dt_cyclotron_check_interval;
       bool m_adapt_dt;
       static const Real s_DT_EPS;
 
       int         m_plot_interval;
+      int         m_plot_parts_factor;
       Real        m_plot_time_interval;
       Real        m_plot_time;
+      Real        m_plot_parts_time;
       int         m_last_plot;
+      bool        m_plot_on_restart;
+      bool        m_plot_on_final_step;
       std::string m_plot_prefix;
 
       bool        m_history;
@@ -138,6 +148,9 @@ class Simulation
 
       /* Walltime measurements */
       time_t m_main_start, m_solve_start;
+      bool m_print_detailed_walltimes;
+      double m_wt_step, m_wt_total, m_wt_step_cumul;
+      struct timeval m_sim_start;
 };
 
 #include "NamespaceFooter.H"

@@ -17,8 +17,8 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
 
     PICTimeIntegrator_EM_ThetaImplicit() 
     {
-      m_system = nullptr;
-      m_particles.clear();
+      m_pic_species = nullptr;
+      m_fields = nullptr;
 
       m_nlsolver_type = _NLSOLVER_PICARD_;
       m_nlsolver = nullptr;
@@ -38,9 +38,8 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     }
 
     virtual 
-    void define( System* const,
-                 const PicSpeciesPtrVect&,
-                 ElectroMagneticFields* const );
+    void define( PicSpeciesInterface* const,
+                 EMFields* const );
     
     virtual void printParams() const;
 
@@ -57,6 +56,7 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
                              const int   a_step )
     {
       m_Uold = m_U;
+      m_nl_iter = 0;
 
       // update solver verbosity 
       bool this_verbosity = false;
@@ -71,18 +71,44 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
       m_nlsolver->verbose(this_verbosity);
   
       // update old particle values and create inflow particles  
-      for (int s=0; s<m_particles.size(); s++) {
-        auto this_picSpecies(m_particles[s]);
-        this_picSpecies->updateOldParticlePositions();
-        this_picSpecies->updateOldParticleVelocities();
-        this_picSpecies->createInflowParticles( a_time, a_dt );
-        this_picSpecies->injectInflowParticles();
+      const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+      const int num_species = pic_species_ptr_vect.size();
+      for (int sp=0; sp<num_species; sp++) {
+        auto species(pic_species_ptr_vect[sp]);
+        species->updateOldParticlePositions();
+        species->updateOldParticleVelocities();
+        species->createInflowParticles( a_time, a_dt );
+        species->injectInflowParticles();
       }
 
     }
 
     virtual void timeStep( const Real, const Real, const int );
-    virtual void postTimeStep( const Real, const Real );
+    
+    virtual void preRHSOp( const ODEVector<EMFields>&  a_U,
+                           const Real                  a_time, 
+                           const Real                  a_dt,
+                           const int                   a_nl_iter,
+                           const bool                  a_from_emjacobian );
+    
+    virtual void computeRHS( ODEVector<EMFields>&  a_F,
+		       const ODEVector<EMFields>&,
+		       const Real                  a_time,
+		       const Real                  a_dt,
+		       const int                   a_block = -1 );
+    
+    virtual void updatePhysicalState( ODEVector<EMFields>&  a_U,
+                                const int                   a_block,
+                                const Real                  a_time );
+    
+    virtual void updatePrecondMat( BandedMatrix&  a_Pmat,
+                             const Real           a_time,
+                             const Real           a_dt );
+      
+    virtual int numPCMatBands() const
+    {
+      return m_fields->numPCMatBands();
+    }
 
     virtual void getConvergenceParams( int&   a_l_exit_status,
                                        int&   a_l_last_iter, 
@@ -91,7 +117,8 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
                                        int&   a_nl_iter, 
                                        int&   a_nl_total_iter, 
                                        Real&  a_nl_abs_res, 
-                                       Real&  a_nl_rel_res ) const 
+                                       Real&  a_nl_rel_res,
+                                       Real&  a_step_wall_time ) const 
     {
        m_nlsolver->getConvergenceParams( a_l_exit_status, a_l_last_iter, a_l_total_iter, 
                                          a_nl_exit_status, a_nl_iter, a_nl_total_iter, 
@@ -106,6 +133,7 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
          a_nl_abs_res = m_last_nl_abs_res; 
          a_nl_rel_res = m_last_nl_rel_res;
        } 
+       a_step_wall_time = m_step_wall_time;
     }
 
   protected:
@@ -116,17 +144,19 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     std::string m_nlsolver_type;
 
 
-    System*                 m_system;
-    PicSpeciesPtrVect       m_particles;
+    PicSpeciesInterface*    m_pic_species;
+    EMFields*  m_fields;
 
     Real m_theta;
 
-    ODEVector<System> m_U, m_Uold;
-    NonlinearFunction<ODEVector<System>, System>* m_func;
-    NonlinearSolver<ODEVector<System>, System>* m_nlsolver;
+    ODEVector<EMFields> m_U, m_Uold;
+    NonlinearFunction<ODEVector<EMFields>, PICTimeIntegrator>* m_func;
+    NonlinearSolver<ODEVector<EMFields>, PICTimeIntegrator>* m_nlsolver;
 
     int m_pc_update_freq;
     bool m_pc_update_newton;
+      
+    int m_nl_iter = 0;
 
   private:
 
@@ -139,6 +169,8 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     int m_last_nl_iter=0;
     Real m_last_nl_abs_res=0.0; 
     Real m_last_nl_rel_res=0.0;
+    double m_step_wall_time=0.0;
+    double m_pcassembly_walltime=0.0;
 
 };
 

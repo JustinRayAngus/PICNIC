@@ -1,5 +1,4 @@
 #include "PICTimeIntegrator_DSMC.H"
-#include "System.H"
 
 #include "NamespaceHeader.H"
 
@@ -10,12 +9,13 @@ void PICTimeIntegrator_DSMC::preTimeStep( const Real a_time,
   CH_TIME("PICTimeIntegrator_DSMC::preTimeStep()");
   
   // update old particle values and create inflow particles  
-  for (int s=0; s<m_particles.size(); s++) {
-    auto this_picSpecies(m_particles[s]);
-    this_picSpecies->updateOldParticlePositions();
-    this_picSpecies->updateOldParticleVelocities();
-    this_picSpecies->createInflowParticles( a_time, a_dt );
-    //this_picSpecies->injectInflowParticles();
+  const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+  const int num_species = pic_species_ptr_vect.size();
+  for (int sp=0; sp<num_species; sp++) {
+      auto species(pic_species_ptr_vect[sp]);
+      species->updateOldParticlePositions();
+      species->updateOldParticleVelocities();
+      species->createInflowParticles( a_time, a_dt );
   }
      
   return;
@@ -29,19 +29,16 @@ void PICTimeIntegrator_DSMC::timeStep( const Real a_time,
   
   // explicit advance of particle positions 
   // + inertial forces
-  // + velocity scatter
-  // + special operators
    
   // advance particle positions from t_{n} to t_{n+1} using vp_{n}
-  for (int s=0; s<m_particles.size(); s++) {
-    auto this_picSpecies(m_particles[s]);
-    this_picSpecies->advancePositionsExplicit(a_dt);
-    this_picSpecies->applyInertialForces(a_dt, false, true);
-    this_picSpecies->applyBCs(false);
+  const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+  const int num_species = pic_species_ptr_vect.size();
+  for (int sp=0; sp<num_species; sp++) {
+      auto species(pic_species_ptr_vect[sp]);
+      species->advancePositionsExplicit(a_dt);
+      species->applyInertialForces(a_dt, false, true);
+      species->applyBCs(false);
   }
-  
-  // scatter the particles: vp_{n+1} ==> vp'_{n+1}
-  m_system->scatterParticles( a_dt );
   
   return;
 }

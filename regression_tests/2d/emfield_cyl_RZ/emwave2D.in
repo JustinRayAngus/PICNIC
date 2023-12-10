@@ -40,11 +40,9 @@ gmres.maxits = 1000
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 10
 simulation.max_step            = 1000000000
 simulation.max_time            = 2.0e-2
-#simulation.cfl_number          = 0.7
-#simulation.cfl_scatter         = 0.5
+#simulation.cfl_light           = 0.7
 simulation.fixed_dt            = 1.0e-4
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 1.0e-2

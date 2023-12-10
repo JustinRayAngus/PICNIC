@@ -62,6 +62,8 @@ class EMResidualFunction: public NonlinearFunction<Vec,Ops>
     bool m_is_Defined;
     double m_cur_time, m_dt, m_dtfac;
     bool m_update_pc;
+    mutable bool m_update_pc_init = true; // flag to update pc after call to preRHS() 
+                                          // at t = 0 and on restart
 
     Vec m_Z, m_F, m_R;
     Ops* m_ops;
@@ -105,7 +107,8 @@ void EMResidualFunction<Vec,Ops>::evalFunction( Vec&        a_F,
   m_jac.setBaseSolution(a_U);
   m_jac.setBaseRHS(m_F);
   /* update preconditioner */
-  if (m_update_pc) m_jac.updatePreCondMat(a_U);
+  if (m_update_pc || m_update_pc_init) m_jac.updatePreCondMat(a_U);
+  m_update_pc_init = false;
 
   /* Compute ([Y - G(Y)] - b) */
   a_F = a_U - (m_F + m_R);

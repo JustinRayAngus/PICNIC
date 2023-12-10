@@ -51,17 +51,16 @@ gmres.maxits = 1000
 # Time Stepping Definitions
 #####################################################
 simulation.max_step            = 200
-#simulation.max_step            = 1000000000
 simulation.max_time            = 220.0 # 1.35*t0
-#simulation.cfl_number          = 0.7
-#simulation.cfl_scatter         = 0.5
 simulation.fixed_dt            = 4.0e-3
 #simulation.plot_interval       = 1000
-simulation.dt_scatter_interval = 100 
 simulation.plot_time_interval  = 2.2
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
+
+simulation.dt_parts_check_interval   = 100 
+simulation.dt_scatter_check_interval = 100
 
 history.precision = 5
 history.solver_probes = true

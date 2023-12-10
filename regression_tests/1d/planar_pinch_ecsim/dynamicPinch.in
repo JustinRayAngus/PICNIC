@@ -1,5 +1,5 @@
 #####################################################
-#TEST np=27, timelimit=00:05:00
+#TEST np=36, timelimit=00:05:00
 #####################################################
 # Verbosity and writing Definitions
 #####################################################
@@ -19,7 +19,7 @@ simulation.fixed_random_seed = 1983
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-pic_species.iter_max_particles = 100
+pic_species.iter_max_particles = 11
 pic_species.rtol_particles = 1.0e-10
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
@@ -29,50 +29,49 @@ pic_em_theta_implicit.pc_update_newton = true
 em_fields.pc_mass_matrix_width = 1
 em_fields.pc_mass_matrix_include_ij = true
 
-#pic_em_theta_implicit.solver_type = "newton"
-pic_em_theta_implicit.solver_type = "petsc_snes"
+pic_em_theta_implicit.solver_type = "newton"
+#pic_em_theta_implicit.solver_type = "petsc_snes"
 pic_em_theta_implicit.ec_semi_implicit = true
 pic_em_theta_implicit.pc_update_freq = 1
 jacobian.with_pc = true
 
-newton.verbose = false
-newton.line_search.type = "basic"
-newton.atol = 1.0e-12
-newton.rtol = 1.0e-8
+newton.verbose = true
+newton.linear_solver = "petsc_ksp"
+newton.rtol = -1.0e-16
+newton.atol = -1.0e-20
+newton.stol = -1.0e-20
 newton.maxits = 2
 
 gmres.verbose = false
+gmres.rtol = 1.0e-10
 gmres.atol = 1.0e-12
-gmres.rtol = 1.0e-6
 gmres.maxits = 1000
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
 simulation.max_step            = 200
-#simulation.max_step            = 1000000000
 simulation.max_time            = 220.0 # 1.35*t0
-#simulation.cfl_number          = 0.7
-#simulation.cfl_scatter         = 0.5
 simulation.fixed_dt            = 1.0e-3
 #simulation.plot_interval       = 1000
-simulation.dt_scatter_interval = 100 
 simulation.plot_time_interval  = 2.2
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
 
-history.precision = 5
+simulation.dt_parts_check_interval   = 100 
+simulation.dt_scatter_check_interval = 100
+
+history.precision = 8
 history.solver_probes = true
 history.species_solver_probes = true
 history.field_probes = true
 history.field_bdry_probes = true
 history.species0_probes = true
 history.species1_probes = true
-#
+
 simulation.checkpoint_time_interval = 22.0
 #simulation.restart_file = "checkpoint_data/chk000500.1d.hdf5"
-#simulation.wall_time_hrs = 5.95
 simulation.wall_time_hrs = 0.95
 
 #####################################################
@@ -80,7 +79,7 @@ simulation.wall_time_hrs = 0.95
 #####################################################
 grid.num_cells     = 216
 grid.is_periodic   = 0
-grid.config_decomp = 27
+grid.config_decomp = 36
 grid.geometry      = "cartesian"
 grid.num_ghosts    = 3
 
@@ -144,6 +143,7 @@ pic_species.0.scatter = true
 pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
+pic_species.0.use_suborbit_model = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 1.5
@@ -177,6 +177,7 @@ pic_species.1.scatter = true
 pic_species.1.interp_type_N = "TSC"
 pic_species.1.interp_type_J = "CC1"
 pic_species.1.interp_type_E = "CC1"
+pic_species.1.use_suborbit_model = true
 
 IC.deuterium.X_min = 0.0
 IC.deuterium.X_max = 1.5
@@ -203,20 +204,23 @@ BC.deuterium.dir0_upper.type = "outflow"
 # Scattering Definitions
 #####################################################
 
-scattering.0.model = "TA"
+scattering.0.model = "COULOMB"
 scattering.0.speciesA = 0
 scattering.0.speciesB = 0
-scattering.0.coulomb_logarithm = 10.0
+scattering.0.angular_scattering = "NANBU"
+#scattering.0.coulomb_logarithm = 10.0
 
-scattering.1.model = "TA"
+scattering.1.model = "COULOMB"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
-scattering.1.coulomb_logarithm = 10.0
+scattering.1.angular_scattering = "NANBU"
+#scattering.1.coulomb_logarithm = 10.0
 
-scattering.2.model = "TA"
+scattering.2.model = "COULOMB"
 scattering.2.speciesA = 1
 scattering.2.speciesB = 0
-scattering.2.coulomb_logarithm = 10.0
+scattering.2.angular_scattering = "NANBU"
+#scattering.2.coulomb_logarithm = 10.0
 
 #####################################################
 

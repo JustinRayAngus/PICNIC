@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
+#include <sys/time.h>
 
 #include "SpecialOperatorFactory.H"
 
@@ -85,8 +86,7 @@ System::System( ParmParse&  a_pp )
       }
       exit(EXIT_FAILURE);
    }
-   m_time_integrator->define( this,
-                              m_pic_species->getPtrVect(), 
+   m_time_integrator->define( m_pic_species, 
                               m_emfields ); // m_emfields can't be NULL for implicit solvers
 }
 
@@ -274,12 +274,11 @@ void System::createEMfields()
    if(use_fields) {
       bool verbose = true;
 
-      m_emfields = RefCountedPtr<ElectroMagneticFields>
-                                  (new ElectroMagneticFields( ppflds,
-                                                              *m_mesh,
-                                                              *m_units,
-                                                              verbose,
-                                                              em_vec_type )); 
+      m_emfields = RefCountedPtr<EMFields> (new EMFields( ppflds,
+                                                          *m_mesh,
+                                                          *m_units,
+                                                          verbose,
+                                                          em_vec_type )); 
       
       if(m_advance_method == PIC_DSMC ) {
          if(!procID()) cout << "advance_method PIC_DSMC cannot be used with electromagnetic fields on" << endl;
@@ -288,7 +287,7 @@ void System::createEMfields()
       if(!procID()) cout << "Finished creating Electromagnetic fields object" << endl << endl;
    }
    else {
-      m_emfields = RefCountedPtr<ElectroMagneticFields>(NULL); // don't have to do this, but for clarity 
+      m_emfields = RefCountedPtr<EMFields>(NULL); // don't have to do this, but for clarity 
       if(!procID()) cout << "Electromagnetic fields are not being used" << endl << endl;
    }
 
@@ -331,6 +330,7 @@ void System::createSpecialOperators()
 
 void System::initialize( const int           a_cur_step,
                          const Real          a_cur_time,
+                         const Real          a_cur_dt,
                          const std::string&  a_restart_file_name )
 {
    CH_TIME("System::initialize()");
@@ -354,10 +354,12 @@ void System::initialize( const int           a_cur_step,
       setChargeDensity();
       m_emfields->initialize(a_cur_time,a_restart_file_name);
       if(m_implicit_advance) {
-	 m_pic_species->initializeMassMatrices( *m_emfields, a_restart_file_name );
+	 m_pic_species->initializeMassMatrices( *m_emfields, a_cur_dt, a_restart_file_name );
       }
       m_pic_species->setCurrentDensity();
-      setCurrentDensity();
+      const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
+      const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
+      m_emfields->setCurrentDensity( pic_J, pic_Jv );
    }
      
    m_time_integrator->initialize(a_restart_file_name);
@@ -366,27 +368,84 @@ void System::initialize( const int           a_cur_step,
 
 void System::writePlotFile( const int     a_cur_step,
                             const double  a_cur_time,
-                            const double  a_cur_dt )
+                            const double  a_cur_dt,
+	                    const bool    a_plot_parts )
 {
    CH_TIME("System::writePlotFile()");
    
+   //
+   // write the emfields data file
+   //
+
    bool use_filtering = false;
    if (!m_emfields.isNull()) {
       if(m_emfields->useFiltering()) { use_filtering = true; }
-      if(m_emfields->writeRho()) setChargeDensity();
-      if(m_emfields->writeExB()) m_emfields->setPoyntingFlux();
+      if(m_emfields->writeRho()) { setChargeDensity(); }
+      if(m_emfields->writeExB()) { m_emfields->setPoyntingFlux(); }
       if(m_emfields->writeDivs()) {
          m_emfields->setDivE();
          m_emfields->setDivB();
       }
-      m_dataFile->writeElectroMagneticFieldsDataFile( *m_emfields,
+      if(m_emfields->writeCurls()) {
+         m_emfields->setCurlE();
+         m_emfields->setCurlB();
+      }
+      m_dataFile->writeEMFieldsDataFile( *m_emfields,
 #ifdef MASS_MATRIX_TEST
-                                                      *m_pic_species,
+                                         *m_pic_species,
 #endif
-                                                      a_cur_step, a_cur_time ); 
+                                         a_cur_step, a_cur_time ); 
    }
 
-   m_dataFile->writePicSpecies( *m_pic_species, use_filtering, a_cur_step, a_cur_time);
+   //
+   // write the pic species data files
+   //
+
+   //m_dataFile->writePicSpecies( *m_pic_species, use_filtering, a_cur_step, a_cur_time);
+   const bool writeRho = m_pic_species->writeSpeciesRho();
+   const bool writeJ = m_pic_species->writeSpeciesJ();
+   const bool writeNppc = m_pic_species->writeSpeciesNppc();
+   const bool writeEnergyOffDiag = m_pic_species->writeSpeciesEnergyOffDiag();
+   const bool writeEnergyFlux = m_pic_species->writeSpeciesEnergyFlux();
+
+   const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+   const int num_species = pic_species_ptr_vect.size();
+   for (int sp=0; sp<num_species; sp++) {
+
+      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
+      species->setNumberDensity();
+      species->setMomentumDensity();
+      species->setEnergyDensity();
+      
+      if(writeNppc) species->setNppc();
+      if(writeEnergyOffDiag) species->setEnergyOffDiag();
+      if(writeEnergyFlux) species->setEnergyDensityFlux();
+
+      // write the species mesh data file
+      if(species->charge() == 0) {
+         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time, 
+                                              false, false, writeNppc, 
+	  		                      writeEnergyOffDiag, writeEnergyFlux );
+      }
+      else {
+         if(writeRho) {
+            species->setChargeDensity();
+            species->setChargeDensityOnFaces();
+            species->setChargeDensityOnNodes( use_filtering );
+         }
+         if(writeJ) species->setCurrentDensity();
+      
+         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time, 
+                                              writeRho, writeJ, writeNppc, 
+	   		                      writeEnergyOffDiag, writeEnergyFlux );
+      }
+      
+      // write the species particle data file
+      if(a_plot_parts) {
+         m_dataFile->writeSpeciesParticleFile( *species, sp, a_cur_step, a_cur_time );
+      }
+
+   }
 
 }
 
@@ -404,10 +463,11 @@ void System::writeHistFile( const int   a_cur_step,
    int l_total_iter=0, nl_total_iter=0;
    int l_last_iter=0, nl_iter=0;
    Real nl_abs_res=0.0, nl_rel_res=0.0;
+   double step_wall_time=0.0;
    if(m_solver_probes) {
       m_time_integrator->getConvergenceParams( l_exit_status, l_last_iter, l_total_iter,
                                               nl_exit_status, nl_iter, nl_total_iter,
-                                              nl_abs_res, nl_rel_res );
+                                              nl_abs_res, nl_rel_res, step_wall_time );
    }
    
    // compute the field probes
@@ -468,6 +528,7 @@ void System::writeHistFile( const int   a_cur_step,
             histFile << l_exit_status << " ";
             histFile << l_last_iter << " ";
             histFile << l_total_iter << " ";
+            if (m_write_wall_time) histFile << step_wall_time << " ";
          }
          if(m_field_probes) {
             histFile << energyE_joules << " ";
@@ -526,7 +587,10 @@ void System::writeHistFile( const int   a_cur_step,
 void System::setupHistFile(const int a_cur_step) 
 {
    CH_TIME("System::setupHistFile()");
-   if(!procID()) cout << "setting up the history file at step " << a_cur_step << endl;
+   if(!procID()) {
+      cout << endl;
+      cout << "setting up the history file at step " << a_cur_step << "..." << endl;
+   }
 
    std::vector<std::string> probe_names;
    probe_names.push_back("#0 step number");
@@ -544,6 +608,14 @@ void System::setupHistFile(const int a_cur_step)
       pphist.query("solver_probes", m_solver_probes);
       if(!procID()) cout << "solver_probes = " << m_solver_probes << endl;
    }
+
+#ifdef hist_incl_wtime
+   m_write_wall_time = true;
+#else
+   m_write_wall_time = false;
+#endif
+   pphist.query("step_walltime", m_write_wall_time);
+   if(!procID()) cout << "write_step_walltime = " << m_write_wall_time << endl;
    
    m_field_probes = false;
    if(!m_emfields.isNull()) {
@@ -608,6 +680,11 @@ void System::setupHistFile(const int a_cur_step)
       ss << "#" << probe_names.size() << " linear solver total iterations";
       probe_names.push_back(ss.str()); 
       ss.str(std::string());
+      if (m_write_wall_time) {
+        ss << "#" << probe_names.size() << " step wall time (seconds)";
+        probe_names.push_back(ss.str()); 
+        ss.str(std::string());
+      }
    }
    
    if(m_field_probes) {
@@ -801,7 +878,7 @@ void System::setupHistFile(const int a_cur_step)
          }
       }
 
-      cout << "finished setting up the history file " << endl << endl;
+      cout << "finished setting up the history file " << endl;
    }
 
 }
@@ -814,7 +891,11 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
    CH_TIME("System::writeCheckpointFile()");
 
    MPI_Barrier(MPI_COMM_WORLD);
-   if(!procID()) cout << "Writing checkpoint file at step " << a_cur_step << endl;
+   if(!procID()) {
+      cout << endl;
+      cout << "writing checkpoint file at step " << a_cur_step << endl;
+      cout << endl;
+   }
 
    HDF5HeaderData header;
    header.m_int["cur_step"]  = a_cur_step;
@@ -840,10 +921,11 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
    int l_total_iter=0, nl_total_iter=0;
    int l_last_iter=0, nl_iter=0;
    Real nl_abs_res=0.0, nl_rel_res=0.0;
+   double step_wall_time=0.0;
    if(m_solver_probes) {
       m_time_integrator->getConvergenceParams( l_exit_status, l_last_iter, l_total_iter,
                                               nl_exit_status, nl_iter, nl_total_iter,
-                                              nl_abs_res, nl_rel_res );
+                                              nl_abs_res, nl_rel_res, step_wall_time );
    }
    header.clear();
    const std::string solverGroup = std::string("solver");
@@ -857,6 +939,7 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
    header.m_int["nl_total_iter"] = nl_total_iter;
    header.m_real["nl_abs_res"] = nl_abs_res;
    header.m_real["nl_rel_res"] = nl_rel_res;
+   header.m_real["step_wall_time"] = step_wall_time;
 
    header.writeToFile( a_handle );
 
@@ -899,7 +982,23 @@ void System::preTimeStep( const Real  a_time,
                           const int   a_step_number )
 {  
    CH_TIME("System::preTimeStep()");
+   struct timeval start, end;
+   gettimeofday(&start, NULL);
+
    m_time_integrator->preTimeStep( a_time, a_dt, a_step_number );
+
+   gettimeofday(&end, NULL);
+   {
+     long long walltime;
+     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  ) 
+                 - (start.tv_sec * 1000000 + start.tv_usec));
+     double wt_local = (double) walltime / 1000000.0;
+#ifdef CH_MPI
+     MPI_Allreduce(&wt_local,&m_wt_pretimestep,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+#else
+     m_wt_pretimestep = wt_local;
+#endif
+   }
 }
 
 void System::timeStep( const Real  a_cur_time,
@@ -907,7 +1006,24 @@ void System::timeStep( const Real  a_cur_time,
                        const int   a_step_number )
 {  
    CH_TIME("System::timeStep()");
+   struct timeval start, end;
+   gettimeofday(&start, NULL);
+
    m_time_integrator->timeStep( a_cur_time, a_dt, a_step_number );
+   scatterParticles( a_dt );
+
+   gettimeofday(&end, NULL);
+   {
+     long long walltime;
+     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  ) 
+                 - (start.tv_sec * 1000000 + start.tv_usec));
+     double wt_local = (double) walltime / 1000000.0;
+#ifdef CH_MPI
+     MPI_Allreduce(&wt_local,&m_wt_timestep,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+#else
+     m_wt_timestep = wt_local;
+#endif
+   }
 }
 
 void System::postTimeStep( Real&        a_cur_time,
@@ -915,10 +1031,8 @@ void System::postTimeStep( Real&        a_cur_time,
                            int&         a_step_number )
 {  
    CH_TIME("System::postTimeStep()");
-   
-   if(!m_emfields.isNull()) m_emfields->postTimeStep( a_dt );
-
-   m_time_integrator->postTimeStep( a_cur_time, a_dt );
+   struct timeval start, end;
+   gettimeofday(&start, NULL);
 
    // apply special operators
    if(m_specialOps) {
@@ -930,55 +1044,27 @@ void System::postTimeStep( Real&        a_cur_time,
    
    a_cur_time = a_cur_time + a_dt;
    a_step_number = a_step_number + 1;
-   m_nonlinear_iter = 0;
+
+   gettimeofday(&end, NULL);
+   {
+     long long walltime;
+     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  ) 
+                 - (start.tv_sec * 1000000 + start.tv_usec));
+     double wt_local = (double) walltime / 1000000.0;
+#ifdef CH_MPI
+     MPI_Allreduce(&wt_local,&m_wt_posttimestep,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+#else
+     m_wt_posttimestep = wt_local;
+#endif
+   }
 }
 
 void System::setChargeDensity()
 {
    CH_TIME("System::setChargeDensity()");
- 
-   // set the pic charge density
-   const bool use_filtering = m_emfields->useFiltering();
-   m_pic_species->setChargeDensityOnNodes( use_filtering );
-   LevelData<NodeFArrayBox>& pic_rho = m_pic_species->getChargeDensityOnNodes();
-
-   // add it to the total charge density
-   LevelData<NodeFArrayBox>& rho = m_emfields->getChargeDensity();
-   const DisjointBoxLayout& grids(m_mesh->getDBL());
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      FArrayBox& this_rho = rho[dit].getFab();
-      const FArrayBox& this_pic_rho = pic_rho[dit].getFab();
-      this_rho.copy(this_pic_rho,0,0,rho.nComp());
-   }
-
-}
-
-void System::setCurrentDensity( const bool  a_from_explicit_solver )
-{
-   CH_TIME("System::setCurrentDensity()");
-   
-   // set the pic species current density
-   if(m_advance_method==PIC_EM_EXPLICIT) m_pic_species->setCurrentDensity( true );
-   const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
-   const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
-   
-   // add (copy) it to the total current density used to advance E
-   LevelData<EdgeDataBox>& J = m_emfields->getCurrentDensity();
-   LevelData<NodeFArrayBox>& Jv = m_emfields->getVirtualCurrentDensity();
-   const DisjointBoxLayout& grids(m_mesh->getDBL());
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      for (int dir=0; dir<SpaceDim; dir++) {
-         FArrayBox& this_J = J[dit][dir];
-         const FArrayBox& this_pic_J = pic_J[dit][dir];
-         this_J.copy(this_pic_J);
-      }
-#if CH_SPACEDIM<3
-      FArrayBox& this_Jv = Jv[dit].getFab();
-      const FArrayBox& this_pic_Jv = pic_Jv[dit].getFab();
-      this_Jv.copy(this_pic_Jv,0,0,Jv.nComp());
-#endif
-   }
-
+   m_pic_species->setChargeDensityOnNodes( m_emfields->useFiltering() );
+   const LevelData<NodeFArrayBox>& pic_rho = m_pic_species->getChargeDensityOnNodes();
+   m_emfields->setChargeDensity( pic_rho );
 }
 
 void System::scatterParticles( const Real&  a_dt )
@@ -1000,7 +1086,7 @@ Real System::fieldsDt( const int a_step_number )
    Real fldsDt = DBL_MAX;
    if (!m_emfields.isNull() && m_emfields->advance()) {
       fldsDt = m_emfields->stableDt();
-      if(!procID()) cout << "electromagnetic fields time step = " << fldsDt << endl;
+      if(!procID()) cout << "EM fields CFL time step = " << fldsDt << endl;
    }
    return fldsDt;
 }
@@ -1026,6 +1112,20 @@ Real System::scatterDt( const int a_step_number )
 
 }
 
+Real System::cyclotronDt( const int a_step_number )
+{
+
+   Real cyclotronDt = DBL_MAX;
+   Real max_wc0 = 1.0;
+   if(!m_emfields.isNull()) {
+      Real dummy_dt = 1.0;
+      max_wc0 = m_emfields->max_wc0dt(*m_units,dummy_dt);
+      cyclotronDt = m_pic_species->cyclotronDt( max_wc0 );
+   }
+   return cyclotronDt;
+
+}
+
 Real System::specialOpsDt( const int a_step_number )
 {
    Real specialOpsDt = DBL_MAX;
@@ -1041,339 +1141,6 @@ void System::adaptDt( bool&  a_adapt_dt )
    if(m_advance_method==PIC_EM_SEMI_IMPLICIT) {
       if(m_emfields->advance()) a_adapt_dt = false;
    }
-}
-
-void System::preRHSOp( const ODEVector<System>&  a_U,
-                       const Real                a_dt,
-                       const int,
-                       const bool                a_from_emjacobian )
-{  
-  CH_TIME("System::preRHSOp()");
-
-  m_pic_species->preRHSOp( a_from_emjacobian, *m_emfields, a_dt, m_nonlinear_iter );
-
-  setCurrentDensity();
-
-  // a_nonlinear_iter when using Petsc comes here with zero twice, and passing it
-  // to m_pic_species->preRHSOp() doesn't work with new usage of this parameter
-
-  //if(!a_from_emjacobian && !procID()) {
-     //cout << "JRA: m_nonlinear_iter = " << m_nonlinear_iter << endl;
-     //cout << "JRA: a_nonlinear_iter = " << a_nonlinear_iter << endl << endl;
-  //}
-  
-  if(!a_from_emjacobian) m_nonlinear_iter += 1;
-
-}
-
-void System::computeRHS( ODEVector<System>&  a_F,
-                   const ODEVector<System>&,
-                   const Real                a_time,
-                   const Real                a_dt,
-                   const EMVecType&          a_vec_type )
-{
-  CH_TIME("System::computeRHS()");
-  
-  const Real cnormDt = a_dt*m_units->CvacNorm();
-  m_emfields->zeroRHS();
-
-  if (a_vec_type == b_only) {
-
-    m_emfields->computeRHSMagneticField( a_time, cnormDt );
-    copyBRHSToVec( a_F );
-
-  } else if ( a_vec_type == e_only) {
-
-    m_emfields->computeRHSElectricField( a_time, cnormDt );
-    copyERHSToVec( a_F );
-
-  } else if ( a_vec_type == e_and_b ) {
-
-    m_emfields->computeRHSMagneticField( a_time, cnormDt );
-    m_emfields->computeRHSElectricField( a_time, cnormDt );
-    copyRHSToVec( a_F );
-
-  }
-
-}
-
-void System::computeRHS( ODEVector<System>&  a_F,
-                   const ODEVector<System>&,
-                   const int                 a_block,
-                   const Real                a_time,
-                   const Real                a_dt,
-                   const int )
-{
-  CH_TIME("System::computeRHS() from Picard solver");
-  
-  //m_emfields->zeroRHS();
-  const Real cnormDt = a_dt*m_units->CvacNorm();
-
-  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
-
-    if (a_block == _EM_PICARD_B_FIELD_BLOCK_) {
-      m_emfields->computeRHSMagneticField( a_time, cnormDt );
-    } else if (a_block == _EM_PICARD_E_FIELD_BLOCK_) {
-      m_emfields->computeRHSElectricField( a_time, cnormDt );
-    }
-
-  } else if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
-
-    m_emfields->computeRHSElectricField( a_time, cnormDt );
-
-  }
-
-  copyRHSToVec( a_F );
-}
-
-void System::updatePhysicalState(  ODEVector<System>&  a_U,
-                          const Real          a_time,
-                          const EMVecType&    a_vec_type )
-{
-  CH_TIME("System::updatePhysicalState()");
-  
-  if (a_vec_type == b_only) {
-    copyBFromVec( a_U );
-    m_emfields->applyBCs_magneticField( a_time );
-    copyBToVec( a_U );
-  } else if (a_vec_type == e_only ) {
-    copyEFromVec( a_U );
-    m_emfields->applyBCs_electricField( a_time );
-    copyEToVec( a_U );
-  } else {
-    copySolutionFromVec( a_U );
-    m_emfields->applyBCs_magneticField( a_time );
-    m_emfields->applyBCs_electricField( a_time );
-    copySolutionToVec( a_U );
-  }
-}
-
-void System::updatePhysicalState( ODEVector<System>&  a_U,
-                            const int                 a_block,
-                            const Real                a_time )
-{
-  CH_TIME("System::updatePhysicalState() from Picard solver");
-
-  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
-
-    if (a_block == _EM_PICARD_B_FIELD_BLOCK_) {
-      int offset = m_emfields->vecOffsetBField();
-      copyBFromVec( a_U, offset );
-      m_emfields->applyBCs_magneticField( a_time );
-      offset = m_emfields->vecOffsetBField();
-      copyBToVec( a_U, offset );
-    } else if (a_block == _EM_PICARD_E_FIELD_BLOCK_) {
-      int offset = m_emfields->vecOffsetEField();
-      copyEFromVec( a_U, offset );
-      m_emfields->applyBCs_electricField( a_time );
-      offset = m_emfields->vecOffsetEField();
-      copyEToVec( a_U, offset );
-    }
-
-  } else if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
-    int offset = m_emfields->vecOffsetEField();
-    copyEFromVec( a_U, offset );
-    m_emfields->applyBCs_electricField( a_time );
-    offset = m_emfields->vecOffsetEField();
-    copyEToVec( a_U, offset );
-  }
-
-}
-
-void System::copyBFromVec(  const ODEVector<System>&  a_vec,
-                            int&                      a_offset )
-{
-  LevelData<FluxBox>& Bfield( m_emfields->getMagneticField() );
-  a_offset += SpaceUtils::copyToLevelData( Bfield, a_vec.dataAt(a_offset) );
-  if (SpaceDim < 3) {
-    LevelData<FArrayBox>& Bfield_virtual( m_emfields->getVirtualMagneticField() );
-    a_offset += SpaceUtils::copyToLevelData( Bfield_virtual, a_vec.dataAt(a_offset) );
-  }
-  return;
-}
-
-void System::copyEFromVec( const ODEVector<System>&   a_vec,
-                           int&                       a_offset)
-{
-  //int offset = m_emfields->vecOffsetEField();
-  LevelData<EdgeDataBox>& Efield( m_emfields->getElectricField() );
-  a_offset += SpaceUtils::copyToLevelData( Efield, a_vec.dataAt(a_offset) );
-  if (SpaceDim < 3) {
-    LevelData<NodeFArrayBox>& Efield_virtual(m_emfields->getVirtualElectricField());
-    a_offset += SpaceUtils::copyToLevelData( Efield_virtual, a_vec.dataAt(a_offset) );
-  }
-  return;
-}
-
-void System::copyBoldFromVec( const ODEVector<System>&  a_vec,
-                              int&                      a_offset )
-{
-  LevelData<FluxBox>& Bfield_old( m_emfields->getMagneticField_old() );
-  a_offset += SpaceUtils::copyToLevelData( Bfield_old, a_vec.dataAt(a_offset) );
-  if (SpaceDim < 3) {
-    LevelData<FArrayBox>& Bfield_virt_old( m_emfields->getVirtualMagneticField_old() );
-    a_offset += SpaceUtils::copyToLevelData( Bfield_virt_old, a_vec.dataAt(a_offset) );
-  }
-  return;
-}
-
-void System::copyEoldFromVec( const ODEVector<System>&   a_vec,
-                              int&                       a_offset)
-{
-  LevelData<EdgeDataBox>& Efield_old( m_emfields->getElectricField_old() );
-  a_offset += SpaceUtils::copyToLevelData( Efield_old, a_vec.dataAt(a_offset) );
-  if (SpaceDim < 3) {
-    LevelData<NodeFArrayBox>& Efield_virt_old(m_emfields->getVirtualElectricField_old());
-    a_offset += SpaceUtils::copyToLevelData( Efield_virt_old, a_vec.dataAt(a_offset) );
-  }
-  return;
-}
-
-void System::copySolutionFromVec( const ODEVector<System>& a_vec )
-{
-  CH_TIME("System::copySolutionFromVec()");
-  
-  int offset(0);
-  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
-    copyBFromVec( a_vec, offset );
-  }
-  copyEFromVec( a_vec, offset );
-  return;
-}
-
-void System::copyBToVec(  ODEVector<System>&  a_vec,
-                          int&                a_offset ) const
-{
-  const LevelData<FluxBox>& Bfield( m_emfields->getMagneticField() );
-  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Bfield );
-  if (SpaceDim < 3) {
-    const LevelData<FArrayBox>& Bfield_virtual( m_emfields->getVirtualMagneticField() );
-    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Bfield_virtual );
-  }
-  return;
-}
-
-void System::copyEToVec(  ODEVector<System>&  a_vec,
-                          int&                a_offset ) const
-{
-  //int offset = m_emfields->vecOffsetEField();
-  const LevelData<EdgeDataBox>& Efield( m_emfields->getElectricField() );
-  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Efield );
-  if (SpaceDim < 3) {
-    const LevelData<NodeFArrayBox>& Efield_virtual(m_emfields->getVirtualElectricField());
-    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Efield_virtual );
-  }
-  return;
-}
-
-void System::copyBoldToVec( ODEVector<System>&  a_vec,
-                            int&                a_offset ) const
-{
-  const LevelData<FluxBox>& Bfield_old( m_emfields->getMagneticField_old() );
-  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Bfield_old );
-  if (SpaceDim < 3) {
-    const LevelData<FArrayBox>& Bfield_virt_old( m_emfields->getVirtualMagneticField_old() );
-    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Bfield_virt_old );
-  }
-  return;
-}
-
-void System::copyEoldToVec( ODEVector<System>&  a_vec,
-                            int&                a_offset ) const
-{
-  const LevelData<EdgeDataBox>& Efield_old( m_emfields->getElectricField_old() );
-  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Efield_old );
-  if (SpaceDim < 3) {
-    const LevelData<NodeFArrayBox>& Efield_virt_old(m_emfields->getVirtualElectricField_old());
-    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), Efield_virt_old );
-  }
-  return;
-}
-
-void System::copySolutionToVec( ODEVector<System>& a_vec ) const
-{
-  CH_TIME("System::copySolutionToVec()");
-  
-  int offset(0);
-  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
-    copyBToVec( a_vec, offset );
-  }
-  copyEToVec( a_vec, offset );
-  return;
-}
-
-void System::copyBRHSFromVec( const ODEVector<System>&  a_vec,
-                              int&                      a_offset )
-{
-  LevelData<FluxBox>& BfieldRHS( m_emfields->getMagneticFieldRHS() );
-  a_offset += SpaceUtils::copyToLevelData( BfieldRHS, a_vec.dataAt(a_offset) );
-  if (SpaceDim < 3) {
-    LevelData<FArrayBox>& BfieldRHS_virtual( m_emfields->getVirtualMagneticFieldRHS() );
-    a_offset += SpaceUtils::copyToLevelData( BfieldRHS_virtual, a_vec.dataAt(a_offset) );
-  }
-  return;
-}
-
-void System::copyERHSFromVec( const ODEVector<System>&  a_vec,
-                              int&                      a_offset )
-{
-  LevelData<EdgeDataBox>& EfieldRHS( m_emfields->getElectricFieldRHS() );
-  a_offset += SpaceUtils::copyToLevelData( EfieldRHS, a_vec.dataAt(a_offset) );
-  if (SpaceDim < 3) {
-    LevelData<NodeFArrayBox>& EfieldRHS_virtual(m_emfields->getVirtualElectricFieldRHS());
-    a_offset += SpaceUtils::copyToLevelData( EfieldRHS_virtual, a_vec.dataAt(a_offset) );
-  }
-
-  return;
-}
-
-void System::copyRHSFromVec( const ODEVector<System>& a_vec )
-{
-  CH_TIME("System::copyRHSFromVec()");
-  
-  int offset(0);
-
-  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
-    copyBRHSFromVec( a_vec, offset );
-  }
-  copyERHSFromVec( a_vec, offset );
-  return;
-}
-
-void System::copyBRHSToVec( ODEVector<System>&  a_vec,
-                            int&                a_offset ) const
-{
-  const LevelData<FluxBox>& BfieldRHS( m_emfields->getMagneticFieldRHS() );
-  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), BfieldRHS );
-  if (SpaceDim < 3) {
-    const LevelData<FArrayBox>& BfieldRHS_virtual( m_emfields->getVirtualMagneticFieldRHS() );
-    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), BfieldRHS_virtual );
-  }
-  return;
-}
-
-void System::copyERHSToVec( ODEVector<System>&  a_vec,
-                            int&                a_offset ) const
-{
-  const LevelData<EdgeDataBox>& EfieldRHS( m_emfields->getElectricFieldRHS() );
-  a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), EfieldRHS );
-  if (SpaceDim < 3) {
-    const LevelData<NodeFArrayBox>& EfieldRHS_virtual(m_emfields->getVirtualElectricFieldRHS());
-    a_offset += SpaceUtils::copyFromLevelData( a_vec.dataAt(a_offset), EfieldRHS_virtual );
-  }
-  return;
-}
-
-void System::copyRHSToVec( ODEVector<System>& a_vec ) const
-{
-  CH_TIME("System::copyRHSToVec()");
-  
-  int offset(0);
-  if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
-    copyBRHSToVec( a_vec, offset );
-  }
-  copyERHSToVec( a_vec, offset );
-  return;
 }
 
 #include "NamespaceFooter.H"

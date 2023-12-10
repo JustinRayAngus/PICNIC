@@ -15,8 +15,7 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
 
     PICTimeIntegrator_EM_Explicit() 
     {
-      m_system = nullptr;
-      m_particles.clear();
+      m_pic_species = nullptr;
       m_fields = nullptr;
       m_is_defined = false;
     }
@@ -24,14 +23,12 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
     virtual ~PICTimeIntegrator_EM_Explicit() {}
 
     virtual 
-    void define(  System* const                 a_sys,
-                  const PicSpeciesPtrVect&      a_particles,
-                  ElectroMagneticFields* const  a_fields )
+    void define( PicSpeciesInterface* const  a_pic_species,
+                 EMFields* const             a_fields )
     {
       CH_assert(!isDefined());
 
-      m_system = a_sys;
-      m_particles = a_particles;
+      m_pic_species = a_pic_species;
       m_fields = a_fields;
 
       m_E.define(m_fields->getVectorSize(e_only));
@@ -44,23 +41,10 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
     
       // parse options for this integrator
       ParmParse pp("pic_em_explicit");
-      m_old_ordering = true;
-      pp.query("old_ordering", m_old_ordering);
 
       m_is_defined = true;
       printParams();
       
-      if(m_old_ordering) {
-        for (int s=0; s<m_particles.size(); s++) {
-          auto this_picSpecies(m_particles[s]);
-          bool boris_inertia = this_picSpecies->borisInertia();
-          if(boris_inertia) { 
-            cout << "old ordering is incompatible with Boris method for inertia !!!"  << endl;
-          }
-          CH_assert(!boris_inertia);
-        }
-      }
-    
     }
 
     inline
@@ -69,7 +53,6 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
       if(procID()>0) return;
       cout << "================== Time Solver ==================" << endl;
       cout << "advance method = PIC_EM_EXPLICIT" << endl;
-      cout << "old ordering = " << m_old_ordering << endl;
       cout << "=================================================" << endl;
       cout << endl;
     }
@@ -86,18 +69,16 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
 
     virtual void preTimeStep( const Real, const Real, const int );
     virtual void timeStep( const Real, const Real, const int );
-
+    
   protected:
 
     bool m_is_defined;
-    bool m_old_ordering;
 
-    System*                 m_system;
-    PicSpeciesPtrVect       m_particles;
-    ElectroMagneticFields*  m_fields;
+    PicSpeciesInterface*    m_pic_species;
+    EMFields*  m_fields;
 
-    ODEVector<System> m_E, m_Eold, m_FE;
-    ODEVector<System> m_B, m_Bold, m_FB;
+    ODEVector<EMFields> m_E, m_Eold, m_FE;
+    ODEVector<EMFields> m_B, m_Bold, m_FB;
 
   private:
 

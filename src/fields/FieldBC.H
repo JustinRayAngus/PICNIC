@@ -36,6 +36,18 @@ class FieldBC
                 const LevelData<EdgeDataBox>&  a_src,
                 const Real                     a_time );
       
+      void applyCellPCMask( LevelData<FArrayBox>&  a_dst,
+                      const Real                   a_time );
+       
+      void applyFluxPCMask( LevelData<FluxBox>&  a_dst,
+                      const Real                 a_time );
+      
+      void applyEdgePCMask( LevelData<EdgeDataBox>&  a_dst,
+                      const Real                     a_time ) const;
+      
+      void applyNodePCMask( LevelData<NodeFArrayBox>&  a_dst,
+                      const Real                       a_time ) const;
+
       void applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
                         const LevelData<FArrayBox>&    a_B );
       

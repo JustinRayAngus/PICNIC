@@ -50,15 +50,15 @@ gmres.maxits = 1000
 #####################################################
 simulation.max_step            = 1000000
 simulation.max_time            = 20.0 # 30000.0
-#simulation.cfl_number          = 0.565
-#simulation.cfl_scatter         = 0.001
-#simulation.dt_scatter_interval = 10
 simulation.fixed_dt            = 0.10
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 200.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
+
+simulation.dt_parts_check_interval   = 100
+simulation.dt_scatter_check_interval = 100
 
 history.precision = 16
 history.field_probes = true

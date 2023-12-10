@@ -10,11 +10,8 @@ pic_em_explicit.old_ordering = false
 #####################################################
 # Time Stepping Definitions
 #####################################################
-#simulation.max_step            = 1
 simulation.max_step            = 100000
 simulation.max_time            = 5.0
-#simulation.cfl_number          = 0.565
-#simulation.cfl_scatter         = 0.001
 simulation.fixed_dt            = 0.001
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 1.00

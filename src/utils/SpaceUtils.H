@@ -201,6 +201,9 @@ namespace SpaceUtils {
   
   void inspectEdgeDataBox( const LevelData<EdgeDataBox>&,
                            const int                     );
+  
+  void inspectNodeFArrayBox( const LevelData<NodeFArrayBox>&,
+                             const int                     );
 
   void exchangeFluxBox( LevelData<FluxBox>& );
   
@@ -253,11 +256,47 @@ namespace SpaceUtils {
     }
   }
 
+  inline void zero(  LevelData<FArrayBox>& a_u, const int a_comp ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].setVal(0.0, a_comp);
+    }
+  }
+
+  inline void setVal(  LevelData<FArrayBox>& a_u, const int a_comp, const Real a_val ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].setVal(a_val, a_comp);
+    }
+  }
+
   inline void zero(  LevelData<FluxBox>& a_u ) 
   {
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
       for (auto dir(0); dir<SpaceDim; dir++) {
         a_u[dit][dir].setVal(0.0);
+      }
+    }
+  }
+
+  inline void zero(  LevelData<FluxBox>& a_u, const int a_comp ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].setVal(0.0, a_comp);
+      }
+    }
+  }
+
+  inline void setVal(  LevelData<FluxBox>& a_u, const int a_comp, const Real a_val ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].setVal(a_val, a_comp);
       }
     }
   }
@@ -271,10 +310,46 @@ namespace SpaceUtils {
     }
   }
 
+  inline void zero(  LevelData<EdgeDataBox>& a_u, const int a_comp ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].setVal(0.0, a_comp);
+      }
+    }
+  }
+
+  inline void setVal(  LevelData<EdgeDataBox>& a_u, const int a_comp, const Real a_val ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].setVal(a_val, a_comp);
+      }
+    }
+  }
+
   inline void zero(  LevelData<NodeFArrayBox>& a_u ) 
   {
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
       a_u[dit].setVal(0.0);
+    }
+  }
+
+  inline void zero(  LevelData<NodeFArrayBox>& a_u, const int a_comp ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].setVal(0.0, surroundingNodes(a_u[dit].box()), a_comp, 1);
+    }
+  }
+
+  inline void setVal(  LevelData<NodeFArrayBox>& a_u, const int a_comp, const Real a_val ) 
+  {
+    CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].setVal(a_val, surroundingNodes(a_u[dit].box()), a_comp, 1);
     }
   }
 

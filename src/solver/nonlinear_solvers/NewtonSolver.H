@@ -180,8 +180,7 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
   CH_TIME("NewtonSolver::solve()");
   CH_assert(isDefined());
 
-  m_its = 0;
-  while(1) {
+  for (m_its = 0; m_its < m_maxits; m_its++) {
 
     m_func->setRHS( a_b );
     m_func->evalFunction(m_F, a_U, m_its);
@@ -217,15 +216,6 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
       m_exitStatus = 3;
       break;
     }
-    if (m_its > m_maxits) {
-      if (m_verbose && (!procID())) {
-        printf("%s(%s)exiting: iterations exceed max iterations (%d).\n", 
-               m_op_indent.c_str(), _NLSOLVER_NEWTON_, m_maxits);
-      }
-      m_convergedReason = "number of iterations exceeded maximum";
-      m_exitStatus = 5;
-      break;
-    }
     if (m_norm > 100*m_norm0) {
       if (m_verbose && (!procID())) {
         printf( "%s(%s)exiting: newton solver diverged.\n",
@@ -253,7 +243,15 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
 
     /* Update solution Y = Y - dY */
     a_U -= m_dU;
-    m_its++;
+  }
+    
+  if (m_its == m_maxits) {
+    if (m_verbose && (!procID())) {
+      printf("%s(%s)exiting: iterations exceed max iterations (%d).\n", 
+             m_op_indent.c_str(), _NLSOLVER_NEWTON_, m_maxits);
+    }
+    m_convergedReason = "number of iterations exceeded maximum";
+    m_exitStatus = 5;
   }
       
   if((!procID()) && (m_exitStatus<0)) {
@@ -262,8 +260,8 @@ void NewtonSolver<Vec,Ops>::solve(  Vec&          a_U,
     cout << "rel_norm = " << m_norm/m_norm0 << endl;
   }
 
-  if(m_maxits>1) { // if maxits==1, using ec_semi_implicit
-    if((!procID()) && (m_exitStatus==5)) {
+  if((!procID()) && (m_exitStatus==5)) {
+    if(m_rtol>0.0) {
       cout << "Warning: Newton solver max iterations reached" << endl;
       cout << "iter = " << m_its << endl;
       cout << "rel_norm = " << m_norm/m_norm0 << endl;

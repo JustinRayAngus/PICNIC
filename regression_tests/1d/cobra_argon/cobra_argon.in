@@ -30,18 +30,16 @@ gmres.rtol = 1.0e-4
 # Time Stepping Definitions
 #####################################################
 simulation.max_step            = 30200
-#simulation.max_step            = 1000000000
 simulation.max_time            = 250.0
-#simulation.cfl_number          = 0.7
-#simulation.cfl_scatter         = 0.5
 simulation.fixed_dt            = 1.0e-3
 #simulation.plot_interval       = 1000
-simulation.dt_scatter_interval = 100 
-simulation.dt_check_interval   = 100 
 simulation.plot_time_interval  = 2.0
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
+
+simulation.dt_parts_check_interval   = 100 
+simulation.dt_scatter_check_interval = 100 
 
 history.precision = 5
 history.solver_probes = true

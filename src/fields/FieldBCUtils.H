@@ -10,7 +10,7 @@
 #include "EdgeDataBox.H"
 #include "NodeFArrayBox.H"
 
-#include "ElectroMagneticFields.H"
+#include "EMFields.H"
 #include "DomainGrid.H"
 #include "BoundaryBoxLayout.H"
 #include "BoundaryConditions.H"
@@ -59,6 +59,50 @@ namespace FieldBCUtils {
   
       }
 
+   }
+   
+   inline bool getInsulatorBox_PC( Box&        a_box,
+                             const FArrayBox&  a_binary,
+                             const int&        a_bdry_dir )
+   {
+      bool flag = false;
+      // modify passed boundary box to only cover insulator region
+    
+      IntVect this_index = a_box.smallEnd();
+      Real this_binary;
+      for (int dir=0; dir<SpaceDim; dir++) {
+
+         if(dir==a_bdry_dir) continue;
+         
+         const int box_imin = a_box.smallEnd(dir);
+         const int box_imax = a_box.bigEnd(dir);
+
+
+         // set new small index of box for this dir
+         for (int i(box_imin); i<=box_imax; i++) {
+            this_index[dir] = i;
+            this_binary = a_binary.get(this_index,0);
+            if(this_binary>0) {
+               a_box.setSmall(dir,i);
+               flag = true;
+               break;
+            }
+         }
+   
+         // set new big index of box for this dir
+         for (int i(box_imax); i>=box_imin; i--) {
+            this_index[dir] = i;
+            this_binary = a_binary.get(this_index,0);
+            if(this_binary>0) {
+               a_box.setBig(dir,i);
+               flag = true;
+               break;
+            }
+         }
+
+      }
+
+      return flag;
    }
    
    inline
@@ -139,7 +183,6 @@ namespace FieldBCUtils {
             const FArrayBox& this_ICbinary( ICbinary[interior_dit][dir] );
                
             // convert box to node type in dir direction and grow box to include tranverse ghosts 
-            const Box fill_box( bdry_grids[dit] );
             Box fill_box_grown = surroundingNodes(fill_box,dir);
             IntVect grow_vect = a_dst.ghostVect();
             grow_vect[bdry_dir] = 0;
@@ -207,7 +250,6 @@ namespace FieldBCUtils {
             const FArrayBox& this_ICbinary( ICbinary[interior_dit][dir] );
                
             // convert box to node type in dir direction and grow box to include tranverse ghosts 
-            const Box fill_box( bdry_grids[dit] );
             Box fill_box_grown = surroundingNodes(fill_box);
             fill_box_grown.enclosedCells(dir);
             IntVect grow_vect = a_dst.ghostVect();
@@ -386,7 +428,7 @@ namespace FieldBCUtils {
                if(this_bc_type=="conductor" && n==0 && a_mesh.axisymmetric()) {
                   const FArrayBox& this_Ja( Jacobian[interior_dit] );
                   FArrayBox JaBy;
-                  JaBy.define(this_dst.box(),0);
+                  JaBy.define(this_dst.box(),1);
                   JaBy.copy(this_dst,n,0,1);
                   JaBy.mult(this_Ja,0,0,1);
                   BoundaryConditions::setBC( JaBy,
@@ -910,6 +952,385 @@ namespace FieldBCUtils {
 
    } // end applyToJ_PIC()
    
+   //////////////////////////////////////////////////////////////////////
+   //
+   //
+   //
+   //////////////////////////////////////////////////////////////////////
+
+   inline
+   void setCellPCMask( LevelData<FArrayBox>&                a_dst,
+                 const DomainGrid&                          a_mesh,
+                 const Vector<std::string>&                 a_all_bc_type,
+                 const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
+                 const Real                                 a_time )
+   {
+      CH_TIME("FieldBCUtils::setCellPCMask (virtual magnetic field)");
+         
+      const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
+      for (int b(0); b<all_bdry_layouts.size(); b++) {
+         const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
+         const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
+         const std::string this_bc_type (a_all_bc_type[b]);
+
+         for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+            
+            const int bdry_dir = bdry_layout.dir();
+            const int ISIDE(bdry_layout.side());
+            FArrayBox& this_dst( a_dst[bdry_layout.dataIndex(dit)] );
+        
+            if(this_bc_type=="symmetry") {
+              // get the boundary layer of faces in dir direction
+              Box bdry_cells = bdry_grids[dit];
+              // shift layer by 1 cell to be the near-boundary interior cells
+              bdry_cells.shift(bdry_dir,1-2*ISIDE);
+              this_dst.setVal(2.0, bdry_cells, 2*bdry_dir+(1-ISIDE));
+            }
+
+            if(this_bc_type=="axis") {
+              // yet to implement
+            }
+
+            if(this_bc_type=="conductor") {
+              // get the boundary layer of faces in dir direction
+              Box bdry_cells = bdry_grids[dit];
+              // shift layer by 1 cell to be the near-boundary interior cells
+              bdry_cells.shift(bdry_dir,1-2*ISIDE);
+              this_dst.setVal(0.0, bdry_cells, 2*bdry_dir+(1-ISIDE));
+            }
+
+            if(this_bc_type=="insulator_conductor") {
+              {
+                // get the boundary layer of faces in dir direction
+                Box bdry_cells = bdry_grids[dit];
+                // shift layer by 1 cell to be the near-boundary interior cells
+                bdry_cells.shift(bdry_dir,1-2*ISIDE);
+                this_dst.setVal(0.0, bdry_cells, 2*bdry_dir+(1-ISIDE));
+              }
+              {
+                // now, get the insulator portion of the ghost layer
+                Box bdry_cells = bdry_grids[dit];
+                getInsulatorBox_PC( bdry_cells,
+                                    a_all_insulator_bc[b]
+                                      ->getICbinary_cc()[bdry_layout.dataIndex(dit)],
+                                    bdry_dir );
+                // shift layer by 1 cell to be the near-boundary interior cells
+                bdry_cells.shift(bdry_dir,1-2*ISIDE);
+                this_dst.setVal(1.0, bdry_cells, 2*bdry_dir+(1-ISIDE));
+              }
+            }
+
+            if(this_bc_type=="extrapolate_zeroBv") {
+              // yet to implement
+            }
+
+         }
+
+         if(this_bc_type=="insulator_conductor") { // re-do bcs in insulator region
+            //setInsulatorConductorBC_Bv(a_dst,a_mesh,bdry_layout,*a_all_insulator_bc[b],a_time);
+         }
+      } // end loop over boundaries
+
+   } // end function
+   
+   inline
+   void setFluxPCMask( LevelData<FluxBox>&                  a_dst,
+                 const BoundaryBoxLayoutPtrVect&            a_all_bdry_layouts,
+                 const Vector<std::string>&                 a_all_bc_type,
+                 const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
+                 const Real                                 a_time )
+   {
+      CH_TIME("FieldBCUtils::setFluxPCMask() (magnetic field)");
+      
+      for (int b(0); b<a_all_bdry_layouts.size(); b++) {
+         const BoundaryBoxLayout& bdry_layout( *(a_all_bdry_layouts[b]) );
+         const std::string this_bc_type (a_all_bc_type[b]);
+         
+         const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
+         for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         
+            for (int dir(0); dir<SpaceDim; dir++) {
+         
+               const int bdry_dir = bdry_layout.dir();
+               const int ISIDE(bdry_layout.side());
+               FArrayBox& this_dst( a_dst[bdry_layout.dataIndex(dit)][dir] );
+
+               if(this_bc_type=="axis") {
+                 // yet to implement
+               }
+
+               if(this_bc_type=="symmetry") {
+
+                 if(dir == bdry_layout.dir()) {
+
+                   // doesn't participate in field solve;
+                   // nothing to do!
+
+                 } else {
+                   // get the boundary layer of faces in dir direction
+                   Box bdry_cells = surroundingNodes(bdry_grids[dit],dir);
+                   // shift layer by 1 cell to be the near-boundary interior cells
+                   bdry_cells.shift(bdry_dir,1-2*ISIDE);
+                   this_dst.setVal(2.0, bdry_cells, (1-ISIDE));
+                 }
+
+               }
+
+               if(this_bc_type=="conductor" || this_bc_type=="axis") {
+                 if (dir != bdry_dir) {
+                   // get the boundary layer of faces in dir direction
+                   Box bdry_cells = surroundingNodes(bdry_grids[dit],dir);
+                   // shift layer by 1 cell to be the near-boundary interior cells
+                   bdry_cells.shift(bdry_dir,1-2*ISIDE);
+                   this_dst.setVal(0.0, bdry_cells, (1-ISIDE));
+                 } else {
+                   // get the boundary layer of faces in dir direction
+                   Box bdry_cells = bdry_grids[dit];
+                   // shift layer by 1 cell to be the near-boundary interior cells
+                   bdry_cells.shiftHalf(bdry_dir,1-2*ISIDE);
+                   // include one ghost face along dir to avoid corner issues
+                   if (SpaceDim == 2) {
+                     bdry_cells.grow(1-dir,1);
+                   }
+                   this_dst.setVal(0.0, bdry_cells, 0);
+                   this_dst.setVal(0.0, bdry_cells, 1);
+                 }
+               }
+
+               if(this_bc_type=="insulator_conductor") {
+                 if (dir != bdry_dir) {
+                   // get the boundary layer of faces in dir direction
+                   Box bdry_cells = surroundingNodes(bdry_grids[dit],dir);
+                   // shift layer by 1 cell to be the near-boundary interior cells
+                   bdry_cells.shift(bdry_dir,1-2*ISIDE);
+                   this_dst.setVal(0.0, bdry_cells, (1-ISIDE));
+                 } else {
+                   // get the boundary layer of faces in dir direction
+                   Box bdry_cells = bdry_grids[dit];
+                   // shift layer by 1 cell to be the near-boundary interior cells
+                   bdry_cells.shiftHalf(bdry_dir,1-2*ISIDE);
+                   // include one ghost face along dir to avoid corner issues
+                   if (SpaceDim == 2) {
+                     bdry_cells.grow(1-dir,1);
+                   }
+                   this_dst.setVal(0.0, bdry_cells, 0);
+                   this_dst.setVal(0.0, bdry_cells, 1);
+                 }
+                 if (dir != bdry_dir) {
+                   // now, get the insulator portion of the ghost layer
+                   Box bdry_cells = surroundingNodes(bdry_grids[dit],dir);
+                   bool flag = 
+                      getInsulatorBox_PC( bdry_cells,
+                                          a_all_insulator_bc[b]
+                                            ->getICbinary_fc()[bdry_layout.dataIndex(dit)][dir],
+                                          bdry_dir );
+                   if (flag) {
+                     this_dst.setVal(1*(1-2*ISIDE), bdry_cells, this_dst.nComp()-1);
+                     // shift layer by 1 cell to be the near-boundary interior cells
+                     bdry_cells.shift(bdry_dir,1-2*ISIDE);
+                     this_dst.setVal(1.0, bdry_cells, (1-ISIDE));
+                     this_dst.setVal(1*(1-2*ISIDE), bdry_cells, this_dst.nComp()-2);
+                   }
+                 } else {
+                   // now, get the insulator portion of the ghost layer
+                   Box bdry_cells = bdry_grids[dit];
+                   bool flag = 
+                     getInsulatorBox_PC( bdry_cells,
+                                         a_all_insulator_bc[b]
+                                           ->getICbinary_fc()[bdry_layout.dataIndex(dit)][dir],
+                                         bdry_dir );
+                   if (flag) {
+                     // shift layer by 1 cell to be the near-boundary interior cells
+                     bdry_cells.shiftHalf(bdry_dir,1-2*ISIDE);
+                     this_dst.setVal(1.0, bdry_cells, 0);
+                     this_dst.setVal(1.0, bdry_cells, 1);
+                   }
+                 }
+               }
+
+               if(this_bc_type=="extrapolate_zeroBv") {
+                 // yet to implement
+               }
+
+            } // end loop over dirs
+         } // end loop over boxes
+      } // end loop over boundaries
+
+   } // end function
+   
+   inline
+   void setEdgePCMask( LevelData<EdgeDataBox>&              a_dst,
+                 const BoundaryBoxLayoutPtrVect&            a_all_bdry_layouts,
+                 const Vector<std::string>&                 a_all_bc_type,
+                 const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
+                 const bool                                 a_conservative_wall,
+                 const Real                                 a_time )
+   {
+      CH_TIME("FieldBCUtils::setEdgePCMask() (electric field)");
+      
+      for (int b(0); b<a_all_bdry_layouts.size(); b++) {
+
+         const BoundaryBoxLayout& bdry_layout( *(a_all_bdry_layouts[b]) );
+         const std::string this_bc_type (a_all_bc_type[b]);
+         const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
+
+         for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         
+            const int bdry_dir = bdry_layout.dir();
+            const int ISIDE(bdry_layout.side());
+            
+            for (int dir(0); dir<SpaceDim; dir++) {
+         
+               FArrayBox& this_dst( a_dst[bdry_layout.dataIndex(dit)][dir] );
+
+               if(this_bc_type=="axis") {
+                 // yet to implement
+               }
+
+               if(this_bc_type=="symmetry") {
+                 // doesn't participate in field solve;
+                 // nothing to do!
+               }
+
+               if(this_bc_type=="conductor") {
+
+                  if(dir != bdry_dir) {
+                    // get the boundary layer of nodes in the dir direction
+                    Box bdry_cells = surroundingNodes(bdry_grids[dit]).enclosedCells(dir);
+                    // remove the ghost layer of nodes
+                    bdry_cells.growDir(bdry_dir, (ISIDE?Side::Hi:Side::Lo), -1);
+                    this_dst.setVal(0.0, bdry_cells, ISIDE);
+                  } else {
+                    // don't do anything?
+                  }
+
+               }
+
+               if (this_bc_type=="insulator_conductor") {
+                 if(dir != bdry_dir) {
+                   // get the boundary layer of nodes in the dir direction
+                   Box bdry_cells = surroundingNodes(bdry_grids[dit]).enclosedCells(dir);
+                   // remove the ghost layer of nodes
+                   bdry_cells.growDir(bdry_dir, (ISIDE?Side::Hi:Side::Lo), -1);
+                   this_dst.setVal(0.0, bdry_cells, ISIDE);
+                 } else {
+                   // don't do anything?
+                 }
+                 if(dir != bdry_dir) {
+                   // now, get the insulator portion of the ghost layer
+                   Box bdry_cells = surroundingNodes(bdry_grids[dit]).enclosedCells(dir);
+                   bool flag = 
+                     getInsulatorBox_PC(  bdry_cells,
+                                          a_all_insulator_bc[b]
+                                            ->getICbinary_ec()[bdry_layout.dataIndex(dit)][dir],
+                                          bdry_dir );
+                   if (flag) {
+                     // remove the ghost layer of nodes
+                     bdry_cells.growDir(bdry_dir, (ISIDE?Side::Hi:Side::Lo), -1);
+                     this_dst.setVal(1.0, bdry_cells, ISIDE);
+                   }
+                 } else {
+                   // don't do anything?
+                 }
+               }
+
+               if(this_bc_type=="extrapolate_zeroBv") {
+                 // yet to implement
+               }
+
+            } // end loop over dirs
+         } // end loop over boxes
+      } // end loop over boundaries
+
+   } // end function
+   
+   inline
+   void setNodePCMask( LevelData<NodeFArrayBox>&            a_dst,
+                 const DomainGrid&                          a_mesh,
+                 const Vector<std::string>&                 a_all_bc_type,
+                 const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc,
+                 const bool                                 a_conservative_wall,
+                 const Real                                 a_time )
+   {
+      CH_TIME("FieldBCUtils::setNodePCMask (virtual electric field)");
+
+      const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
+      for (int b(0); b<all_bdry_layouts.size(); b++) {
+
+         const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
+         const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
+         const std::string this_bc_type(a_all_bc_type[b]);
+
+         for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         
+            const int bdry_dir = bdry_layout.dir();
+            const int ISIDE(bdry_layout.side());
+            FArrayBox& this_dst( a_dst[bdry_layout.dataIndex(dit)].getFab() );
+
+            if(this_bc_type=="symmetry") {
+              // doesn't participate in field solve;
+              // nothing to do!
+            }
+
+            if(this_bc_type=="conductor" || this_bc_type=="axis") {
+              // get the boundary layer of nodes in the dir direction
+              Box bdry_cells = surroundingNodes(bdry_grids[dit]);
+              // remove the ghost layer of nodes
+              bdry_cells.growDir(bdry_dir, (ISIDE?Side::Hi:Side::Lo), -1);
+              for (int dir(0); dir<SpaceDim; dir++) {
+                if (dir == bdry_dir) this_dst.setVal(0.0, bdry_cells, 2*dir+ISIDE);
+                else {
+                  this_dst.setVal(0.0, bdry_cells, 2*dir);
+                  this_dst.setVal(0.0, bdry_cells, 2*dir+1);
+                }
+              }
+            }
+
+            if (this_bc_type=="insulator_conductor") {
+              {
+                // get the boundary layer of nodes in the dir direction
+                Box bdry_cells = surroundingNodes(bdry_grids[dit]);
+                // remove the ghost layer of nodes
+                bdry_cells.growDir(bdry_dir, (ISIDE?Side::Hi:Side::Lo), -1);
+                for (int dir(0); dir<SpaceDim; dir++) {
+                  if (dir == bdry_dir) this_dst.setVal(0.0, bdry_cells, 2*dir+ISIDE);
+                  else {
+                    this_dst.setVal(0.0, bdry_cells, 2*dir);
+                    this_dst.setVal(0.0, bdry_cells, 2*dir+1);
+                  }
+                }
+              }
+              {
+                // now, get the insulator portion of the ghost layer
+                Box bdry_cells = surroundingNodes(bdry_grids[dit]);
+                bool flag = 
+                  getInsulatorBox_PC(  bdry_cells,
+                                       a_all_insulator_bc[b]
+                                         ->getICbinary_nc()[bdry_layout.dataIndex(dit)].getFab(),
+                                       bdry_dir );
+                if (flag) {
+                  // remove the ghost layer of nodes
+                  bdry_cells.growDir(bdry_dir, (ISIDE?Side::Hi:Side::Lo), -1);
+                  for (int dir(0); dir<SpaceDim; dir++) {
+                    if (dir == bdry_dir) this_dst.setVal(1.0, bdry_cells, 2*dir+ISIDE);
+                    else {
+                      this_dst.setVal(1.0, bdry_cells, 2*dir);
+                      this_dst.setVal(1.0, bdry_cells, 2*dir+1);
+                    }
+                  }
+                }
+              }
+            }
+
+            if(this_bc_type=="extrapolate_zeroBv") {
+              // yet to implement
+            }
+         
+         }
+      } // end loop over boundaries
+
+   } // end function
+  
 }
 #include "NamespaceFooter.H"
 

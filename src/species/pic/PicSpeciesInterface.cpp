@@ -180,8 +180,9 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
 
 }
 
-void PicSpeciesInterface::initializeMassMatrices( ElectroMagneticFields&  a_emfields, 
-		                            const std::string&            a_restart_file_name )
+void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
+	                                    const Real&         a_dt,	
+		                            const std::string&  a_restart_file_name )
 {
    CH_TIME("PicSpeciesInterface::initializeMassMatrices()");
 
@@ -260,8 +261,7 @@ void PicSpeciesInterface::initializeMassMatrices( ElectroMagneticFields&  a_emfi
    }
    if(interp_type==CC1 && SpaceDim==1) {
       CH_assert(ghosts>=2);
-      int maxXings = 2;
-      if(ghosts==2) maxXings = 1; // use ghost to limit crossings
+      int maxXings = ghosts - 1;
       m_ncomp_xx[0] = 3 + 2*maxXings;
       m_ncomp_xy[0] = 2 + 2*maxXings;
       m_ncomp_xz[0] = 2 + 2*maxXings;
@@ -270,8 +270,7 @@ void PicSpeciesInterface::initializeMassMatrices( ElectroMagneticFields&  a_emfi
    }
    if(interp_type==CC1 && SpaceDim==2) {
       CH_assert(ghosts>=3);
-      int maxXings = 2;
-      if(ghosts==3) maxXings = 1; // use ghost to limit crossings
+      int maxXings = ghosts - 2;
       for (int dir=0; dir<SpaceDim; ++dir) {
          if(dir==0) {
             m_ncomp_xx[dir] = 3 + 2*maxXings; 
@@ -351,60 +350,6 @@ void PicSpeciesInterface::initializeMassMatrices( ElectroMagneticFields&  a_emfi
    SpaceUtils::zero( m_currentDensity_virtual_TEST );
 #endif
 
-   if(!a_restart_file_name.empty()) {
-
-      if(!procID()) cout << "reading mass matrices from restart file..." << endl;
-      HDF5Handle handle( a_restart_file_name, HDF5Handle::OPEN_RDONLY );
-      int group_id;
-
-      //
-      // read in the mass matrices (needed for PC on restart)
-      //
-      
-      group_id = handle.setGroup("sigmaxx");
-      if(group_id<0) cout << "Warning: sigmaxx not found in restart file" << endl;
-      else read(handle, m_sigma_xx, "data", grids);
-      
-      group_id = handle.setGroup("sigmaxy");
-      if(group_id<0) cout << "Warning: sigmaxy not found in restart file" << endl;
-      else read(handle, m_sigma_xy, "data", grids);
-      
-      group_id = handle.setGroup("sigmaxz");
-      if(group_id<0) cout << "Warning: sigmaxz not found in restart file" << endl;
-      else read(handle, m_sigma_xz, "data", grids);
-
-#if CH_SPACEDIM==1
-      group_id = handle.setGroup("sigmayx");
-      if(group_id<0) cout << "Warning: sigmayx not found in restart file" << endl;
-      else read(handle, m_sigma_yx, "data", grids);
-      
-      group_id = handle.setGroup("sigmayy");
-      if(group_id<0) cout << "Warning: sigmayy not found in restart file" << endl;
-      else read(handle, m_sigma_yy, "data", grids);
-      
-      group_id = handle.setGroup("sigmayz");
-      if(group_id<0) cout << "Warning: sigmayz not found in restart file" << endl;
-      else read(handle, m_sigma_yz, "data", grids);
-#endif
-
-#if CH_SPACEDIM<3
-      group_id = handle.setGroup("sigmazx");
-      if(group_id<0) cout << "Warning: sigmazx not found in restart file" << endl;
-      else read(handle, m_sigma_zx, "data", grids);
-      
-      group_id = handle.setGroup("sigmazy");
-      if(group_id<0) cout << "Warning: sigmazy not found in restart file" << endl;
-      else read(handle, m_sigma_zy, "data", grids);
-      
-      group_id = handle.setGroup("sigmazz");
-      if(group_id<0) cout << "Warning: sigmazz not found in restart file" << endl;
-      else read(handle, m_sigma_zz, "data", grids);
-#endif
- 
-      handle.close();
-
-   }
-   
    if(!procID()) {
       cout << " ncomp_xx = " << m_ncomp_xx << endl;
       cout << " ncomp_xy = " << m_ncomp_xy << endl;
@@ -565,7 +510,7 @@ PicSpeciesInterface::speciesPairingInit()
 
 }
 
-void PicSpeciesInterface::computeJfromMassMatrices( const ElectroMagneticFields&  a_emfields )
+void PicSpeciesInterface::computeJfromMassMatrices( const EMFields&  a_emfields )
 {
    CH_TIME("PicSpeciesInterface::computeJfromMassMatrices()");
    
@@ -815,21 +760,15 @@ void PicSpeciesInterface::setCurrentDensity( const bool  a_from_explicit_solver 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
  
    // set the current density member to zero
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
-      for (int dir=0; dir<SpaceDim; dir++) {
-         m_currentDensity[dit][dir].setVal(0.0);
-      }
+   SpaceUtils::zero( m_currentDensity );
 #if CH_SPACEDIM<3
-      FArrayBox& this_Jv_nodes = m_currentDensity_virtual[dit].getFab();
-      this_Jv_nodes.setVal(0.0);
+   SpaceUtils::zero( m_currentDensity_virtual );
 #endif
-   }
 
    // loop over all pic species and add the current density 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if(species->charge()==0) continue;
-
       species->setCurrentDensity( a_from_explicit_solver );
       const LevelData<EdgeDataBox>& species_J = species->getCurrentDensity();
       for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -844,17 +783,16 @@ void PicSpeciesInterface::setCurrentDensity( const bool  a_from_explicit_solver 
          const FArrayBox& this_species_Jv = species_Jv[dit].getFab();
          FArrayBox& this_Jv = m_currentDensity_virtual[dit].getFab();
          this_Jv.plus(this_species_Jv,0,0,m_currentDensity_virtual.nComp());
-         //if(!procID()) SpaceUtils::inspectFArrayBox( this_Jv, this_Jv.box(), 1);
       }
 #endif
    }
 
 }
 
-void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacobian, 
-                                    const ElectroMagneticFields&  a_emfields,
-                                    const Real                    a_dt,
-                                    const int                     a_nonlinear_iter )
+void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian, 
+                                    const EMFields&  a_emfields,
+                                    const Real       a_dt,
+                                    const int        a_nonlinear_iter )
 {
    CH_TIME("PicSpeciesInterface::preRHSOp()");
   
@@ -940,19 +878,21 @@ void PicSpeciesInterface::preRHSOp( const bool                    a_from_emjacob
    addInflowJ( J, Jv, a_emfields, a_dt );   
    addSubOrbitJ( J, Jv, a_emfields, a_dt, a_from_emjacobian );
 
-   if(a_emfields.useFiltering()) {
-      SpaceUtils::exchangeEdgeDataBox(m_currentDensity);
-      const FieldBC& field_bc = a_emfields.getFieldBC();
-      const Real dummy_time = 0.0;
-      field_bc.applyEdgeBC( m_currentDensity, dummy_time );
-      SpaceUtils::applyBinomialFilter(m_currentDensity);
-   }
+}
 
+void PicSpeciesInterface::filterJ( const EMFields&  a_emfields,
+                                   const Real       a_time )
+{   
+   CH_TIME("PicSpeciesInterface::filterJ()");
+   SpaceUtils::exchangeEdgeDataBox(m_currentDensity);
+   const FieldBC& field_bc = a_emfields.getFieldBC();
+   field_bc.applyEdgeBC( m_currentDensity, a_time );
+   SpaceUtils::applyBinomialFilter(m_currentDensity);
 }
  
-void PicSpeciesInterface::postNewtonUpdate( const ElectroMagneticFields&  a_emfields,
-                                            const Real                    a_time,
-                                            const Real                    a_dt )
+void PicSpeciesInterface::postNewtonUpdate( const EMFields&  a_emfields,
+                                            const Real       a_time,
+                                            const Real       a_dt )
 {
    CH_TIME("PicSpeciesInterface::postNewtonUpdate()");
   
@@ -974,8 +914,8 @@ void PicSpeciesInterface::postNewtonUpdate( const ElectroMagneticFields&  a_emfi
  
 }
 
-void PicSpeciesInterface::setMassMatrices( const ElectroMagneticFields&  a_emfields,
-                                           const Real  a_dt )
+void PicSpeciesInterface::setMassMatrices( const EMFields&  a_emfields,
+                                           const Real       a_dt )
 {
    CH_TIME("PicSpeciesInterface::setMassMatrices()");
    
@@ -1032,7 +972,7 @@ void PicSpeciesInterface::setMassMatrices( const ElectroMagneticFields&  a_emfie
    
 }
 
-void PicSpeciesInterface::setMassMatricesForPC( ElectroMagneticFields&  a_emfields )
+void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
 {
    CH_TIME("PicSpeciesInterface::setMassMatricesForPC()");
    if(!m_use_mass_matrices) return; 
@@ -1436,7 +1376,7 @@ void PicSpeciesInterface::setMassMatricesForPC( ElectroMagneticFields&  a_emfiel
 
 void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
                                       LevelData<NodeFArrayBox>&  a_Jv,
-                                const ElectroMagneticFields&     a_emfields,
+                                const EMFields&                  a_emfields,
                                 const Real                       a_dt )
 {
    CH_TIME("PicSpeciesInterface::addInflowJ()");
@@ -1476,7 +1416,7 @@ void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
 
 void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
                                         LevelData<NodeFArrayBox>&  a_Jv,
-                                  const ElectroMagneticFields&     a_emfields,
+                                  const EMFields&                  a_emfields,
                                   const Real                       a_dt,
                                   const bool                       a_from_emjacobian ) 
 {
@@ -1634,6 +1574,28 @@ PicSpeciesInterface::courantDt()
 //#endif
   
    return m_courant_dt;
+
+}
+
+Real 
+PicSpeciesInterface::cyclotronDt( const Real  a_wc0 )
+{
+   // a_wc0 = max(abs(B_T))*qe/me)*time_scale 
+   // i.e., the max cyclotron freq for unit charge and mass in code units
+
+   Real cyclotron_dt = DBL_MAX;
+   Real max_qom = 0.0;
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
+      PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      if(species->charge()==0) continue;
+      if(species->numParticles()==0) continue;
+      Real this_qom = std::abs(species->charge()/species->mass());
+      max_qom = std::max(this_qom,max_qom);
+   }
+
+   if(max_qom>0.0) { cyclotron_dt = 1.0/a_wc0/max_qom; }
+   
+   return cyclotron_dt;
 
 }
 

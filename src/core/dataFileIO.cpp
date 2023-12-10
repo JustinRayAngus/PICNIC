@@ -430,8 +430,8 @@ void dataFileIO::writeMeshDataFile()
 
 }
 
-void dataFileIO::writeEMFields( HDF5Handle&             a_handle,
-                          const ElectroMagneticFields&  a_emfield )
+void dataFileIO::writeEMFields( HDF5Handle&  a_handle,
+                          const EMFields&    a_emfield )
 {
    CH_TIME("dataFileIO::writeEMFields()");
    
@@ -543,8 +543,8 @@ void dataFileIO::writeEMFields( HDF5Handle&             a_handle,
 
 }
 
-void dataFileIO::writeEMFields_old( HDF5Handle&             a_handle,
-                              const ElectroMagneticFields&  a_emfield )
+void dataFileIO::writeEMFields_old( HDF5Handle&  a_handle,
+                              const EMFields&    a_emfield )
 {
    CH_TIME("dataFileIO::writeEMFields_old()");
    
@@ -633,157 +633,17 @@ void dataFileIO::writeEMFields_old( HDF5Handle&             a_handle,
 
 }
 
-void dataFileIO::writeMassMatrices( HDF5Handle&           a_handle,
-                              const PicSpeciesInterface&  a_pic_species )
-{
-   CH_TIME("dataFileIO::writeMassMatrices()");
-   
-   const ProblemDomain& domain(m_mesh.getDomain());
-   HDF5HeaderData header;
-  
-   // write sigmaxx
-   const LevelData<EdgeDataBox>& sigmaxx  = a_pic_species.getSigmaxx();
-   const std::string groupName = std::string("sigmaxx");
-   a_handle.setGroup(groupName);
-   
-   header.clear();
-   header.m_int["is_edgebox"] = 1;
-   header.m_int["num_components"] = sigmaxx.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmaxx.boxLayout());
-   write(a_handle, sigmaxx, "data", sigmaxx.ghostVect());
-   
-   // write sigmaxy
-   const LevelData<EdgeDataBox>& sigmaxy  = a_pic_species.getSigmaxy();
-   const std::string group2Name = std::string("sigmaxy");
-   a_handle.setGroup(group2Name);
-   
-   header.clear();
-   header.m_int["is_edgebox"] = 1;
-   header.m_int["num_components"] = sigmaxy.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmaxy.boxLayout());
-   write(a_handle, sigmaxy, "data", sigmaxy.ghostVect());
-   
-   // write sigmaxz
-   const LevelData<EdgeDataBox>& sigmaxz  = a_pic_species.getSigmaxz();
-   const std::string group3Name = std::string("sigmaxz");
-   a_handle.setGroup(group3Name);
-   
-   header.clear();
-   header.m_int["is_edgebox"] = 1;
-   header.m_int["num_components"] = sigmaxz.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmaxz.boxLayout());
-   write(a_handle, sigmaxz, "data", sigmaxz.ghostVect());
-  
-#if CH_SPACEDIM==1
-   // write sigmayx
-   const LevelData<NodeFArrayBox>& sigmayx = a_pic_species.getSigmayx();
-   const std::string group4Name = std::string("sigmayx");
-   a_handle.setGroup(group4Name);
-   
-   header.clear();
-   header.m_int["is_nodebox"] = 1;
-   header.m_int["num_components"] = sigmayx.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmayx.boxLayout());
-   write(a_handle, sigmayx, "data", sigmayx.ghostVect());
-   
-   // write sigmayy
-   const LevelData<NodeFArrayBox>& sigmayy = a_pic_species.getSigmayy();
-   const std::string group5Name = std::string("sigmayy");
-   a_handle.setGroup(group5Name);
-   
-   header.clear();
-   header.m_int["is_nodebox"] = 1;
-   header.m_int["num_components"] = sigmayy.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmayy.boxLayout());
-   write(a_handle, sigmayy, "data", sigmayy.ghostVect());
-   
-   // write sigmayz
-   const LevelData<NodeFArrayBox>& sigmayz = a_pic_species.getSigmayz();
-   const std::string group6Name = std::string("sigmayz");
-   a_handle.setGroup(group6Name);
-   
-   header.clear();
-   header.m_int["is_nodebox"] = 1;
-   header.m_int["num_components"] = sigmayz.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmayz.boxLayout());
-   write(a_handle, sigmayz, "data", sigmayz.ghostVect());
-#endif
-
-#if CH_SPACEDIM<3
-   // write sigmazx
-   const LevelData<NodeFArrayBox>& sigmazx = a_pic_species.getSigmazx();
-   const std::string group7Name = std::string("sigmazx");
-   a_handle.setGroup(group7Name);
-   
-   header.clear();
-   header.m_int["is_nodebox"] = 1;
-   header.m_int["num_components"] = sigmazx.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmazx.boxLayout());
-   write(a_handle, sigmazx, "data", sigmazx.ghostVect());
-   
-   // write sigmazy
-   const LevelData<NodeFArrayBox>& sigmazy = a_pic_species.getSigmazy();
-   const std::string group8Name = std::string("sigmazy");
-   a_handle.setGroup(group8Name);
-   
-   header.clear();
-   header.m_int["is_nodebox"] = 1;
-   header.m_int["num_components"] = sigmazy.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmazy.boxLayout());
-   write(a_handle, sigmazy, "data", sigmazy.ghostVect());
-   
-   // write sigmazz
-   const LevelData<NodeFArrayBox>& sigmazz = a_pic_species.getSigmazz();
-   const std::string group9Name = std::string("sigmazz");
-   a_handle.setGroup(group9Name);
-   
-   header.clear();
-   header.m_int["is_nodebox"] = 1;
-   header.m_int["num_components"] = sigmazz.nComp();
-   header.m_box["prob_domain"] = domain.domainBox(); 
-   header.writeToFile(a_handle);
-   
-   write(a_handle, sigmazz.boxLayout());
-   write(a_handle, sigmazz, "data", sigmazz.ghostVect());
-#endif
-
-}
-
-void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields&  a_emfield,
+void dataFileIO::writeEMFieldsDataFile( const EMFields&             a_emfield,
 #ifdef MASS_MATRIX_TEST
-                                                     const PicSpeciesInterface&    a_pic_species,
+                                        const PicSpeciesInterface&  a_pic_species,
 #endif
-                                                     const int                     a_cur_step, 
-                                                     const double                  a_cur_time )
+                                        const int                   a_cur_step, 
+                                        const double                a_cur_time )
 {
-   CH_TIME("dataFileIO::writeElectroMagneticFieldsDataFile()");
+   CH_TIME("dataFileIO::writeEMFieldsDataFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
 
-   if(!procID()) cout << "writing EandM fields data file ..." << endl << endl;
+   if(!procID()) cout << "writing emfields data file" << endl;
    
    const ProblemDomain& domain(m_mesh.getDomain());
    
@@ -913,8 +773,6 @@ void dataFileIO::writeElectroMagneticFieldsDataFile( const ElectroMagneticFields
    //
 
    handle.close();
-   
-   if(!procID()) cout << "finished writing field data file" << endl << endl;
 
 }
 
@@ -966,9 +824,9 @@ void dataFileIO::writeMassMatricesTest( HDF5Handle&           a_handle,
 }
 #endif
 
-void dataFileIO::writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
-                                  HDF5Handle&                   a_handle,
-                                  HDF5HeaderData&               a_header )
+void dataFileIO::writeEMFieldRho( const EMFields&  a_emfield,
+                                  HDF5Handle&      a_handle,
+                                  HDF5HeaderData&  a_header )
 {
    CH_TIME("dataFileIO::writeEMFieldRho()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -995,9 +853,9 @@ void dataFileIO::writeEMFieldRho( const ElectroMagneticFields&  a_emfield,
 
 }
 
-void dataFileIO::writeEMFieldExB( const ElectroMagneticFields&  a_emfield,
-                                  HDF5Handle&                   a_handle,
-                                  HDF5HeaderData&               a_header )
+void dataFileIO::writeEMFieldExB( const EMFields&  a_emfield,
+                                  HDF5Handle&      a_handle,
+                                  HDF5HeaderData&  a_header )
 {
    CH_TIME("dataFileIO::writeEMFieldExB()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -1046,9 +904,9 @@ void dataFileIO::writeEMFieldExB( const ElectroMagneticFields&  a_emfield,
 
 }
 
-void dataFileIO::writeEMFieldDivs( const ElectroMagneticFields&  a_emfield,
-                                   HDF5Handle&                   a_handle,
-                                   HDF5HeaderData&               a_header )
+void dataFileIO::writeEMFieldDivs( const EMFields&  a_emfield,
+                                   HDF5Handle&      a_handle,
+                                   HDF5HeaderData&  a_header )
 {
    CH_TIME("dataFileIO::writeEMFieldDivs()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -1093,9 +951,9 @@ void dataFileIO::writeEMFieldDivs( const ElectroMagneticFields&  a_emfield,
  
 }
 
-void dataFileIO::writeEMFieldCurls( const ElectroMagneticFields&  a_emfield,
-                                    HDF5Handle&                   a_handle,
-                                    HDF5HeaderData&               a_header )
+void dataFileIO::writeEMFieldCurls( const EMFields&  a_emfield,
+                                    HDF5Handle&      a_handle,
+                                    HDF5HeaderData&  a_header )
 {
    CH_TIME("dataFileIO::writeEMFieldCurls()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -1184,9 +1042,9 @@ void dataFileIO::writeEMFieldCurls( const ElectroMagneticFields&  a_emfield,
  
 }
 
-void dataFileIO::writeEMFieldPotential( const ElectroMagneticFields&  a_emfield,
-                                        HDF5Handle&                   a_handle,
-                                        HDF5HeaderData&               a_header )
+void dataFileIO::writeEMFieldPotential( const EMFields&  a_emfield,
+                                        HDF5Handle&      a_handle,
+                                        HDF5HeaderData&  a_header )
 {
    CH_TIME("dataFileIO::writeEMFieldPotential()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
@@ -1249,112 +1107,6 @@ void dataFileIO::writeEMFieldPotential( const ElectroMagneticFields&  a_emfield,
 
 }
 
-void dataFileIO::writePicSpecies( const PicSpeciesInterface&  a_pic_species,
-		                  const bool                  a_use_filtering,
-                                  const int                   a_step,
-                                  const double                a_time )
-{
-   CH_TIME("dataFileIO::writePicSpecies()");
-
-   const bool writeRho = a_pic_species.writeSpeciesRho();
-   const bool writeJ = a_pic_species.writeSpeciesJ();
-   const bool writeNppc = a_pic_species.writeSpeciesNppc();
-   const bool writeEnergyOffDiag = a_pic_species.writeSpeciesEnergyOffDiag();
-   const bool writeEnergyFlux = a_pic_species.writeSpeciesEnergyFlux();
-
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species.getPtrVect();
-   for (int sp=0; sp<pic_species_ptr_vect.size(); sp++) {
-
-      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
-      species->setNumberDensity();
-      species->setMomentumDensity();
-      species->setEnergyDensity();
-      
-      if(writeNppc) species->setNppc();
-      if(writeEnergyOffDiag) species->setEnergyOffDiag();
-      if(writeEnergyFlux) species->setEnergyDensityFlux();
-
-      if(species->charge() == 0) {
-         writeNeutralSpeciesDataFile( *species, sp, a_step, a_time,
-                                      writeNppc, writeEnergyOffDiag, writeEnergyFlux );
-      }
-      else {
-         if(writeRho) {
-            species->setChargeDensity();
-            species->setChargeDensityOnFaces();
-            species->setChargeDensityOnNodes( a_use_filtering );
-         }
-         if(writeJ) species->setCurrentDensity();
-         writeChargedSpeciesDataFile( *species, sp,
-                                      a_step, a_time,
-                                      writeRho, writeJ, writeNppc,
-                                      writeEnergyOffDiag, writeEnergyFlux );
-      }
-
-   }
-
-}
-
-void dataFileIO::writeNeutralSpeciesDataFile( const PicSpecies&  a_picSpecies,
-                                              const int          a_species,
-                                              const int          a_cur_step,
-                                              const double       a_cur_time,
-                                              const bool         a_write_nppc,
-                                              const bool         a_write_energy_off_diag,
-                                              const bool         a_write_energy_flux )
-{
-   CH_TIME("dataFileIO::writeNeutralSpeciesDataFile()");
-   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
-   
-   if(!procID()) {
-      cout << "writing neutral species data file" << endl;
-      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
-      cout << "... " << endl;
-   }
-
-   // write the species particle data file
-   writeSpeciesParticleFile( a_picSpecies, a_species, a_cur_step, a_cur_time );
-   
-   // write the species moment data file
-   writeSpeciesMomentsFile( a_picSpecies, a_species, a_cur_step, a_cur_time, 
-		            false, false, a_write_nppc, a_write_energy_off_diag, 
-			    a_write_energy_flux );
-   
-   if(!procID()) cout << "finished writing neutral species data file" << endl << endl;
-
-}
-
-void dataFileIO::writeChargedSpeciesDataFile( const PicSpecies&  a_picSpecies,
-                                              const int          a_species,
-                                              const int          a_cur_step,
-                                              const double       a_cur_time,
-                                              const bool         a_write_charge_density,
-                                              const bool         a_write_current_density,
-                                              const bool         a_write_nppc,
-                                              const bool         a_write_energy_off_diag,
-                                              const bool         a_write_energy_flux )
-{
-   CH_TIME("dataFileIO::writeChargedSpeciesDataFile()");
-   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
-   
-   if(!procID()) {
-      cout << "writing charged species data file" << endl;
-      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
-      cout << "... " << endl;
-   }
-
-   // write the species particle data file
-   writeSpeciesParticleFile( a_picSpecies, a_species, a_cur_step, a_cur_time );
-   
-   // write the species moment data file
-   writeSpeciesMomentsFile( a_picSpecies, a_species, a_cur_step, a_cur_time, 
-                            a_write_charge_density, a_write_current_density, 
-			    a_write_nppc, a_write_energy_off_diag, a_write_energy_flux );
-   
-   if(!procID()) cout << "finished writing charged species data file" << endl << endl;
-
-}
-
 void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
                                            const int          a_species,
                                            const int          a_cur_step,
@@ -1363,15 +1115,12 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
    CH_TIME("dataFileIO::writeSpeciesParticleFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
    
+   if(!procID()) {
+      cout << "writing particle file for species " << a_species << endl;
+   }
+   
    // get references to particle data   
    const ParticleData<JustinsParticle>& a_Pdata = a_picSpecies.partData();
-   
-   int verbosity = 1;
-   if(!procID() && verbosity) {
-      cout << "writing species " << a_species << " particle file" << endl;
-      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
-      cout << "... " << endl;
-   }
    
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
@@ -1462,10 +1211,6 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
    
    handleParts.close();
    
-   if(!procID() && verbosity) {
-      cout << "finished writing species " << a_species << " particle file" << endl << endl;
-   }
-
 }
 
 void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
@@ -1481,18 +1226,15 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    CH_TIME("dataFileIO::writeSpeciesMomentsFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
    
+   if(!procID()) {
+      cout << "writing moments file for species " << a_species << endl;
+   }
+   
    // It is the job of the caller to maker sure the moments are set
    const LevelData<FArrayBox>& density  = a_picSpecies.getNumberDensity();
    const LevelData<FArrayBox>& momentum = a_picSpecies.getMomentumDensity();
    const LevelData<FArrayBox>& energy   = a_picSpecies.getEnergyDensity();
   
-   int verbosity = 0; 
-   if(!procID() && verbosity) {
-      cout << "writing species moments file" << endl;
-      cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
-      cout << "... " << endl;
-   }
-   
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
    
@@ -1755,8 +1497,6 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
 
    handleParts.close();
    
-   if(!procID() && verbosity) cout << "finished writing species moment data file" << endl << endl;
-
 }
 
 void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,
@@ -1793,9 +1533,9 @@ void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>& 
 
 }
 
-void dataFileIO::writeCheckpointEMFields( HDF5Handle&             a_handle,
-                                    const int                     a_write_old_data,
-                                    const ElectroMagneticFields&  a_emfield )
+void dataFileIO::writeCheckpointEMFields( HDF5Handle&  a_handle,
+                                    const int          a_write_old_data,
+                                    const EMFields&    a_emfield )
 {
    CH_TIME("dataFileIO::writeCheckpointEMFields()");
 
@@ -1810,9 +1550,6 @@ void dataFileIO::writeCheckpointPicSpecies( HDF5Handle&           a_handle,
                                       const PicSpeciesInterface&  a_pic_species )
 {
    CH_TIME("dataFileIO::writeCheckpointPicSpecies()");
-
-   bool use_mm = a_pic_species.useMassMatrices();
-   if(use_mm) writeMassMatrices( a_handle, a_pic_species );
 
    const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species.getPtrVect();
    for (int sp=0; sp<pic_species_ptr_vect.size(); sp++) {

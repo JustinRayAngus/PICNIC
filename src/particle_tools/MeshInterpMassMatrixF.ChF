@@ -1685,6 +1685,10 @@ c     set max cell crossings permitted
 
       if(num_segments>maxXings+1) then
         print*, "CC1_1D_DEPOSIT_MM : num_segments = ", num_segments
+        print*, "JRA: dX = ", dx(0)
+        print*, "JRA: xpold = ", xpold0(0)
+        print*, "JRA: xpbar = ", xpbar(0)
+        print*, "JRA: xpnew = ", xpnew(0)
         STOP 'ERROR, not enough ghost layers'
       endif      
 

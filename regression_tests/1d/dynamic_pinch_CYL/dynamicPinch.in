@@ -39,17 +39,18 @@ gmres.maxits = 1000
 # Time Stepping Definitions
 #####################################################
 simulation.max_step            = 200
-#simulation.max_step            = 1000000000
 simulation.max_time            = 164.0 # t0 = Rp0/u0
-#simulation.cfl_number          = 0.7
-#simulation.cfl_scatter         = 0.5
 simulation.fixed_dt            = 1.0e-3
 #simulation.plot_interval       = 1000
-simulation.dt_scatter_interval = 100 
 simulation.plot_time_interval  = 1.64
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
+
+simulation.dt_parts_check_interval     = 100 
+simulation.dt_scatter_check_interval   = 100 
+simulation.dt_cyclotron_check_interval = 100 
+simulation.dt_cyclotron_factor = 2.0 
 
 history.precision = 8
 history.solver_probes = true
@@ -144,6 +145,8 @@ IC.electron.X_min = 0.0
 IC.electron.X_max = 1.5
 IC.electron.parts_per_cell = 2
 IC.electron.uniform_particle_weights = true
+#IC.electron.nppc_jacobian_scaling = true
+#IC.electron.nppc_jacobian_scaling.power = 0.5
 IC.electron.use_float_for_weights = true
 IC.electron.density.type = "constant"
 IC.electron.density.value = 1.0e23 # [number/m^3]
@@ -182,6 +185,8 @@ IC.deuterium.X_min = 0.0
 IC.deuterium.X_max = 1.5
 IC.deuterium.parts_per_cell = 2
 IC.deuterium.uniform_particle_weights = true
+#IC.deuterium.nppc_jacobian_scaling = true
+#IC.deuterium.nppc_jacobian_scaling.power = 0.5
 IC.deuterium.use_float_for_weights = true
 IC.deuterium.density.type = "constant"
 IC.deuterium.density.value = 1.0e23 # [number/m^3]
@@ -211,18 +216,30 @@ scattering.0.speciesA = 0
 scattering.0.speciesB = 0
 scattering.0.angular_scattering = "NANBU"
 #scattering.0.coulomb_logarithm = 10.0
+#scattering.0.max_subcycles = 10
+#scattering.0.enforce_conservations = true
+#scattering.0.sort_weighted_particles = true
+#scattering.0.energy_fraction = 0.02
 
 scattering.1.model = "COULOMB"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
 scattering.1.angular_scattering = "NANBU"
 #scattering.1.coulomb_logarithm = 10.0
+#scattering.1.max_subcycles = 10
+#scattering.1.enforce_conservations = true
+#scattering.1.sort_weighted_particles = true
+#scattering.1.energy_fraction = 0.02
 
 scattering.2.model = "COULOMB"
 scattering.2.speciesA = 1
 scattering.2.speciesB = 0
 scattering.2.angular_scattering = "NANBU"
 #scattering.2.coulomb_logarithm = 10.0
+#scattering.2.max_subcycles = 10
+#scattering.2.enforce_conservations = true
+#scattering.2.sort_weighted_particles = true
+#scattering.2.energy_fraction = 0.02
 
 #####################################################
 

@@ -14,7 +14,7 @@
 #include "CodeUnits.H"
 #include "DomainGrid.H"
 
-#include "ElectroMagneticFields.H"
+#include "EMFields.H"
 
 #include "NamespaceHeader.H"
 
@@ -33,10 +33,12 @@ public:
                    const Real          a_cur_time,
                    const std::string&  a_restart_file_name );
  
-  void initializeMassMatrices( ElectroMagneticFields&  a_emfields,
-		         const std::string&            a_restart_file_name );
+  void initializeMassMatrices( EMFields&     a_emfields,
+		         const Real&         a_dt,
+		         const std::string&  a_restart_file_name );
   
   Real courantDt();
+  Real cyclotronDt( const Real  a_wc0 );
 
   int numSpecies() const {return m_num_species;}
   int writeSpeciesRho() const {return m_writeSpeciesChargeDensity;}
@@ -58,35 +60,39 @@ public:
   LevelData<NodeFArrayBox>& getChargeDensityOnNodes() {return m_chargeDensity_nodes;}
   
   void setCurrentDensity( const bool  a_from_explicit_solver = false );
+
+  void filterJ( const EMFields&  a_emfields,
+                const Real       a_time );
+
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
   
   const LevelData<FArrayBox>& getDebyeLength() const {return m_DebyeLength;}
 
-  void preRHSOp( const bool                    a_from_emjacobian, 
-                 const ElectroMagneticFields&  a_emfields,
-                 const Real                    a_dt,
-                 const int                     a_nonlinear_iter );
+  void preRHSOp( const bool       a_from_emjacobian, 
+                 const EMFields&  a_emfields,
+                 const Real       a_dt,
+                 const int        a_nonlinear_iter );
 
-  void postNewtonUpdate( const ElectroMagneticFields&  a_emfields,
-                         const Real                    a_time,
-                         const Real                    a_dt );
+  void postNewtonUpdate( const EMFields&  a_emfields,
+                         const Real       a_time,
+                         const Real       a_dt );
  
-  void setMassMatrices( const ElectroMagneticFields&  a_emfields,
-                        const Real                    a_time );
+  void setMassMatrices( const EMFields&  a_emfields,
+                        const Real       a_time );
   
-  void computeJfromMassMatrices( const ElectroMagneticFields&  a_emfields );
+  void computeJfromMassMatrices( const EMFields&  a_emfields );
   
-  void setMassMatricesForPC( ElectroMagneticFields&  a_emfields );
+  void setMassMatricesForPC( EMFields&  a_emfields );
   
   void addInflowJ( LevelData<EdgeDataBox>&    a_J,
                    LevelData<NodeFArrayBox>&  a_Jv,
-             const ElectroMagneticFields&     a_emfields,
+             const EMFields&                  a_emfields,
              const Real                       a_dt );
   
   void addSubOrbitJ( LevelData<EdgeDataBox>&   a_J,
                     LevelData<NodeFArrayBox>&  a_Jv,
-              const ElectroMagneticFields&     a_emfields,
+              const EMFields&                  a_emfields,
               const Real                       a_dt,
               const bool                       a_from_emjacobian ); 
  

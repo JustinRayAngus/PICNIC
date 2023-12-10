@@ -4,16 +4,16 @@
 #include "BoxIterator.H"
 #include "CH_HDF5.H"
 #include "MathUtils.H"
-#include "ElectroMagneticFields.H"
+#include "EMFields.H"
 #include "FieldsF_F.H"
 
 #include "NamespaceHeader.H"
 
-ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
-                                        const DomainGrid&   a_mesh,
-                                        const CodeUnits&    a_units,
-                                        const bool&         a_verbosity,
-                                        const EMVecType&    a_vec_type )
+EMFields::EMFields( ParmParse&   a_ppflds,
+              const DomainGrid&  a_mesh,
+              const CodeUnits&   a_units,
+              const bool&        a_verbosity,
+              const EMVecType&   a_vec_type )
     : m_verbosity(a_verbosity),
       m_use_filtering(false),
       m_use_poisson(false),
@@ -104,7 +104,8 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
       invDXsq = invDXsq + 1.0/meshSpacing[dir]/meshSpacing[dir];
    } 
    Real DXeff = 1.0/pow(invDXsq,0.5);
-   m_stable_dt = DXeff/a_units.CvacNorm();
+   m_cvacNorm = a_units.CvacNorm();
+   m_stable_dt = DXeff/m_cvacNorm;
 
    // set the normalization factor for J in Ampere's law
    const Real mu0  = Constants::MU0;  // SI units
@@ -138,7 +139,31 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const int ghosts(m_mesh.ghosts());
    const IntVect ghostVect = ghosts*IntVect::Unit; 
-   
+  
+   // define and initialize BC masking containers
+   m_PC_mask_B.define(grids,4,ghostVect);
+   SpaceUtils::setVal(m_PC_mask_B, 0, 1.0);
+   SpaceUtils::setVal(m_PC_mask_B, 1, 1.0);
+   SpaceUtils::setVal(m_PC_mask_B, 2, 0.0);
+   SpaceUtils::setVal(m_PC_mask_B, 3, 0.0);
+   m_PC_mask_E.define(grids,4,ghostVect);
+   SpaceUtils::setVal(m_PC_mask_E, 0, 1.0);
+   SpaceUtils::setVal(m_PC_mask_E, 1, 1.0);
+   SpaceUtils::setVal(m_PC_mask_E, 2, 0.0);
+   SpaceUtils::setVal(m_PC_mask_E, 3, 0.0);
+   if(SpaceDim<3) {
+     m_PC_mask_Bv.define(grids,3*SpaceDim,ghostVect);
+     m_PC_mask_Ev.define(grids,3*SpaceDim,ghostVect);
+     for (int d=0; d < 2*SpaceDim; d++) {
+       SpaceUtils::setVal(m_PC_mask_Bv, d, 1.0);
+       SpaceUtils::setVal(m_PC_mask_Ev, d, 1.0);
+     }
+     for (int d=2*SpaceDim; d < 3*SpaceDim; d++) {
+       SpaceUtils::setVal(m_PC_mask_Bv, d, 0.0);
+       SpaceUtils::setVal(m_PC_mask_Ev, d, 0.0);
+     }
+   }
+
    // define the magnetic field containers
    m_magneticField.define(grids,1,ghostVect); // FluxBox with 1 comp
    m_magneticField_old.define(grids,1);
@@ -303,7 +328,7 @@ ElectroMagneticFields::ElectroMagneticFields( ParmParse&    a_ppflds,
    return;
 }
 
-ElectroMagneticFields::~ElectroMagneticFields()
+EMFields::~EMFields()
 {
 
    if(m_field_bc!=NULL) {
@@ -317,8 +342,8 @@ ElectroMagneticFields::~ElectroMagneticFields()
 
 }
 
-void ElectroMagneticFields::initialize( const Real          a_cur_time,
-                                        const std::string&  a_restart_file_name )
+void EMFields::initialize( const Real          a_cur_time,
+                           const std::string&  a_restart_file_name )
 {
    const DisjointBoxLayout& grids(m_mesh.getDBL());
  
@@ -350,31 +375,29 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
             gridFunction = gridFactory.createZero();
          }
          gridFunction->assign( m_magneticField, dir, m_mesh, a_cur_time );
-         SpaceUtils::exchangeFluxBox(m_magneticField);
       }
    
       // set initial virtual magnetic field profile from ICs
-      if(SpaceDim<3) {
-         int numVirt = 3-SpaceDim;
-         for( int comp=0; comp<numVirt; comp++) {
-            int field_dir = comp + SpaceDim;
-            stringstream sBv; 
-            sBv << "IC.em_fields.magnetic." << field_dir; 
-            ParmParse ppBvfieldIC( sBv.str().c_str() );
-            RefCountedPtr<GridFunction> gridFunction(NULL);
-            if(ppBvfieldIC.contains("type")) {
-               gridFunction = gridFactory.create(ppBvfieldIC,m_mesh,m_verbosity);
-            }
-            else {
-               gridFunction = gridFactory.createZero();
-            }
-            gridFunction->assign( temporaryProfile, m_mesh, a_cur_time );
-            for(DataIterator dit(grids); dit.ok(); ++dit) {
-               m_magneticField_virtual[dit].copy(temporaryProfile[dit],0,comp,1);
-            }
-            m_magneticField_virtual.exchange();      
+#if CH_SPACEDIM<3
+      int numVirt = 3-SpaceDim;
+      for( int comp=0; comp<numVirt; comp++) {
+         int field_dir = comp + SpaceDim;
+         stringstream sBv; 
+         sBv << "IC.em_fields.magnetic." << field_dir; 
+         ParmParse ppBvfieldIC( sBv.str().c_str() );
+         RefCountedPtr<GridFunction> gridFunction(NULL);
+         if(ppBvfieldIC.contains("type")) {
+            gridFunction = gridFactory.create(ppBvfieldIC,m_mesh,m_verbosity);
+         }
+         else {
+            gridFunction = gridFactory.createZero();
+         }
+         gridFunction->assign( temporaryProfile, m_mesh, a_cur_time );
+         for(DataIterator dit(grids); dit.ok(); ++dit) {
+            m_magneticField_virtual[dit].copy(temporaryProfile[dit],0,comp,1);
          }
       }
+#endif
    
       // set initial electric field profile from ICs
       for (int dir=0; dir<SpaceDim; dir++) {
@@ -389,38 +412,45 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
             gridFunction = gridFactory.createZero();
          }
          gridFunction->assign( m_electricField, dir, m_mesh, a_cur_time );
-         SpaceUtils::exchangeEdgeDataBox(m_electricField);
       }
    
       // set initial virtual electric field profile from ICs
-      if(SpaceDim<3) {
-         int numVirt = 3-SpaceDim;
-         for( int comp=0; comp<numVirt; comp++) {
-            int field_dir = comp + SpaceDim;
-            stringstream sEv; 
-            sEv << "IC.em_fields.electric." << field_dir; 
-            ParmParse ppEvfieldIC( sEv.str().c_str() );
-            RefCountedPtr<GridFunction> gridFunction(NULL);
-            if(ppEvfieldIC.contains("type")) {
-               gridFunction = gridFactory.create(ppEvfieldIC,m_mesh,m_verbosity);
-            }
-            else {
-               gridFunction = gridFactory.createZero();
-            }
-            gridFunction->assign( temporaryNodeProfile, m_mesh, a_cur_time );
-            for(DataIterator dit(grids); dit.ok(); ++dit) {
-               FArrayBox& this_Ev  = m_electricField_virtual[dit].getFab();
-               this_Ev.copy(temporaryNodeProfile[dit].getFab(),0,comp,1);
-            }
+#if CH_SPACEDIM<3
+      for( int comp=0; comp<numVirt; comp++) {
+         int field_dir = comp + SpaceDim;
+         stringstream sEv; 
+         sEv << "IC.em_fields.electric." << field_dir; 
+         ParmParse ppEvfieldIC( sEv.str().c_str() );
+         RefCountedPtr<GridFunction> gridFunction(NULL);
+         if(ppEvfieldIC.contains("type")) {
+            gridFunction = gridFactory.create(ppEvfieldIC,m_mesh,m_verbosity);
          }
-         SpaceUtils::exchangeNodeFArrayBox(m_electricField_virtual);
+         else {
+            gridFunction = gridFactory.createZero();
+         }
+         gridFunction->assign( temporaryNodeProfile, m_mesh, a_cur_time );
+         for(DataIterator dit(grids); dit.ok(); ++dit) {
+            FArrayBox& this_Ev  = m_electricField_virtual[dit].getFab();
+            this_Ev.copy(temporaryNodeProfile[dit].getFab(),0,comp,1);
+         }
       }
+#endif
+         
+      SpaceUtils::exchangeFluxBox(m_magneticField);
+      SpaceUtils::exchangeEdgeDataBox(m_electricField);
+#if CH_SPACEDIM<3
+      m_magneticField_virtual.exchange();      
+      SpaceUtils::exchangeNodeFArrayBox(m_electricField_virtual);
+#endif
 
       // apply BCs to initial profiles
       applyBCs_electricField(a_cur_time);
       applyBCs_magneticField(a_cur_time);
       
-      if(m_enforce_gauss_startup) enforceGaussLaw( a_cur_time );
+      if(m_enforce_gauss_startup) {
+        solvePoisson( a_cur_time );
+        correctElectricField();
+      }
    
       // initialize old values by copy
       for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -435,15 +465,15 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
             Bdir_old.copy(m_magneticField[dit][dir],face_box);
          }   
       
-         if(SpaceDim<3) {
-            FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
-            const Box& node_box = Ev_old.box();
-            Ev_old.copy(m_electricField_virtual[dit].getFab(),node_box);
-            //
-            FArrayBox& Bv_old = m_magneticField_virtual_old[dit];
-            const Box& cell_box = Bv_old.box();
-            Bv_old.copy(m_magneticField_virtual[dit],cell_box);
-         }
+#if CH_SPACEDIM<3
+         FArrayBox& Ev_old = m_electricField_virtual_old[dit].getFab();
+         const Box& node_box = Ev_old.box();
+         Ev_old.copy(m_electricField_virtual[dit].getFab(),node_box);
+         //
+         FArrayBox& Bv_old = m_magneticField_virtual_old[dit];
+         const Box& cell_box = Bv_old.box();
+         Bv_old.copy(m_magneticField_virtual[dit],cell_box);
+#endif
 
       }
  
@@ -479,20 +509,46 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
        
       // read in the magnetic field data
       handle.setGroup("magnetic_field");
-      read( handle, m_magneticField, "data", grids );
-   
+      LevelData<FluxBox> magField_temp;
+      read(handle, magField_temp, "data", grids);
+      magField_temp.copyTo(m_magneticField);
+
       // read in the electric field data
       handle.setGroup("electric_field");
-      read(handle, m_electricField, "data", grids);
-   
+      LevelData<EdgeDataBox> elecField_temp;
+      read(handle, elecField_temp, "data", grids);
+      elecField_temp.copyTo(m_electricField);
+
 #if CH_SPACEDIM<3
-      // read in the virtual field data
+      // read in the virtual magnetic field data
       handle.setGroup("virtual_magnetic_field");
-      read(handle, m_magneticField_virtual, "data", grids);
+      LevelData<FArrayBox> magField_virt_temp;
+      read(handle, magField_virt_temp, "data", grids);
+      magField_virt_temp.copyTo(m_magneticField_virtual);
       
+      // read in the virtual electric field data
       handle.setGroup("virtual_electric_field");
-      read(handle, m_electricField_virtual, "data", grids);
+      LevelData<NodeFArrayBox> elecField_virt_temp;
+      read(handle, elecField_virt_temp, "data", grids);
+      elecField_virt_temp.copyTo(m_electricField_virtual);
 #endif
+     
+      // call exchange
+      SpaceUtils::exchangeFluxBox(m_magneticField);
+      SpaceUtils::exchangeEdgeDataBox(m_electricField);
+#if CH_SPACEDIM<3
+      m_magneticField_virtual.exchange();      
+      SpaceUtils::exchangeNodeFArrayBox(m_electricField_virtual);
+#endif
+
+      // apply BCs to initial profiles
+      applyBCs_electricField(a_cur_time);
+      applyBCs_magneticField(a_cur_time);
+      
+      //if(procID()==0) {SpaceUtils::inspectFluxBox(m_magneticField,0);}
+      //if(procID()==0) {SpaceUtils::inspectEdgeDataBox(m_electricField,0);}
+      //if(procID()==0) {SpaceUtils::inspectNodeFArrayBox(m_electricField_virtual,0);}
+      //if(procID()==0) {SpaceUtils::inspectFArrayBox(m_magneticField_virtual,0,1);}
 
       //
       //  read in the old field data if it exist
@@ -569,17 +625,17 @@ void ElectroMagneticFields::initialize( const Real          a_cur_time,
 
 }
   
-void ElectroMagneticFields::initializeMassMatricesForPC( const IntVect&  a_ncomp_xx,
-		                                         const IntVect&  a_ncomp_xy,
-		                                         const IntVect&  a_ncomp_xz,
-		                                         const IntVect&  a_ncomp_yx,
-		                                         const IntVect&  a_ncomp_yy,
-		                                         const IntVect&  a_ncomp_yz,
-		                                         const IntVect&  a_ncomp_zx,
-		                                         const IntVect&  a_ncomp_zy,
-		                                         const IntVect&  a_ncomp_zz )
+void EMFields::initializeMassMatricesForPC( const IntVect&  a_ncomp_xx,
+		                            const IntVect&  a_ncomp_xy,
+		                            const IntVect&  a_ncomp_xz,
+		                            const IntVect&  a_ncomp_yx,
+		                            const IntVect&  a_ncomp_yy,
+		                            const IntVect&  a_ncomp_yz,
+		                            const IntVect&  a_ncomp_zx,
+		                            const IntVect&  a_ncomp_zy,
+		                            const IntVect&  a_ncomp_zz )
 {
-   CH_TIME("ElectroMagneticFields::initializeMassMatricesForPC()");
+   CH_TIME("EMFields::initializeMassMatricesForPC()");
 
    //////////////////////////////////////////////////////////////////
    //
@@ -765,7 +821,7 @@ void ElectroMagneticFields::initializeMassMatricesForPC( const IntVect&  a_ncomp
 }
 
 
-void ElectroMagneticFields::initExternalFields()
+void EMFields::initExternalFields()
 {
 
    // define grid function describing external fields
@@ -812,15 +868,16 @@ void ElectroMagneticFields::initExternalFields()
 
 }
 
-void ElectroMagneticFields::computeRHSMagneticField(  const Real a_time,
-                                                      const Real a_cnormDt )
+void EMFields::computeRHSMagneticField( const Real  a_time,
+                                        const Real  a_dt )
 {
-  CH_TIME("ElectroMagneticFields::computeRHSMagneticField()");
+  CH_TIME("EMFields::computeRHSMagneticField()");
   
   setCurlE();
 
   if (!advanceB()) return;
 
+  const Real cnormDt = a_dt*m_cvacNorm;
   auto grids(m_mesh.getDBL());
 
   if(m_advanceB_inPlane) {
@@ -830,7 +887,7 @@ void ElectroMagneticFields::computeRHSMagneticField(  const Real a_time,
         if(m_advanceB_comp[dir]) {
            FArrayBox& Brhsdir = m_magneticField_rhs[dit][dir];
            Brhsdir.copy( m_curlE[dit][dir] );
-           Brhsdir.mult(-a_cnormDt);
+           Brhsdir.mult(-cnormDt);
         }
       }
     }
@@ -845,7 +902,7 @@ void ElectroMagneticFields::computeRHSMagneticField(  const Real a_time,
       for (int comp=0; comp<Ncomp; comp++){
         FArrayBox& Bvrhsdir  = m_magneticField_virtual_rhs[dit];
         Bvrhsdir.copy(m_curlE_virtual[dit], comp, comp);
-        Bvrhsdir.mult(-a_cnormDt*m_advanceB_comp[SpaceDim+comp], comp);
+        Bvrhsdir.mult(-cnormDt*m_advanceB_comp[SpaceDim+comp], comp);
       }
     }
   }
@@ -854,16 +911,16 @@ void ElectroMagneticFields::computeRHSMagneticField(  const Real a_time,
   return;
 }
 
-void ElectroMagneticFields::computeRHSElectricField(  const Real a_time, 
-                                                      const Real a_cnormDt )
+void EMFields::computeRHSElectricField( const Real  a_time, 
+                                        const Real  a_dt )
 {
-  CH_TIME("ElectroMagneticFields::computeRHSElectricField()");
+  CH_TIME("EMFields::computeRHSElectricField()");
     
   setCurlB();
-  if(m_use_poisson) enforceGaussLaw( a_time );
 
   if(!advanceE()) return;
 
+  const Real cnormDt = a_dt*m_cvacNorm;
   auto grids(m_mesh.getDBL());
 
   if(m_advanceE_inPlane) {
@@ -878,7 +935,7 @@ void ElectroMagneticFields::computeRHSElectricField(  const Real a_time,
           Erhsdir.copy( Jdir );
           Erhsdir.mult( -m_Jnorm_factor );
           Erhsdir.plus( curlBdir );
-          Erhsdir.mult( a_cnormDt );
+          Erhsdir.mult( cnormDt );
         }
       }
     }
@@ -898,7 +955,7 @@ void ElectroMagneticFields::computeRHSElectricField(  const Real a_time,
           Evrhsdir.copy( Jv, comp, comp );
           Evrhsdir.mult( -m_Jnorm_factor, comp );
           Evrhsdir.plus( curlBv, comp, comp );
-          Evrhsdir.mult( a_cnormDt, comp );
+          Evrhsdir.mult( cnormDt, comp );
         }
       }
     }
@@ -908,61 +965,39 @@ void ElectroMagneticFields::computeRHSElectricField(  const Real a_time,
   return;
 }
 
-void ElectroMagneticFields::applyBCs_electricField( const Real  a_time )
+void EMFields::applyBCs_electricField( const Real  a_time )
 {
-   CH_TIME("ElectroMagneticFields::applyBCs_electricField()");
+   CH_TIME("EMFields::applyBCs_electricField()");
    
-   if(m_advanceE_inPlane) {
-     
-      // exchange to fill internal ghost cells 
-      //SpaceUtils::exchangeEdgeDataBox(m_electricField);
-     
-      // apply the boundary bcs 
-      m_field_bc->applyEdgeBC( m_electricField, a_time );
-
-   }
-   
-   if(SpaceDim<3 && m_advanceE_virtual) {
-      
-      // exchange to fill internal ghost cells 
-      //SpaceUtils::exchangeNodeFArrayBox(m_electricField_virtual);
-      
-      // apply the boundary bcs 
-      m_field_bc->applyNodeBC( m_electricField_virtual, a_time );
-   
-   }
+   m_field_bc->applyEdgeBC( m_electricField, a_time );
+   m_field_bc->applyEdgePCMask( m_PC_mask_E, a_time );
+   SpaceUtils::exchangeEdgeDataBox( m_PC_mask_E );
+#if CH_SPACEDIM<3  
+   m_field_bc->applyNodeBC( m_electricField_virtual, a_time );
+   m_field_bc->applyNodePCMask( m_PC_mask_Ev, a_time );
+   SpaceUtils::exchangeNodeFArrayBox( m_PC_mask_Ev );
+#endif   
 
 }
 
-void ElectroMagneticFields::applyBCs_magneticField( const Real  a_time )
+void EMFields::applyBCs_magneticField( const Real  a_time )
 {
-   CH_TIME("ElectroMagneticFields::applyBCs_magneticField()");
+   CH_TIME("EMFields::applyBCs_magneticField()");
 
-   if(m_advanceB_inPlane) {
-      
-      // exchange to fill internal ghost cells 
-      //SpaceUtils::exchangeFluxBox(m_magneticField);
-      
-      // apply the boundary bcs 
-      m_field_bc->applyFluxBC( m_magneticField, a_time );
-
-   }
- 
-   if(SpaceDim<3 && m_advanceB_virtual) {
-         
-      // exchange to fill internal ghost cells 
-      //m_magneticField_virtual.exchange();
-      
-      // apply the boundary bcs 
-      m_field_bc->applyCellBC( m_magneticField_virtual, a_time );
-
-   }
+   m_field_bc->applyFluxBC( m_magneticField, a_time );
+   m_field_bc->applyFluxPCMask( m_PC_mask_B, a_time );
+   SpaceUtils::exchangeFluxBox( m_PC_mask_B );
+#if CH_SPACEDIM<3  
+   m_field_bc->applyCellBC( m_magneticField_virtual, a_time );
+   m_field_bc->applyCellPCMask( m_PC_mask_Bv, a_time );
+   m_PC_mask_Bv.exchange();
+#endif
 
 }
   
-void ElectroMagneticFields::postTimeStep( const Real  a_dt )
+void EMFields::updateBoundaryProbes( const Real  a_dt )
 {
-   CH_TIME("ElectroMagneticFields::postTimeStep()");
+   CH_TIME("EMFields::updateBoundaryProbes()");
  
    if(m_field_bc==NULL) return;
  
@@ -1004,9 +1039,9 @@ void ElectroMagneticFields::postTimeStep( const Real  a_dt )
 
 }
 
-void ElectroMagneticFields::setPoyntingFlux() 
+void EMFields::setPoyntingFlux() 
 {
-   CH_TIME("ElectroMagneticFields::setPoyntingFlux()");
+   CH_TIME("EMFields::setPoyntingFlux()");
    
    const DisjointBoxLayout& grids(m_mesh.getDBL());
   
@@ -1115,9 +1150,9 @@ void ElectroMagneticFields::setPoyntingFlux()
 
 }
 
-Real ElectroMagneticFields::electricFieldEnergy() const
+Real EMFields::electricFieldEnergy() const
 {
-  CH_TIME("ElectroMagneticFields::electricFieldEnergy()");
+  CH_TIME("EMFields::electricFieldEnergy()");
   const DisjointBoxLayout& grids(m_mesh.getDBL());
  
   Real energyE_local = 0.0;
@@ -1170,9 +1205,9 @@ Real ElectroMagneticFields::electricFieldEnergy() const
   return energyE_global;
 }
 
-Real ElectroMagneticFields::magneticFieldEnergy() const
+Real EMFields::magneticFieldEnergy() const
 {
-  CH_TIME("ElectroMagneticFields::magneticFieldEnergy()");
+  CH_TIME("EMFields::magneticFieldEnergy()");
   const DisjointBoxLayout& grids(m_mesh.getDBL());
  
   Real energyB_local = 0.0;
@@ -1224,8 +1259,8 @@ Real ElectroMagneticFields::magneticFieldEnergy() const
 
 }
 
-Real ElectroMagneticFields::max_wc0dt( const CodeUnits&  a_units,
-                                       const Real&       a_dt ) const
+Real EMFields::max_wc0dt( const CodeUnits&  a_units,
+                          const Real&       a_dt ) const
 {
    Real max_absB_local = 0.0;
 
@@ -1268,9 +1303,9 @@ Real ElectroMagneticFields::max_wc0dt( const CodeUnits&  a_units,
 
 }
 
-void ElectroMagneticFields::setCurlB()
+void EMFields::setCurlB()
 {
-   CH_TIME("ElectroMagneticFields::setCurlB()");
+   CH_TIME("EMFields::setCurlB()");
     
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const RealVect& dX(m_mesh.getdX());
@@ -1436,9 +1471,9 @@ void ElectroMagneticFields::setCurlB()
   
 }
 
-void ElectroMagneticFields::setCurlE()
+void EMFields::setCurlE()
 {
-   CH_TIME("ElectroMagneticFields::setCurlE()");
+   CH_TIME("EMFields::setCurlE()");
     
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const RealVect& dX(m_mesh.getdX());
@@ -1600,9 +1635,9 @@ void ElectroMagneticFields::setCurlE()
    
 }
 
-void ElectroMagneticFields::setDivE()
+void EMFields::setDivE()
 {
-   CH_TIME("ElectroMagneticFields::setDivE()");
+   CH_TIME("EMFields::setDivE()");
     
    // get some Grid info
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -1654,9 +1689,9 @@ void ElectroMagneticFields::setDivE()
    
 }
 
-void ElectroMagneticFields::setDivB()
+void EMFields::setDivB()
 {
-   CH_TIME("ElectroMagneticFields::setDivB()");
+   CH_TIME("EMFields::setDivB()");
     
    // get some Grid info
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -1696,18 +1731,20 @@ void ElectroMagneticFields::setDivB()
    
 }
 
-void ElectroMagneticFields::enforceGaussLaw( const Real  a_time )
+void EMFields::enforceGaussLaw( const LevelData<NodeFArrayBox>&  a_rho,
+		                const Real                       a_time )
 {
-   CH_TIME("ElectroMagneticFields::enforceGaussLaw()");
+   CH_TIME("EMFields::enforceGaussLaw()");
 
+   setChargeDensity( a_rho );
    solvePoisson( a_time );
    correctElectricField();
 
 }
 
-void ElectroMagneticFields::solvePoisson( const Real  a_time )
+void EMFields::solvePoisson( const Real  a_time )
 {
-   CH_TIME("ElectroMagneticFields::solvePoisson()");
+   CH_TIME("EMFields::solvePoisson()");
 
    setDivE();
 
@@ -1775,9 +1812,9 @@ void ElectroMagneticFields::solvePoisson( const Real  a_time )
 
 }
 
-void ElectroMagneticFields::correctElectricField()
+void EMFields::correctElectricField()
 {
-   CH_TIME("ElectroMagneticFields::correctElectricField()");
+   CH_TIME("EMFields::correctElectricField()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
   
    // add E_corr = -nabla(phi) to E
@@ -1792,16 +1829,17 @@ void ElectroMagneticFields::correctElectricField()
 
 }   
    
-void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_P,
-                                             const bool                       a_use_mass_matrices,
-                                             const Real                       a_cnormDt )
+void EMFields::assemblePrecondMatrix( BandedMatrix&  a_P,
+                                const bool           a_use_mass_matrices,
+                                const Real           a_dt )
 {
-  CH_TIME("ElectroMagneticFields::assemblePrecondMatrix()");
+  CH_TIME("EMFields::assemblePrecondMatrix()");
 
   auto grids(m_mesh.getDBL());
 
   // copy over the mass matrix elements used in the PC and do addOp exchange() 
-  const Real sig_normC = a_cnormDt*m_Jnorm_factor;
+  const Real cnormDt = a_dt*m_cvacNorm;
+  const Real sig_normC = cnormDt*m_Jnorm_factor;
   int diag_comp_inPlane=0, diag_comp_virtual=0; 
   if(a_use_mass_matrices) {
     diag_comp_inPlane = (m_sigma_xx_pc.nComp()-1)/2;
@@ -1823,9 +1861,9 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
   const LevelData<NodeFArrayBox>& pmap_Ev_rhs = m_gdofs.dofDataRHSEv();
   
   const LevelData<FArrayBox>& Xcc(m_mesh.getXcc());
-#if CH_SPACEDIM==1
   const LevelData<NodeFArrayBox>& Xnc(m_mesh.getXnc());
-#elif CH_SPACEDIM==2
+#if CH_SPACEDIM==2
+  const LevelData<FluxBox>& Xfc(m_mesh.getXfc());
   const LevelData<EdgeDataBox>& Xec(m_mesh.getXec());
 #endif
 
@@ -1839,6 +1877,26 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
   const RealVect& dX(m_mesh.getdX());
 
 #define FILTER_PC_TEST
+
+  if (a_use_mass_matrices && m_use_filtering) {
+    SpaceUtils::exchangeEdgeDataBox(m_sigma_xx_pc);
+    if(m_pc_mass_matrix_include_ij) {
+      SpaceUtils::exchangeEdgeDataBox(m_sigma_xy_pc);
+      SpaceUtils::exchangeEdgeDataBox(m_sigma_xz_pc);
+    }
+#if CH_SPACEDIM==1
+    SpaceUtils::exchangeNodeFArrayBox(m_sigma_yy_pc);
+    if(m_pc_mass_matrix_include_ij) {
+      SpaceUtils::exchangeNodeFArrayBox(m_sigma_yx_pc);
+      SpaceUtils::exchangeNodeFArrayBox(m_sigma_yz_pc);
+    }
+#endif
+    if(m_pc_mass_matrix_include_ij) {
+      SpaceUtils::exchangeNodeFArrayBox(m_sigma_zx_pc);
+      SpaceUtils::exchangeNodeFArrayBox(m_sigma_zy_pc);
+    }
+    SpaceUtils::exchangeNodeFArrayBox(m_sigma_zz_pc);
+  }
 
   for (auto dit( grids.dataIterator() ); dit.ok(); ++dit) {
 
@@ -1872,22 +1930,36 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
         if(m_mesh.anticyclic()) sign *= -1;
 
         IntVect iL(ic);
-        Real aL = (-1) * sign * (-a_cnormDt/dX[tdir]) * m_advanceB_comp[dir];
+        Real aL = (-1) * sign * (-cnormDt/dX[tdir]);
+        aL *= (m_PC_mask_Ev[dit](iL,2*tdir) * m_advanceB_comp[dir]);
         int pL = (int) pmap_Ev_rhs[dit](iL, 0);
 
         if (pL >= 0) {
           icols[ix] = pL;
-          vals[ix] = -aL;
+          if (m_mesh.axisymmetric() && (dir==1)) {
+            Real local_Xfc = Xfc[dit][dir](ic,0);
+            if (local_Xfc==0.0) vals[ix] = 0.0;
+            else vals[ix] = -aL*Xnc[dit](iL,0)/local_Xfc;
+          } else {
+            vals[ix] = -aL;
+          }
           ix++;
         }
 
         IntVect iR(ic); iR[tdir]++;
-        Real aR = sign * (-a_cnormDt/dX[tdir]) * m_advanceB_comp[dir];
+        Real aR = sign * (-cnormDt/dX[tdir]);
+        aR *= (m_PC_mask_Ev[dit](iR,2*tdir+1) * m_advanceB_comp[dir]);
         int pR = (int) pmap_Ev_rhs[dit](iR, 0);
 
         if (pR >= 0) {
           icols[ix] = pR;
-          vals[ix] = -aR;
+          if (m_mesh.axisymmetric() && (dir==1)) {
+            Real local_Xfc = Xfc[dit][dir](ic,0);
+            if (local_Xfc==0.0) vals[ix] = 0.0;
+            else vals[ix] = -aR*Xnc[dit](iR,0)/local_Xfc;
+          } else {
+            vals[ix] = -aR;
+          }
           ix++;
         }
 #endif
@@ -1918,7 +1990,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
         CH_assert( pmap.nComp() == 1);
         int pc = (int) pmap(ic, 0);
               
-	const Real sig_norm_ec = sig_normC/Jec[dit][dir](ic,0);
+	      const Real sig_norm_ec = sig_normC/Jec[dit][dir](ic,0);
         
         int ncols = m_pcmat_nbands;
         std::vector<int> icols(ncols, -1);
@@ -1930,29 +2002,28 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
         if(a_use_mass_matrices) { // dJ_{ic}/dE_{ic}
 #ifdef FILTER_PC_TEST  
            if(m_use_filtering) {
-              vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-1);
-              vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
-              vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
-              IntVect iL(ic); iL[0] -= 1;
-	      int pL = (int) pmap_E_rhs[dit][dir](iL,0);
-	      if(pL>=0) {
-		 vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane);
-		 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane+1);
-		 vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane+2);
-	      }
-              IntVect iR(ic); iR[0] += 1;
-	      int pR = (int) pmap_E_rhs[dit][dir](iR,0);
-	      if(pR>=0) {
-		 vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane-2);
-		 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane-1);
-		 vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane);
-	      }
-	   }
-	   else {
-              vals[ix] += sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
-	   }
+             vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-1);
+             vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
+             vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
+             IntVect iL(ic); iL[0] -= 1;
+	           int pL = (int) pmap_E_rhs[dit][dir](iL,0);
+	           if(pL>=0) {
+		           vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane);
+		           vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane+1);
+		           vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane+2);
+	           }
+             IntVect iR(ic); iR[0] += 1;
+	           int pR = (int) pmap_E_rhs[dit][dir](iR,0);
+	           if(pR>=0) {
+		           vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane-2);
+		           vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane-1);
+		           vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane);
+	           }
+	         }
+	         else {
+             vals[ix] += sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
+	         }
 #else
-
            vals[ix] += sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
 #endif
         }
@@ -1973,50 +2044,50 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               vals[ix] = 0.0;
 #ifdef FILTER_PC_TEST   
               if(m_use_filtering && n==1) { // dJ_{ic}/dE_{ic-1}
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane-1);
-		vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane);
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane+1);
-		//  
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane-1);
+                vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane);
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane+1);
+
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-2);
                 vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-1);
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
-	        //
+
                 IntVect ip(ic); ip[0] += 1;
                 int pR = (int) pmap_E_rhs[dit][dir](ip, 0);
-	        if(pR >= 0) {
-		  vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane-2);
-		  vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane-1);
-	        }
-	      }
-	      else if(m_use_filtering && n==2) { // dJ_{ic}/dE_{ic-2}
+                if(pR >= 0) {
+                  vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane-2);
+                  vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane-1);
+                }
+              }
+              else if(m_use_filtering && n==2) { // dJ_{ic}/dE_{ic-2}
                 IntVect im(ic); im[0] -= 1;
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-2);
-		vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-1);
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane);
-		//
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-2);
+                vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-1);
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane);
+
                 vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-2);
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-1);
-                //
-		IntVect ip(ic); ip[0] += 1;
+                
+                IntVect ip(ic); ip[0] += 1;
                 int pR = (int) pmap_E_rhs[dit][dir](ip, 0);
-	        if(pR >= 0) {
+                if(pR >= 0) {
                   vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane-2);
-		}
-	      }
-	      else if(m_use_filtering && n==3) { // dJ_{ic}/dE_{ic-3}
+                }
+              }
+              else if(m_use_filtering && n==3) { // dJ_{ic}/dE_{ic-3}
                 IntVect im(ic); im[0] -= 1;
-		vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-2);
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-1);
-		//
+                vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-2);
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-1);
+
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-2);
-	      }
-	      else if(m_use_filtering && n==4) { // dJ_{ic}/dE_{ic-4}
+              }
+              else if(m_use_filtering && n==4) { // dJ_{ic}/dE_{ic-4}
                 IntVect im(ic); im[0] -= 1;
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-2);
-	      }
-	      else {
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane-2);
+              }
+              else {
                 vals[ix] = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-n);
-	      }
+              }
 #else
               vals[ix] = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-n);
 #endif
@@ -2033,47 +2104,46 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
                 vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+2);
-		//
+
                 IntVect im(ic); im[0] -= 1;
                 int pL = (int) pmap_E_rhs[dit][dir](im, 0);
-	        if(pL >= 0) {
-		  vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane+1);
-		  vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane+2);
-	        }
-		//
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane-1);
-		vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane);
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane+1);
-	      }
-	      else if(m_use_filtering && n==2) { // dJ_{ic}/dE_{ic+2}
+                if(pL >= 0) {
+                  vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane+1);
+                  vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane+2);
+                }
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane-1);
+                vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane);
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iR,diag_comp_inPlane+1);
+              }
+              else if(m_use_filtering && n==2) { // dJ_{ic}/dE_{ic+2}
                 IntVect im(ic); im[0] -= 1;
                 int pL = (int) pmap_E_rhs[dit][dir](im, 0);
-	        if(pL >= 0) {
+                if(pL >= 0) {
                   vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane+2);
-		}
-		//
-		vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
+                }
+                
+                vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
                 vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+2);
-		//  
+ 
                 IntVect ip(ic); ip[0] += 1;
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane);
-		vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+1);
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+2);
-	      }
-	      else if(m_use_filtering && n==3) { // dJ_{ic}/dE_{ic+3}
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane);
+                vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+1);
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+2);
+              }
+              else if(m_use_filtering && n==3) { // dJ_{ic}/dE_{ic+3}
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+2);
-		//  
+
                 IntVect ip(ic); ip[0] += 1;
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+1);
-		vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+2);
-	      }
-	      else if(m_use_filtering && n==4) { // dJ_{ic}/dE_{ic+4}
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+1);
+                vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+2);
+              }
+              else if(m_use_filtering && n==4) { // dJ_{ic}/dE_{ic+4}
                 IntVect ip(ic); ip[0] += 1;
-		vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+2);
-	      }
-	      else {
+                vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+2);
+              }
+              else {
                 vals[ix] = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+n);
-	      }
+              }
 #else
               vals[ix] = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+n);
 #endif
@@ -2137,12 +2207,13 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
         int sign = 1 - 2*dir;
         if(m_mesh.anticyclic()) sign *= -1;
             
-	// JRA, here is where axisymmetric modifications are needed in 2D RZ
+	      // JRA, here is where axisymmetric modifications are needed in 2D RZ
         // dEz_{i,j+1/2}/dt + Jz_{i,j+1/2} = (r_{i+1/2}*Bth_{i+1/2,j+1/2} - r_{i-1/2}*Bth_{i-1/2,j+1/2})/dr/r_{i}
         // for r_{i=0}=0, d(rBth)/dr/r = 4*Bth_{i=1/2,j+1/2}/dr
 
         IntVect iL(ic); iL[tdir]--;
-        Real aL = (-1) * sign * (a_cnormDt/dX[tdir]) * m_advanceE_comp[dir];
+        Real aL = (-1) * sign * (cnormDt/dX[tdir]);
+        aL *= (m_advanceE_comp[dir] * m_PC_mask_Bv[dit](iL,2*tdir));
         int pL = (int) pmap_Bv_rhs[dit](iL, 0);
 
         if (pL >= 0) {
@@ -2157,7 +2228,8 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
         }
 
         IntVect iR(ic);
-        Real aR = sign * (a_cnormDt/dX[tdir]) * m_advanceE_comp[dir];
+        Real aR = sign * (cnormDt/dX[tdir]);
+        aR *=  (m_advanceE_comp[dir] * m_PC_mask_Bv[dit](iR,2*tdir+1));
         int pR = (int) pmap_Bv_rhs[dit](iR, 0);
 
         if (pR >= 0) {
@@ -2210,7 +2282,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
 
             int sign = -1;
 
-            Real aL = (-1) * sign * (-a_cnormDt/dX[0]) * m_advanceB_comp[n+1];
+            Real aL = (-1) * sign * (-cnormDt/dX[0]) * m_advanceB_comp[n+1];
             IntVect iL(ic);
             int pL = (int) pmap_Ev_rhs[dit](iL, dirk);
 
@@ -2220,7 +2292,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR =  sign * (-a_cnormDt/dX[0]) * m_advanceB_comp[n+1];
+            Real aR =  sign * (-cnormDt/dX[0]) * m_advanceB_comp[n+1];
             IntVect iR(ic); iR[0]++;
             int pR = (int) pmap_Ev_rhs[dit](iR, dirk);
 
@@ -2234,7 +2306,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
 
             int sign = 1;
 
-            Real aL = (-1) * sign * (-a_cnormDt/dX[0]) * m_advanceB_comp[n+1];
+            Real aL = (-1) * sign * (-cnormDt/dX[0]) * m_advanceB_comp[n+1];
             IntVect iL(ic);
             int pL = (int) pmap_Ev_rhs[dit](iL, dirj);
 
@@ -2244,7 +2316,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR =  sign * (-a_cnormDt/dX[0]) * m_advanceB_comp[n+1];
+            Real aR =  sign * (-cnormDt/dX[0]) * m_advanceB_comp[n+1];
             IntVect iR(ic); iR[0]++;
             int pR = (int) pmap_Ev_rhs[dit](iR, dirj);
 
@@ -2264,8 +2336,9 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
             int sign = 1;
             if(m_mesh.anticyclic()) sign *= -1;
 
-            Real aL = (-1) * sign * (-a_cnormDt/dX[dirj]) * m_advanceB_comp[2];
             IntVect iL(ic);
+            Real aL = (-1) * sign * (-cnormDt/dX[dirj]);
+            aL *= (m_PC_mask_E[dit][dirk](iL,0) * m_advanceB_comp[2]);
             int pL = (int) pmap_E_rhs[dit][dirk](iL, 0);
 
             if (pL >= 0) {
@@ -2274,8 +2347,9 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR = sign * (-a_cnormDt/dX[dirj]) * m_advanceB_comp[2];
             IntVect iR(ic); iR[dirj]++;
+            Real aR = sign * (-cnormDt/dX[dirj]);
+            aR *= (m_PC_mask_E[dit][dirk](iR,1) * m_advanceB_comp[2]);
             int pR = (int) pmap_E_rhs[dit][dirk](iR, 0);
 
             if (pR >= 0) {
@@ -2288,8 +2362,9 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
             int sign = -1;
             if(m_mesh.anticyclic()) sign *= -1;
 
-            Real aL = (-1) * sign * (-a_cnormDt/dX[dirk]) * m_advanceB_comp[2];
             IntVect iL(ic);
+            Real aL = (-1) * sign * (-cnormDt/dX[dirk]);
+            aL *= (m_PC_mask_E[dit][dirj](iL,0) * m_advanceB_comp[2]);
             int pL = (int) pmap_E_rhs[dit][dirj](iL, 0);
 
             if (pL >= 0) {
@@ -2298,8 +2373,9 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR = sign * (-a_cnormDt/dX[dirk]) * m_advanceB_comp[2];
             IntVect iR(ic); iR[dirk]++;
+            Real aR = sign * (-cnormDt/dX[dirk]);
+            aR *= (m_PC_mask_E[dit][dirj](iR,1) * m_advanceB_comp[2]);
             int pR = (int) pmap_E_rhs[dit][dirj](iR, 0);
 
             if (pR >= 0) {
@@ -2455,7 +2531,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
 
             int sign = -1;
 
-            Real aL = (-1) * sign * (a_cnormDt/dX[0]) * m_advanceE_comp[n+1];
+            Real aL = (-1) * sign * (cnormDt/dX[0]) * m_advanceE_comp[n+1];
             IntVect iL(ic); iL[0]--;
             int pL = (int) pmap_Bv_rhs[dit](iL, dirk);
 
@@ -2465,7 +2541,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR =  sign * (a_cnormDt/dX[0]) * m_advanceE_comp[n+1];
+            Real aR =  sign * (cnormDt/dX[0]) * m_advanceE_comp[n+1];
             IntVect iR(ic);
             int pR = (int) pmap_Bv_rhs[dit](iR, dirk);
 
@@ -2483,7 +2559,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
             // dEz_{i}/dt + Jz_{i} = (r_{i+1/2}*Bth_{i+1/2} - r_{i-1/2}*Bth_{i-1/2})/dr/r_{i}
             // for r_{i=0}=0, d(rBth)/dr/r = 4*Bth_{i=1/2}/dr
 
-            Real aL = (-1) * sign * (a_cnormDt/dX[0]) * m_advanceE_comp[n+1];
+            Real aL = (-1) * sign * (cnormDt/dX[0]) * m_advanceE_comp[n+1];
             IntVect iL(ic); iL[0]--;
             int pL = (int) pmap_Bv_rhs[dit](iL, dirj);
 
@@ -2498,7 +2574,7 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR =  sign * (a_cnormDt/dX[0]) * m_advanceE_comp[n+1];
+            Real aR =  sign * (cnormDt/dX[0]) * m_advanceE_comp[n+1];
             IntVect iR(ic);
             int pR = (int) pmap_Bv_rhs[dit](iR, dirj);
 
@@ -2523,8 +2599,10 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
             int sign = 1;
             if(m_mesh.anticyclic()) sign *= -1;
 
-            Real aL = (-1) * sign * (a_cnormDt/dX[dirj]) * m_advanceE_comp[2];
             IntVect iL(ic); iL[dirj]--;
+            Real aL = (-1) * sign * (cnormDt/dX[dirj]);
+            aL *= (m_advanceE_comp[2] * m_PC_mask_B[dit][dirk](iL,0));
+            iL[dirj] += m_PC_mask_B[dit][dirk](iL,m_PC_mask_B.nComp()-2);
             int pL = (int) pmap_B_rhs[dit][dirk](iL, 0);
 
             if (pL >= 0) {
@@ -2533,8 +2611,10 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR = sign * (a_cnormDt/dX[dirj]) * m_advanceE_comp[2];
             IntVect iR(ic);
+            Real aR = sign * (cnormDt/dX[dirj]);
+            aR *= (m_advanceE_comp[2] * m_PC_mask_B[dit][dirk](iR,1));
+            iR[dirj] += m_PC_mask_B[dit][dirk](iR,m_PC_mask_B.nComp()-1);
             int pR = (int) pmap_B_rhs[dit][dirk](iR, 0);
 
             if (pR >= 0) {
@@ -2547,8 +2627,9 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
             int sign = -1;
             if(m_mesh.anticyclic()) sign *= -1;
 
-            Real aL = (-1) * sign * (a_cnormDt/dX[dirk]) * m_advanceE_comp[2];
             IntVect iL(ic); iL[dirk]--;
+            Real aL = (-1) * sign * (cnormDt/dX[dirk]);
+            aL *= (m_PC_mask_B[dit][dirj](iL,0) * m_advanceE_comp[2]);
             int pL = (int) pmap_B_rhs[dit][dirj](iL, 0);
 
             if (pL >= 0) {
@@ -2557,8 +2638,9 @@ void ElectroMagneticFields::assemblePrecondMatrix( BandedMatrix&              a_
               ix++;
             }
 
-            Real aR = sign * (a_cnormDt/dX[dirk]) * m_advanceE_comp[2];
             IntVect iR(ic);
+            Real aR = sign * (cnormDt/dX[dirk]);
+            aR *= (m_PC_mask_B[dit][dirj](iR,1) * m_advanceE_comp[2]);
             int pR = (int) pmap_B_rhs[dit][dirj](iR, 0);
 
             if (pR >= 0) {

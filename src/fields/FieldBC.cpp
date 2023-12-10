@@ -145,6 +145,79 @@ void FieldBC::applyNodeBC( LevelData<NodeFArrayBox>&  a_dst,
 
 }
 
+void FieldBC::applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
+                        LevelData<NodeFArrayBox>&  a_J_virtual ) const
+{
+   CH_TIME("FieldBC::applyToJ()");
+   
+   FieldBCUtils::applyToJ_PIC( a_J_inPlane,
+                               a_J_virtual, 
+                               m_mesh,
+                               m_bc_type );
+
+}
+
+void FieldBC::applyCellPCMask( LevelData<FArrayBox>&   a_dst,
+                         const Real                    a_time )
+{
+   CH_TIME("FieldBC::applyCellPCMask()");
+
+   // apply BCs to cell variable (virtual B)
+   FieldBCUtils::setCellPCMask( a_dst,
+                                m_mesh,
+                                m_bc_type,
+                                m_InsulatorBC,
+                                a_time );
+    
+}
+
+void FieldBC::applyFluxPCMask( LevelData<FluxBox>&     a_dst,
+                         const Real                    a_time )
+{
+   CH_TIME("FieldBC::applyFluxPCMask()");
+   
+   // apply PC masking to face variable (in-plane B)
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   FieldBCUtils::setFluxPCMask( a_dst,
+                                bdry_layout,
+                                m_bc_type,
+                                m_InsulatorBC,
+                                a_time );
+   
+}
+
+void FieldBC::applyEdgePCMask( LevelData<EdgeDataBox>&  a_dst,
+                         const Real                     a_time ) const
+{
+   CH_TIME("FieldBC::applyEdgePCMask()");
+   
+   // apply PC masking to face variable (in-plane E)
+   
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   FieldBCUtils::setEdgePCMask( a_dst,
+                                bdry_layout,
+                                m_bc_type,
+                                m_InsulatorBC,
+                                m_conservative_wall,
+                                a_time );
+   
+}
+
+void FieldBC::applyNodePCMask( LevelData<NodeFArrayBox>&  a_dst,
+                         const Real                       a_time ) const
+{
+   CH_TIME("FieldBC::applyNodePCMask()");
+
+   // apply PC masking to node variable (virtual E)
+   FieldBCUtils::setNodePCMask( a_dst,
+                                m_mesh,
+                                m_bc_type,
+                                m_InsulatorBC,
+                                m_conservative_wall,
+                                a_time );
+
+}
+
 void FieldBC::setFluxBC( LevelData<FluxBox>&  a_dst,
                    const LevelData<FluxBox>&  a_src,
                    const Real                 a_time )
@@ -559,18 +632,6 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
       }
  
    }
-
-}
-
-void FieldBC::applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
-                        LevelData<NodeFArrayBox>&  a_J_virtual ) const
-{
-   CH_TIME("FieldBC::applyToJ()");
-   
-   FieldBCUtils::applyToJ_PIC( a_J_inPlane,
-                               a_J_virtual, 
-                               m_mesh,
-                               m_bc_type );
 
 }
 

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdio>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include "MathUtils.H"
 #include "LoadBalance.H"
@@ -19,20 +20,30 @@ Simulation::Simulation( ParmParse& a_pp, const std::time_t a_main_start )
        m_max_wall_time_hrs(24.0),
        m_new_epsilon(s_DT_EPS),
        m_cur_dt(DBL_MAX),
-       m_fixed_dt(-1.0),
+       m_fixed_dt(DBL_MAX),
        m_dt_light(DBL_MAX),
        m_dt_parts(DBL_MAX),
        m_dt_scatter(DBL_MAX),
-       m_dt_specialOps(DBL_MAX),
-       m_cfl(1.0),
-       m_cfl_scatter(0.1),
-       m_dt_scatter_interval(10),
-       m_dt_check_interval(10),
+       m_dt_special(DBL_MAX),
+       m_dt_cyclotron(DBL_MAX),
+       m_cfl_light(-1.0),
+       m_cfl_parts(-1.0),
+       m_dt_scatter_factor(-1.0),
+       m_dt_special_factor(-1.0),
+       m_dt_cyclotron_factor(-1.0),
+       m_dt_parts_check_interval(100),
+       m_dt_scatter_check_interval(100),
+       m_dt_special_check_interval(-1),
+       m_dt_cyclotron_check_interval(-1),
        m_adapt_dt(true),
        m_plot_interval(0),
+       m_plot_parts_factor(1),
        m_plot_time_interval(0.0),
        m_plot_time(0.0),
+       m_plot_parts_time(0.0),
        m_last_plot(0),
+       m_plot_on_restart(true),
+       m_plot_on_final_step(true),
        m_plot_prefix( "plt" ),
        m_history(false),
        m_history_interval(1),
@@ -52,9 +63,12 @@ Simulation::Simulation( ParmParse& a_pp, const std::time_t a_main_start )
        m_all_timer( NULL ),
        m_setup_timer( NULL ),
        m_solve_timer( NULL ),
-       m_shutdown_timer( NULL )
+       m_shutdown_timer( NULL ),
+       m_print_detailed_walltimes(false),
+       m_wt_step_cumul( 0.0 )
 #endif
 {
+   gettimeofday(&m_sim_start, NULL);
    m_main_start = a_main_start;
 #ifdef CH_USE_TIMER
    initializeTimers();
@@ -71,30 +85,91 @@ Simulation::Simulation( ParmParse& a_pp, const std::time_t a_main_start )
    parseParameters( ppsim );
 
    // check if doing restart
-   if (ppsim.contains( "restart_file" ) ) {
-      loadRestartFile( ppsim );
-   }
-   
-   if (m_verbosity) printParameters();
+   if(ppsim.contains( "restart_file" )) { loadRestartFile( ppsim ); }
 
    // initialize the entire system 
    // (domain, mesh, species, fields, operators, ibcs...)
    m_system = new System( a_pp );
-   m_system->initialize(m_cur_step, m_cur_time, m_restart_file_name);
+   m_system->initialize(m_cur_step, m_cur_time, m_cur_dt, m_restart_file_name);
    m_restart_step = m_cur_step;
 
+   // set the time step before writing (needed to get some probes correct in history file)
+
+   // set dt factors back to -1 if they are not relevant
+   if(!m_system->useFields()) {
+      m_cfl_light = -1.0;
+      m_dt_cyclotron_factor = -1.0;
+      m_dt_cyclotron_check_interval = -1;
+   }
+   if(!m_system->useParts()) {
+      m_cfl_parts = -1.0;
+      m_dt_parts_check_interval = -1;
+   }
+   if(!m_system->useScattering()) {
+      m_dt_scatter_factor = -1.0;
+      m_dt_scatter_check_interval = -1;
+   }
+   if(!m_system->useSpecialOps()) {
+      m_dt_special_factor = -1.0;
+      m_dt_special_check_interval = -1;
+   }
+
+   // set the adapt_dt flag to true if using the time step is adaptive
+   m_system->adaptDt(m_adapt_dt); // will set false if using certain time integrators
+   if(!m_adapt_dt) {
+      m_cfl_parts = -1.0;
+      m_dt_scatter_factor = -1.0;
+      m_dt_special_factor = -1.0;
+      m_dt_cyclotron_factor = -1.0;
+   }
+   if( m_cfl_parts>0.0 || m_dt_scatter_factor>0.0 ||  
+       m_dt_special_factor>0.0 || m_dt_cyclotron_factor>0.0 ) { m_adapt_dt = true; }
+   else { m_adapt_dt = false; }
+
+   // adjust fixed_dt if needed wrt cfl restriction on time step for light wave
+   m_dt_light = m_system->fieldsDt( m_cur_step );
+   if(m_cfl_light>0.0) m_fixed_dt = std::min( m_fixed_dt, m_dt_light*m_cfl_light );
+   m_cur_dt = m_fixed_dt;
+
+   setTimeStep(true); // I think use of m_cur_dt in m_system->initialize() above is 
+                      // depricated... Only mattered for PC on restart anyway.
+   enforceTimeStep( m_cur_dt );
+   
+   if(m_verbosity) printParameters();
+   
+   //
    // write t=0 (or at restart time) values to plot files
-   if(m_plot_interval>=0 || m_plot_time_interval>=0.0) {
-      writePlotFile();
-      m_last_plot = m_cur_step;
-      if ( m_plot_time_interval>=0.0 ) { 
+   //
+   if(m_plot_interval>0 || m_plot_time_interval>0.0) {
+      
+      if(m_cur_step==0) { writePlotFile(); }
+      else if(m_plot_on_restart) { writePlotFile(); }
+
+      if ( m_plot_time_interval>0.0 ) { 
          m_plot_time = m_cur_time + m_plot_time_interval;
+         m_plot_parts_time = m_cur_time + m_plot_time_interval*m_plot_parts_factor;
+
          if(!m_restart_file_name.empty()) {
-            double delta_time;
+            double delta_time, delta_time_parts;
             delta_time = fmod(m_plot_time, m_plot_time_interval);
             m_plot_time = m_plot_time - delta_time;
+            delta_time_parts = fmod(m_plot_parts_time, m_plot_time_interval*m_plot_parts_factor);
+            m_plot_parts_time = m_plot_parts_time - delta_time_parts;
+	    if((float)m_plot_time==(float)m_cur_time) {
+	       if(m_cur_step!=m_last_plot) {
+		  bool plot_parts = false;
+	          if((float)m_plot_parts_time==(float)m_cur_time) { plot_parts = true; }
+		  writePlotFile(plot_parts); 
+	          if(plot_parts) {
+                     m_plot_parts_time = m_plot_parts_time + m_plot_time_interval*m_plot_parts_factor;
+	          }
+	       } 
+	       m_plot_time = m_cur_time + m_plot_time_interval;
+            }
          }
+
       }
+
    }
    if(m_history) {
       writeHistFile(true);
@@ -108,24 +183,10 @@ Simulation::Simulation( ParmParse& a_pp, const std::time_t a_main_start )
          m_checkpoint_time = m_checkpoint_time - delta_time;
       }
    }
-      
-   //bool useSpecialOps() { return m_use_specialOps; }
- 
-   // initialize some time step
-   m_dt_light = m_system->fieldsDt( m_cur_step );
-   if(m_fixed_dt>0.0) {
-      if(m_cur_dt>m_dt_light*m_cfl && !procID()) {
-         std::cout << "WARNING: m_cur_dt > m_dt_light*m_cfl" << std::endl;
-      }
-      //CH_assert(m_cur_dt<=m_dt_light*m_cfl);
+   
+   if(m_cur_dt>m_dt_light && !procID()) {
+      std::cout << "Notice: dt/dt_cfl_light = " << m_cur_dt/m_dt_light << std::endl;
    }
-   else {
-      m_cur_dt = std::min( m_cur_dt, m_dt_light*m_cfl );
-      m_system->adaptDt(m_adapt_dt);
-   }
-   if(m_adapt_dt) m_dt_check_interval = 1;
-
-   enforceTimeStep( m_cur_dt );
 
 #ifdef CH_USE_TIMER
    setup_timer->stop();
@@ -134,9 +195,6 @@ Simulation::Simulation( ParmParse& a_pp, const std::time_t a_main_start )
 #ifdef CH_USE_TIMER
    solve_timer->start();
 #endif
-   auto now = std::chrono::system_clock::now();
-   m_solve_start = std::chrono::system_clock::to_time_t(now);
-
 }
 
 Simulation::~Simulation()
@@ -160,14 +218,19 @@ void Simulation::printParameters()
       std::cout << "maximum step = " << m_max_step << endl;
       std::cout << "maximum time = " << m_max_time << endl;
       std::cout << "maximum wall time (hrs) = " << m_max_wall_time_hrs << endl;
-      std::cout << "s_DT_EPS = " << s_DT_EPS << endl;
-      if(!m_adapt_dt) std::cout << "fixed dt = " << m_fixed_dt << endl;
+      std::cout << "s_DT_EPS  = " << s_DT_EPS << endl;
+      std::cout << "fixed dt  = " << m_fixed_dt << endl;
+      std::cout << "adapt dt  = " << m_adapt_dt << endl;
+      std::cout << "cfl light = " << m_cfl_light << endl;
       if(m_plot_time_interval>0.0) {
-         std::cout << "plot time interval = " << m_plot_time_interval << endl;
+         std::cout << "plot_time_interval = " << m_plot_time_interval << endl;
       }
       else {
-         std::cout << "plot step interval = " << m_plot_interval << endl;
+         std::cout << "plot_interval = " << m_plot_interval << endl;
       }
+      std::cout << "plot_parts_factor = " << m_plot_parts_factor << endl;
+      std::cout << "plot_on_resart     = " << m_plot_on_restart << endl;
+      std::cout << "plot_on_final_step = " << m_plot_on_final_step << endl;
       if(m_checkpoint) {
          if(m_checkpoint_time_interval>0.0) {
             std::cout << "checkpoint time interval = " << m_checkpoint_time_interval << endl;
@@ -176,8 +239,15 @@ void Simulation::printParameters()
             std::cout << "checkpoint interval = " << m_checkpoint_interval << endl;
          }
       }
-      if(m_cfl_scatter) std::cout << "scatter dt multiplier = " << m_cfl_scatter << endl;
-      if(m_cfl_scatter) std::cout << "scatter dt check interval = " << m_dt_scatter_interval << endl;
+      std::cout << "parts dt check interval = " << m_dt_parts_check_interval << endl;
+      std::cout << "  parts dt factor = " << m_cfl_parts << endl;
+      std::cout << "scatter dt check interval = " << m_dt_scatter_check_interval << endl;
+      std::cout << "  scatter dt factor = " << m_dt_scatter_factor << endl;
+      std::cout << "special dt check interval = " << m_dt_special_check_interval << endl;
+      std::cout << "  special dt factor = " << m_dt_special_factor << endl;
+      std::cout << "cyclotron dt check interval = " << m_dt_cyclotron_check_interval << endl;
+      std::cout << "  cyclotron dt factor = " << m_dt_cyclotron_factor << endl;
+
       if(m_history)     std::cout << "history step interval = " << m_history_interval << endl;
       if(m_fixed_random_seed>=0)     std::cout << "fixed random seed = " << m_fixed_random_seed<< endl;
       std::cout << endl;
@@ -227,17 +297,24 @@ void Simulation::loadRestartFile( ParmParse& a_ppsim )
 
 //static int plottedonce = 0;
 
-void Simulation::writePlotFile()
+void Simulation::writePlotFile( const bool  a_plot_parts)
 {
    if (!procID() && m_verbosity) {
-      cout << "writing plot file at step " << m_cur_step << endl << endl;
+      cout << endl;
+      cout << "Writing plot files at step " << m_cur_step << " ..." << endl;
    }
 
 #ifdef CH_USE_HDF5
-   m_system->writePlotFile(m_cur_step, m_cur_time, m_cur_dt);
+   m_system->writePlotFile(m_cur_step, m_cur_time, m_cur_dt, a_plot_parts);
 #else
    MayDay::Error( "plotting only defined with hdf5" );
 #endif
+   
+   if (!procID() && m_verbosity) {
+      cout << "Finished writing plot files at step " << m_cur_step << endl;
+   }
+
+   m_last_plot = m_cur_step;
 
 }
 
@@ -325,12 +402,14 @@ bool Simulation::notDone()
       }
       
       // check run time vs max wall time
-      auto now = std::chrono::system_clock::now();
-      std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-      double wall_time_sec = ((double) (now_time - m_main_start));
+      struct timeval now;
+      gettimeofday(&now, NULL);
+      long long walltime;
+      walltime = (  (now.tv_sec * 1000000   + now.tv_usec  ) 
+                  - (m_sim_start.tv_sec * 1000000 + m_sim_start.tv_usec));
+      double wall_time_sec = (double) walltime / 1000000.0;
       double wall_time_hrs = wall_time_sec/3600.0;
       double wall_time_hrs_g;
-
 #ifdef CH_MPI
       MPI_Allreduce(&wall_time_hrs,&wall_time_hrs_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 #else
@@ -369,6 +448,10 @@ void Simulation::advance()
 {
    CH_TIMERS("Simulation::advance()");
    CH_TIMER("print_diagnostics",t_print_diagnostics);
+   struct timeval advance_start, advance_end;
+
+   gettimeofday(&advance_start, NULL);
+
    int cout_step_interval = 1;
    if(m_cur_step<10) cout_step_interval = 1;
    else if(m_cur_step<100) cout_step_interval = 10;
@@ -385,37 +468,68 @@ void Simulation::advance()
    m_system->timeStep( m_cur_time, m_cur_dt, m_cur_step );
    postTimeStep();
    
-   auto now = std::chrono::system_clock::now();
-   std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+   gettimeofday(&advance_end, NULL);
 
-   double walltime, walltime_g;
-   walltime = ((double) (now_time - m_solve_start));
+   writeFiles();
+
+   {
+     long long walltime;
+     walltime = (  (advance_end.tv_sec * 1000000   + advance_end.tv_usec  ) 
+                 - (advance_start.tv_sec * 1000000 + advance_start.tv_usec));
+     double advance_runtime = (double) walltime / 1000000.0;
 #ifdef CH_MPI
-   MPI_Allreduce(&walltime,&walltime_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+     MPI_Allreduce(&advance_runtime,&m_wt_step,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 #else
-   walltime_g = walltime;
+     m_wt_step = advance_runtime;
 #endif
+     m_wt_step_cumul += m_wt_step;
+   }
+   {
+     long long walltime;
+     walltime = (  (advance_end.tv_sec * 1000000   + advance_end.tv_usec  ) 
+                 - (m_sim_start.tv_sec * 1000000 + m_sim_start.tv_usec));
+     double total_runtime = (double) walltime / 1000000.0;
+#ifdef CH_MPI
+     MPI_Allreduce(&total_runtime,&m_wt_total,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+#else
+     m_wt_total = total_runtime;
+#endif
+   }
 
    CH_START(t_print_diagnostics);
-   //m_system->printDiagnostics();
-   if(!procID() && (m_cur_step % cout_step_interval)==0 ) {
-      cout << "Step " << m_cur_step 
-           << " completed, simulation time is " << m_cur_time 
-           << ", solver wall time is " << walltime_g << " seconds" << endl;
-      if(m_system->useScattering()) cout << "mean free scattering time  = " << m_dt_scatter << endl;
-      if(m_system->useParts()) cout << "particle courant time step = " << m_dt_parts << endl;
-      if(m_system->useSpecialOps()) cout << "special ops time step = " << m_dt_specialOps << endl;
-      cout << "----" << endl;
+   if((m_cur_step % cout_step_interval)==0 ) {
+     if (!procID()) {
+        cout << "Step " << m_cur_step 
+             << " completed, simulation time is " << m_cur_time 
+             << ", solver wall time is ";
+        if (m_wt_total > 3600) {
+          cout << m_wt_total/3600.0 << " hours" << endl;
+        } else if (m_wt_total > 60.0 ) {
+          cout << m_wt_total/60.0 << " minutes" << endl;
+        } else {
+          cout << m_wt_total << " seconds" << endl;
+        }
+     }
+     if (m_print_detailed_walltimes) {
+        if (!procID()) {
+           printf("Simulation walltimes (seconds):\n  %1.3e (advance), %1.3e (advance cumulative), %1.3e (total)\n",
+                  m_wt_step, m_wt_step_cumul, m_wt_total );
+        }
+        m_system->printWalltimes();
+     }
+     if (!procID()) {
+        if(m_dt_scatter_check_interval>0)   cout << "mean free scattering time    = " << m_dt_scatter << endl;
+        if(m_dt_parts_check_interval>0)     cout << "particle courant time step   = " << m_dt_parts << endl;
+        if(m_dt_cyclotron_check_interval>0) cout << "particle cyclotron time step = " << m_dt_cyclotron << endl;
+        if(m_dt_special_check_interval>0)   cout << "special ops time step        = " << m_dt_special << endl;
+        cout << "----" << endl;
+     }
    }
    CH_STOP(t_print_diagnostics);
-   
-   writeFiles();
 }
 
 void Simulation::finalize()
 {
-   auto now = std::chrono::system_clock::now();
-   std::time_t solve_end = std::chrono::system_clock::to_time_t(now);
 #ifdef CH_USE_TIMER
    solve_timer->stop();
 #endif
@@ -424,27 +538,30 @@ void Simulation::finalize()
 #endif
 
    if ( (m_plot_interval >= 0 || m_plot_time_interval >= 0.0) && (m_last_plot!=m_cur_step) ) {
-      writePlotFile();
+      if(m_plot_on_final_step) { writePlotFile(); }
    }
 
    if ( m_checkpoint && (m_last_checkpoint!=m_cur_step) ) {
       writeCheckpointFile();
    }
 
-   now = std::chrono::system_clock::now();
-   std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-   double wall_time_sec = ((double) (now_time - m_main_start));
-   double solve_walltime = ((double) (solve_end - m_solve_start));
-   double wall_time_sec_g, solve_walltime_g;
+   double wall_time_sec_g;
+   struct timeval sim_end;
+   gettimeofday(&sim_end, NULL);
+   {
+     long long walltime;
+     walltime = (  (sim_end.tv_sec * 1000000   + sim_end.tv_usec  ) 
+                 - (m_sim_start.tv_sec * 1000000 + m_sim_start.tv_usec));
+     double total_runtime = (double) walltime / 1000000.0;
 #ifdef CH_MPI
-   MPI_Allreduce(&wall_time_sec,&wall_time_sec_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-   MPI_Allreduce(&solve_walltime,&solve_walltime_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+     MPI_Allreduce(&total_runtime,&wall_time_sec_g,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 #else
-   wall_time_sec_g = wall_time_sec;
-   solve_walltime_g = solve_walltime;
+     wall_time_sec_g = total_runtime;
 #endif
+   }
+
    if(!procID()) {
-     cout << "Solve wall time (in seconds): " << solve_walltime_g << "\n";
+     cout << "Solve wall time (in seconds): " << m_wt_step_cumul << "\n";
      cout << "Total wall time (in seconds): " << wall_time_sec_g << "\n";
    }
 
@@ -473,31 +590,45 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
    // get the wall time
    a_ppsim.query( "wall_time_hrs", m_max_wall_time_hrs );
 
-   // If set, use as the fixed time step size
-   if ( a_ppsim.query( "fixed_dt", m_fixed_dt ) ) {
-      CH_assert( m_fixed_dt>0.0 );
-      setFixedTimeStep( m_fixed_dt );
-      m_adapt_dt = false;
-   }
+   //
+   //
 
-   // set cfl number for the case of dynamic timestep selection
-   if ( a_ppsim.query( "cfl_number", m_cfl ) ) {
-      CH_assert( m_cfl>0.0 && m_cfl<=2.0 );
-      if (!m_adapt_dt) MayDay::Error( "fixed_dt and cfl are mutually exclusive!" );
-   }
-   a_ppsim.query("dt_check_interval", m_dt_check_interval);
+   // get the fixed time step size
+   a_ppsim.query( "fixed_dt", m_fixed_dt );
+   m_cur_dt = m_fixed_dt;
+
+   // get the cfl number for light waves and particles
+   a_ppsim.query( "cfl_number", m_cfl_light );
+   a_ppsim.query( "cfl_parts", m_cfl_parts );
    
-   // set cfl number for scattering
-   if ( a_ppsim.query( "cfl_scatter", m_cfl_scatter ) ) {
-      CH_assert( m_cfl_scatter>0.0 && m_cfl_scatter<=2.0 );
-      if (!m_adapt_dt) MayDay::Error( "fixed_dt and cfl_scatter are mutually exclusive!" );
-   }
-   a_ppsim.query("dt_scatter_interval", m_dt_scatter_interval);
- 
+   a_ppsim.query("dt_check_interval", m_dt_parts_check_interval);
+   a_ppsim.query("dt_parts_check_interval", m_dt_parts_check_interval);
+   
+   // get parameters for limiting time step based on scattering
+   a_ppsim.query("dt_scatter_interval", m_dt_scatter_check_interval); // legacy
+   a_ppsim.query("cfl_scatter", m_dt_scatter_factor ); // legacy
+   a_ppsim.query("dt_scatter_check_interval", m_dt_scatter_check_interval);
+   a_ppsim.query("dt_scatter_factor", m_dt_scatter_factor);
+   
+   // get parameters for limiting time step based on special operators
+   a_ppsim.query("dt_special_check_interval", m_dt_special_check_interval);
+   a_ppsim.query("dt_special_factor", m_dt_special_factor);
+   
+   // get parameters for limiting time step based on cyclotron period
+   a_ppsim.query("dt_cyclotron_check_interval", m_dt_cyclotron_check_interval);
+   a_ppsim.query("dt_cyclotron_factor", m_dt_cyclotron_factor);
+
+   //
+   //
+
    // Set up plot file writing
    a_ppsim.query( "plot_interval", m_plot_interval );
    a_ppsim.query( "plot_time_interval", m_plot_time_interval );
-   if( m_plot_time_interval>0.0 ) m_plot_interval = 0;
+   if( m_plot_time_interval>0.0 ) { m_plot_interval = 0; }
+   a_ppsim.query( "plot_parts_factor", m_plot_parts_factor );
+   
+   a_ppsim.query( "plot_on_restart", m_plot_on_restart );
+   a_ppsim.query( "plot_on_final_step", m_plot_on_final_step );
    a_ppsim.query( "plot_prefix", m_plot_prefix );
 
    // get History parameter
@@ -516,14 +647,13 @@ void Simulation::parseParameters( ParmParse& a_ppsim )
    a_ppsim.query( "fixed_random_seed", m_fixed_random_seed );
    if(m_fixed_random_seed>=0) m_fixed_random_seed = m_fixed_random_seed*(procID() + 1);
    MathUtils::seedRNG(m_fixed_random_seed);
+
+   // print detailed wall time info ?
+   m_print_detailed_walltimes = false;
+   a_ppsim.query( "print_detailed_walltimes", m_print_detailed_walltimes);
    
 }
 
-
-void Simulation::setFixedTimeStep( const Real& a_dt )
-{
-   m_cur_dt = a_dt; 
-}
 
 void Simulation::enforceTimeStep(const Real  a_local_dt)
 {
@@ -541,15 +671,20 @@ void Simulation::writeFiles()
    
    if ( m_plot_time_interval>0.0 ) {
       if ( m_cur_time > m_plot_time - m_new_epsilon ) {
-         writePlotFile();
-         m_last_plot = m_cur_step;
+	 bool plot_parts = false;
+         if ( m_cur_time > m_plot_parts_time - m_new_epsilon ) plot_parts = true;
+         writePlotFile(plot_parts);
          m_plot_time = m_plot_time + m_plot_time_interval;
+	 if(plot_parts) {
+            m_plot_parts_time = m_plot_parts_time + m_plot_time_interval*m_plot_parts_factor;
+	 }
       } 
    } 
    else {
       if ( (m_cur_step % m_plot_interval)==0 ) {
-         writePlotFile();
-         m_last_plot = m_cur_step;
+	 bool plot_parts = false;
+	 if(m_cur_step % (m_plot_interval*m_plot_parts_factor) == 0) plot_parts = true;
+         writePlotFile( plot_parts );
       }
    }
 
@@ -578,35 +713,47 @@ void Simulation::writeFiles()
 
 }
 
-void Simulation::preTimeStep()
+void Simulation::setTimeStep( const bool  startup_flag)
 {
-   CH_TIMERS("Simulation::preTimeStep()");
+   CH_TIMERS("Simulation::setTimeStep()");
 
-   // set the stable time step
-   if ( m_cur_step==m_restart_step || ((m_cur_step+1) % m_dt_scatter_interval)==0 ) {
+   // update the simulation-relevant time steps
+   if ( startup_flag || ((m_cur_step+1) % m_dt_parts_check_interval)==0 ) {
+      if(m_system->useParts()) m_dt_parts = m_system->partsDt( m_cur_step );
+   }
+   if ( startup_flag || ((m_cur_step+1) % m_dt_scatter_check_interval)==0 ) {
       if(m_system->useScattering()) m_dt_scatter = m_system->scatterDt( m_cur_step );
    }
-   if ( m_cur_step==m_restart_step || ((m_cur_step+1) % m_dt_check_interval)==0 ) {
-      if(m_system->useParts()) m_dt_parts = m_system->partsDt( m_cur_step );
-      if(m_system->useSpecialOps()) m_dt_specialOps = m_system->specialOpsDt( m_cur_step );
+   if ( startup_flag || ((m_cur_step+1) % m_dt_special_check_interval)==0 ) {
+      if(m_system->useSpecialOps()) m_dt_special = m_system->specialOpsDt( m_cur_step );
    }
+   if ( startup_flag || ((m_cur_step+1) % m_dt_cyclotron_check_interval)==0 ) {
+      m_dt_cyclotron = m_system->cyclotronDt( m_cur_step );
+   }
+
    if ( m_adapt_dt ) { 
-      if(m_system->useParts()) m_cur_dt = std::min( m_dt_light*m_cfl, m_dt_parts*m_cfl );
-      if(m_system->useScattering()) m_cur_dt = std::min( m_cur_dt, m_dt_scatter*m_cfl_scatter );
-      if(m_system->useSpecialOps()) m_cur_dt = std::min( m_cur_dt, m_dt_specialOps );
+      m_cur_dt = m_fixed_dt;
+      if(m_cfl_parts>0.0)           m_cur_dt = std::min( m_cur_dt, m_dt_parts*m_cfl_parts );
+      if(m_dt_scatter_factor>0.0)   m_cur_dt = std::min( m_cur_dt, m_dt_scatter*m_dt_scatter_factor );
+      if(m_dt_special_factor>0.0)   m_cur_dt = std::min( m_cur_dt, m_dt_special*m_dt_special_factor );
+      if(m_dt_cyclotron_factor>0.0) m_cur_dt = std::min( m_cur_dt, m_dt_cyclotron*m_dt_cyclotron_factor);
+
+      // adjust time step to end just over the final time
+      Real timeRemaining = m_max_time - m_cur_time;
+      if (m_cur_dt > timeRemaining ) { m_cur_dt = timeRemaining; }
+
       enforceTimeStep( m_cur_dt );
-   } 
-   
-   // If less than a time step from the final time, adjust time step
-   // to end just over the final time.
-   Real timeRemaining = m_max_time - m_cur_time;
-   if ( m_adapt_dt && m_cur_dt > timeRemaining ) {
-      //m_cur_dt = timeRemaining + m_max_time * s_DT_EPS;
-      m_cur_dt = timeRemaining;
    }
    
    m_new_epsilon = m_cur_dt/1000.0;
 
+}
+
+void Simulation::preTimeStep()
+{
+   CH_TIMERS("Simulation::preTimeStep()");
+  
+   setTimeStep();
    m_system->preTimeStep( m_cur_time, m_cur_dt, m_cur_step );
 
 }
