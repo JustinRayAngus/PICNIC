@@ -37,7 +37,7 @@ CodeUnits::CodeUnits()
 
 void CodeUnits::printParameters() const
 {
-   if(procID()>0) return;
+   if (procID()>0) { return; }
    cout << "====================== Fundamental Code Units ======================" << endl;
    cout << "  NUMBER_DENISTY [1/m^3]: " << m_scale[NUMBER_DENSITY] << endl;
    cout << "  TEMPERATURE       [eV]: " << m_scale[TEMPERATURE] << endl;

@@ -51,7 +51,7 @@ InflowBC::InflowBC( const int&             a_bdry_layout_index,
 
 void InflowBC::apply( List<JustinsParticle>&  a_inflow_pList,
                 const List<JustinsParticle>&  a_valid_pList,
-                const FArrayBox&              a_Xec,
+                const FArrayBox&              a_Xnc,
                 const Box&                    a_bdry_box,
                 const Real                    a_time,
                 const Real                    a_cnormDt )
@@ -94,11 +94,11 @@ void InflowBC::apply( List<JustinsParticle>&  a_inflow_pList,
    RealVect local_Xlo;
    for(bit.begin(); bit.ok(); ++bit) {
 
-      if(num_samples<=0) continue;
+      if( num_samples<=0 ) { continue; }
 
       ib = bit();
       for(int dir=0; dir<SpaceDim; dir++) {
-         local_Xlo[dir] = a_Xec.get(ib,dir);
+         local_Xlo[dir] = a_Xnc.get(ib,dir);
       }
    
       for (int n(0); n<num_samples; n++) {
@@ -156,6 +156,7 @@ void InflowBC::apply( List<JustinsParticle>&  a_inflow_pList,
             particle.setOldPosition(Xpart_old);
             uint64_t ID = 0; // need to declare ID to make smoke tests not fail
             particle.setID(ID);
+            particle.setNumSubOrbits( 1 );
             a_inflow_pList.append(particle);
 
          }

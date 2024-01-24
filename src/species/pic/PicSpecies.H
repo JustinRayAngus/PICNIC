@@ -64,6 +64,7 @@ public:
    
   bool suborbit_inflowJ() const { return m_suborbit_inflowJ; }
   bool use_suborbit_model() const { return m_use_suborbit_model; }
+  bool suborbit_fast_particles() const { return m_suborbit_fast_particles; }
   
   const RealVect& getMassOut_lo() const { return m_MassOut_lo; }
   const RealVect& getMassOut_hi() const { return m_MassOut_hi; }
@@ -115,6 +116,8 @@ public:
   }
 
   virtual bool isSpecies( const string& name ) const;  
+
+  void inspectParticles( List<JustinsParticle>&  a_pList ) const;
 
   void inspectParticles( List<JustinsParticle>&  a_pList,
 		   const bool          a_print_fields,
@@ -220,14 +223,20 @@ public:
   void setCurrentDensity( const bool  a_from_explicit_solver = false );
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getCurrentDensity_virtual() const {return m_currentDensity_virtual;}
+  LevelData<EdgeDataBox>& getCurrentDensity() {return m_currentDensity;}
+  LevelData<NodeFArrayBox>& getCurrentDensity_virtual() {return m_currentDensity_virtual;}
   
-  void setInflowJ( const Real  a_dt );
   const LevelData<EdgeDataBox>& getInflowJ() const {return m_inflowJ;}
   const LevelData<NodeFArrayBox>& getInflowJ_virtual() const {return m_inflowJ_virtual;}
   
-  void advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields, 
+  void advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
 		                        const Real       a_dt,
-                                        const bool       a_from_emjacobian ); 
+                                        const bool       a_from_emjacobian );
+  
+  void advanceInflowParticlesAndSetJ( const EMFields&  a_emfields,
+		                      const Real       a_dt,
+                                      const bool       a_from_emjacobian );
+
   const LevelData<EdgeDataBox>& getSubOrbitJ() const {return m_suborbitJ;}
   const LevelData<NodeFArrayBox>& getSubOrbitJ_virtual() const {return m_suborbitJ_virtual;}
 
@@ -251,11 +260,62 @@ public:
   void setChargeDensity();
   void setChargeDensityOnFaces();
   void setChargeDensityOnNodes( const bool  a_use_filtering );
+
+#if CH_SPACEDIM>1
+  // these two functions are used when writing the surface charge for each species
+  void preWriteSurfaceCharge() const {
+    if(m_charge==0) { return; }
+    LDaddNodeOp<NodeFArrayBox> addNodeOp;
+    m_surfaceCharge_nodes.exchange( m_surfaceCharge_nodes.interval(), 
+                                    m_mesh.reverseCopier(), addNodeOp );
+    SpaceUtils::exchangeNodeFArrayBox( m_surfaceCharge_nodes );
+  }
+  
+  // m_surfaceCharge_nodes is a cummulative diagnostic. After doing addOp exchange,
+  // need to mask the shared locations and then zero the ghost cells
+  void postWriteSurfaceCharge() const {
+    if(m_charge==0) { return; }
+    const LevelData<NodeFArrayBox>& node_mask = m_mesh.getNodeMask();
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    for(DataIterator dit(grids); dit.ok(); ++dit) {
+      const FArrayBox&  mask = node_mask[dit].getFab();
+      FArrayBox& sigma = m_surfaceCharge_nodes[dit].getFab();
+      sigma.mult(mask,mask.box(),0,0,1);
+
+      const Box node_box = surroundingNodes(grids[dit]);
+      FArrayBox sigma_temp(node_box,1);
+      sigma_temp.copy(sigma,node_box);
+      sigma.setVal(0.0);
+      sigma.copy(sigma_temp,node_box);
+    } 
+  }
+#endif
   
   const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
   const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_faces;}
   const LevelData<NodeFArrayBox>& getChargeDensityOnNodes() const {return m_chargeDensity_nodes;}
+  const LevelData<NodeFArrayBox>& getSurfaceChargeOnNodes() const {return m_surfaceCharge_nodes;}
+  
+  void getSurfaceChargeOnNodes( LevelData<NodeFArrayBox>& a_sigma ) const
+  {
+   
+     SpaceUtils::zero( a_sigma );
+     if(m_charge == 0) return;
 
+     const DisjointBoxLayout& grids(m_mesh.getDBL());
+     for(DataIterator dit(grids); dit.ok(); ++dit) {
+        const FArrayBox& member_sigma = m_surfaceCharge_nodes[dit].getFab();
+        FArrayBox& passed_sigma = a_sigma[dit].getFab();
+        passed_sigma.copy(member_sigma);
+     }
+
+     LDaddNodeOp<NodeFArrayBox> addNodeOp;
+     a_sigma.exchange( a_sigma.interval(), 
+                       m_mesh.reverseCopier(), addNodeOp );
+     SpaceUtils::exchangeNodeFArrayBox( a_sigma);
+     
+  }
+  
   void interpolateEfieldToParticles( const EMFields&  a_emfields );
   
   void interpolateFieldsToParticles( const EMFields&  a_emfields );
@@ -291,16 +351,14 @@ public:
                            const Real                    a_cnormDt, 
                            const bool                    a_reverse );
   
-  void advanceInflowPositions( List<JustinsParticle>&  a_pList,
-                         const int                     a_bdry_dir, 
-                         const int                     a_bdry_side, 
-                         const Real                    a_cnormDt );
-  
+  void transferFastParticles();
+
   void advancePositions_2ndHalf();
   
   void advancePositions_2ndHalf( List<JustinsParticle>&  a_pList );
   
-  void applyBCs( const bool  a_intermediate_advance );
+  void applyBCs( const bool  a_intermediate_advance, 
+	         const Real  a_time );
 
   void checkForNAN( List<JustinsParticle>&  a_pList,
 	      const std::string&  a_string );
@@ -343,9 +401,6 @@ public:
   
   void advanceParticlesIteratively( const EMFields&  a_emfields,
                                     const Real       a_dt );
-  
-  void advanceInflowParticlesIteratively( const EMFields&  a_emfields,
-                                          const Real       a_dt );
   
   void mergeSubOrbitParticles();
   
@@ -448,6 +503,7 @@ private:
   bool m_interp_bc_check;
   bool m_suborbit_inflowJ;
   bool m_use_suborbit_model;
+  bool m_suborbit_fast_particles;
   bool m_suborbit_testing = false; 
 
   bool m_motion;
@@ -484,6 +540,7 @@ private:
   mutable LevelData<FArrayBox> m_chargeDensity;          
   mutable LevelData<FluxBox> m_chargeDensity_faces;          
   mutable LevelData<NodeFArrayBox> m_chargeDensity_nodes;          
+  mutable LevelData<NodeFArrayBox> m_surfaceCharge_nodes;          
 
   // physical quantities
   mutable LevelData<FArrayBox> m_temperature; // temperature [eV] at cell center
@@ -509,38 +566,28 @@ private:
                               const FArrayBox&        a_Efield_virtual,
                               const FArrayBox&        a_Bfield_virtual );
   
-  void applyForcesToInflowParticles( List<JustinsParticle>&  a_pList,
-                               const EMFields&               a_emfields,
-                               const EdgeDataBox&            a_Efield_inPlane,
-                               const FluxBox&                a_Bfield_inPlane,
-                               const FArrayBox&              a_Efield_virtual,
-                               const FArrayBox&              a_Bfield_virtual,
-                               const int                     a_bdry_dir, 
-                               const int                     a_bdry_side, 
-                               const Real                    a_cnormDt );
-  
-  void getFieldDerivativesAtParticle( RealVect&         a_dExdy,
-                                      RealVect&         a_dEydy,
-                                      RealVect&         a_dEzdy,
-                                      RealVect&         a_dBxdy,
-                                      RealVect&         a_dBydy,
-                                      RealVect&         a_dBzdy,
-                                const JustinsParticle&  a_particle,
-                                const EdgeDataBox&      a_Efield_inPlane,
-                                const FluxBox&          a_Bfield_inPlane,
-                                const FArrayBox&        a_Efield_virtual,
-                                const FArrayBox&        a_Bfield_virtual );
-
-  int newtonParticleUpdate( List<JustinsParticle>&  a_pList,
-                      const Real          a_cnormDt, 
-                      const EMFields&     a_emfields,
-                      const EdgeDataBox&  a_Efield_inPlane,
-                      const FluxBox&      a_Bfield_inPlane,
-                      const FArrayBox&    a_Efield_virtual,
-                      const FArrayBox&    a_Bfield_virtual );
-   
   void addExternalFieldsToParticles( List<JustinsParticle>&  a_pList, 
                                const EMFields&               a_emfields );
+  
+  void advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pList,
+		                        EdgeDataBox&            a_local_J,
+		                        FArrayBox&              a_local_Jv,
+		                  const EMFields&     a_emfields,
+		                  const EdgeDataBox&  a_Efield_inPlane,
+		                  const FluxBox&      a_Bfield_inPlane,
+		                  const FArrayBox&    a_Efield_virtual,
+		                  const FArrayBox&    a_Bfield_virtual,
+		                  const int           a_bdry_dir,
+		                  const int           a_bdry_side,
+		                  const Real          a_dt,
+                                  const bool          a_from_emjacobian );
+
+  void advanceInflowPartToBdry( RealVect&            a_xpold,
+                                Real&                a_cnormDt_sub,
+                          const Real                 a_cnormDt,
+		          const std::array<Real,3>&  a_upold,
+                          const int                  a_bdry_dir,
+                          const int                  a_bdry_side );
  
   void createMeshInterp();
 

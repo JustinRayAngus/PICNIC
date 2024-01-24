@@ -70,7 +70,7 @@ class NewtonSolver : public NonlinearSolver<Vec, Ops>
     
     virtual void verbose( const bool  a_verbose ) 
     { 
-       m_verbose = a_verbose;
+       m_verbose = a_verbose && m_verbose_input;
        m_linear_solver->verbose(a_verbose);
     }
 
@@ -103,7 +103,7 @@ class NewtonSolver : public NonlinearSolver<Vec, Ops>
     bool m_is_Defined;
     int m_maxits;
     double m_rtol, m_atol, m_stol;
-    bool m_verbose, m_isLinear;
+    bool m_verbose, m_verbose_input, m_isLinear;
     std::string m_linear_solver_type;
     std::string m_op_indent;
 
@@ -130,10 +130,11 @@ void NewtonSolver<Vec,Ops>::define( const Vec&                        a_U,
   m_rtol    = 1e-6;
   m_atol    = 1e-12;
   m_stol    = 1e-14;
-  m_verbose = true;
+  m_verbose_input = true;
 
   ParmParse ppnewton ( "newton" );
   parseParameters( ppnewton );
+  m_verbose = true;
 
   m_count   = 0;
   m_isLinear = false;
@@ -163,7 +164,7 @@ void NewtonSolver<Vec,Ops>::define( const Vec&                        a_U,
 template <class Vec, class Ops>
 void NewtonSolver<Vec,Ops>::parseParameters( ParmParse& a_pp )
 {
-  a_pp.query("verbose",       m_verbose);             /* verbosity */
+  a_pp.query("verbose",       m_verbose_input);       /* verbosity */
   a_pp.query("atol",          m_atol);                /* absolute tolerance */
   a_pp.query("rtol",          m_rtol);                /* relative tolerance */
   a_pp.query("stol",          m_stol);                /* step tolerance */

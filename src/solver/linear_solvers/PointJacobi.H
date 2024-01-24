@@ -19,7 +19,7 @@ class PointJacobiSolver : public LinearFunctionSolver<T, Ops>
     { 
       m_is_defined = false; 
       m_op = nullptr; 
-      m_verbose = true;
+      m_verbose = false;
       m_omega = 0.9;
       m_its = 200;
       m_atol = 1e-10;

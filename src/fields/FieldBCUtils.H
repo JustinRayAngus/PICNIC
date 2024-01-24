@@ -150,10 +150,10 @@ namespace FieldBCUtils {
                local_X = this_X.get(ib,bdry_dir);
                local_val = bdry_val*Xmin_insulator[bdry_dir]/local_X;
             }
-            else local_val = bdry_val;
+            else { local_val = bdry_val; }
 	    for (int n=0; n<this_dst.nComp(); n++) {
-               if(n==TEM_comp) this_dst.set(ib,n,local_val);
-	       else this_dst.set(ib,n,0.0);
+               if(n==TEM_comp) { this_dst.set(ib,n,local_val); }
+	       else { this_dst.set(ib,n,0.0); }
 	    }
          }
 
@@ -212,7 +212,8 @@ namespace FieldBCUtils {
             Box insulator_box = fill_box_grown;
             getInsulatorBox(insulator_box,this_ICbinary,bdry_dir);     
                   
-            B_bc_type = "extrapolate";
+            if(dir==bdry_dir) { B_bc_type = "extrapolate"; }
+	    else { B_bc_type = "zero"; }
             BoundaryConditions::setBC( this_dst,
                                        insulator_box,
                                        0,
@@ -260,21 +261,17 @@ namespace FieldBCUtils {
          
             std::string E_bc_type;
             if(dir!=bdry_dir) {
-               // JRA, energy conservation requires zero BC for Epar,
-               // since Jpar at ghosts does not enter field solve
-               if(a_conservative_wall) E_bc_type = "zero";
-               else E_bc_type = "odd";
+               if(a_conservative_wall) { E_bc_type = "odd"; } 
+               else { E_bc_type = "odd"; }
                this_dst.mult(this_ICbinary,fill_box_grown,0,0,this_dst.nComp());
    
                const int ISIDE(a_bdry_layout.side());
-               if(ISIDE==0) fill_box_grown.growHi(bdry_dir,-1);
-               if(ISIDE==1) fill_box_grown.growLo(bdry_dir,-1);
+               if(ISIDE==0) { fill_box_grown.growHi(bdry_dir,-1); }
+               if(ISIDE==1) { fill_box_grown.growLo(bdry_dir,-1); }
             }
             else {
-               // JRA, energy conservation requires even BC for Eperp, 
-               // which is like using NGP for Eperp near the bdry
-               if(a_conservative_wall) E_bc_type = "even";
-               else E_bc_type = "extrapolate";
+               if(a_conservative_wall) { E_bc_type = "even"; }
+               else { E_bc_type = "extrapolate"; }
             }
             
             BoundaryConditions::setBC( this_dst,
@@ -291,10 +288,8 @@ namespace FieldBCUtils {
                Box insulator_box = fill_box_grown;
                getInsulatorBox(insulator_box,this_ICbinary,bdry_dir);     
 
-               // JRA, energy conservation requires zero BC for Epar,
-               // since Jpar at ghosts does not enter field solve
-               if(a_conservative_wall) E_bc_type = "zero";
-               else E_bc_type = "extrapolate";
+               if(a_conservative_wall) { E_bc_type = "extrapolate"; }
+               else { E_bc_type = "extrapolate"; }
                BoundaryConditions::setBC( this_dst,
                                           insulator_box,
                                           0,
@@ -341,16 +336,16 @@ namespace FieldBCUtils {
 
          // dont change value on boundary in setBC()
          const int ISIDE(a_bdry_layout.side());
-         if(ISIDE==0) fill_box_grown.growHi(a_bdry_layout.dir(),-1);
-         if(ISIDE==1) fill_box_grown.growLo(a_bdry_layout.dir(),-1);
+         if(ISIDE==0) { fill_box_grown.growHi(a_bdry_layout.dir(),-1); }
+         if(ISIDE==1) { fill_box_grown.growLo(a_bdry_layout.dir(),-1); }
          
          // apply bc for conductor
          std::string Ev_bc_type;
         
          // JRA, energy conservation requires zero BC for Epar,
          // since Jpar at ghosts does not enter field solve
-         if(a_conservative_wall) Ev_bc_type = "zero";
-         else Ev_bc_type = "odd";
+         if(a_conservative_wall) { Ev_bc_type = "zero"; } // JRA, zero correct for virtual E
+         else { Ev_bc_type = "odd"; }
          for (int n(0); n<this_dst.nComp(); n++) {
             BoundaryConditions::setBC( this_dst,
                                        fill_box_grown,
@@ -366,8 +361,8 @@ namespace FieldBCUtils {
          Box insulator_box = fill_box_grown;
          getInsulatorBox(insulator_box,this_ICbinary,a_bdry_layout.dir());     
 
-         if(a_conservative_wall) Ev_bc_type = "zero";
-         else Ev_bc_type = "extrapolate";
+         if(a_conservative_wall) { Ev_bc_type = "zero"; }
+         else { Ev_bc_type = "extrapolate"; }
          for (int n(0); n<this_dst.nComp(); n++) {
             BoundaryConditions::setBC( this_dst,
                                        insulator_box,
@@ -395,8 +390,13 @@ namespace FieldBCUtils {
              const Real                         a_time )
    {
       CH_TIME("FieldBCUtils::setCellBC (virtual magnetic field)");
-         
-      const LevelData<FArrayBox>& Jacobian = a_mesh.getJcc();
+        
+      // 1D CAR: Bv(n=0) = By,  Bv(n=1) = Bz     2D CAR: Bv(n=0) = Bz
+      // 1D CYL: Bv(n=0) = Bth, Bv(n=1) = Bz     2D CYL: Bv(n=0) = Bth
+      // 1D SPH: Bv(n=0) = Bth, Bv(n=1) = Bphi
+
+      //const LevelData<FArrayBox>& Jacobian = a_mesh.getJcc();
+      const LevelData<FArrayBox>& Xcc = a_mesh.getXcc();
       const string& geom_type = a_mesh.geomType();
 
       const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
@@ -406,11 +406,11 @@ namespace FieldBCUtils {
          const std::string this_bc_type (a_all_bc_type[b]);
          string Bv_bc_type = this_bc_type;
 
-         if(this_bc_type=="symmetry") Bv_bc_type = "odd";
-         if(this_bc_type=="axis") Bv_bc_type = "odd";
-         if(this_bc_type=="conductor") Bv_bc_type = "even";
-         if(this_bc_type=="insulator_conductor") Bv_bc_type = "even";
-         if(this_bc_type=="extrapolate_zeroBv") Bv_bc_type = "zero";
+         if(this_bc_type=="symmetry") { Bv_bc_type = "odd"; }
+         if(this_bc_type=="axis") { Bv_bc_type = "odd"; }
+         if(this_bc_type=="conductor") { Bv_bc_type = "even"; }
+         if(this_bc_type=="insulator_conductor") { Bv_bc_type = "even"; }
+         if(this_bc_type=="extrapolate_zeroBv") { Bv_bc_type = "zero"; }
 
          for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
@@ -423,22 +423,31 @@ namespace FieldBCUtils {
             grow_vect[bdry_layout.dir()] = 0;
             Box fill_box_grown = grow(fill_box,grow_vect);
          
-            for (int n(0); n<this_dst.nComp(); n++) {   
-               if(this_bc_type=="axis" && n==1 && geom_type=="cyl_R") Bv_bc_type = "even";
-               if(this_bc_type=="conductor" && n==0 && a_mesh.axisymmetric()) {
-                  const FArrayBox& this_Ja( Jacobian[interior_dit] );
-                  FArrayBox JaBy;
-                  JaBy.define(this_dst.box(),1);
-                  JaBy.copy(this_dst,n,0,1);
-                  JaBy.mult(this_Ja,0,0,1);
-                  BoundaryConditions::setBC( JaBy,
+            for (int n(0); n<this_dst.nComp(); n++) {
+	       bool scale_by_r = false; 
+               if(this_bc_type=="axis" && geom_type=="cyl_R") {
+	          if(n==0) { Bv_bc_type = "odd"; }
+		  else if(n==1) { Bv_bc_type = "even"; }
+	       }
+               if( (this_bc_type=="conductor" || this_bc_type=="insulator_conductor") 
+	          && a_mesh.axisymmetric() ) {
+		  if(geom_type=="cyl_R" && n==1) { scale_by_r = false; }
+		  else { scale_by_r = true; }
+	       }
+	       if(scale_by_r) {
+                  const FArrayBox& this_Xcc( Xcc[interior_dit] );
+                  FArrayBox rBn;
+                  rBn.define(this_dst.box(),1);
+                  rBn.copy(this_dst,n,0,1);
+                  rBn.mult(this_Xcc,0,0,1);
+                  BoundaryConditions::setBC( rBn,
                                              fill_box_grown,
-                                             n,
+                                             0,
                                              Bv_bc_type,
                                              bdry_layout.dir(),
                                              bdry_layout.side() );
-                  this_dst.copy(JaBy,fill_box_grown,0,fill_box_grown,n,1);
-                  this_dst.divide(this_Ja,fill_box_grown,0,n,1);
+                  this_dst.copy(rBn,fill_box_grown,0,fill_box_grown,n,1);
+                  this_dst.divide(this_Xcc,fill_box_grown,0,n,1);
                }
                else { 
                   BoundaryConditions::setBC( this_dst,
@@ -496,26 +505,26 @@ namespace FieldBCUtils {
                      
                   std::string B_bc_type = this_bc_type;
                   if(this_bc_type=="axis") {
-                     B_bc_type = "even";
-                     if(dir==bdry_layout.dir()) B_bc_type = "odd";
+                     if(dir==bdry_layout.dir()) { B_bc_type = "odd"; }
+		     else { B_bc_type = "even"; }
                   }
                   if(this_bc_type=="symmetry") {
-                     B_bc_type = "odd";
-                     if(dir==bdry_layout.dir()) B_bc_type = "even";
+                     if(dir==bdry_layout.dir()) { B_bc_type = "even"; }
+		     else { B_bc_type = "odd"; }
                   }
                   if(this_bc_type=="conductor") {
-                     B_bc_type = "even";
                      if(dir==bdry_layout.dir()) {
                         B_bc_type = "odd";
                         this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
                      }
+		     else { B_bc_type = "even"; }
                   }
-                  if(this_bc_type=="extrapolate_zeroBv") B_bc_type = "extrapolate";
+                  if(this_bc_type=="extrapolate_zeroBv") { B_bc_type = "extrapolate"; }
 
-                  if(dir==bdry_layout.dir()) { // dont change value on face in setBC()
+                  if(dir==bdry_layout.dir()) {
                      const int ISIDE(bdry_layout.side());
-                     if(ISIDE==0) fill_box_grown.growHi(bdry_layout.dir(),-1);
-                     if(ISIDE==1) fill_box_grown.growLo(bdry_layout.dir(),-1);
+                     if(ISIDE==0) { fill_box_grown.growHi(bdry_layout.dir(),-1); }
+                     if(ISIDE==1) { fill_box_grown.growLo(bdry_layout.dir(),-1); }
                      if(this_bc_type=="axis") { // enforce zero on axis for Br
 	                Box axis_box = fill_box_grown;
                         axis_box.setBig(dir,0);
@@ -578,27 +587,19 @@ namespace FieldBCUtils {
                   fill_box_grown.grow(grow_vect);
                      
                   std::string E_bc_type = this_bc_type;
-                  if(this_bc_type=="axis") {
-                     E_bc_type = "even";
-                     if(dir==bdry_layout.dir()) E_bc_type = "odd";
-                  }
-                  if(this_bc_type=="symmetry") {
-                     E_bc_type = "odd";
-                     if(dir!=bdry_layout.dir()) E_bc_type = "even";
+                  if(this_bc_type=="axis" || this_bc_type=="symmetry") {
+                     if(dir==bdry_dir) { E_bc_type = "odd"; }
+		     else { E_bc_type = "even"; }
                   }
                   if(this_bc_type=="conductor") {
                      if(dir!=bdry_layout.dir()) {
-                        // JRA, energy conservation requires zero BC for Epar,
-                        // since Jpar at ghosts does not enter field solve
-                        if(a_conservative_wall) E_bc_type = "zero";
-                        else E_bc_type = "odd";
+                        if(a_conservative_wall) { E_bc_type = "odd"; }
+                        else { E_bc_type = "odd"; }
                         this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
                      }
                      else {
-                        // JRA, energy conservation requires even BC for Eperp, 
-                        // which is like using NGP for Eperp near the bdry
-                        if(a_conservative_wall) E_bc_type = "even";
-                        else E_bc_type = "extrapolate";
+                        if(a_conservative_wall) { E_bc_type = "even"; }
+                        else { E_bc_type = "extrapolate"; }
                      }
                   }
                   if(this_bc_type=="extrapolate_zeroBv") E_bc_type = "extrapolate";
@@ -635,6 +636,7 @@ namespace FieldBCUtils {
    {
       CH_TIME("FieldBCUtils::setNodeBC (virtual electric field)");
 
+      const string& geom_type = a_mesh.geomType();
       const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
       for (int b(0); b<all_bdry_layouts.size(); b++) {
          const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
@@ -660,12 +662,10 @@ namespace FieldBCUtils {
                fill_box_grown.grow(grow_vect);
       
                std::string Ev_bc_type;
-               if(this_bc_type=="symmetry") Ev_bc_type = "even";
+               if(this_bc_type=="symmetry") { Ev_bc_type = "even"; }
                if(this_bc_type=="conductor") {
-                  // JRA, energy conservation requires zero BC for Epar,
-                  // since Jpar at ghosts does not enter field solve
-                  if(a_conservative_wall) Ev_bc_type = "zero";
-                  else Ev_bc_type = "odd";
+                  if(a_conservative_wall) { Ev_bc_type = "zero"; }
+                  else { Ev_bc_type = "odd"; }
                   this_dst.setVal(0.0,fill_box_grown,0,this_dst.nComp());
                }
                if(this_bc_type=="extrapolate_zeroBv") Ev_bc_type = "extrapolate";
@@ -676,13 +676,17 @@ namespace FieldBCUtils {
                if(ISIDE==1) fill_box_grown.growLo(bdry_layout.dir(),-1);
             
                for (int n(0); n<this_dst.nComp(); n++) {
-                  if(this_bc_type=="axis" && n==1) Ev_bc_type = "even"; // Ez
-                  if(this_bc_type=="axis" && n==0) {
-		     Ev_bc_type = "odd";  // Eth
-	             Box axis_box = fill_box_grown;
-                     axis_box.setBig(0,0);
-                     axis_box.setSmall(0,0);
-		     this_dst.setVal(0.0,axis_box,n,1);
+                  if(this_bc_type=="axis" && a_mesh.axisymmetric()) {
+                     if(geom_type=="cyl_R" && n==1) { 
+			Ev_bc_type = "even"; // Ez
+		     }
+		     else {
+		        Ev_bc_type = "odd";  // Eth or Ephi
+	                Box axis_box = fill_box_grown;
+                        axis_box.setBig(0,0);
+                        axis_box.setSmall(0,0);
+		        this_dst.setVal(0.0,axis_box,n,1);
+		     }
 		  }
                   BoundaryConditions::setBC( this_dst,
                                              fill_box_grown,
@@ -812,22 +816,19 @@ namespace FieldBCUtils {
    void applyToJ_PIC( LevelData<EdgeDataBox>&    a_J_inPlane,
                       LevelData<NodeFArrayBox>&  a_J_virtual,
                 const DomainGrid&                a_mesh,
-                const Vector<std::string>&       a_all_bc_type )
+                const Vector<std::string>&       a_all_bc_type,
+                const Vector<RefCountedPtr<InsulatorBC>>&  a_all_insulator_bc )
    {
       CH_TIME("FieldBCUtils::applyToJ_PIC()");
 
-      // Note that this is called from pic species and from emfields when
-      // computing J from mass matrices. Thus, a_all_bc_type could be that from
-      // species or from fields, which are not necessarily the same. This leaves
-      // room for a potential future bug. Need to fix this.
-      //
       // Comment on J normal to boundary. For Symmetry, we subtract ghost Jnorm
       // from mirror location across boundary, which is the same as depositing
       // the mirror current to the interior. For other boundaries, we add ghost
       // Jnorm, which amount so using NGP for Jnorm close to boundary and is
       // needed to maintain exact energy conservation (only verified for insulator
       // BC so far)
-      //
+      
+      const string& geom_type = a_mesh.geomType();
 
       // loop over non-periodic boundaries and apply BCs to J
       const BoundaryBoxLayoutPtrVect& bdry_layout = a_mesh.getBoundaryLayout();
@@ -837,8 +838,8 @@ namespace FieldBCUtils {
          const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
          const int bdry_dir = this_bdry_layout.dir();
          const int bdry_side(this_bdry_layout.side());
-         const std::string this_bc = a_all_bc_type[b];
-
+         std::string this_bc = a_all_bc_type[b];
+         
          for(DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
 
             const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
@@ -855,8 +856,8 @@ namespace FieldBCUtils {
                edge_box.grow(grow_vect);
 
                // collapse edge_box to 1 cell thick in bdry_dir direction                  
-               if(bdry_side==0) edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir));
-               if(bdry_side==1) edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir));
+               if(bdry_side==0) { edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir)); }
+               if(bdry_side==1) { edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir)); }
                   
                FArrayBox& this_J( a_J_inPlane[interior_dit][dir] );
                if(dir==bdry_dir) {
@@ -864,35 +865,65 @@ namespace FieldBCUtils {
                   Box src_box = edge_box;
                   const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
                   for (int n=0; n<nG; n++) {
-                     if(bdry_side==0) dst_box.shift(bdry_dir,1);
-                     if(bdry_side==1) dst_box.shift(bdry_dir,-1);
+                     if(bdry_side==0) { dst_box.shift(bdry_dir,1); }
+                     if(bdry_side==1) { dst_box.shift(bdry_dir,-1); }
                      if(this_bc=="symmetry" || this_bc=="axis") {
                         this_J.minus(this_J,src_box,dst_box,0,0,1);
                      }
                      else {
                         this_J.plus(this_J,src_box,dst_box,0,0,1);
                      }
-                     if(bdry_side==0) src_box.shift(bdry_dir,-1);
-                     if(bdry_side==1) src_box.shift(bdry_dir,1);
+                     if(bdry_side==0) { src_box.shift(bdry_dir,-1); }
+                     if(bdry_side==1) { src_box.shift(bdry_dir,1); }
                   }
 
                }
                else {
                   if(this_bc=="symmetry" || this_bc=="axis") { 
-                                            // add ghost J|| back to interior. Needed
-                                            // for shape functions higher order than CIC and
-                                            // for getting J|| correct for particles with xpbar
-                                            // beyond a symmetry boundary during the intermediate 
-                                            // stage of the advance, where there is no assumption 
-                                            // that particle BCs have been applied.
                      Box dst_box = edge_box;
                      Box src_box = edge_box;
+                     //this_J.plus(this_J,src_box,dst_box,0,0,1); // 2X on bdry (done via corrected Jacobian)
                      const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
                      for (int n=0; n<nG; n++) {
                         dst_box.shift(bdry_dir,1-2*bdry_side);
                         src_box.shift(bdry_dir,2*bdry_side-1);
                         this_J.plus(this_J,src_box,dst_box,0,0,1);
                      }
+                  }
+                  else if(this_bc=="conductor") {
+                     Box dst_box = edge_box;
+                     Box src_box = edge_box;
+                     this_J.minus(this_J,src_box,dst_box,0,0,1); // set zero right on conductor
+                     const int nG = bdry_box.bigEnd(bdry_dir)-bdry_box.smallEnd(bdry_dir)+1;
+                     for (int n=0; n<nG; n++) {
+                        dst_box.shift(bdry_dir,1-2*bdry_side);
+                        src_box.shift(bdry_dir,2*bdry_side-1);
+                        this_J.minus(this_J,src_box,dst_box,0,0,1);
+                     }
+		  }
+                  else if(this_bc=="insulator_conductor") {
+            
+                     // For CC1, only have J in first ghost cell past boundary
+	             // Add 2*Jpara(-1) to Jpara(0) and subtract Jpara(-1) from
+		     // Jpara(1). This gives exact charge conservation for insulator.
+	             // Have not yet thought about conductor
+                     Box dst_box = edge_box;
+                     Box src_box = edge_box;
+                     if(bdry_side==0) { src_box.shift(bdry_dir,-1); }
+                     if(bdry_side==1) { src_box.shift(bdry_dir,1); }
+		     const Real scale = 2.0;
+                     this_J.plus(this_J,src_box,dst_box,scale,0,0,1);
+                     if(bdry_side==0) { dst_box.shift(bdry_dir,1); }
+                     if(bdry_side==1) { dst_box.shift(bdry_dir,-1); }
+                     this_J.minus(this_J,src_box,dst_box,0,0,1);
+		     
+		     const InsulatorBC& this_insulator_bc = *a_all_insulator_bc[b];
+                     const LevelData<EdgeDataBox>& ICbinary = this_insulator_bc.getICbinary_ec();
+                     const FArrayBox& this_ICbinary( ICbinary[interior_dit][dir] );
+
+	             // set zero right on conductor boundary
+                     this_J.mult(this_ICbinary,edge_box,0,0,1);
+
                   }
                }
 
@@ -913,20 +944,14 @@ namespace FieldBCUtils {
 
             FArrayBox& this_J( a_J_virtual[interior_dit].getFab() );
             if(this_bc=="symmetry" || this_bc=="axis") { 
-                                      // add ghost J|| back to interior. Needed
-                                      // for shape functions higher order than CIC and
-                                      // for getting J|| correct for particles with xpbar
-                                      // beyond a symmetry boundary during the intermediate 
-                                      // stage of the advance, where there is no assumption 
-                                      // that particle BCs have been applied.
-
      	       if(this_bc=="axis") { // enforce Jth = 0 right on axis
-		                     // 1 + 1 = 2 factor for Jz (done using corrected Jacobian)
+		                     // 1 + 1 = 2 factor for Jz (done via corrected Jacobian)
 				     // 1 - 1 = 0 factor for Jth (enforced here)
 	          Box axis_box = node_box;
                   axis_box.setBig(0,0);
                   axis_box.setSmall(0,0);
-	          this_J.setVal(0.0,axis_box,0,1);
+	          this_J.setVal(0.0,axis_box,0,1); // Jth
+                  if(geom_type=="sph_R") { this_J.setVal(0.0,axis_box,1,1); } // Jphi 
 	       }
      
 	       Box dst_box = node_box;
@@ -936,9 +961,15 @@ namespace FieldBCUtils {
                   dst_box.shift(bdry_dir,1-2*bdry_side);
                   src_box.shift(bdry_dir,2*bdry_side-1);
                   if(this_bc=="axis") {
-                     this_J.minus(this_J,src_box,dst_box,0,0,1); // Jth
 #if CH_SPACEDIM==1
-                     this_J.plus(this_J,src_box,dst_box,1,1,1); // Jz
+                     if(geom_type=="sph_R") { 
+                        this_J.minus(this_J,src_box,dst_box,0,0,1); // Jth
+			this_J.minus(this_J,src_box,dst_box,1,1,1); // Jphi
+		     }
+		     else { 
+                        this_J.minus(this_J,src_box,dst_box,0,0,1); // Jth
+			this_J.plus(this_J,src_box,dst_box,1,1,1);  // Jz
+		     }
 #endif
                   }
                   else this_J.plus(this_J,src_box,dst_box,0,0,this_J.nComp());
@@ -1159,6 +1190,73 @@ namespace FieldBCUtils {
    } // end function
    
    inline
+   void applyToEforDiv( LevelData<EdgeDataBox>&    a_dst,
+                  const DomainGrid&                a_mesh,
+                  const BoundaryBoxLayoutPtrVect&  a_all_bdry_layouts,
+                  const Vector<std::string>&       a_all_bc_type )
+   {
+      CH_TIME("FieldBCUtils::applyToEforDiv()");
+      
+      const LevelData<EdgeDataBox>& Jec = a_mesh.getJec();
+      
+      for (int b(0); b<a_all_bdry_layouts.size(); b++) {
+
+         const BoundaryBoxLayout& bdry_layout( *(a_all_bdry_layouts[b]) );
+         const std::string bc_type (a_all_bc_type[b]);
+         const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
+            
+	 const int bdry_dir = bdry_layout.dir();
+
+         for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         
+            const DataIndex& interior_dit( bdry_layout.dataIndex(dit) );
+            FArrayBox& this_dst( a_dst[interior_dit][bdry_dir] );
+
+            if(bc_type=="conductor" || bc_type=="insulator_conductor") {
+
+	       // set ghost values in bdry_dir such that divergence derivative
+	       // term in bdry_dir reduces to one-sided derivative.
+	       // e.g., upper dir X bdry: (Ex(N)-Ex(N-1))/dX ==> (0-Ex(N-1))/(dX/2)
+	       const string dst_bc_type = "odd";
+               Box bdry_cells = surroundingNodes(bdry_grids[dit]);
+               bdry_cells.enclosedCells(bdry_dir);
+	       
+	       bool scale_by_Ja = false;
+               if( a_mesh.axisymmetric() && bdry_dir==0 ) { scale_by_Ja = true; }
+	         
+	       if(scale_by_Ja) {
+                  const FArrayBox& this_Ja( Jec[interior_dit][bdry_dir] );
+                  FArrayBox JaEr;
+                  JaEr.define(this_dst.box(),1);
+                  JaEr.copy(this_dst,0,0,1);
+                  JaEr.mult(this_Ja,0,0,1);
+                  BoundaryConditions::setBC( JaEr,
+                                             bdry_cells,
+                                             0,
+                                             dst_bc_type,
+                                             bdry_dir,
+                                             bdry_layout.side() );
+                  this_dst.copy(JaEr,bdry_cells,0,bdry_cells,0,1);
+                  this_dst.divide(this_Ja,bdry_cells,0,0,1);
+               }
+               else { 
+                  BoundaryConditions::setBC( this_dst,
+                                             bdry_cells,
+                                             0,
+                                             dst_bc_type,
+                                             bdry_dir,
+                                             bdry_layout.side() );
+               }
+
+            }
+
+	 } // end loop over boxes
+
+      } // end loop over boundaries
+
+   }
+   
+   inline
    void setEdgePCMask( LevelData<EdgeDataBox>&              a_dst,
                  const BoundaryBoxLayoutPtrVect&            a_all_bdry_layouts,
                  const Vector<std::string>&                 a_all_bc_type,
@@ -1330,7 +1428,123 @@ namespace FieldBCUtils {
       } // end loop over boundaries
 
    } // end function
-  
+   
+#if CH_SPACEDIM==1
+   inline
+   void setPhiBC( LevelData<NodeFArrayBox>&  a_phi,
+	    const LevelData<NodeFArrayBox>&  a_rho,
+            const DomainGrid&                a_mesh,
+            const Real                       a_rhoNorm,
+            const Vector<std::string>&       a_all_phi_bc_type )
+   {
+      CH_TIME("FieldBCUtils::setPhiBC");
+
+      // this is a kluge for getting the potential correction field at the boundaries
+      // correct for dirichlet and neumann BCs. Chombo's node-centered potential solver
+      // does not properly set the ghost cells when using dirichlet BC such that the 
+      // nabla^2(phi) = rho on the boundary. Furthemore, a neumann BC is applied at cell
+      // center between the cell on the boundary and the next interior cell. 
+      // Note that this kluge only works for 1D. For 2D, can only do periodic BCs.
+      // Will eventually use a different solver for the potential.
+      CH_assert(SpaceDim==1);
+
+      const RealVect& dX(a_mesh.getdX());
+      const BoundaryBoxLayoutPtrVect& all_bdry_layouts = a_mesh.getBoundaryLayout();
+      for (int b(0); b<all_bdry_layouts.size(); b++) {
+         const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
+         const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
+         const int bdry_side = bdry_layout.side();
+         const int bdry_dir = bdry_layout.dir();
+
+         const std::string this_bc_type(a_all_phi_bc_type[b]);
+
+         for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+         
+            const DataIndex& interior_dit( bdry_layout.dataIndex(dit) );
+            FArrayBox& this_phi( a_phi[interior_dit].getFab() );
+            const FArrayBox& this_rho( a_rho[interior_dit].getFab() );
+        
+            // convert to node type and grow box to include tranverse ghosts 
+            const Box fill_box( bdry_grids[dit] );
+            Box node_box = surroundingNodes(fill_box);
+            IntVect grow_vect = a_phi.ghostVect();
+            grow_vect[bdry_layout.dir()] = 0;
+            node_box.grow(grow_vect);
+               
+	    // collapse node_box to 1 cell thick in bdry_dir direction                  
+            if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
+            if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
+
+            IntVect ib;         // cell index
+            IntVect ibm = IntVect::Zero; ibm[bdry_dir]--;
+            IntVect ibp = IntVect::Zero; ibp[bdry_dir]++;
+            Real rho0, phi0, phi0p, phi0m;
+            BoxIterator bit(node_box);
+            if( this_bc_type == "dirichlet" ) { 
+               for(bit.begin(); bit.ok(); ++bit) {
+                  ib = bit();
+                  rho0 = this_rho.get(ib,0)*a_rhoNorm;
+                  phi0 = this_phi.get(ib,0);
+		  if(bdry_side==0) {
+                     phi0p = this_phi.get(ib+ibp,0);
+		     phi0m = 2.0*phi0 - phi0p - rho0*dX[bdry_dir]*dX[bdry_dir];
+                     this_phi.set(ib+ibm,0,phi0m);
+		  }
+		  else {
+                     phi0m = this_phi.get(ib+ibm,0);
+		     phi0p = 2.0*phi0 - phi0m - rho0*dX[bdry_dir]*dX[bdry_dir];
+                     this_phi.set(ib+ibp,0,phi0p);
+		  }
+               }
+            }
+	    else if( this_bc_type == "neumann" ) {
+               for(bit.begin(); bit.ok(); ++bit) {
+                  ib = bit();
+                  rho0 = this_rho.get(ib,0)*a_rhoNorm;
+		  if(bdry_side==0) {
+                     phi0p = this_phi.get(ib+ibp,0);
+		     phi0m = phi0p;
+		     this_phi.set(ibm,0,phi0m);
+		     phi0 = phi0p + rho0*dX[bdry_dir]*dX[bdry_dir]/2.0;
+                     this_phi.set(ib,0,phi0);
+		  }
+		  else {
+                     phi0m = this_phi.get(ib+ibm,0);
+		     phi0p = phi0m;
+		     this_phi.set(ib+ibp,0,phi0p);
+		     phi0 = phi0m + rho0*dX[bdry_dir]*dX[bdry_dir]/2.0;
+                     this_phi.set(ib,0,phi0);
+		  }
+	       }
+	    }
+
+	    // properly fill ghost cells if more than 1
+	    if(a_phi.ghostVect()[bdry_dir]>1) {
+               Box fill_box2 = surroundingNodes(fill_box);
+               fill_box2.grow(grow_vect);
+               if(bdry_side==0) { fill_box2.growHi(bdry_dir,-1); }
+               if(bdry_side==1) { fill_box2.growLo(bdry_dir,-1); }
+               string dummy_bc_type = "extrapolate";
+	       if(this_bc_type=="neumann") dummy_bc_type = "even";
+	       else { // shrink by 1 again to keep nabla^2(phi) = -rho at bdry
+                 if(bdry_side==0) { fill_box2.growHi(bdry_dir,-1); }
+                 if(bdry_side==1) { fill_box2.growLo(bdry_dir,-1); }
+	       }
+               BoundaryConditions::setBC( this_phi,
+                                          fill_box2,
+                                          0,
+                                          dummy_bc_type,
+                                          bdry_dir,
+                                          bdry_layout.side() );
+	    } 
+            
+         } // end loop over boxes
+ 
+      } // end loop over boundaries
+
+   } // end function
+#endif
+
 }
 #include "NamespaceFooter.H"
 

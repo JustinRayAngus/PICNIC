@@ -47,6 +47,12 @@ class FieldBC
       
       void applyNodePCMask( LevelData<NodeFArrayBox>&  a_dst,
                       const Real                       a_time ) const;
+      
+#if CH_SPACEDIM==1
+      void applyPhiBC( LevelData<NodeFArrayBox>&  a_phi,
+                 const LevelData<NodeFArrayBox>&  a_rho,
+		 const Real                       a_rhoNorm ) const;
+#endif
 
       void applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
                         const LevelData<FArrayBox>&    a_B );
@@ -66,11 +72,13 @@ class FieldBC
     
       void applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
                      LevelData<NodeFArrayBox>&  a_J_virtual ) const;
+
+      void applyToEforDiv( LevelData<EdgeDataBox>&  a_dst ) const;
   
    protected:
    
       Vector<std::string> m_bdry_name;
-      Vector<std::string> m_bc_type;
+      Vector<std::string> m_bc_type, m_phi_bc_type;
       bool m_conservative_wall; // if true, E for insulator/conductor BCs will be set
                                 // such that energy is conserved  
  

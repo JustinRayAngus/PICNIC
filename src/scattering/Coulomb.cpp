@@ -515,9 +515,9 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
                   for (int n=0; n<3; n++) betap2[n] -= 0.5*deltaU[n];
 	          for (int n=0; n<3; n++) dBetaAvg[n] -= wp2*0.5*deltaU[n];
 	       }
-
-	    }
 #endif
+	    }
+	       
          }
          verbosity=0;
 	 
@@ -1233,9 +1233,9 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                   for (int n=0; n<3; n++) betap2[n] -= m_mu/m_mass2*deltaU[n];
 	          for (int n=0; n<3; n++) dBetaAvg[n] -= wp2*m_mu*deltaU[n];
 	       }
-
-	    }
 #endif
+	    }
+
          }
          verbosity=0;
 

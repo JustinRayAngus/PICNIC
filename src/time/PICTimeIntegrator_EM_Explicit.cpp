@@ -37,7 +37,7 @@ void PICTimeIntegrator_EM_Explicit::preTimeStep(  const Real a_time,
     else {
       species->advancePositions_2ndHalf();
     }
-    species->applyBCs( false );
+    species->applyBCs( false, a_time );
     species->removeOutflowParticles(); // needed here for method used to achieve charge
                                        // conservation with outflow particles. Outflow parts
                                        // created here are those that have xpbar from last 
@@ -120,7 +120,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
      auto species(pic_species_ptr_vect[sp]);
     species->advancePositionsExplicit( a_dt, true );
     species->applyInertialForces( a_dt, false, true, true );
-    species->applyBCs( true );
+    species->applyBCs( true, a_time );
   }
 
   if (m_fields) {
@@ -132,7 +132,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
     // compute current density at t_{n+1} and 
     // advance E from t_{n+1/2} to t_{n+1} using B_{n+1} and J_{n+1}
     if(m_fields->advanceE()) {
-      m_pic_species->setCurrentDensity( true );
+      m_pic_species->setCurrentDensity( *m_fields, true, true );
       if(m_fields->useFiltering()) { m_pic_species->filterJ( *m_fields, a_time ); }
       const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
       const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();

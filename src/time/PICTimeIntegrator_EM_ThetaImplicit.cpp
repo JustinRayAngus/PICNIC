@@ -11,6 +11,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::define( PicSpeciesInterface* const  a_p
 
   m_pic_species = a_pic_species;
   m_fields = a_fields;
+  m_fields->computePrecondMatrixNNZ(e_and_b);
 
   m_U.define(*m_fields);
   m_Uold.define(m_U);
@@ -21,6 +22,9 @@ void PICTimeIntegrator_EM_ThetaImplicit::define( PicSpeciesInterface* const  a_p
   pp.query("solver_type", m_nlsolver_type);
   pp.query("pc_update_freq", m_pc_update_freq);
   pp.query("pc_update_newton", m_pc_update_newton);
+
+  //backward compatibility
+  if (m_nlsolver_type=="petsc") m_nlsolver_type = _NLSOLVER_PETSCSNES_;
 
   CH_assert(m_theta>=0.5 && m_theta<=1.0);
 
@@ -36,8 +40,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::define( PicSpeciesInterface* const  a_p
     m_func = new EMResidualFunction<ODEVector<EMFields>, PICTimeIntegrator>;
     m_func->define( m_U, this, m_theta, m_pc_update_newton );
     
-  } else if (     (m_nlsolver_type == _NLSOLVER_PETSCSNES_) 
-              ||  (m_nlsolver_type == "petsc") /* backward compatibility */) {
+  } else if (m_nlsolver_type == _NLSOLVER_PETSCSNES_) {
 
   if(m_nlsolver_type=="petsc") m_nlsolver_type = _NLSOLVER_PETSCSNES_;
 
@@ -215,7 +218,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::timeStep(  const Real a_old_time,
     species->advancePositions_2ndHalf();
     species->mergeSubOrbitParticles();
     species->applyInertialForces(a_dt,true,true);
-    species->applyBCs(false);
+    species->applyBCs( false, new_time);
   }
 
   return;  
@@ -323,7 +326,8 @@ void PICTimeIntegrator_EM_ThetaImplicit::updatePrecondMat( BandedMatrix& a_Pmat,
   }
   m_fields->assemblePrecondMatrix( a_Pmat,
                                    m_pic_species->getSigmaxx().isDefined(),
-                                   a_dt );
+                                   a_dt,
+                                   e_and_b );
   a_Pmat.finalAssembly();
   //a_Pmat.writeToFile("pc_matrix.txt",1);
 }

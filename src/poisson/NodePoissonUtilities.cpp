@@ -858,7 +858,7 @@ void NodeParseBC(NodeFArrayBox& a_state,
                                  i,
                                  Side::Hi);
                     }
-                  if (GlobalBCRS::s_bcHi[i] == 2)
+		  else if (GlobalBCRS::s_bcHi[i] == 2)
                     {
                       if (!GlobalBCRS::s_printedThatHi[i])
                         {

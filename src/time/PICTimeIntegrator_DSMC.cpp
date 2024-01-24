@@ -37,7 +37,7 @@ void PICTimeIntegrator_DSMC::timeStep( const Real a_time,
       auto species(pic_species_ptr_vect[sp]);
       species->advancePositionsExplicit(a_dt);
       species->applyInertialForces(a_dt, false, true);
-      species->applyBCs(false);
+      species->applyBCs( false, a_time );
   }
   
   return;

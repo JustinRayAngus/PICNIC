@@ -27,7 +27,7 @@ public:
    
    void apply( List<JustinsParticle>&  a_inflow_pList,
          const List<JustinsParticle>&  a_valid_pList,
-         const FArrayBox&              a_Xec,
+         const FArrayBox&              a_Xnc,
          const Box&                    a_box,
          const Real                    a_time,
          const Real                    a_cnormDt );

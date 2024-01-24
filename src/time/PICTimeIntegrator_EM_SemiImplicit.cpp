@@ -1,5 +1,6 @@
 #include "PICTimeIntegrator_EM_SemiImplicit.H"
 #include "CH_HDF5.H"
+#include <sys/time.h>
 
 #include "NamespaceHeader.H"
 
@@ -10,6 +11,7 @@ void PICTimeIntegrator_EM_SemiImplicit::define( PicSpeciesInterface* const  a_pi
 
   m_pic_species = a_pic_species;
   m_fields = a_fields;
+  m_fields->computePrecondMatrixNNZ(e_only);
 
   m_E.define(m_fields->getVectorSize(e_only));
   m_Eold.define(m_E);
@@ -21,6 +23,11 @@ void PICTimeIntegrator_EM_SemiImplicit::define( PicSpeciesInterface* const  a_pi
 
   ParmParse pp("pic_em_semi_implicit");
   pp.query("solver_type", m_nlsolver_type);
+  pp.query("pc_update_freq", m_pc_update_freq);
+  pp.query("pc_update_newton", m_pc_update_newton);
+
+  //backward compatibility
+  if (m_nlsolver_type=="petsc") m_nlsolver_type = _NLSOLVER_PETSCSNES_;
 
   if (m_nlsolver_type == _NLSOLVER_PICARD_) {
 
@@ -30,17 +37,14 @@ void PICTimeIntegrator_EM_SemiImplicit::define( PicSpeciesInterface* const  a_pi
 
     m_nlsolver = new NewtonSolver<ODEVector<EMFields>, PICTimeIntegrator>;
     m_func = new EMResidualFunction<ODEVector<EMFields>, PICTimeIntegrator>;
-    m_func->define( m_E, this, 0.5, false );
+    m_func->define( m_E, this, 0.5, m_pc_update_newton );
 
-  } else if (     (m_nlsolver_type == _NLSOLVER_PETSCSNES_)
-              ||  (m_nlsolver_type == "petsc") /* backward compatibility */) {
-
-  if(m_nlsolver_type=="petsc") m_nlsolver_type = _NLSOLVER_PETSCSNES_;
+  } else if (m_nlsolver_type == _NLSOLVER_PETSCSNES_) {
 
 #ifdef with_petsc
     m_nlsolver = new PetscSNESWrapper<ODEVector<EMFields>, PICTimeIntegrator>;
     m_func = new EMResidualFunction<ODEVector<EMFields>, PICTimeIntegrator>;
-    m_func->define( m_E, this, 0.5, false );
+    m_func->define( m_E, this, 0.5, m_pc_update_newton );
 #else
     MayDay::Error("PETSc SNES solver requires compilation with PETSc");
 #endif
@@ -61,6 +65,8 @@ void PICTimeIntegrator_EM_SemiImplicit::printParams() const
    cout << "================== Time Solver ==================" << endl;
    cout << "advance method = PIC_EM_SEMI_IMPLICIT" << endl;
    cout << "solver_type = " << m_nlsolver_type << endl;
+   cout << "pc_update_freq = " << m_pc_update_freq << endl;
+   cout << "pc_update_newton = " << (m_pc_update_newton?"true":"false") << endl;
    m_nlsolver->printParams();
    cout << "=================================================" << endl;
    cout << endl;
@@ -159,9 +165,12 @@ void PICTimeIntegrator_EM_SemiImplicit::preTimeStep(  const Real a_time,
 
 void PICTimeIntegrator_EM_SemiImplicit::timeStep( const Real a_old_time,
                                                   const Real a_dt,
-                                                  const int )
+                                                  const int  a_step )
 {  
   CH_TIME("PICTimeIntegrator_EM_SemiImplicit::timeStep()");
+  
+  struct timeval pcassembly_start, pcassembly_end;
+  struct timeval solve_start, solve_end;
   
   // advance system variables (Eg, Bg, xp, and vp) to 
   // new_time = old_time + dt. Note that Eg, xp, and vp 
@@ -171,15 +180,47 @@ void PICTimeIntegrator_EM_SemiImplicit::timeStep( const Real a_old_time,
   const int num_species = pic_species_ptr_vect.size();
   const Real half_time = a_old_time + a_dt/2.0;
   
+  gettimeofday(&pcassembly_start,NULL);
   if (m_func) {
     m_func->curTime( half_time );
     m_func->curTimeStep( a_dt );
+    if (a_step%m_pc_update_freq == 0 || m_restart_pc_update_flag) {
+      dynamic_cast<EMJacobianFunction<ODEVector<EMFields>, PICTimeIntegrator>*>
+          ( &(m_func->getJacobian()) )->updatePreCondMat( m_E );
+      m_restart_pc_update_flag = false;
+    }
+  }
+  gettimeofday(&pcassembly_end,NULL);
+  {
+    long long walltime;
+    walltime = (  (pcassembly_end.tv_sec * 1000000   + pcassembly_end.tv_usec  ) 
+                - (pcassembly_start.tv_sec * 1000000 + pcassembly_start.tv_usec));
+    double pcassembly_runtime = (double) walltime / 1000000.0;
+#ifdef CH_MPI
+    MPI_Allreduce(&pcassembly_runtime,&m_pcassembly_walltime,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+#else
+    m_pcassembly_walltime = pcassembly_runtime;
+#endif
   }
 
   // advance Eg, xp, and vp from old_time to half_time
+  gettimeofday(&solve_start,NULL);
   m_nlsolver->solve( m_E, m_Eold, half_time, a_dt );
+  gettimeofday(&solve_end,NULL);
   m_fields->updateBoundaryProbes( a_dt );
   
+  {
+    long long walltime;
+    walltime = (  (solve_end.tv_sec * 1000000   + solve_end.tv_usec  ) 
+                - (solve_start.tv_sec * 1000000 + solve_start.tv_usec));
+    double solver_runtime = (double) walltime / 1000000.0;
+#ifdef CH_MPI
+    MPI_Allreduce(&solver_runtime,&m_step_wall_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+#else
+    m_step_wall_time = solver_runtime;
+#endif
+  }
+
   // update Eg from half_time to new_time
   m_E = 2.0*m_E - m_Eold;
   const Real new_time = a_old_time + a_dt;
@@ -199,7 +240,7 @@ void PICTimeIntegrator_EM_SemiImplicit::timeStep( const Real a_old_time,
     species->advancePositions_2ndHalf();
     species->applyInertialForces(a_dt,true,true);
     species->mergeSubOrbitParticles();
-    species->applyBCs(false);
+    species->applyBCs( false, new_time );
   }
 
 }
@@ -260,6 +301,24 @@ void PICTimeIntegrator_EM_SemiImplicit::updatePhysicalState( ODEVector<EMFields>
   
   m_fields->updatePhysicalState( a_U, a_time, e_only );
 
+}
+
+void PICTimeIntegrator_EM_SemiImplicit::updatePrecondMat( BandedMatrix& a_Pmat,
+                                                    const Real    a_time,
+                                                    const Real    a_dt )
+{
+  CH_TIME("PICTimeIntegrator_EM_SemiImplicit::updatePrecondMat()");
+
+  a_Pmat.setToIdentityMatrix();
+  if(m_pic_species->getSigmaxx().isDefined()) {
+     m_pic_species->setMassMatricesForPC(*m_fields);
+  }
+  m_fields->assemblePrecondMatrix( a_Pmat,
+                                   m_pic_species->getSigmaxx().isDefined(),
+                                   a_dt,
+                                   e_only );
+  a_Pmat.finalAssembly();
+  //a_Pmat.writeToFile("pc_matrix.txt",1);
 }
 
 #include "NamespaceFooter.H"

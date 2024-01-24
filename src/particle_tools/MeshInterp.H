@@ -130,12 +130,6 @@ public:
                             const InterpType&  a_interpType ) const;
   
   template <class P>
-  void interpolateBfieldsToPart1D( List<P>&     a_particleList,
-                             const FArrayBox&   a_Bx,
-                             const FArrayBox&   a_Bvirt,
-                             const InterpType&  a_interpType ) const;
-
-  template <class P>
   void interpolateEfieldToPart( List<P>&     a_particleList,
                           const int          a_dir,
                           const FArrayBox&   a_field,
@@ -149,22 +143,6 @@ public:
                           const FArrayBox&   a_field,
                           const InterpType&  a_interpType,
                           const int          a_comp=0 ) const;
-  
-  template <class P>
-  void getFieldDerivativesAtPart( RealVect&    a_dExdy,
-                                  RealVect&    a_dEydy,
-                                  RealVect&    a_dEzdy,
-                                  RealVect&    a_dBxdy,
-                                  RealVect&    a_dBydy,
-                                  RealVect&    a_dBzdy,
-                            const P&           a_particle,
-                            const FArrayBox&   a_Ex,
-                            const FArrayBox&   a_Ey,
-                            const FArrayBox&   a_Ez,
-                            const FArrayBox&   a_Bx,
-                            const FArrayBox&   a_By,
-                            const FArrayBox&   a_Bz,
-                            const InterpType&  a_interpType ) const;
   
   //
   //
@@ -188,26 +166,6 @@ public:
   //
   //
   //
-  
-  template <class P>
-  void depositInflowCurrent( FArrayBox&   a_rhoVx,
-                             FArrayBox&   a_rhoVy,
-                             FArrayBox&   a_rhoVz,
-                       const List<P>&     a_particleList,
-                       const int          a_bdry_dir, 
-                       const int          a_bdry_side,
-                       const Real         a_cnormDt ) const;
-
-  template <class P>
-  void interpolateEMfieldsToInflowParts( List<P>&     a_particleList,
-                                   const int          a_bdry_dir, 
-                                   const int          a_bdry_side,
-                                   const FArrayBox&   a_Ex,
-                                   const FArrayBox&   a_Ey,
-                                   const FArrayBox&   a_Ez,
-                                   const FArrayBox&   a_Bx,
-                                   const FArrayBox&   a_By,
-                                   const FArrayBox&   a_Bz ) const;
   
   template <class P>
   void depositCurrent_testing( FArrayBox&   a_rhoVx,

@@ -42,6 +42,7 @@ public:
 
   int numSpecies() const {return m_num_species;}
   int writeSpeciesRho() const {return m_writeSpeciesChargeDensity;}
+  int writeSpeciesSigma() const {return m_writeSpeciesSurfaceCharge;}
   int writeSpeciesJ() const {return m_writeSpeciesCurrentDensity;}
   int writeSpeciesNppc() const {return m_writeSpeciesNppc;}
   int writeSpeciesEnergyOffDiag() const {return m_writeSpeciesEnergyOffDiag;}
@@ -53,13 +54,19 @@ public:
   //void setChargeDensity();
   //void setChargeDensityOnFaces();
   void setChargeDensityOnNodes( const bool  a_use_filtering );
+  void setSurfaceChargeOnNodes( const bool  a_use_filtering );
 
   const LevelData<FArrayBox>& getChargeDensity() const {return m_chargeDensity;}
   const LevelData<FluxBox>& getChargeDensityOnFaces() const {return m_chargeDensity_faces;}
   const LevelData<NodeFArrayBox>& getChargeDensityOnNodes() const {return m_chargeDensity_nodes;}
   LevelData<NodeFArrayBox>& getChargeDensityOnNodes() {return m_chargeDensity_nodes;}
   
-  void setCurrentDensity( const bool  a_from_explicit_solver = false );
+  const LevelData<NodeFArrayBox>& getSurfaceChargeOnNodes() const {return m_surfaceCharge_nodes;}
+  LevelData<NodeFArrayBox>& getSurfaceChargeOnNodes() {return m_surfaceCharge_nodes;}
+  
+  void setCurrentDensity( const EMFields&  a_emfields,
+		          const bool       a_finalizeJ,
+		          const bool       a_from_explicit_solver = false );
 
   void filterJ( const EMFields&  a_emfields,
                 const Real       a_time );
@@ -82,13 +89,18 @@ public:
                         const Real       a_time );
   
   void computeJfromMassMatrices( const EMFields&  a_emfields );
+
+  void finalizeSettingJ( LevelData<EdgeDataBox>&    a_currentDensity,
+                         LevelData<NodeFArrayBox>&  a_currentDensity_virtual,
+                   const EMFields&                  a_emfields );
   
   void setMassMatricesForPC( EMFields&  a_emfields );
   
   void addInflowJ( LevelData<EdgeDataBox>&    a_J,
                    LevelData<NodeFArrayBox>&  a_Jv,
              const EMFields&                  a_emfields,
-             const Real                       a_dt );
+             const Real                       a_dt,
+             const bool                       a_from_emjacobian ); 
   
   void addSubOrbitJ( LevelData<EdgeDataBox>&   a_J,
                     LevelData<NodeFArrayBox>&  a_Jv,
@@ -192,6 +204,7 @@ private:
   bool m_verbosity;    
   
   bool m_writeSpeciesChargeDensity;
+  bool m_writeSpeciesSurfaceCharge;
   bool m_writeSpeciesCurrentDensity;
   bool m_writeSpeciesNppc;
   bool m_writeSpeciesEnergyOffDiag;
@@ -210,7 +223,7 @@ private:
   bool m_mod_init_advance;
   
   int m_num_species;
- 
+
   const DomainGrid& m_mesh;
   Real m_courant_dt;
 
@@ -221,6 +234,7 @@ private:
   mutable LevelData<FArrayBox> m_chargeDensity;
   mutable LevelData<FluxBox> m_chargeDensity_faces;
   mutable LevelData<NodeFArrayBox> m_chargeDensity_nodes;
+  mutable LevelData<NodeFArrayBox> m_surfaceCharge_nodes;
   
   LevelData<EdgeDataBox> m_currentDensity;
   LevelData<NodeFArrayBox> m_currentDensity_virtual;

@@ -15,8 +15,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REALVECT[left_edge],
      &                       CHF_CONST_REALVECT[right_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[xpold],
-     &                       CHF_CONST_REALVECT[xphalf],
+     &                       CHF_CONST_REALVECT[xpold_save],
+     &                       CHF_CONST_REALVECT[xpbar],
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
@@ -27,56 +27,51 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
       REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1) 
-      REAL_T xpold0(0:CH_SPACEDIM - 1)
-      REAL_T xpnew(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
       REAL_T Xcell(0:CH_SPACEDIM - 1)
       REAL_T volume, rhop, weight, seg_factor
       integer nn, sign(0:CH_SPACEDIM - 1), i0
       integer ii, jj, kk, ii_next, jj_next, kk_next 
-      integer bc_particle
 
 c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
       rhop = qp / volume
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
      
       i0 = 0
-      bc_particle = 0
-      seg_factor = 1.d0
-      xpold0 = xpold
 
 c     do this after setting dXp    
       if( bc_check_left(i0)==1 ) then
-        if(xpold0(i0)<left_edge(i0)) then
-          xpold0(i0) = left_edge(i0)
-          bc_particle = 1
+        if(xpold(i0)<left_edge(i0)) then
+          xpold(i0) = left_edge(i0)
         endif
         if(xpnew(i0)<left_edge(i0)) then
           xpnew(i0) = left_edge(i0)
-          bc_particle = 1
         endif
       endif
       if( bc_check_right(i0)==1 ) then
-        if(xpold0(i0)>right_edge(i0)) then
-          xpold0(i0) = right_edge(i0)
-          bc_particle = 1
+        if(xpold(i0)>right_edge(i0)) then
+          xpold(i0) = right_edge(i0)
         endif
         if(xpnew(i0)>right_edge(i0)) then
           xpnew(i0) = right_edge(i0)
-          bc_particle = 1
         endif
       endif
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
       do idir = 0, CH_SPACEDIM - 1
-        index_stag_old(idir) = floor((xpold0(idir) - left_edge(idir)) / dx(idir))
+        index_stag_old(idir) = floor((xpold(idir) - left_edge(idir)) / dx(idir))
         index_stag_new(idir) = floor((xpnew(idir)  - left_edge(idir)) / dx(idir))
         if(index_stag_new(idir)<index_stag_old(idir)) then
           sign(idir) = -1
@@ -90,6 +85,7 @@ c     calculate the initial Xcell in each direction
         Xcell(idir) = left_edge(idir) + (index_stag_old(idir) + half*(1-sign(idir)))*dx(idir)
       enddo
 
+      xpold0 = xpold
       CHF_DTERM[ii_next=index_stag_old(0); 
                 jj_next=index_stag_old(1); 
                 kk_next=index_stag_old(2)]
@@ -111,8 +107,10 @@ c     calculate the initial Xcell in each direction
         endif
 
 c     deposit the particle x-current to the grid
-        if( (num_segments>1).or.(bc_particle==1) ) then
+        if( dXp(i0).ne.zero ) then
           seg_factor = dXp_sub(i0)/dXp(i0)
+        else
+          seg_factor = 1.d0
         endif
 
         weight = seg_factor
@@ -129,15 +127,15 @@ c     deposit the particle y an z current to the grid
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index_stag(0), index_stag(0) + 1
-        l0 = ii*dx(0) - xphalf(0) + left_edge(0)
+        l0 = ii*dx(0) - xpbar(0) + left_edge(0)
         w0 = 1.d0 - abs(l0/dx(0));
         do jj = index_stag(1), index_stag(1) + 1
-          l1 = jj*dx(1) - xphalf(1) + left_edge(1)
+          l1 = jj*dx(1) - xpbar(1) + left_edge(1)
           w1 = 1.d0;
           do kk = 1, 2
             l2 = 0
@@ -168,10 +166,13 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_FRA1[rhoVx],
      &                       CHF_FRA1[rhoVy],
      &                       CHF_FRA1[rhoVz],
+     &                       CHF_CONST_INTVECT[bc_check_left],
+     &                       CHF_CONST_INTVECT[bc_check_right],
      &                       CHF_CONST_REALVECT[left_edge],
+     &                       CHF_CONST_REALVECT[right_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[xpold],
-     &                       CHF_CONST_REALVECT[xphalf],
+     &                       CHF_CONST_REALVECT[xpold_save],
+     &                       CHF_CONST_REALVECT[xpbar],
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
@@ -180,10 +181,12 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer index_stag(0:CH_SPACEDIM - 1)
       integer index_stag_old(0:CH_SPACEDIM - 1), index_stag_new(0:CH_SPACEDIM - 1)
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
+
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
-      REAL_T dXp(0:CH_SPACEDIM - 1), xpold0(0:CH_SPACEDIM - 1)
-      REAL_T dXp_sub(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
-      REAL_T xpnew(0:CH_SPACEDIM - 1), Xcell(0:CH_SPACEDIM - 1)
+      REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1) 
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1)
+      REAL_T Xcell(0:CH_SPACEDIM - 1)
       REAL_T volume, rhop, weight, slope, slope_inv, dXp_sub02
       integer nn, sign(0:CH_SPACEDIM - 1), i0, i1
       integer ii, jj, kk, ii_next, jj_next, kk_next 
@@ -192,9 +195,12 @@ c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
       rhop = qp / volume
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
@@ -204,6 +210,12 @@ c     compute slopes assuming 2D
       i1 = CH_SPACEDIM-1
       slope = dXp(i1)/dXp(i0)
       slope_inv = 1/slope
+
+c     do check for bc particles after setting dXp  
+      call truncate_boundaries( xpold, xpnew,
+     &                          bc_check_left, bc_check_right,
+     &                          left_edge, right_edge,
+     &                          slope, slope_inv )
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
@@ -222,11 +234,11 @@ c     calculate the initial Xcell in each direction
         Xcell(idir) = left_edge(idir) + (index_stag_old(idir) + half*(1-sign(idir)))*dx(idir)
       enddo
 
-      xpold0 = xpold
       CHF_DTERM[ii_next=index_stag_old(0); 
                 jj_next=index_stag_old(1); 
                 kk_next=index_stag_old(2)]
 
+      xpold0 = xpold
       do nn=0, num_segments-1
 
         CHF_DTERM[ii=ii_next; 
@@ -278,15 +290,14 @@ c     calculate the initial Xcell in each direction
                   l2 = half*(xpold0(2)+xpnew0(2)) - (left_edge(2) + kk*dx(2))]
 
 c     deposit the particle x-current to the grid
-        if(num_segments>1) then
-          CHF_DTERM[w0 = dXp_sub(i0)/dXp(i0);
-                    w1 = 1.d0 - l1/dx(1);
-                    w2 = 0.0]
+        CHF_DTERM[
+        if(dXp(i0).eq.0.0) then
+          w0 = 1.0
         else
-          CHF_DTERM[w0 = 1.d0;
-                    w1 = 1.d0 - l1/dx(1);
-                    w2 = 0.0]
-        endif
+          w0 = dXp_sub(i0)/dXp(i0)
+        endif;
+        w1 = 1.d0 - l1/dx(1);
+        w2 = 0.0]
 
         weight = CHF_DTERM[w0; *w1; *w2]
         rhoVx(CHF_IX[ii; jj; kk]) = 
@@ -297,15 +308,14 @@ c     deposit the particle x-current to the grid
      &  rhoVx(CHF_IX[ii; jj+1; kk]) + vpx * rhop * weight
 
 c     deposit the particle y-current to the grid
-        if(num_segments>1) then
-          CHF_DTERM[w0 = 1.d0 - l0/dx(0);
-                    w1 = dXp_sub(i1)/dXp(i1);
-                    w2 = 1.d0]
+        CHF_DTERM[
+        w0 = 1.d0 - l0/dx(0);
+        if(dXp(i1).eq.0.0) then
+          w1 = 1.0
         else
-          CHF_DTERM[w0 = 1.d0 - l0/dx(0);
-                    w1 = 1.d0;
-                    w2 = 1.d0]
-        endif
+          w1 = dXp_sub(i1)/dXp(i1)
+        endif;
+        w2 = 0.0]
 
         weight = CHF_DTERM[w0; *w1; *w2]
         rhoVy(CHF_IX[ii; jj; kk]) = 
@@ -325,15 +335,15 @@ c     deposit the particle z-current to the grid
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index_stag(0), index_stag(0) + 1
-        l0 = ii*dx(0) - xphalf(0) + left_edge(0)
+        l0 = ii*dx(0) - xpbar(0) + left_edge(0)
         w0 = 1.d0 - abs(l0/dx(0));
         do jj = index_stag(1), index_stag(1) + 1
-          l1 = jj*dx(1) - xphalf(1) + left_edge(1)
+          l1 = jj*dx(1) - xpbar(1) + left_edge(1)
           w1 = 1.d0 - abs(l1/dx(1));
           do kk = 1,2
             l2 = 0
@@ -374,8 +384,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                                   CHF_CONST_REALVECT[left_edge],
      &                                   CHF_CONST_REALVECT[right_edge],
      &                                   CHF_CONST_REALVECT[dx],
-     &                                   CHF_CONST_REALVECT[xpold],
-     &                                   CHF_CONST_REALVECT[xphalf] )
+     &                                   CHF_CONST_REALVECT[xpold_save],
+     &                                   CHF_CONST_REALVECT[xpbar] )
 
       integer CHF_DDECL[ii_stag;jj_stag;kk_stag]
       REAL_T CHF_DDECL[l0_stag;l1_stag;l2_stag]
@@ -386,52 +396,47 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
       REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1) 
-      REAL_T xpold0(0:CH_SPACEDIM - 1)
-      REAL_T xpnew(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
       REAL_T Xcell(0:CH_SPACEDIM - 1)
       REAL_T weight, seg_factor
       integer nn, sign(0:CH_SPACEDIM - 1), i0
       integer ii, jj, kk, ii_next, jj_next, kk_next 
-      integer bc_particle
+
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
 
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
      
       i0 = 0
-      bc_particle = 0
-      seg_factor = 1.d0
-      xpold0 = xpold
 
 c     do this after setting dXp    
       if( bc_check_left(i0)==1 ) then
-        if(xpold0(i0)<left_edge(i0)) then
-          xpold0(i0) = left_edge(i0)
-          bc_particle = 1
+        if(xpold(i0)<left_edge(i0)) then
+          xpold(i0) = left_edge(i0)
         endif
         if(xpnew(i0)<left_edge(i0)) then
           xpnew(i0) = left_edge(i0)
-          bc_particle = 1
         endif
       endif
       if( bc_check_right(i0)==1 ) then
-        if(xpold0(i0)>right_edge(i0)) then
-          xpold0(i0) = right_edge(i0)
-          bc_particle = 1
+        if(xpold(i0)>right_edge(i0)) then
+          xpold(i0) = right_edge(i0)
         endif
         if(xpnew(i0)>right_edge(i0)) then
           xpnew(i0) = right_edge(i0)
-          bc_particle = 1
         endif
       endif
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
       do idir = 0, CH_SPACEDIM - 1
-        index_stag_old(idir) = floor((xpold0(idir) - left_edge(idir)) / dx(idir))
+        index_stag_old(idir) = floor((xpold(idir) - left_edge(idir)) / dx(idir))
         index_stag_new(idir) = floor((xpnew(idir)  - left_edge(idir)) / dx(idir))
         if(index_stag_new(idir)<index_stag_old(idir)) then
           sign(idir) = -1
@@ -449,6 +454,7 @@ c     calculate the initial Xcell in each direction
                 jj_next=index_stag_old(1); 
                 kk_next=index_stag_old(2)]
 
+      xpold0 = xpold
       do nn=0, num_segments-1
 
         CHF_DTERM[ii=ii_next; 
@@ -466,8 +472,10 @@ c     calculate the initial Xcell in each direction
         endif
 
 c     interpolate Ex to particle
-        if( (num_segments>1).or.(bc_particle==1) ) then
+        if( dXp(i0).ne.zero ) then
           seg_factor = dXp_sub(i0)/dXp(i0)
+        else
+          seg_factor = 1.d0
         endif
 
         weight = seg_factor
@@ -483,27 +491,27 @@ c     cloud in cell for Ey, Ez, Bx, By, and Bz
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xphalf(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index(0), index(0) + 1
-        l0 = ii*dx(0) + 0.5d0*dx(0) - xphalf(0) + left_edge(0)
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xpbar(0) + left_edge(0)
         ii_stag = ii-index(0)+index_stag(0)
-        l0_stag = ii_stag*dx(0) - xphalf(0) + left_edge(0)
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0)
         w0 = 1.d0 - abs(l0 / dx(0))
         w0_stag = 1.d0 - abs(l0_stag / dx(0));
         do jj = index(1), index(1) + 1
-          l1 = jj*dx(1) + 0.5d0*dx(1) - xphalf(1) + left_edge(1)
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xpbar(1) + left_edge(1)
           jj_stag = jj-index(1)+index_stag(1)
-          l1_stag = jj_stag*dx(1) - xphalf(1) + left_edge(1)
+          l1_stag = jj_stag*dx(1) - xpbar(1) + left_edge(1)
           w1 = 1.d0 - abs(l1 / dx(1))
           w1_stag = 1.d0 - abs(l1_stag / dx(1));
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2) - xphalf(2) + left_edge(2)
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xpbar(2) + left_edge(2)
             kk_stag = kk-index(2)+index_stag(2)
-            l2_stag = kk_stag*dx(2) - xphalf(2) + left_edge(2)
+            l2_stag = kk_stag*dx(2) - xpbar(2) + left_edge(2)
             w2 = 1.d0 - abs(l2 / dx(2))
             w2_stag = 1.d0 - abs(l2_stag / dx(2)) ]
             
@@ -548,10 +556,13 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                                   CHF_CONST_FRA1[Bx],
      &                                   CHF_CONST_FRA1[By],
      &                                   CHF_CONST_FRA1[Bz],
+     &                                   CHF_CONST_INTVECT[bc_check_left],
+     &                                   CHF_CONST_INTVECT[bc_check_right],
      &                                   CHF_CONST_REALVECT[left_edge],
+     &                                   CHF_CONST_REALVECT[right_edge],
      &                                   CHF_CONST_REALVECT[dx],
-     &                                   CHF_CONST_REALVECT[xpold],
-     &                                   CHF_CONST_REALVECT[xphalf] )
+     &                                   CHF_CONST_REALVECT[xpold_save],
+     &                                   CHF_CONST_REALVECT[xpbar] )
 
       integer CHF_DDECL[ii_stag;jj_stag;kk_stag]
       REAL_T CHF_DDECL[l0_stag;l1_stag;l2_stag]
@@ -561,16 +572,20 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer index_stag_old(0:CH_SPACEDIM - 1), index_stag_new(0:CH_SPACEDIM - 1)
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
-      REAL_T dXp(0:CH_SPACEDIM - 1), xpold0(0:CH_SPACEDIM - 1)
-      REAL_T dXp_sub(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
-      REAL_T xpnew(0:CH_SPACEDIM - 1), Xcell(0:CH_SPACEDIM - 1)
+      REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1)
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1)
+      REAL_T Xcell(0:CH_SPACEDIM - 1)
       REAL_T weight, slope, slope_inv, dXp_sub02
       integer nn, sign(0:CH_SPACEDIM - 1), i0, i1
       integer ii, jj, kk, ii_next, jj_next, kk_next 
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
@@ -580,6 +595,12 @@ c     compute slopes assuming 2D
       i1 = CH_SPACEDIM-1
       slope = dXp(i1)/dXp(i0)
       slope_inv = 1/slope
+
+c     do check for bc particles after setting dXp  
+      call truncate_boundaries( xpold, xpnew,
+     &                          bc_check_left, bc_check_right,
+     &                          left_edge, right_edge,
+     &                          slope, slope_inv )
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
@@ -598,11 +619,11 @@ c     calculate the initial Xcell in each direction
         Xcell(idir) = left_edge(idir) + (index_stag_old(idir) + half*(1-sign(idir)))*dx(idir)
       enddo
 
-      xpold0 = xpold
       CHF_DTERM[ii_next=index_stag_old(0); 
                 jj_next=index_stag_old(1); 
                 kk_next=index_stag_old(2)]
 
+      xpold0 = xpold
       do nn=0, num_segments-1
 
         CHF_DTERM[ii=ii_next; 
@@ -654,15 +675,14 @@ c     calculate the initial Xcell in each direction
                   l2 = half*(xpold0(2)+xpnew0(2)) - (left_edge(2) + kk*dx(2))]
 
 c     interpolate Ex to particle
-        if(num_segments>1) then
-          CHF_DTERM[w0 = dXp_sub(i0)/dXp(i0);
-                    w1 = 1.d0 - l1/dx(1);
-                    w2 = 0.0]
+        CHF_DTERM[
+        if(dXp(i0).eq.0.0) then
+          w0 = 1.0
         else
-          CHF_DTERM[w0 = 1.d0;
-                    w1 = 1.d0 - l1/dx(1);
-                    w2 = 0.0]
-        endif
+          w0 = dXp_sub(i0)/dXp(i0)
+        endif;
+        w1 = 1.d0 - l1/dx(1);
+        w2 = 0.0]
 
         weight = CHF_DTERM[w0; *w1; *w2]
         Epx = Epx + weight*Ex(CHF_IX[ii;jj;kk]) 
@@ -671,15 +691,14 @@ c     interpolate Ex to particle
         Epx = Epx + weight*Ex(CHF_IX[ii;jj+1;kk])
 
 c     interpolate Ey to particle
-        if(num_segments>1) then
-          CHF_DTERM[w0 = 1.d0 - l0/dx(0);
-                    w1 = dXp_sub(i1)/dXp(i1);
-                    w2 = 1.d0]
+        CHF_DTERM[
+        w0 = 1.d0 - l0/dx(0);
+        if(dXp(i1).eq.0.0) then
+          w1 = 1.0
         else
-          CHF_DTERM[w0 = 1.d0 - l0/dx(0);
-                    w1 = 1.d0;
-                    w2 = 1.d0]
-        endif
+          w1 = dXp_sub(i1)/dXp(i1)
+        endif;
+        w2 = 0.0]
         
         weight = CHF_DTERM[w0; *w1; *w2]
         Epy = Epy + weight*Ey(CHF_IX[ii;jj;kk]) 
@@ -697,27 +716,27 @@ c     cloud in cell for Ez, Bx, By, and Bz
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xphalf(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index(0), index(0) + 1
-        l0 = ii*dx(0) + 0.5d0*dx(0) - xphalf(0) + left_edge(0)
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xpbar(0) + left_edge(0)
         ii_stag = ii-index(0)+index_stag(0)
-        l0_stag = ii_stag*dx(0) - xphalf(0) + left_edge(0)
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0)
         w0 = 1.d0 - abs(l0 / dx(0))
         w0_stag = 1.d0 - abs(l0_stag / dx(0));
         do jj = index(1), index(1) + 1
-          l1 = jj*dx(1) + 0.5d0*dx(1) - xphalf(1) + left_edge(1)
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xpbar(1) + left_edge(1)
           jj_stag = jj-index(1)+index_stag(1)
-          l1_stag = jj_stag*dx(1) - xphalf(1) + left_edge(1)
+          l1_stag = jj_stag*dx(1) - xpbar(1) + left_edge(1)
           w1 = 1.d0 - abs(l1 / dx(1))
           w1_stag = 1.d0 - abs(l1_stag / dx(1));
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2) - xphalf(2) + left_edge(2)
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xpbar(2) + left_edge(2)
             kk_stag = kk-index(2)+index_stag(2)
-            l2_stag = kk_stag*dx(2) - xphalf(2) + left_edge(2)
+            l2_stag = kk_stag*dx(2) - xpbar(2) + left_edge(2)
             w2 = 1.d0 - abs(l2 / dx(2))
             w2_stag = 1.d0 - abs(l2_stag / dx(2)) ]
 
@@ -763,8 +782,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                                     CHF_CONST_REALVECT[left_edge],
      &                                     CHF_CONST_REALVECT[right_edge],
      &                                     CHF_CONST_REALVECT[dx],
-     &                                     CHF_CONST_REALVECT[xpold],
-     &                                     CHF_CONST_REALVECT[xphalf] )
+     &                                     CHF_CONST_REALVECT[xpold_save],
+     &                                     CHF_CONST_REALVECT[xpbar] )
 
       integer CHF_DDECL[ii_stag;jj_stag;kk_stag]
       REAL_T CHF_DDECL[l0_stag;l1_stag;l2_stag]
@@ -776,9 +795,9 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
       REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1) 
-      REAL_T xpold0(0:CH_SPACEDIM - 1)
-      REAL_T xpnew(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
-      REAL_T Xcell(0:CH_SPACEDIM - 1), xphalf0(0:CH_SPACEDIM - 1)
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
+      REAL_T Xcell(0:CH_SPACEDIM - 1), xpbar0(0:CH_SPACEDIM - 1)
       REAL_T weight, dXp_sub02, seg_factor
       integer nn, sign(0:CH_SPACEDIM - 1), i0
       integer ii, jj, kk, ii_next, jj_next, kk_next 
@@ -786,20 +805,21 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
      
       i0 = 0
       bc_particle = 0
-      seg_factor = 1.0
-      xpold0 = xpold
+
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
 
 c     do this after setting dXp
       if( bc_check_left(i0)==1 ) then
-        if(xpold0(i0)<left_edge(i0)) then
-          xpold0(i0) = left_edge(i0)
+        if(xpold(i0)<left_edge(i0)) then
+          xpold(i0) = left_edge(i0)
           bc_particle = 1
         endif
         if(xpnew(i0)<left_edge(i0)) then
@@ -808,8 +828,8 @@ c     do this after setting dXp
         endif
       endif
       if( bc_check_right(i0)==1 ) then
-        if(xpold0(i0)>right_edge(i0)) then
-          xpold0(i0) = right_edge(i0)
+        if(xpold(i0)>right_edge(i0)) then
+          xpold(i0) = right_edge(i0)
           bc_particle = 1
         endif
         if(xpnew(i0)>right_edge(i0)) then
@@ -821,8 +841,8 @@ c     do this after setting dXp
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
       do idir = 0, CH_SPACEDIM - 1
-        index_stag_old(idir) = floor((xpold0(idir) - left_edge(idir)) / dx(idir))
-        index_stag_new(idir) = floor((xpnew(idir)  - left_edge(idir)) / dx(idir))
+        index_stag_old(idir) = floor((xpold(idir) - left_edge(idir)) / dx(idir))
+        index_stag_new(idir) = floor((xpnew(idir) - left_edge(idir)) / dx(idir))
         if(index_stag_new(idir)<index_stag_old(idir)) then
           sign(idir) = -1
         endif
@@ -839,6 +859,7 @@ c     calculate the initial Xcell in each direction
                 jj_next=index_stag_old(1); 
                 kk_next=index_stag_old(2)]
 
+      xpold0 = xpold
       do nn=0, num_segments-1
 
         CHF_DTERM[ii=ii_next; 
@@ -856,8 +877,10 @@ c     calculate the initial Xcell in each direction
         endif
 
 c     interpolate Ex to particle
-        if( (num_segments>1).or.(bc_particle==1) ) then
+        if( dXp(i0).ne.zero ) then
           seg_factor = dXp_sub(i0)/dXp(i0)
+        else
+          seg_factor = 1.d0 
         endif 
  
         weight = seg_factor
@@ -873,8 +896,8 @@ c     cloud in cell for Ey, Ez, Bx, By, and Bz
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
-        index(idir) = floor((xphalf(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
       enddo
 
       ii = index_stag(0)
@@ -890,7 +913,7 @@ c
 c
 c     reset dEpx/dy (dy=dXp) to account for cell crossings
 c
-      if( (num_segments>1).or.(bc_particle==1) ) then
+      if( dXp(i0).ne.zero ) then
         if( bc_particle==1 ) then
           dEpx(0) = -Epx/dXp(i0)
         else
@@ -918,8 +941,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REALVECT[left_edge],
      &                       CHF_CONST_REALVECT[right_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[xpold],
-     &                       CHF_CONST_REALVECT[xphalf],
+     &                       CHF_CONST_REALVECT[xpold_save],
+     &                       CHF_CONST_REALVECT[xpbar],
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
@@ -930,9 +953,9 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
       REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1) 
-      REAL_T xpold0(0:CH_SPACEDIM - 1)
-      REAL_T xpnew(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
-      REAL_T Xcell(0:CH_SPACEDIM - 1), xphalf0(0:CH_SPACEDIM - 1)
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
+      REAL_T Xcell(0:CH_SPACEDIM - 1), xpbar0(0:CH_SPACEDIM - 1)
       REAL_T volume, rhop, weight, seg_factor
       integer nn, sign(0:CH_SPACEDIM - 1), i0
       integer ii, jj, kk, ii_next, jj_next, kk_next 
@@ -941,29 +964,31 @@ c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
       rhop = qp / volume
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
      
       i0 = 0
       seg_factor = 1.0
-      xpold0 = xpold
 
 c     do this after setting dXp    
       if( bc_check_left(i0)==1 ) then
-        if(xpold0(i0)<left_edge(i0)) then
-          xpold0(i0) = left_edge(i0)
+        if(xpold(i0)<left_edge(i0)) then
+          xpold(i0) = left_edge(i0)
         endif
         if(xpnew(i0)<left_edge(i0)) then
           xpnew(i0) = left_edge(i0)
         endif
       endif
       if( bc_check_right(i0)==1 ) then
-        if(xpold0(i0)>right_edge(i0)) then
-          xpold0(i0) = right_edge(i0)
+        if(xpold(i0)>right_edge(i0)) then
+          xpold(i0) = right_edge(i0)
         endif
         if(xpnew(i0)>right_edge(i0)) then
           xpnew(i0) = right_edge(i0)
@@ -973,8 +998,8 @@ c     do this after setting dXp
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
       do idir = 0, CH_SPACEDIM - 1
-        index_old(idir) = floor((xpold0(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index_new(idir) = floor((xpnew(idir)  - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_old(idir) = floor((xpold(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_new(idir) = floor((xpnew(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         if(index_new(idir)<index_old(idir)) then
           sign(idir) = -1
         endif
@@ -996,6 +1021,7 @@ c     calculate the initial Xcell in each direction
                 jj_next=index_old(1); 
                 kk_next=index_old(2)]
 
+      xpold0 = xpold
       do nn=0, num_segments-1
 
         CHF_DTERM[ii=ii_next; 
@@ -1016,8 +1042,8 @@ c     calculate the initial Xcell in each direction
         
 c     deposit the particle x-current to the grid
         
-        xphalf0(i0) = half*(xpnew0(i0) + xpold0(i0))
-        l0 = left_edge(i0) + ii*dx(i0) + 0.5d0*dx(i0) - xphalf0(i0)
+        xpbar0(i0) = half*(xpnew0(i0) + xpold0(i0))
+        l0 = left_edge(i0) + ii*dx(i0) + 0.5d0*dx(i0) - xpbar0(i0)
         w0 = 1.d0 - abs(l0/dx(i0))
 
         weight = w0*seg_factor
@@ -1038,12 +1064,12 @@ c     deposit the particle y an z current to the grid
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index_stag(0), index_stag(0) + 1
-        l0 = ii*dx(0) - xphalf(0) + left_edge(0)
+        l0 = ii*dx(0) - xpbar(0) + left_edge(0)
         w0 = 1.d0 - abs(l0/dx(0));
         do jj = 1,2
           l1 = 0
@@ -1091,8 +1117,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                                   CHF_CONST_REALVECT[left_edge],
      &                                   CHF_CONST_REALVECT[right_edge],
      &                                   CHF_CONST_REALVECT[dx],
-     &                                   CHF_CONST_REALVECT[xpold],
-     &                                   CHF_CONST_REALVECT[xphalf] )
+     &                                   CHF_CONST_REALVECT[xpold_save],
+     &                                   CHF_CONST_REALVECT[xpbar] )
 
       integer CHF_DDECL[ii_stag;jj_stag;kk_stag]
       REAL_T CHF_DDECL[l0_stag;l1_stag;l2_stag]
@@ -1103,36 +1129,38 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
       REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1) 
-      REAL_T xpold0(0:CH_SPACEDIM - 1)
-      REAL_T xpnew(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
-      REAL_T Xcell(0:CH_SPACEDIM - 1), xphalf0(0:CH_SPACEDIM - 1)
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
+      REAL_T Xcell(0:CH_SPACEDIM - 1), xpbar0(0:CH_SPACEDIM - 1)
       REAL_T weight, dXp_sub02, seg_factor
       integer nn, sign(0:CH_SPACEDIM - 1), i0
       integer ii, jj, kk, ii_next, jj_next, kk_next 
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
      
       i0 = 0
       seg_factor = 1.0
-      xpold0 = xpold
 
 c     do this after setting dXp
       if( bc_check_left(i0)==1 ) then
-        if(xpold0(i0)<left_edge(i0)) then
-          xpold0(i0) = left_edge(i0)
+        if(xpold(i0)<left_edge(i0)) then
+          xpold(i0) = left_edge(i0)
         endif
         if(xpnew(i0)<left_edge(i0)) then
           xpnew(i0) = left_edge(i0)
         endif
       endif
       if( bc_check_right(i0)==1 ) then
-        if(xpold0(i0)>right_edge(i0)) then
-          xpold0(i0) = right_edge(i0)
+        if(xpold(i0)>right_edge(i0)) then
+          xpold(i0) = right_edge(i0)
         endif
         if(xpnew(i0)>right_edge(i0)) then
           xpnew(i0) = right_edge(i0)
@@ -1142,8 +1170,8 @@ c     do this after setting dXp
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
       do idir = 0, CH_SPACEDIM - 1
-        index_old(idir) = floor((xpold0(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index_new(idir) = floor((xpnew(idir)  - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_old(idir) = floor((xpold(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_new(idir) = floor((xpnew(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         if(index_new(idir)<index_old(idir)) then
           sign(idir) = -1
         endif
@@ -1165,6 +1193,7 @@ c     calculate the initial Xcell in each direction
                 jj_next=index_old(1); 
                 kk_next=index_old(2)]
 
+      xpold0 = xpold
       do nn=0, num_segments-1
 
         CHF_DTERM[ii=ii_next; 
@@ -1174,7 +1203,9 @@ c     calculate the initial Xcell in each direction
         if(nn==num_segments-1) then
           xpnew0 = xpnew
           dXp_sub = xpnew0 - xpold0
-          if(abs(dXp_sub(i0))>0.0) seg_factor = dXp_sub(i0)/dXp(i0)
+          if( dXp(i0).ne.zero ) then 
+            seg_factor = dXp_sub(i0)/dXp(i0)
+          endif
         else
           ii_next = ii + sign(i0)
           Xcell(i0) = Xcell(i0) + sign(i0)*dx(i0)
@@ -1183,8 +1214,8 @@ c     calculate the initial Xcell in each direction
           seg_factor = dXp_sub(i0)/dXp(i0)
         endif
 
-        xphalf0(i0) = half*(xpnew0(i0) + xpold0(i0))
-        l0 = left_edge(i0) + ii*dx(i0) + 0.5d0*dx(i0) - xphalf0(i0)
+        xpbar0(i0) = half*(xpnew0(i0) + xpold0(i0))
+        l0 = left_edge(i0) + ii*dx(i0) + 0.5d0*dx(i0) - xpbar0(i0)
         w0 = 1.d0 - abs(l0/dx(i0))
 
 c     interpolate Ex to particle
@@ -1205,27 +1236,27 @@ c     cloud in cell for Ey, Ez, Bx, By, and Bz
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
-        index(idir) = floor((xphalf(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index(0), index(0) + 1
-        l0 = ii*dx(0) + 0.5d0*dx(0) - xphalf(0) + left_edge(0)
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xpbar(0) + left_edge(0)
         ii_stag = ii-index(0)+index_stag(0)
-        l0_stag = ii_stag*dx(0) - xphalf(0) + left_edge(0)
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0)
         w0 = 1.d0 - abs(l0 / dx(0))
         w0_stag = 1.d0 - abs(l0_stag / dx(0));
         do jj = index(1), index(1) + 1
-          l1 = jj*dx(1) + 0.5d0*dx(1) - xphalf(1) + left_edge(1)
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xpbar(1) + left_edge(1)
           jj_stag = jj-index(1)+index_stag(1)
-          l1_stag = jj_stag*dx(1) - xphalf(1) + left_edge(1)
+          l1_stag = jj_stag*dx(1) - xpbar(1) + left_edge(1)
           w1 = 1.d0 - abs(l1 / dx(1))
           w1_stag = 1.d0 - abs(l1_stag / dx(1));
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2) - xphalf(2) + left_edge(2)
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xpbar(2) + left_edge(2)
             kk_stag = kk-index(2)+index_stag(2)
-            l2_stag = kk_stag*dx(2) - xphalf(2) + left_edge(2)
+            l2_stag = kk_stag*dx(2) - xpbar(2) + left_edge(2)
             w2 = 1.d0 - abs(l2 / dx(2))
             w2_stag = 1.d0 - abs(l2_stag / dx(2))]
 
@@ -1274,8 +1305,8 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                                     CHF_CONST_REALVECT[left_edge],
      &                                     CHF_CONST_REALVECT[right_edge],
      &                                     CHF_CONST_REALVECT[dx],
-     &                                     CHF_CONST_REALVECT[xpold],
-     &                                     CHF_CONST_REALVECT[xphalf] )
+     &                                     CHF_CONST_REALVECT[xpold_save],
+     &                                     CHF_CONST_REALVECT[xpbar] )
 
       integer CHF_DDECL[ii_stag;jj_stag;kk_stag]
       REAL_T CHF_DDECL[l0_stag;l1_stag;l2_stag]
@@ -1287,17 +1318,20 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
       REAL_T CHF_DDECL[l0;l1;l2], CHF_DDECL[w0;w1;w2]
       REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1) 
-      REAL_T xpold0(0:CH_SPACEDIM - 1)
-      REAL_T xpnew(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
-      REAL_T Xcell(0:CH_SPACEDIM - 1), xphalf0(0:CH_SPACEDIM - 1)
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
+      REAL_T Xcell(0:CH_SPACEDIM - 1), xpbar0(0:CH_SPACEDIM - 1)
       REAL_T weight, dXp_sub02, seg_factor
       integer nn, sign(0:CH_SPACEDIM - 1), i0
       integer ii, jj, kk, ii_next, jj_next, kk_next 
       integer bc_particle
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
@@ -1305,12 +1339,11 @@ c     compute the new particle position
       i0 = 0
       bc_particle = 0
       seg_factor = 1.0
-      xpold0 = xpold
 
 c     do this after setting dXp
       if( bc_check_left(i0)==1 ) then
-        if(xpold0(i0)<left_edge(i0)) then
-          xpold0(i0) = left_edge(i0)
+        if(xpold(i0)<left_edge(i0)) then
+          xpold(i0) = left_edge(i0)
           bc_particle = 1
         endif
         if(xpnew(i0)<left_edge(i0)) then
@@ -1319,8 +1352,8 @@ c     do this after setting dXp
         endif
       endif
       if( bc_check_right(i0)==1 ) then
-        if(xpold0(i0)>right_edge(i0)) then
-          xpold0(i0) = right_edge(i0)
+        if(xpold(i0)>right_edge(i0)) then
+          xpold(i0) = right_edge(i0)
           bc_particle = 1
         endif
         if(xpnew(i0)>right_edge(i0)) then
@@ -1332,8 +1365,8 @@ c     do this after setting dXp
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
       do idir = 0, CH_SPACEDIM - 1
-        index_old(idir) = floor((xpold0(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index_new(idir) = floor((xpnew(idir)  - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_old(idir) = floor((xpold(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_new(idir) = floor((xpnew(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         if(index_new(idir)<index_old(idir)) then
           sign(idir) = -1
         endif
@@ -1350,6 +1383,7 @@ c     calculate the initial Xcell in each direction
                 jj_next=index_old(1); 
                 kk_next=index_old(2)]
 
+      xpold0 = xpold
       do nn=0, num_segments-1
 
         CHF_DTERM[ii=ii_next; 
@@ -1359,7 +1393,9 @@ c     calculate the initial Xcell in each direction
         if(nn==num_segments-1) then
           xpnew0 = xpnew
           dXp_sub = xpnew0 - xpold0
-          if(abs(dXp_sub(i0))>0.0) seg_factor = dXp_sub(i0)/dXp(i0)
+          if( dXp(i0).ne.zero ) then
+            seg_factor = dXp_sub(i0)/dXp(i0)
+          endif
         else
           ii_next = ii + sign(i0)
           Xcell(i0) = Xcell(i0) + sign(i0)*dx(i0)
@@ -1368,8 +1404,8 @@ c     calculate the initial Xcell in each direction
           seg_factor = dXp_sub(i0)/dXp(i0)
         endif
 
-        xphalf0(i0) = half*(xpnew0(i0) + xpold0(i0))
-        l0 = left_edge(i0) + ii*dx(i0) + 0.5d0*dx(i0) - xphalf0(i0)
+        xpbar0(i0) = half*(xpnew0(i0) + xpold0(i0))
+        l0 = left_edge(i0) + ii*dx(i0) + 0.5d0*dx(i0) - xpbar0(i0)
         w0 = 1.d0 - abs(l0/dx(i0))
 
 c     interpolate Ex to particle
@@ -1390,8 +1426,8 @@ c     cloud in cell for Ey, Ez, Bx, By, and Bz
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
-        index(idir) = floor((xphalf(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
       enddo
 
       ii = index_stag(0) 
@@ -1432,10 +1468,13 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_FRA1[rhoVy],
      &                       CHF_FRA1[rhoVz],
      &                       CHF_CONST_INT[ghosts],
+     &                       CHF_CONST_INTVECT[bc_check_left],
+     &                       CHF_CONST_INTVECT[bc_check_right],
      &                       CHF_CONST_REALVECT[left_edge],
+     &                       CHF_CONST_REALVECT[right_edge],
      &                       CHF_CONST_REALVECT[dx],
-     &                       CHF_CONST_REALVECT[xpold],
-     &                       CHF_CONST_REALVECT[xphalf],
+     &                       CHF_CONST_REALVECT[xpold_save],
+     &                       CHF_CONST_REALVECT[xpbar],
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
@@ -1445,11 +1484,13 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer index_start(0:CH_SPACEDIM - 1)
       integer index_old(0:CH_SPACEDIM - 1), index_new(0:CH_SPACEDIM - 1)
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
+      
       REAL_T l0, l1, w0, w1, delta0, delta1
-      REAL_T dXp(0:CH_SPACEDIM - 1), xpold0(0:CH_SPACEDIM - 1)
-      REAL_T dXp_sub(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1)
-      REAL_T xphalf0(0:CH_SPACEDIM - 1), seg_factor(0:CH_SPACEDIM - 1)
-      REAL_T xpnew(0:CH_SPACEDIM - 1), Xcell(0:CH_SPACEDIM - 1)
+      REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1)
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1)
+      REAL_T xpbar0(0:CH_SPACEDIM - 1), seg_factor(0:CH_SPACEDIM - 1)
+      REAL_T Xcell(0:CH_SPACEDIM - 1)
       REAL_T volume, rhop, weight, slope, slope_inv, dXp_sub02
       integer nn, sign(0:CH_SPACEDIM - 1), i0, i1
       integer ii, jj, kk, ii_next, jj_next, kk_next 
@@ -1460,9 +1501,12 @@ c     compute the cell volume and particle density on the grid
       volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
       rhop = qp / volume
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
@@ -1472,6 +1516,12 @@ c     compute slopes assuming 2D
       i1 = CH_SPACEDIM-1
       slope = dXp(i1)/dXp(i0)
       slope_inv = 1/slope
+
+c     do check for bc particles after setting dXp 
+      call truncate_boundaries( xpold, xpnew,
+     &                          bc_check_left, bc_check_right,
+     &                          left_edge, right_edge,
+     &                          slope, slope_inv )
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
@@ -1546,22 +1596,25 @@ c     calculate the initial Xcell in each direction
 
         endif
 
-        if(num_segments>1) then
+        if( dXp(i0).ne.zero) then
           seg_factor(i0) = dXp_sub(i0)/dXp(i0)
-          seg_factor(i1) = dXp_sub(i1)/dXp(i1)
         else
           seg_factor(i0) = 1.d0
+        endif        
+        if( dXp(i1).ne.zero ) then
+          seg_factor(i1) = dXp_sub(i1)/dXp(i1)
+        else
           seg_factor(i1) = 1.d0
         endif        
 
 c     compute CIC weights
-        xphalf0 = half*(xpold0 + xpnew0)
-        delta0 = (xphalf0(i0) - (left_edge(i0) + (ii+0.5)*dx(i0)))/dx(i0)
-        delta1 = (xphalf0(i1) - (left_edge(i1) + (jj+0.5)*dx(i1)))/dx(i1)
+        xpbar0 = half*(xpold0 + xpnew0)
+        delta0 = (xpbar0(i0) - (left_edge(i0) + (ii+0.5)*dx(i0)))/dx(i0)
+        delta1 = (xpbar0(i1) - (left_edge(i1) + (jj+0.5)*dx(i1)))/dx(i1)
 
 c     get indicies for TSC weights
         do idir = 0, CH_SPACEDIM -1
-          index_start(idir) = floor((xphalf0(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+          index_start(idir) = floor((xpbar0(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         enddo
   
 c     deposit the particle x-current to the grid
@@ -1634,15 +1687,15 @@ c     deposit the particle z-current to the grid
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index_stag(0), index_stag(0) + 1
-        delta0 = (ii*dx(0) - xphalf(0) + left_edge(0))/dx(0)
+        delta0 = (ii*dx(0) - xpbar(0) + left_edge(0))/dx(0)
         w0 = 1.d0 - abs(delta0);
         do jj = index_stag(1), index_stag(1) + 1
-          delta1 = (jj*dx(1) - xphalf(1) + left_edge(1))/dx(1)
+          delta1 = (jj*dx(1) - xpbar(1) + left_edge(1))/dx(1)
           w1 = 1.d0 - abs(delta1);
           do kk = 1,2]
 
@@ -1677,10 +1730,13 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                                   CHF_CONST_FRA1[By],
      &                                   CHF_CONST_FRA1[Bz],
      &                                   CHF_CONST_INT[ghosts],
+     &                                   CHF_CONST_INTVECT[bc_check_left],
+     &                                   CHF_CONST_INTVECT[bc_check_right],
      &                                   CHF_CONST_REALVECT[left_edge],
+     &                                   CHF_CONST_REALVECT[right_edge],
      &                                   CHF_CONST_REALVECT[dx],
-     &                                   CHF_CONST_REALVECT[xpold],
-     &                                   CHF_CONST_REALVECT[xphalf] )
+     &                                   CHF_CONST_REALVECT[xpold_save],
+     &                                   CHF_CONST_REALVECT[xpbar] )
 
       integer ii_stag, jj_stag, kk_stag
       REAL_T l0_stag, l1_stag, delta0_stag, delta1_stag
@@ -1689,17 +1745,23 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       integer index_start(0:CH_SPACEDIM - 1)
       integer index_old(0:CH_SPACEDIM - 1), index_new(0:CH_SPACEDIM - 1)
       integer cell_crossings(0:CH_SPACEDIM - 1), idir, num_segments
-      REAL_T l0, l1, l2, w0, w1, w2, delta0, delta1, seg_factor(0:CH_SPACEDIM - 1)
-      REAL_T dXp(0:CH_SPACEDIM - 1), xpold0(0:CH_SPACEDIM - 1), xphalf0(0:CH_SPACEDIM - 1)
-      REAL_T dXp_sub(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1) 
-      REAL_T xpnew(0:CH_SPACEDIM - 1), Xcell(0:CH_SPACEDIM - 1)
+      
+      REAL_T l0, l1, l2, w0, w1, w2, delta0, delta1
+      REAL_T dXp(0:CH_SPACEDIM - 1), dXp_sub(0:CH_SPACEDIM - 1)
+      REAL_T xpold(0:CH_SPACEDIM - 1), xpnew(0:CH_SPACEDIM - 1)
+      REAL_T xpold0(0:CH_SPACEDIM - 1), xpnew0(0:CH_SPACEDIM - 1)
+      REAL_T xpbar0(0:CH_SPACEDIM - 1), seg_factor(0:CH_SPACEDIM - 1)
+      REAL_T Xcell(0:CH_SPACEDIM - 1)
       REAL_T weight, slope, slope_inv, dXp_sub02
       integer nn, sign(0:CH_SPACEDIM - 1), i0, i1
       integer ii, jj, kk, ii_next, jj_next, kk_next 
 
+c     xpold can change, don't change the one passed in
+      xpold = xpold_save
+
 c     compute the new particle position
       do idir = 0, CH_SPACEDIM - 1
-        xpnew(idir) = two*xphalf(idir) - xpold(idir)
+        xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = xpnew(idir) - xpold(idir)
         sign(idir) = 1
       enddo
@@ -1709,6 +1771,12 @@ c     compute slopes assuming 2D
       i1 = CH_SPACEDIM-1
       slope = dXp(i1)/dXp(i0)
       slope_inv = 1/slope
+
+c     do check for bc particles after setting dXp  
+      call truncate_boundaries( xpold, xpnew,
+     &                          bc_check_left, bc_check_right,
+     &                          left_edge, right_edge,
+     &                          slope, slope_inv )
 
 c     compute the index of the left most cell/edge that contains this particle cloud
       num_segments = 1
@@ -1783,22 +1851,25 @@ c     calculate the initial Xcell in each direction
 
         endif
 
-        if(num_segments>1) then
+        if( dXp(i0).ne.zero) then
           seg_factor(i0) = dXp_sub(i0)/dXp(i0)
-          seg_factor(i1) = dXp_sub(i1)/dXp(i1)
         else
           seg_factor(i0) = 1.d0
+        endif
+        if( dXp(i1).ne.zero) then
+          seg_factor(i1) = dXp_sub(i1)/dXp(i1)
+        else
           seg_factor(i1) = 1.d0
         endif
 
 c     compute CIC weights
-        xphalf0 = half*(xpold0 + xpnew0)
-        delta0 = (xphalf0(i0) - (left_edge(i0) + (ii+0.5)*dx(i0)))/dx(i0)
-        delta1 = (xphalf0(i1) - (left_edge(i1) + (jj+0.5)*dx(i1)))/dx(i1)
+        xpbar0 = half*(xpold0 + xpnew0)
+        delta0 = (xpbar0(i0) - (left_edge(i0) + (ii+0.5)*dx(i0)))/dx(i0)
+        delta1 = (xpbar0(i1) - (left_edge(i1) + (jj+0.5)*dx(i1)))/dx(i1)
 
 c     get indicies for TSC weights
         do idir = 0, CH_SPACEDIM -1
-          index_start(idir) = floor((xphalf0(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+          index_start(idir) = floor((xpbar0(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
         enddo
 
 c     interpolate Ex to particle
@@ -1867,27 +1938,27 @@ c     cloud in cell for Ez, Bx, By, and Bz
 c
 
       do idir = 0, CH_SPACEDIM - 1
-        index(idir) = floor((xphalf(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
-        index_stag(idir) = floor((xphalf(idir) - left_edge(idir)) / dx(idir))
+        index(idir) = floor((xpbar(idir) - left_edge(idir) - 0.5d0*dx(idir)) / dx(idir))
+        index_stag(idir) = floor((xpbar(idir) - left_edge(idir)) / dx(idir))
       enddo
 
       CHF_DTERM[
       do ii = index(0), index(0) + 1
-        l0 = ii*dx(0) + 0.5d0*dx(0) - xphalf(0) + left_edge(0)
+        l0 = ii*dx(0) + 0.5d0*dx(0) - xpbar(0) + left_edge(0)
         ii_stag = ii-index(0)+index_stag(0)
-        l0_stag = ii_stag*dx(0) - xphalf(0) + left_edge(0)
+        l0_stag = ii_stag*dx(0) - xpbar(0) + left_edge(0)
         w0 = 1.d0 - abs(l0 / dx(0))
         w0_stag = 1.d0 - abs(l0_stag / dx(0));
         do jj = index(1), index(1) + 1
-          l1 = jj*dx(1) + 0.5d0*dx(1) - xphalf(1) + left_edge(1)
+          l1 = jj*dx(1) + 0.5d0*dx(1) - xpbar(1) + left_edge(1)
           jj_stag = jj-index(1)+index_stag(1)
-          l1_stag = jj_stag*dx(1) - xphalf(1) + left_edge(1)
+          l1_stag = jj_stag*dx(1) - xpbar(1) + left_edge(1)
           w1 = 1.d0 - abs(l1 / dx(1))
           w1_stag = 1.d0 - abs(l1_stag / dx(1));
           do kk = index(2), index(2) + 1
-            l2 = kk*dx(2) + 0.5d0*dx(2) - xphalf(2) + left_edge(2)
+            l2 = kk*dx(2) + 0.5d0*dx(2) - xpbar(2) + left_edge(2)
             kk_stag = kk-index(2)+index_stag(2)
-            l2_stag = kk_stag*dx(2) - xphalf(2) + left_edge(2)
+            l2_stag = kk_stag*dx(2) - xpbar(2) + left_edge(2)
             w2 = 1.d0 - abs(l2 / dx(2))
             w2_stag = 1.d0 - abs(l2_stag / dx(2)) ]
 
@@ -1910,3 +1981,75 @@ c
 
       end
 
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c       method to truncate positions based on boundaries
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine truncate_boundaries(
+     &                       CHF_REALVECT[xpold],
+     &                       CHF_REALVECT[xpnew],
+     &                       CHF_CONST_INTVECT[bc_check_left],
+     &                       CHF_CONST_INTVECT[bc_check_right],
+     &                       CHF_CONST_REALVECT[left_edge],
+     &                       CHF_CONST_REALVECT[right_edge],
+     &                       CHF_CONST_REAL[slope],
+     &                       CHF_CONST_REAL[slope_inv] )
+
+      REAL_T xpold_save(0:CH_SPACEDIM - 1), xpnew_save(0:CH_SPACEDIM - 1)
+      integer i0, i1
+
+      i0 = 0
+      i1 = CH_SPACEDIM - 1
+
+      xpold_save = xpold
+      xpnew_save = xpnew
+
+c     check for bc particles in dir = i0  
+      if( bc_check_left(i0)==1 ) then
+        if(xpold(i0)<left_edge(i0)) then
+          xpold(i0) = left_edge(i0)
+          xpold(i1) = xpold_save(i1) + slope*(xpold(i0)-xpold_save(i0))
+        endif
+        if(xpnew(i0)<left_edge(i0)) then
+          xpnew(i0) = left_edge(i0)
+          xpnew(i1) = xpold_save(i1) + slope*(xpnew(i0)-xpold_save(i0))
+        endif
+      endif
+      if( bc_check_right(i0)==1 ) then
+        if(xpold(i0)>right_edge(i0)) then
+          xpold(i0) = right_edge(i0)
+          xpold(i1) = xpold_save(i1) + slope*(xpold(i0)-xpold_save(i0))
+        endif
+        if(xpnew(i0)>right_edge(i0)) then
+          xpnew(i0) = right_edge(i0)
+          xpnew(i1) = xpold_save(i1) + slope*(xpnew(i0)-xpold_save(i0))
+        endif
+      endif
+
+c     check for bc particles in dir = i1  
+      if( bc_check_left(i1)==1 ) then
+        if(xpold(i1)<left_edge(i1)) then
+          xpold(i1) = left_edge(i1)
+          xpold(i0) = xpold_save(i0) + slope_inv*(xpold(i1)-xpold_save(i1))
+        endif
+        if(xpnew(i1)<left_edge(i1)) then
+          xpnew(i1) = left_edge(i1)
+          xpnew(i0) = xpold_save(i0) + slope_inv*(xpnew(i1)-xpold_save(i1))
+        endif
+      endif
+      if( bc_check_right(i1)==1 ) then
+        if(xpold(i1)>right_edge(i1)) then
+          xpold(i1) = right_edge(i1)
+          xpold(i0) = xpold_save(i0) + slope_inv*(xpold(i1)-xpold_save(i1))
+        endif
+        if(xpnew(i1)>right_edge(i1)) then
+          xpnew(i1) = right_edge(i1)
+          xpnew(i0) = xpold_save(i0) + slope_inv*(xpnew(i1)-xpold_save(i1))
+        endif
+      endif
+
+      end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

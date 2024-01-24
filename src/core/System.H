@@ -49,9 +49,9 @@ class System
                                const std::string&  a_restart_file_name );
       
       void writePlotFile( const int   a_cur_step, 
-		          const Real  a_cur_time, 
-			  const Real  a_cur_dt, 
-			  const bool  a_plot_parts );
+                          const Real  a_cur_time, 
+                          const Real  a_cur_dt, 
+                          const bool  a_plot_parts );
       
       void writeHistFile( const int   a_cur_step, 
                           const Real  a_cur_time, 
@@ -100,6 +100,8 @@ class System
       void postTimeStep( Real&, const Real&, int& );
 
       void setChargeDensity();
+      
+      void setSurfaceCharge();
 
       void scatterParticles( const Real&  a_dt );
      

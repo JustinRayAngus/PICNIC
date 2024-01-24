@@ -69,7 +69,7 @@ int main(int a_argc, char* a_argv[])
 
    if (status==0) {
 
-      if(!procID()) {
+      if (!procID()) {
          cout << "PICNIC: main start time = " << std::ctime(&start_time);
          cout << "PICNIC: number of procs = " << numProc() << endl;
          cout << "PICNIC: SpaceDim = " << SpaceDim << endl;

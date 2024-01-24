@@ -40,7 +40,7 @@ class GMRESSolver : public LinearFunctionSolver<Vec,Ops>
 
     inline void verbose(const bool a_v) 
     {
-      m_verbose = a_v;
+      m_verbose = a_v && m_verbose_input;
     }
 
     virtual void setOutputIndent( const std::string& a_indent ) 
@@ -77,6 +77,7 @@ class GMRESSolver : public LinearFunctionSolver<Vec,Ops>
     void parseParameters(ParmParse&);
   
     bool m_verbose;
+    bool m_verbose_input;
 
     double m_atol, m_rtol, m_small;
     int m_exitStatus, m_normType, m_maxits, m_its, m_restrtLen, m_count;
@@ -129,6 +130,7 @@ void GMRESSolver<Vec,Ops>::setRestartLen(int mm)
 template <class Vec,class Ops>
 GMRESSolver<Vec,Ops>::GMRESSolver()
   :m_verbose(true),
+   m_verbose_input(true),
    m_atol(1.0E-12),
    m_rtol(1.0E-4),
    m_small(1.0E-30),
@@ -164,7 +166,8 @@ void GMRESSolver<Vec,Ops>::define(  Ops* const,
 template <class Vec, class Ops>
 void GMRESSolver<Vec,Ops>::parseParameters( ParmParse& a_pp)
 {
-  a_pp.query("verbose", m_verbose); /* verbosity */
+  a_pp.query("verbose", m_verbose_input); /* verbosity */
+  m_verbose = m_verbose_input;
   a_pp.query("atol",    m_atol);    /* absolute tolerance */
   a_pp.query("rtol",    m_rtol);    /* relative tolerance */
   a_pp.query("maxits",  m_maxits);  /* maximum iterations */

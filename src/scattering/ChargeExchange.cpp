@@ -287,7 +287,7 @@ void ChargeExchange::ionImpact( PicSpecies&  a_picSpecies1,
             sigma = sigma_iso + sigma_back;
             if(sigma==0.0) continue;
          
-            // determine if the pair collide and then do the collision
+            // determine if the pair collides
             arg = g12*Constants::CVAC*sigma*local_numberDensity2*a_dt_sec;
             q12 = 1.0 - exp(-arg);
             rand_num = MathUtils::rand();
@@ -296,11 +296,14 @@ void ChargeExchange::ionImpact( PicSpecies&  a_picSpecies1,
 
                numCollisions = numCollisions + 1;
                
-               //compute deltaU
-               if(sigma_iso<sigma) costh = 1.0 - 2.0*MathUtils::rand();
-               else costh = -1.0;
+	       // use Null method to determine iso or back scattering
+               Real rand_num2 = MathUtils::rand();
+               if(sigma_back/sigma < rand_num2) { costh = 1.0 - 2.0*MathUtils::rand(); }
+               else { costh = -1.0; }
                sinth = sqrt(1.0 - costh*costh);
                phi = Constants::TWOPI*MathUtils::rand();
+               
+	       //compute deltaU
                ScatteringUtils::computeDeltaU(deltaU,betap1,betap2,costh,sinth,phi);
                //deltaU = {0,0,0};
 
@@ -333,11 +336,11 @@ void ChargeExchange::ionImpact( PicSpecies&  a_picSpecies1,
 
                }
                else {
-                  Real rand_num2 = MathUtils::rand();
-                  if(rand_num2<=wp2/wp1) {
+                  Real rand_num3 = MathUtils::rand();
+                  if(rand_num3<=wp2/wp1) {
                      for (int dir=0; dir<3; dir++) betap1[dir] += m_mu/m_mass1*deltaU[dir];
                   }
-                  if(rand_num2<=wp1/wp2) {
+                  if(rand_num3<=wp1/wp2) {
                      for (int dir=0; dir<3; dir++) betap2[dir] -= m_mu/m_mass2*deltaU[dir];
                   }
                }

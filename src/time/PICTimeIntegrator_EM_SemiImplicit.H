@@ -23,6 +23,9 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
       m_nlsolver = nullptr;
       m_func = nullptr;
 
+      m_pc_update_freq = INT_MAX;
+      m_pc_update_newton = true;
+
       m_is_defined = false;
     }
 
@@ -68,6 +71,15 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
                                 const int,
                                 const Real                  a_time );
 
+    virtual void updatePrecondMat( BandedMatrix&  a_Pmat,
+                             const Real           a_time,
+                             const Real           a_dt );
+      
+    virtual int numPCMatBands() const
+    {
+      return m_fields->numPCMatBands();
+    }
+
     virtual void getConvergenceParams( int&   a_l_exit_status,
                                        int&   a_l_last_iter,
                                        int&   a_l_total_iter,
@@ -98,7 +110,13 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
 
     bool m_is_defined;
     std::string m_nlsolver_type;
+
+    int m_pc_update_freq;
+    bool m_pc_update_newton;
+      
     int m_nl_iter = 0;
+    mutable bool m_restart_pc_update_flag = true; // kluge to update pc on restart...
+
 
     PicSpeciesInterface*    m_pic_species;
     EMFields*  m_fields;
@@ -120,6 +138,7 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
     Real m_last_nl_abs_res=0.0;
     Real m_last_nl_rel_res=0.0;
     double m_step_wall_time=0.0;
+    double m_pcassembly_walltime=0.0;
 
 };
 

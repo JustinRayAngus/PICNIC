@@ -29,7 +29,7 @@ dataFileIO::dataFileIO( ParmParse&   a_ppsys,
   
    m_nodeDataTest = false;
    a_ppsys.query("node_data_test",m_nodeDataTest);
-   if(!procID()) cout << "node_data_test = " << m_nodeDataTest << endl; 
+   if (!procID()) { cout << "node_data_test = " << m_nodeDataTest << endl; } 
 
    writeMeshDataFile();
 
@@ -96,7 +96,7 @@ void dataFileIO::writeMeshDataFile()
 {
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
 
-   if(!procID()) cout << "writing mesh data file ..." << endl << endl;
+   if (!procID()) { cout << "writing mesh data file ..." << endl << endl; }
    const ProblemDomain& domain(m_mesh.getDomain());
 
 #ifdef CH_USE_HDF5
@@ -123,8 +123,8 @@ void dataFileIO::writeMeshDataFile()
    char comp_name[50];
    char coords[SpaceDim];
    coords[0] = 'x';
-   if(SpaceDim==2) coords[1] = 'z';
-   if(SpaceDim==3) {
+   if (SpaceDim==2) { coords[1] = 'z'; }
+   if (SpaceDim==3) {
       coords[1] = 'y';
       coords[2] = 'z';
    }
@@ -217,7 +217,7 @@ void dataFileIO::writeMeshDataFile()
    write(handle, gridOnNodes.boxLayout());
    write(handle, gridOnNodes, "data", gridOnNodes.ghostVect());
    
-   if(m_mesh.writeJacobians()) {
+   if (m_mesh.writeJacobians()) {
       
       // write the cell centered corrected jacobian
     
@@ -284,7 +284,7 @@ void dataFileIO::writeMeshDataFile()
 
    }
    
-   if(m_mesh.writeCorrectedJacobians()) {
+   if (m_mesh.writeCorrectedJacobians()) {
       
       // write the face centered corrected jacobian
     
@@ -336,7 +336,7 @@ void dataFileIO::writeMeshDataFile()
 
    }
    
-   if(m_mesh.writeMaskedJacobians()) {
+   if (m_mesh.writeMaskedJacobians()) {
       
       // write the face centered masked jacobian
     
@@ -392,7 +392,7 @@ void dataFileIO::writeMeshDataFile()
    // write node centered data test
    //
 
-   if(m_nodeDataTest) {
+   if (m_nodeDataTest) {
 
       const DisjointBoxLayout& grids = gridOnNodes.disjointBoxLayout();
       LevelData<NodeFArrayBox> nodeTestData(grids,1,gridOnNodes.ghostVect());
@@ -450,12 +450,12 @@ void dataFileIO::writeEMFields( HDF5Handle&  a_handle,
    header.m_real["intSdAdt_lo0"] = intSdAdt_lo[0];
    header.m_real["intSdAdt_hi0"] = intSdAdt_hi[0];
    
-   if(SpaceDim>1) {
+   if (SpaceDim>1) {
       header.m_real["intSdAdt_lo1"] = intSdAdt_lo[1];
       header.m_real["intSdAdt_hi1"] = intSdAdt_hi[1];
    }
    
-   if(SpaceDim==3) {
+   if (SpaceDim==3) {
       header.m_real["intSdAdt_lo2"] = intSdAdt_lo[2];
       header.m_real["intSdAdt_hi2"] = intSdAdt_hi[2];
    }
@@ -483,7 +483,7 @@ void dataFileIO::writeEMFields( HDF5Handle&  a_handle,
    // write the virtual magnetic field data
    //
 
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
    
       const LevelData<FArrayBox>& Bfield_virt  = a_emfield.getVirtualMagneticField();
 
@@ -523,7 +523,7 @@ void dataFileIO::writeEMFields( HDF5Handle&  a_handle,
    // write the virtual electric field data
    //
 
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
    
       const LevelData<NodeFArrayBox>& Efield_virt  = a_emfield.getVirtualElectricField();
 
@@ -573,7 +573,7 @@ void dataFileIO::writeEMFields_old( HDF5Handle&  a_handle,
    // write the virtual magnetic field data
    //
 
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
    
       const LevelData<FArrayBox>& Bfield_virt  = a_emfield.getVirtualMagneticField_old();
 
@@ -613,7 +613,7 @@ void dataFileIO::writeEMFields_old( HDF5Handle&  a_handle,
    // write the virtual electric field data
    //
 
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
    
       const LevelData<NodeFArrayBox>& Efield_virt  = a_emfield.getVirtualElectricField_old();
 
@@ -643,7 +643,7 @@ void dataFileIO::writeEMFieldsDataFile( const EMFields&             a_emfield,
    CH_TIME("dataFileIO::writeEMFieldsDataFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
 
-   if(!procID()) cout << "writing emfields data file" << endl;
+   if (!procID()) { cout << "writing emfields data file" << endl; }
    
    const ProblemDomain& domain(m_mesh.getDomain());
    
@@ -671,7 +671,7 @@ void dataFileIO::writeEMFieldsDataFile( const EMFields&             a_emfield,
    coords[0] = '0';
    coords[1] = '1';
    coords[2] = '2';
-   if(m_mesh.anticyclic()) {
+   if (m_mesh.anticyclic()) {
       coords[1] = '2';
       coords[2] = '1';
    }
@@ -735,7 +735,7 @@ void dataFileIO::writeEMFieldsDataFile( const EMFields&             a_emfield,
       // write the virtual current density data
       //
    
-      if(SpaceDim<3) {
+      if (SpaceDim<3) {
       
          const LevelData<NodeFArrayBox>& Jfield_virt  = a_emfield.getVirtualCurrentDensity();
    
@@ -762,11 +762,12 @@ void dataFileIO::writeEMFieldsDataFile( const EMFields&             a_emfield,
    // write the div/curl of the fields
    //
 
-   if(a_emfield.writeRho()) writeEMFieldRho( a_emfield, handle, header );
-   if(a_emfield.writeExB()) writeEMFieldExB( a_emfield, handle, header );
-   if(a_emfield.writeDivs()) writeEMFieldDivs( a_emfield, handle, header );
-   if(a_emfield.writeCurls()) writeEMFieldCurls( a_emfield, handle, header );
-   if(a_emfield.usePoisson()) writeEMFieldPotential( a_emfield, handle, header );
+   if (a_emfield.writeRho())   { writeEMFieldRho( a_emfield, handle, header ); }
+   if (a_emfield.writeSigma()) { writeEMFieldSigma( a_emfield, handle, header ); }
+   if (a_emfield.writeExB())   { writeEMFieldExB( a_emfield, handle, header ); }
+   if (a_emfield.writeDivs())  { writeEMFieldDivs( a_emfield, handle, header ); }
+   if (a_emfield.writeCurls()) { writeEMFieldCurls( a_emfield, handle, header ); }
+   if (a_emfield.usePoisson()) { writeEMFieldPotential( a_emfield, handle, header ); }
 
    //
    // close the handle
@@ -853,6 +854,35 @@ void dataFileIO::writeEMFieldRho( const EMFields&  a_emfield,
 
 }
 
+void dataFileIO::writeEMFieldSigma( const EMFields&  a_emfield,
+                                    HDF5Handle&      a_handle,
+                                    HDF5HeaderData&  a_header )
+{
+   CH_TIME("dataFileIO::writeEMFieldSigma()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   //
+   // write the surface charge
+   //
+   
+   const LevelData<NodeFArrayBox>& sigma  = a_emfield.getSurfaceCharge();
+
+   const std::string groupName = std::string("surface_charge");
+   a_handle.setGroup(groupName);
+   
+   a_header.clear();
+   a_header.m_int["is_nodebox"] = 1;
+   a_header.m_int["num_components"] = sigma.nComp();
+   a_header.m_box["prob_domain"] = domain.domainBox(); 
+   a_header.writeToFile(a_handle);
+   
+   write(a_handle, sigma.boxLayout());
+   write(a_handle, sigma, "data", sigma.ghostVect());
+
+}
+
 void dataFileIO::writeEMFieldExB( const EMFields&  a_emfield,
                                   HDF5Handle&      a_handle,
                                   HDF5HeaderData&  a_header )
@@ -884,7 +914,7 @@ void dataFileIO::writeEMFieldExB( const EMFields&  a_emfield,
    // write components of ExB for virtual E
    //
 
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
    
       const LevelData<NodeFArrayBox>& evxb = a_emfield.getEvxB();
 
@@ -982,7 +1012,7 @@ void dataFileIO::writeEMFieldCurls( const EMFields&  a_emfield,
    // write the curl of the virtual electric field
    //
 
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
    
       const LevelData<FArrayBox>& curlE_virt  = a_emfield.getCurlE_virtual();
 
@@ -1022,7 +1052,7 @@ void dataFileIO::writeEMFieldCurls( const EMFields&  a_emfield,
    // write the curl of the virtual magnetic field
    //
 
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
    
       const LevelData<NodeFArrayBox>& curlB_virt  = a_emfield.getCurlB_virtual();
 
@@ -1115,7 +1145,7 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
    CH_TIME("dataFileIO::writeSpeciesParticleFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
    
-   if(!procID()) {
+   if (!procID()) {
       cout << "writing particle file for species " << a_species << endl;
    }
    
@@ -1146,7 +1176,7 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
    coords[0] = '0';
    coords[1] = '1';
    coords[2] = '2';
-   if(m_mesh.anticyclic()) {
+   if (m_mesh.anticyclic()) {
       coords[1] = '2';
       coords[2] = '1';
    }
@@ -1157,7 +1187,7 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
       sprintf(field_name, "particle_position_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   if(SpaceDim<3) {
+   if (SpaceDim<3) {
      for(int i=0; i<3-SpaceDim; i++) {
         sprintf(field_name, "virtual_particle_position_%c", coords[i]);
         vectNames.push_back(field_name);
@@ -1167,7 +1197,7 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
       sprintf(field_name, "particle_velocity_%c", coords[dir]);
       vectNames.push_back(field_name);
    }
-   if(a_picSpecies.writeAll()) {
+   if (a_picSpecies.writeAll()) {
       for (int dir=0; dir<3; dir++) {
          sprintf(field_name, "particle_electric_field_%c", coords[dir]);
          vectNames.push_back(field_name);
@@ -1218,6 +1248,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
                                           const int          a_cur_step,
                                           const double       a_cur_time,
                                           const bool         a_write_charge_density,
+                                          const bool         a_write_surface_charge,
                                           const bool         a_write_current_density,
                                           const bool         a_write_nppc,
                                           const bool         a_write_energy_off_diag,
@@ -1226,7 +1257,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    CH_TIME("dataFileIO::writeSpeciesMomentsFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
    
-   if(!procID()) {
+   if (!procID()) {
       cout << "writing moments file for species " << a_species << endl;
    }
    
@@ -1264,7 +1295,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    coords[0] = '0';
    coords[1] = '1';
    coords[2] = '2';
-   if(m_mesh.anticyclic()) {
+   if (m_mesh.anticyclic()) {
       coords[1] = '2';
       coords[2] = '1';
    }
@@ -1327,7 +1358,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    write(handleParts, momentData.boxLayout());
    write(handleParts, momentData, "data", density.ghostVect());
    
-   if(a_write_charge_density) {
+   if (a_write_charge_density) {
       
       //
       // write the cell centered charge density
@@ -1384,8 +1415,32 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
       write(handleParts, chargeDenOnNodes, "data", chargeDenOnNodes.ghostVect());
 
    }
+   
+   if (a_write_surface_charge) {
+      
+      //
+      // write the node centered surface charge
+      //
 
-   if(a_write_current_density) {
+      const int ghosts = m_mesh.ghosts();
+      LevelData<NodeFArrayBox> surfaceCharge(grids,1,IntVect::Unit*ghosts);
+      a_picSpecies.getSurfaceChargeOnNodes( surfaceCharge );
+
+      const std::string group_name = std::string("node_centered_surface_charge");
+      handleParts.setGroup(group_name);
+   
+      headerParts.clear();
+      headerParts.m_int["is_nodebox"] = 1;
+      headerParts.m_int["num_components"] = surfaceCharge.nComp();
+      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.writeToFile(handleParts);
+   
+      write(handleParts, surfaceCharge.boxLayout());
+      write(handleParts, surfaceCharge, "data", surfaceCharge.ghostVect());
+
+   }
+
+   if (a_write_current_density) {
 
       //
       // write the edge centered current density
@@ -1408,7 +1463,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
       // write the node centered virtual current density for 1D/2D sims
       //
    
-      if(SpaceDim<3) {
+      if (SpaceDim<3) {
          const LevelData<NodeFArrayBox>& JvirtOnNodes  = a_picSpecies.getCurrentDensity_virtual();
          const std::string groupJvirtOnNodes_Name = std::string("virtual_current_density");
          handleParts.setGroup(groupJvirtOnNodes_Name);
@@ -1425,7 +1480,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
 
    }
    
-   if(a_write_nppc) {
+   if (a_write_nppc) {
       
       //
       // write the macro particle count in each cell
@@ -1447,7 +1502,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
 
    }
    
-   if(a_write_energy_off_diag) {
+   if (a_write_energy_off_diag) {
       
       //
       // write the off-diagonal components of the energy density tensor
@@ -1469,7 +1524,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
 
    }
    
-   if(a_write_energy_flux) {
+   if (a_write_energy_flux) {
       
       //
       // write the energy density flux
@@ -1504,7 +1559,7 @@ void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>& 
                                       const double                   a_cur_time )
 {
    CH_TIME("dataFileIO::writeBinFabDataFile()");
-   if(!procID()) {
+   if (!procID()) {
       cout << "writing BinFab particle data file" << endl;
       cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
       cout << "... " << endl;
@@ -1529,7 +1584,7 @@ void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>& 
 
    handleParts.close();
    
-   if(!procID()) cout << "finished writing binfab particle data file" << endl << endl;
+   if (!procID()) { cout << "finished writing binfab particle data file" << endl << endl; }
 
 }
 
@@ -1540,7 +1595,7 @@ void dataFileIO::writeCheckpointEMFields( HDF5Handle&  a_handle,
    CH_TIME("dataFileIO::writeCheckpointEMFields()");
 
    writeEMFields( a_handle, a_emfield );
-   if( a_write_old_data > 0 ) { // needed for time schemes with fields staggered in time
+   if ( a_write_old_data > 0 ) { // needed for time schemes with fields staggered in time
       writeEMFields_old( a_handle, a_emfield );
    }
 
@@ -1609,7 +1664,7 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
    const RealVect& energyIn_hi = a_picSpecies.getEnergyIn_hi();
 
    for(int dir=0; dir<SpaceDim; dir++) {         
-      if(domain.isPeriodic(dir)) continue;
+      if (domain.isPeriodic(dir)) { continue; }
       std::string dirstr = std::to_string(dir);
       headerParts.m_real["massOut_lo"+dirstr] = massOut_lo[dir];
       headerParts.m_real["massOut_hi"+dirstr] = massOut_hi[dir];
@@ -1633,6 +1688,15 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
       headerParts.m_real["energyIn_lo"+dirstr] = energyIn_lo[dir];
       headerParts.m_real["energyIn_hi"+dirstr] = energyIn_hi[dir];
    } 
+   
+   if (a_picSpecies.charge()!=0) { 
+     // write the cumulative surface charge diagnostic 
+#if CH_SPACEDIM>1
+     a_picSpecies.preWriteSurfaceCharge();
+#endif
+     const LevelData<NodeFArrayBox>& surfaceCharge  = a_picSpecies.getSurfaceChargeOnNodes();
+     write(a_handle, surfaceCharge, "surface_charge", surfaceCharge.ghostVect());
+   }
 
    // write the header 
    headerParts.writeToFile(a_handle);

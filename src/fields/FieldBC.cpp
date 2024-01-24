@@ -25,6 +25,7 @@ FieldBC::~FieldBC()
 {
    m_bdry_name.resize(0);
    m_bc_type.resize(0);
+   m_phi_bc_type.resize(0);
    m_InsulatorBC.resize(0);
 }
 
@@ -34,6 +35,31 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
    m_bc_type.resize(bdry_layout.size());
    m_bdry_name.resize(bdry_layout.size());
    m_InsulatorBC.resize(bdry_layout.size());
+
+   // check if using poisson
+   ParmParse pp2("poisson");
+   if(pp2.contains("bc_lo")) {
+      m_phi_bc_type.resize(bdry_layout.size());
+      std::vector<int> bc_lo, bc_hi;
+      bc_lo.resize( SpaceDim );
+      bc_hi.resize( SpaceDim );
+      pp2.getarr("bc_lo", bc_lo, 0, SpaceDim);
+      pp2.getarr("bc_hi", bc_hi, 0, SpaceDim);
+      for (int b(0); b<bdry_layout.size(); b++) {
+         const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+         int bdry_dir(this_bdry_layout.dir());
+         int bdry_side(this_bdry_layout.side());
+	 if(bdry_side == 0) {
+	    if(bc_lo[bdry_dir] == 0) { m_phi_bc_type[b] = "dirichlet"; }
+	    else if(bc_lo[bdry_dir] == 1) { m_phi_bc_type[b] = "neumann"; }
+	 } 
+	 if(bdry_side == 1) {
+	    if(bc_hi[bdry_dir] == 0) { m_phi_bc_type[b] = "dirichlet"; }
+	    else if(bc_hi[bdry_dir] == 1) { m_phi_bc_type[b] = "neumann"; }
+	 }
+      }
+   }
+   
 
    a_pp.query("conservative_wall",m_conservative_wall);
 
@@ -75,7 +101,10 @@ void FieldBC::printParameters() const
       std::cout << "FieldBC =======================================" << std::endl;
       std::cout << "conservative wall = " << m_conservative_wall << std::endl;
       for (int i(0); i<m_bc_type.size(); i++) {
-         std::cout << "  " << m_bdry_name[i] << ": " << m_bc_type[i] << ": " << std::endl;
+         std::cout << "  " << m_bdry_name[i] << ": " << m_bc_type[i] << std::endl;
+      }
+      for (int i(0); i<m_phi_bc_type.size(); i++) {
+         std::cout << "  " << m_bdry_name[i] << " potential BC: " << m_phi_bc_type[i] << std::endl;
       }
       std::cout << "===============================================" << std::endl << std::endl;
    }
@@ -153,8 +182,21 @@ void FieldBC::applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
    FieldBCUtils::applyToJ_PIC( a_J_inPlane,
                                a_J_virtual, 
                                m_mesh,
-                               m_bc_type );
+                               m_bc_type,
+                               m_InsulatorBC );
 
+}
+
+void FieldBC::applyToEforDiv( LevelData<EdgeDataBox>&  a_dst ) const
+{
+   CH_TIME("FieldBC::applyToEforDiv()");
+   
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   FieldBCUtils::applyToEforDiv( a_dst,
+                                 m_mesh,
+                                 bdry_layout,
+                                 m_bc_type );
+   
 }
 
 void FieldBC::applyCellPCMask( LevelData<FArrayBox>&   a_dst,
@@ -217,6 +259,20 @@ void FieldBC::applyNodePCMask( LevelData<NodeFArrayBox>&  a_dst,
                                 a_time );
 
 }
+
+#if CH_SPACEDIM==1
+void FieldBC::applyPhiBC( LevelData<NodeFArrayBox>&  a_phi,
+                    const LevelData<NodeFArrayBox>&  a_rho,
+		    const Real                       a_rhoNorm ) const
+{
+   CH_TIME("FieldBC::applyPhiBC()");
+   FieldBCUtils::setPhiBC( a_phi,
+ 		           a_rho,
+                           m_mesh,
+			   a_rhoNorm,
+                           m_phi_bc_type );
+}
+#endif
 
 void FieldBC::setFluxBC( LevelData<FluxBox>&  a_dst,
                    const LevelData<FluxBox>&  a_src,

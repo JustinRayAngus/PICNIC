@@ -488,49 +488,6 @@ inline void FORTRAN_NAME(inlineTSC_INTERPOLATE_FIELDS, inlineTSC_INTERPOLATE_FIE
 }
 #endif  // GUARDTSC_INTERPOLATE_FIELDS 
 
-#ifndef GUARDCIC_INTERPOLATE_MAGNETIC_FIELD 
-#define GUARDCIC_INTERPOLATE_MAGNETIC_FIELD 
-// Prototype for Fortran procedure cic_interpolate_magnetic_field ...
-//
-void FORTRAN_NAME( CIC_INTERPOLATE_MAGNETIC_FIELD ,cic_interpolate_magnetic_field )(
-      CHFp_REAL(Bpx)
-      ,CHFp_REAL(Bpy)
-      ,CHFp_REAL(Bpz)
-      ,CHFp_CONST_FRA1(Bgx)
-      ,CHFp_CONST_FRA1(Bgy)
-      ,CHFp_CONST_FRA1(Bgz)
-      ,CHFp_CONST_REALVECT(left_edge)
-      ,CHFp_CONST_REALVECT(dx)
-      ,CHFp_CONST_REALVECT(xp) );
-
-#define FORT_CIC_INTERPOLATE_MAGNETIC_FIELD FORTRAN_NAME( inlineCIC_INTERPOLATE_MAGNETIC_FIELD, inlineCIC_INTERPOLATE_MAGNETIC_FIELD)
-#define FORTNT_CIC_INTERPOLATE_MAGNETIC_FIELD FORTRAN_NAME( CIC_INTERPOLATE_MAGNETIC_FIELD, cic_interpolate_magnetic_field)
-
-inline void FORTRAN_NAME(inlineCIC_INTERPOLATE_MAGNETIC_FIELD, inlineCIC_INTERPOLATE_MAGNETIC_FIELD)(
-      CHFp_REAL(Bpx)
-      ,CHFp_REAL(Bpy)
-      ,CHFp_REAL(Bpz)
-      ,CHFp_CONST_FRA1(Bgx)
-      ,CHFp_CONST_FRA1(Bgy)
-      ,CHFp_CONST_FRA1(Bgz)
-      ,CHFp_CONST_REALVECT(left_edge)
-      ,CHFp_CONST_REALVECT(dx)
-      ,CHFp_CONST_REALVECT(xp) )
-{
- CH_TIMELEAF("FORT_CIC_INTERPOLATE_MAGNETIC_FIELD");
- FORTRAN_NAME( CIC_INTERPOLATE_MAGNETIC_FIELD ,cic_interpolate_magnetic_field )(
-      CHFt_REAL(Bpx)
-      ,CHFt_REAL(Bpy)
-      ,CHFt_REAL(Bpz)
-      ,CHFt_CONST_FRA1(Bgx)
-      ,CHFt_CONST_FRA1(Bgy)
-      ,CHFt_CONST_FRA1(Bgz)
-      ,CHFt_CONST_REALVECT(left_edge)
-      ,CHFt_CONST_REALVECT(dx)
-      ,CHFt_CONST_REALVECT(xp) );
-}
-#endif  // GUARDCIC_INTERPOLATE_MAGNETIC_FIELD 
-
 #ifndef GUARDCIC_INTERPOLATE_DIR 
 #define GUARDCIC_INTERPOLATE_DIR 
 // Prototype for Fortran procedure cic_interpolate_dir ...

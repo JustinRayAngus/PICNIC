@@ -99,6 +99,8 @@ public:
   
   virtual const LevelData<NodeFArrayBox>& getMaskedJnc() const {return m_masked_Jnc;}
   
+  virtual const LevelData<NodeFArrayBox>& getNodeMask() const {return m_node_mask;}
+  
   virtual const LevelData<FluxBox>& getCorrectedJfc() const {return m_corrected_Jfc;}
   
   virtual const LevelData<EdgeDataBox>& getCorrectedJec() const {return m_corrected_Jec;}
@@ -154,6 +156,7 @@ private:
   LevelData<FluxBox> m_masked_Jfc;
   LevelData<EdgeDataBox> m_masked_Jec;
   LevelData<NodeFArrayBox> m_masked_Jnc;
+  LevelData<NodeFArrayBox> m_node_mask;
   
   // corrected Jacobian needed for correct charge and current 
   // density accumulation in curvilinear coords (see Verboncoeur)

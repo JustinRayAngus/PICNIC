@@ -62,6 +62,10 @@ class dataFileIO
                             HDF5Handle&      a_handle,
                             HDF5HeaderData&  a_header );
       
+      void writeEMFieldSigma( const EMFields&  a_emfield,
+                              HDF5Handle&      a_handle,
+                              HDF5HeaderData&  a_header );
+      
       void writeEMFieldExB( const EMFields&  a_emfield,
                             HDF5Handle&      a_handle,
                             HDF5HeaderData&  a_header );
@@ -88,6 +92,7 @@ class dataFileIO
                                     const int          a_cur_step, 
                                     const double       a_cur_time,
                                     const bool         a_write_charge_density,
+                                    const bool         a_write_surface_charge,
                                     const bool         a_write_current_density,
                                     const bool         a_write_energy_off_diag,
                                     const bool         a_write_energy_flux,

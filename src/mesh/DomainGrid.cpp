@@ -323,7 +323,7 @@ void DomainGrid::setJacobian()
                m_Jfc[dit][dir].mult(m_Xfc[dit][dir],0,0,1);
                m_Jfc[dit][dir].mult(twoPi,0,1);
                m_Jec[dit][dir].mult(m_Xec[dit][dir],0,0,1);
-              m_Jec[dit][dir].mult(twoPi,0,1);
+               m_Jec[dit][dir].mult(twoPi,0,1);
             }
             m_Jnc[dit].getFab().mult(m_Xnc[dit].getFab(),0,0,1); 
             m_Jnc[dit].getFab().mult(twoPi,0,1);
@@ -582,6 +582,7 @@ void DomainGrid::setJacobian()
    m_masked_Jfc.define(m_grids,1,IntVect::Zero);
    m_masked_Jec.define(m_grids,1,IntVect::Zero);
    m_masked_Jnc.define(m_grids,1,IntVect::Zero);
+   m_node_mask.define(m_grids,1,IntVect::Zero);
 
    // first define via copy
    for(DataIterator dit(m_grids); dit.ok(); ++dit) {
@@ -676,7 +677,7 @@ void DomainGrid::setJacobian()
       Box node_box = m_grids[dit];
       node_box.surroundingNodes();
 
-      FArrayBox mask(node_box,1);
+      FArrayBox& mask = m_node_mask[dit].getFab();
       mask.setVal(1.0);
 
       for (int dir=0; dir<SpaceDim; dir++) {

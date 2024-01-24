@@ -15,6 +15,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
                                           const DomainGrid&  a_mesh )
    : m_verbosity(true),
      m_writeSpeciesChargeDensity(false),
+     m_writeSpeciesSurfaceCharge(false),
      m_writeSpeciesCurrentDensity(false),
      m_writeSpeciesNppc(false),
      m_writeSpeciesEnergyOffDiag(false),
@@ -37,6 +38,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    // parse parameters from input file
    ParmParse pp("pic_species");
    pp.query("write_species_charge_density", m_writeSpeciesChargeDensity);
+   pp.query("write_species_surface_charge", m_writeSpeciesSurfaceCharge);
    pp.query("write_species_current_density", m_writeSpeciesCurrentDensity);
    pp.query("write_species_nppc", m_writeSpeciesNppc);
    pp.query("write_species_energy_off_diagonal", m_writeSpeciesEnergyOffDiag);
@@ -74,6 +76,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    m_chargeDensity.define(grids,1,ghostVect);
    m_chargeDensity_faces.define(grids,1,ghostVect);
    m_chargeDensity_nodes.define(grids,1,ghostVect);
+   m_surfaceCharge_nodes.define(grids,1,ghostVect);
    
    m_currentDensity.define(grids,1,ghostVect);
    m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);
@@ -146,6 +149,7 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
                                            m_rtol_particles,
                                            m_newton_maxits,
                                            m_newton_num_guess );
+
       }
   
    }
@@ -158,11 +162,12 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
    if(!procID()) {
       cout << "Finished initializing " << m_pic_species_ptr_vect.size();
       cout << " pic species" << endl << endl;
-      cout << " write species charge density  = " << m_writeSpeciesChargeDensity << endl;
-      cout << " write species current density = " << m_writeSpeciesCurrentDensity << endl;
-      cout << " write species nppc = " << m_writeSpeciesNppc << endl;
-      cout << " write species energy off diagonal = " << m_writeSpeciesEnergyOffDiag << endl;
-      cout << " write species energy flux = " << m_writeSpeciesEnergyFlux << endl;
+      cout << " write species charge density  = " << (m_writeSpeciesChargeDensity?"true":"false") << endl;
+      cout << " write species surface charge  = " << (m_writeSpeciesSurfaceCharge?"true":"false") << endl;
+      cout << " write species current density = " << (m_writeSpeciesCurrentDensity?"true":"false") << endl;
+      cout << " write species nppc = " << (m_writeSpeciesNppc?"true":"false") << endl;
+      cout << " write species energy off diagonal = " << (m_writeSpeciesEnergyOffDiag?"true":"false") << endl;
+      cout << " write species energy flux = " << (m_writeSpeciesEnergyFlux?"true":"false") << endl;
       if (a_implicit_advance) {
          cout << " implicit advance parameters:" << endl;
          cout << "  verbose_particles = " << m_verbose_particles << endl;
@@ -171,10 +176,10 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
          cout << "  rtol_particles = " << m_rtol_particles << endl;
          cout << "  newton_maxits = " << m_newton_maxits << endl;
          cout << "  newton_num_guess = " << m_newton_num_guess << endl;
-         cout << "  freeze_particles_jacobian = " << m_freeze_particles_jacobian << endl;
-         cout << "  quasi_freeze_particles_jacobian = " << m_quasi_freeze_particles_jacobian << endl;
-         cout << "  use_mass_matrices = " << m_use_mass_matrices << endl;
-         cout << "  mod_init_advance = " << m_mod_init_advance << endl << endl;
+         cout << "  freeze_particles_jacobian = " << (m_freeze_particles_jacobian?"true":"false") << endl;
+         cout << "  quasi_freeze_particles_jacobian = " << (m_quasi_freeze_particles_jacobian?"true":"false") << endl;
+         cout << "  use_mass_matrices = " << (m_use_mass_matrices?"true":"false") << endl;
+         cout << "  mod_init_advance = " << (m_mod_init_advance?"true":"false") << endl << endl;
       }
    }
 
@@ -494,8 +499,9 @@ PicSpeciesInterface::speciesPairingInit()
             }
 
          }
-         spA->applyBCs(false);
-         spB->applyBCs(false);
+	 const Real dummy_time = 0.0;
+         spA->applyBCs(false,dummy_time);
+         spB->applyBCs(false,dummy_time);
 
          // don't forget to set pointers back to NULL and delete
          partA_ptr = NULL;
@@ -698,32 +704,45 @@ void PicSpeciesInterface::computeJfromMassMatrices( const EMFields&  a_emfields 
 #endif
 
    }
-   
-   const FieldBC& field_bc = a_emfields.getFieldBC();
-   field_bc.applyToJ( currentDensity, currentDensity_virtual );
 
+}
+
+void PicSpeciesInterface::finalizeSettingJ( LevelData<EdgeDataBox>&    a_currentDensity,
+		                            LevelData<NodeFArrayBox>&  a_currentDensity_virtual,
+				      const EMFields&                  a_emfields )
+{
+   CH_TIME("PicSpeciesInterface::finalizeSettingJ()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   
+   // apply BCs to J
+   const FieldBC& field_bc = a_emfields.getFieldBC();
+   field_bc.applyToJ( a_currentDensity, a_currentDensity_virtual );
+
+   // perform addOp exchange on J
    LDaddEdgeOp<EdgeDataBox> addEdgeOp;
-   currentDensity.exchange( currentDensity.interval(), m_mesh.reverseCopier(), addEdgeOp );
+   a_currentDensity.exchange( a_currentDensity.interval(), m_mesh.reverseCopier(), addEdgeOp );
 #if CH_SPACEDIM<3
    LDaddNodeOp<NodeFArrayBox> addNodeOp;
-   currentDensity_virtual.exchange( currentDensity_virtual.interval(), m_mesh.reverseCopier(), addNodeOp );
+   a_currentDensity_virtual.exchange( a_currentDensity_virtual.interval(), m_mesh.reverseCopier(), addNodeOp );
 #endif
-   
+  
+   // Here is where we will apply filtering
+
+   // divide by corrected Jacobian
    const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
    const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
    for(DataIterator dit(grids); dit.ok(); ++dit) {
       for (int dir=0; dir<SpaceDim; ++dir) {
-         currentDensity[dit][dir].divide(Jec[dit][dir],0,0,1);
+         a_currentDensity[dit][dir].divide(Jec[dit][dir],0,0,1);
       }
 #if CH_SPACEDIM<3
-      for (int comp=0; comp<currentDensity_virtual.nComp(); ++comp) {
-         currentDensity_virtual[dit].getFab().divide(Jnc[dit].getFab(),0,comp,1);
+      for (int comp=0; comp<a_currentDensity_virtual.nComp(); ++comp) {
+        a_currentDensity_virtual[dit].getFab().divide(Jnc[dit].getFab(),0,comp,1);
       }
 #endif
    }
 
 }
-
 
 void PicSpeciesInterface::setChargeDensityOnNodes( const bool  a_use_filtering )
 {
@@ -754,7 +773,9 @@ void PicSpeciesInterface::setChargeDensityOnNodes( const bool  a_use_filtering )
 
 }
   
-void PicSpeciesInterface::setCurrentDensity( const bool  a_from_explicit_solver )
+void PicSpeciesInterface::setCurrentDensity( const EMFields&  a_emfields,
+		                             const bool       a_finalizeJ,
+		                             const bool       a_from_explicit_solver )
 {
    CH_TIME("PicSpeciesInterface::setCurrentDensity()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -786,6 +807,45 @@ void PicSpeciesInterface::setCurrentDensity( const bool  a_from_explicit_solver 
       }
 #endif
    }
+   
+   if(a_finalizeJ) { // apply BCs, do addOp exchange, then divide by corrected Jacobian
+      finalizeSettingJ( m_currentDensity, m_currentDensity_virtual, a_emfields );
+   }
+
+}
+
+void PicSpeciesInterface::setSurfaceChargeOnNodes( const bool  a_use_filtering )
+{
+   CH_TIME("PicSpeciesInterface::setSurfaceChargeOnNodes()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   
+   // set the surface charge to zero
+   for(DataIterator dit(grids); dit.ok(); ++dit) {
+      FArrayBox& this_sigma = m_surfaceCharge_nodes[dit].getFab();
+      this_sigma.setVal(0.0);
+   }
+
+   // loop over all pic species and add the surface charge
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
+
+      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      if(species->charge() == 0) continue;
+
+      const LevelData<NodeFArrayBox>& species_sigma = species->getSurfaceChargeOnNodes();
+      for(DataIterator dit(grids); dit.ok(); ++dit) {
+         const FArrayBox& this_species_sigma = species_sigma[dit].getFab();
+         FArrayBox& this_sigma = m_surfaceCharge_nodes[dit].getFab();
+         this_sigma.plus(this_species_sigma,0,0,m_surfaceCharge_nodes.nComp());
+      }
+
+   }
+
+#if CH_SPACEDIM>1
+   LDaddNodeOp<NodeFArrayBox> addNodeOp;
+   m_surfaceCharge_nodes.exchange( m_surfaceCharge_nodes.interval(), 
+                                   m_mesh.reverseCopier(), addNodeOp );
+   SpaceUtils::exchangeNodeFArrayBox( m_surfaceCharge_nodes );
+#endif
 
 }
 
@@ -827,7 +887,7 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
                species->advanceParticlesIteratively( a_emfields, a_dt );
             }
          }
-         setCurrentDensity();
+         setCurrentDensity( a_emfields, false );
 #ifdef MASS_MATRIX_TEST
          setMassMatrices( a_emfields, a_dt );
          computeJfromMassMatrices( a_emfields );
@@ -846,7 +906,7 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
             species->addExternalFieldsToParticles( a_emfields ); 
             species->advanceVelocities( a_dt, true );
          }
-         else species->advanceParticlesIteratively( a_emfields, a_dt );
+         else { species->advanceParticlesIteratively( a_emfields, a_dt ); }
       }
      
       if(m_use_mass_matrices) {
@@ -858,13 +918,13 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
                species->advanceVelocities( a_dt, true );
             }
          }
-         setCurrentDensity();
+         setCurrentDensity( a_emfields, false );
 #endif
          setMassMatrices( a_emfields, a_dt );
          computeJfromMassMatrices( a_emfields );
       }
       else {
-         setCurrentDensity();
+         setCurrentDensity( a_emfields, false );
 #ifdef MASS_MATRIX_TEST
          setMassMatrices( a_emfields, a_dt );
          computeJfromMassMatrices( a_emfields );
@@ -875,8 +935,11 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
    
    LevelData<EdgeDataBox>& J = m_currentDensity;
    LevelData<NodeFArrayBox>& Jv = m_currentDensity_virtual;
-   addInflowJ( J, Jv, a_emfields, a_dt );   
+   addInflowJ( J, Jv, a_emfields, a_dt, a_from_emjacobian );   
    addSubOrbitJ( J, Jv, a_emfields, a_dt, a_from_emjacobian );
+   
+   // apply BCs, do addOp exchange, then divide by corrected Jacobian
+   finalizeSettingJ( J, Jv, a_emfields );
 
 }
 
@@ -938,6 +1001,7 @@ void PicSpeciesInterface::setMassMatrices( const EMFields&  a_emfields,
    // loop over all pic species and add their contribution 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      species->transferFastParticles();
       species->accumulateMassMatrices( m_sigma_xx, m_sigma_xy, m_sigma_xz,
 #if CH_SPACEDIM==1
                                        m_sigma_yx, m_sigma_yy, m_sigma_yz,
@@ -1377,31 +1441,32 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
 void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
                                       LevelData<NodeFArrayBox>&  a_Jv,
                                 const EMFields&                  a_emfields,
-                                const Real                       a_dt )
+                                const Real                       a_dt,
+                                const bool                       a_from_emjacobian ) 
 {
    CH_TIME("PicSpeciesInterface::addInflowJ()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
-   
+
    // if using the sub-orbit model for inflow particles, update the inflow particle
    // quantities, compute their current, and add it to the total J
 
    // loop over all pic species and add the current density from inflow particles 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
+
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->charge()==0) continue;
-      if(!species->suborbit_inflowJ()) continue;
+      if( species->charge()==0 ) { continue; }
+      if( !species->suborbit_inflowJ() ) { continue; }
 
       // update the inflow particle quantities     
-      species->advanceInflowParticlesIteratively( a_emfields, a_dt );
+      species->advanceInflowParticlesAndSetJ( a_emfields, a_dt, a_from_emjacobian );
       
       // compute inflow J and add it to the total J     
-      species->setInflowJ( a_dt );
       const LevelData<EdgeDataBox>& this_inflowJ = species->getInflowJ();
       for(DataIterator dit(grids); dit.ok(); ++dit) {
          for (int dir=0; dir<SpaceDim; dir++) {
             const FArrayBox& inflowJ_dir = this_inflowJ[dit][dir];
             a_J[dit][dir].plus(inflowJ_dir,0,0,1);
-         }
+	 }
       }
 #if CH_SPACEDIM<3
       const LevelData<NodeFArrayBox>& this_inflowJv = species->getInflowJ_virtual();
@@ -1410,8 +1475,9 @@ void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
          a_Jv[dit].getFab().plus(inflowJv,0,0,a_Jv.nComp());
       }
 #endif
-   }
 
+   }
+   
 }
 
 void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
@@ -1426,21 +1492,29 @@ void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
    // if using the sub-orbit model for bulk particles, loop over particle sub-orbits, 
    // update the particle quantities, and contribute their current for each sub-orbit
 
+#ifdef MASS_MATRIX_TEST
+   LevelData<EdgeDataBox>& J_T = m_currentDensity_TEST;
+   LevelData<NodeFArrayBox>& Jv_T = m_currentDensity_virtual_TEST;
+#endif
+
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->charge()==0) continue;
-      if(!species->use_suborbit_model()) continue;
+      if( species->charge()==0 ) { continue; }
+      if( !species->use_suborbit_model() ) { continue; }
 
       // advance of suborbit particles and setting of J are done in same routine  
       species->advanceSubOrbitParticlesAndSetJ( a_emfields, a_dt, a_from_emjacobian );
-      
+
       // add suborbit J to the total J 
       const LevelData<EdgeDataBox>& this_suborbitJ = species->getSubOrbitJ();
       for(DataIterator dit(grids); dit.ok(); ++dit) {
          for (int dir=0; dir<SpaceDim; dir++) {
             const FArrayBox& suborbitJ_dir = this_suborbitJ[dit][dir];
             a_J[dit][dir].plus(suborbitJ_dir,0,0,1);
+#ifdef MASS_MATRIX_TEST
+            J_T[dit][dir].plus(suborbitJ_dir,0,0,1);
+#endif
          }
       }
 #if CH_SPACEDIM<3
@@ -1448,6 +1522,9 @@ void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
       for(DataIterator dit(grids); dit.ok(); ++dit) {
          const FArrayBox& suborbitJv = this_suborbitJv[dit].getFab();
          a_Jv[dit].getFab().plus(suborbitJv,0,0,a_Jv.nComp());
+#ifdef MASS_MATRIX_TEST
+         Jv_T[dit].getFab().plus(suborbitJv,0,0,a_Jv.nComp());
+#endif
       }
 #endif
    

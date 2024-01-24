@@ -49,13 +49,11 @@ class GlobalDOF
     
     inline const LevelData<T>& dofDataLHS() const 
     { 
-      CH_assert(isDefined());
       return m_gdofs_lhs; 
     }
 
     inline const LevelData<T>& dofDataRHS() const 
     { 
-      CH_assert(isDefined());
       return m_gdofs_rhs; 
     }
 
@@ -154,49 +152,45 @@ class GlobalDOFEMFields
 
     inline const LevelData<FluxBox>& dofDataLHSB() const
     {
-      CH_assert(isDefined());
       return m_gdof_B.dofDataLHS();
     }
 
     inline const LevelData<FArrayBox>& dofDataLHSBv() const
     {
-      CH_assert( isDefined() && (SpaceDim<3) );
+      CH_assert( SpaceDim<3 );
       return m_gdof_Bv.dofDataLHS();
     }
 
     inline const LevelData<EdgeDataBox>& dofDataLHSE() const
     {
-      CH_assert(isDefined());
       return m_gdof_E.dofDataLHS();
     }
 
     inline const LevelData<NodeFArrayBox>& dofDataLHSEv() const
     {
-      CH_assert( isDefined() && (SpaceDim<3) );
+      CH_assert( SpaceDim<3 );
       return m_gdof_Ev.dofDataLHS();
     }
 
     inline const LevelData<FluxBox>& dofDataRHSB() const
     {
-      CH_assert(isDefined());
       return m_gdof_B.dofDataRHS();
     }
 
     inline const LevelData<FArrayBox>& dofDataRHSBv() const
     {
-      CH_assert( isDefined() && (SpaceDim<3) );
+      CH_assert( SpaceDim<3 );
       return m_gdof_Bv.dofDataRHS();
     }
 
     inline const LevelData<EdgeDataBox>& dofDataRHSE() const
     {
-      CH_assert(isDefined());
       return m_gdof_E.dofDataRHS();
     }
 
     inline const LevelData<NodeFArrayBox>& dofDataRHSEv() const
     {
-      CH_assert( isDefined() && (SpaceDim<3) );
+      CH_assert( SpaceDim<3 );
       return m_gdof_Ev.dofDataRHS();
     }
 

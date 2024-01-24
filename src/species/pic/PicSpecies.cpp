@@ -110,11 +110,14 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    m_interp_bc_check = false;
    m_suborbit_inflowJ = false;
    m_use_suborbit_model = false;
+   m_suborbit_fast_particles = false;
    if(m_charge_conserving_deposit) m_interp_bc_check = true;
    a_ppspc.query( "interp_bc_check", m_interp_bc_check );
    a_ppspc.query( "suborbit_inflow_J", m_suborbit_inflowJ );
    a_ppspc.query( "use_suborbit_model", m_use_suborbit_model );
    if(m_use_suborbit_model) a_ppspc.query("suborbit_testing",m_suborbit_testing);
+   a_ppspc.query( "suborbit_fast_particles", m_suborbit_fast_particles );
+   if(m_suborbit_fast_particles) {  m_use_suborbit_model = true; }
 
    a_ppspc.get( "mass", m_mass );
    a_ppspc.get( "charge", m_charge ); 
@@ -137,9 +140,10 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       cout << "  interpolate N scheme = " << interp_type_N << endl;
       cout << "  interpolate J scheme = " << interp_type_J << endl;
       cout << "  interpolate E/B scheme = " << interp_type_E << endl;
-      cout << "  interpolate bc check = " << m_interp_bc_check << endl;
-      cout << "  suborbit inflow J = " << m_suborbit_inflowJ << endl;
-      cout << "  use suborbit model = " << m_use_suborbit_model << endl;
+      cout << "  interpolate bc check = " << (m_interp_bc_check?"true":"false") << endl;
+      cout << "  suborbit inflow J    = " << (m_suborbit_inflowJ?"true":"false") << endl;
+      cout << "  use suborbit model   = " << (m_use_suborbit_model?"true":"false") << endl;
+      cout << "  suborbit fast parts  = " << (m_suborbit_fast_particles?"true":"false") << endl;
       if(m_suborbit_testing) {
 	 cout << "  suborbit testing = true (fixed suborbit iter_max = 10)" << endl;
       }
@@ -178,6 +182,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    m_chargeDensity.define(grids,1,ghostVect);
    m_chargeDensity_faces.define(grids,1,ghostVect);
    m_chargeDensity_nodes.define(grids,1,ghostVect);
+   m_surfaceCharge_nodes.define(grids,1,ghostVect);
 
    m_temperature.define(grids,3,ghostVect);
    m_velocity.define(grids,3,ghostVect);
@@ -190,6 +195,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       m_energyFlux[dit].setVal(0.0);
       m_temperature[dit].setVal(0.0);
       m_velocity[dit].setVal(0.0);
+      m_surfaceCharge_nodes[dit].getFab().setVal(0.0);
    } 
 
    // each box has to be square with fixedBoxSize length to use ParticleData()
@@ -835,63 +841,106 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
 }
 #endif
 
-void PicSpecies::advanceInflowPositions( List<JustinsParticle>&  a_pList,
-                                   const int                     a_bdry_dir,
-                                   const int                     a_bdry_side,
-                                   const Real                    a_cnormDt )
+void PicSpecies::transferFastParticles()
 {
-   CH_TIME("PicSpecies::advanceInflowPositions() from particle list");
+   if(!m_suborbit_fast_particles) { return; }
+   if(m_interpJToGrid != CC1) { return; }
+   CH_TIME("PicSpecies::transferFastParticles()");
+
+   // This function is called from preRHSOp::setMassMatrices() prior to 
+   // call to species->accumulateMassMatrices(). It is used to handle
+   // high-energy particles with more cell crossings than permitted 
+   // by the CC1 scheme for the mass matrices. These particles are 
+   // sent to the suborbit container and are not included in the MM.
+      
+   const RealVect& dX = m_mesh.getdX();
+   const int max_crossings = m_mesh.ghosts()-SpaceDim;
+   int index_old, index_new, num_crossings;
+   RealVect xpnew;
+
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+      
+      // get list of particles in main container
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+
+      // get list for suborbit container
+      ListBox<JustinsParticle>& box_list_suborbit = m_data_suborbit[dit];
+      List<JustinsParticle>& pList_suborbit = box_list_suborbit.listItems();
+   
+      // loop over main container and search for fast particles
+      ListIterator<JustinsParticle> lit(pList);
+      for(lit.begin(); lit.ok();) {
+ 
+         bool fastParticle = false;
+         const RealVect& xpbar = lit().position();
+         const RealVect& xpold = lit().position_old();
+         for (int dir=0; dir<SpaceDim; dir++) { 
+	    xpnew[dir] = 2.0*xpbar[dir] - xpold[dir];
+	    index_old = std::floor((xpold[dir] - 0.5*dX[dir])/dX[dir]);
+	    index_new = std::floor((xpnew[dir] - 0.5*dX[dir])/dX[dir]);
+	    num_crossings = std::abs(index_new - index_old);
+	    if ( num_crossings > max_crossings ) { 
+	       fastParticle = true;
+	       cout << "Notice: fast particle found with num_crossings = " 
+		    << num_crossings << " in dir = " << dir << endl;
+               const Box grown_box = grow(BL.get(dit),m_mesh.ghosts());
+               const int box_imin = grown_box.smallEnd(dir);
+               const int box_imax = grown_box.bigEnd(dir);
+	       CH_assert(index_new<box_imax-1);
+	       CH_assert(index_new>=box_imin);
+	    }
+         }
+         if (fastParticle) {
+            lit().setNumSubOrbits( 2 );
+	    pList_suborbit.transfer(lit);
+         }
+         else { ++lit; }
+
+      }
+
+   }
+
+}
+
+void PicSpecies::advanceInflowPartToBdry( RealVect&            a_xpold,
+                                          Real&                a_cnormDt_sub,
+                                    const Real                 a_cnormDt,
+		                    const std::array<Real,3>&  a_upold,
+                                    const int                  a_bdry_dir,
+                                    const int                  a_bdry_side )
+{
+   CH_TIME("PicSpecies::advanceInflowPartToBdry()");
          
-   // Note that this function is only called from implicit solver 
+   // free-streaming advance of inflow particle to the physical boundary
 
    // set the boundary position
    const RealVect& Xmin(m_mesh.getXmin());
    const RealVect& Xmax(m_mesh.getXmax());
-   RealVect X0;
-   if(a_bdry_side==0) X0[a_bdry_dir] = Xmin[a_bdry_dir];
-   else X0[a_bdry_dir] = Xmax[a_bdry_dir]; 
+   Real X0;
+   if (a_bdry_side==0) { X0 = Xmin[a_bdry_dir]; }
+   else { X0 = Xmax[a_bdry_dir]; } 
    
-   Real cnormDt0, cnormDt1;
-   Real gammap_old, gammap;
+   Real gammap_old = 1.0; 
 #ifdef RELATIVISTIC_PARTICLES
-   Real gbsq_new;
-   std::array<Real,3> upnew;
+   gammap_old += a_upold[0]*a_upold[0] + a_upold[1]*a_upold[1] + a_upold[2]*a_upold[2];
+   gammap_old = std::sqrt(gammap_old);
 #endif
 
-   ListIterator<JustinsParticle> lit(a_pList);
-   for(lit.begin(); lit.ok(); ++lit) {
-      RealVect& xp = lit().position();
-      const RealVect& xpold = lit().position_old();
-      const std::array<Real,3>& upold = lit().velocity_old();
+   // compute Dt for bring particle to the boundary
+   const Real cnormDt0 = (X0-a_xpold[a_bdry_dir])/(a_upold[a_bdry_dir]/gammap_old);
 
-      gammap_old = 1.0; 
-#ifdef RELATIVISTIC_PARTICLES
-      gammap_old += upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
-      gammap_old = sqrt(gammap_old);
-#endif
-
-      cnormDt0 = (X0[a_bdry_dir]-xpold[a_bdry_dir])/(upold[a_bdry_dir]/gammap_old);
-      for(int dir=0; dir<SpaceDim; dir++) {
-         if(dir==a_bdry_dir) continue;
-         X0[dir] = xpold[dir] + upold[dir]/gammap_old*cnormDt0;
-      }
-      cnormDt1 = a_cnormDt - cnormDt0;
-      CH_assert(cnormDt1>0.0);
-      const std::array<Real,3>& upbar = lit().velocity();
-      
-      gammap = 1.0; 
-#ifdef RELATIVISTIC_PARTICLES
-      for(int n=0; n<3; n++) upnew[n] = 2.0*upbar[n] - upold[n];
-      gbsq_new = upnew[0]*upnew[0] + upnew[1]*upnew[1] + upnew[2]*upnew[2];
-      gammap = 0.5*(gammap_old + sqrt(1.0 + gbsq_new));
-#endif
-
-      for(int dir=0; dir<SpaceDim; dir++) {
-         xp[dir] = X0[dir] + upbar[dir]/gammap*cnormDt1;
-         xp[dir] = (xpold[dir] + xp[dir])/2.0; // convert to xpbar
-      }
-      if(upbar[a_bdry_dir]==0.0) xp[a_bdry_dir] = xpold[a_bdry_dir];
+   // update the old position to be at the boundary
+   for (int dir=0; dir<SpaceDim; dir++) {
+      if (dir==a_bdry_dir) { a_xpold[dir] = X0; }
+      else { a_xpold[dir] = a_xpold[dir] + a_upold[dir]/gammap_old*cnormDt0; }
    }
+
+   // set the remaining time
+   a_cnormDt_sub = a_cnormDt - cnormDt0;
+   CH_assert(a_cnormDt_sub>0.0);
       
 }
 
@@ -978,7 +1027,8 @@ void PicSpecies::checkForNAN( const std::string&  a_string )
    
 }
 
-void PicSpecies::applyBCs( const bool  a_intermediate_advance )
+void PicSpecies::applyBCs( const bool  a_intermediate_advance,
+	                   const Real  a_time )
 {
    CH_TIME("PicSpecies::applyBCs()");
  
@@ -990,8 +1040,8 @@ void PicSpecies::applyBCs( const bool  a_intermediate_advance )
 
    // apply BCs to outcasts that are also out of bounds
    List<JustinsParticle>& outcast_list = m_data.outcast();
-   Real dummy_time = 0.0;
-   m_species_bc->apply(outcast_list,a_intermediate_advance,dummy_time);
+   m_species_bc->apply( outcast_list, m_surfaceCharge_nodes,
+		        a_intermediate_advance, a_time );
 
    // remap the outcasts
    m_data.remapOutcast();
@@ -1552,7 +1602,7 @@ void PicSpecies::advanceParticlesIteratively( const EMFields&  a_emfields,
          if(iter>=m_iter_max) {
          
             int num_not_converged = temp_pList.length();
-            if(m_verbose_particles && m_use_suborbit_model) {
+            if (m_verbose_particles) {
                cout << "JRA: Picard for particles: iter = " << iter << endl;
                cout << "     num not converged = " << num_not_converged << endl;
                cout << "     m_name = " << m_name << endl;
@@ -1562,29 +1612,8 @@ void PicSpecies::advanceParticlesIteratively( const EMFields&  a_emfields,
                                  Efield_inPlane, Bfield_inPlane,
                                  Efield_virtual, Bfield_virtual );
 	    }
-
-            if(m_use_suborbit_model) break;
-
-#if CH_SPACEDIM==1
-            // use Newton method to update particles that won't converge with Picard
-            if(m_push_type!=CYL_CAR && m_push_type!=CYL_HYB 
-	    && m_push_type!=SPH_CAR && m_push_type!=SPH_HYB) {
-              num_not_converged -= newtonParticleUpdate( temp_pList, cnormDt, a_emfields,
-                                                         Efield_inPlane, Bfield_inPlane, 
-                                                         Efield_virtual, Bfield_virtual );
-            }
-#endif
-            if ( num_not_converged>0 && m_verbose_particles ) {
-               cout << "JRA: Picard for particles: iter = " << iter << endl;
-               cout << "     num not converged = " << num_not_converged << endl;
-               cout << "     m_name = " << m_name << endl;
-               cout << "     cnormDt = " << cnormDt << endl;
-               Box cell_box = BL.get(dit);
-               inspectParticles( temp_pList, false, cell_box,
-                                 Efield_inPlane, Bfield_inPlane,
-                                 Efield_virtual, Bfield_virtual );
-            }
             break;
+
          }
          iter += 1;
 
@@ -1608,116 +1637,6 @@ void PicSpecies::advanceParticlesIteratively( const EMFields&  a_emfields,
 
    } // end loop over boxes on this proc
  
-}
-
-void PicSpecies::advanceInflowParticlesIteratively( const EMFields&  a_emfields,
-                                                    const Real       a_dt )
-{
-   CH_TIME("PicSpecies::advanceInflowParticlesIteratively()");
-   if(!m_suborbit_inflowJ) return;
-   
-   // Picard method for coupled half dt advance of particle positions and velocities
-   // (inflow particles only. sub-orbits used)
-   // xpbar = xpn + dt/2*upbar/(0.5*(gammap_new + gammap_old))
-   // upbar = upn + dt/2*q/m*(Ep(xpbar) + upbar/gammap_bar x Bp(xpbar))
-   
-   const Real cnormDt = a_dt*m_cvac_norm;
-
-   const RealVect& Xmin(m_mesh.getXmin());
-   const RealVect& Xmax(m_mesh.getXmax());
-   const RealVect& dX(m_mesh.getdX());
-
-   Vector<List<JustinsParticle>>& inflow_list_vect = m_species_bc->getInflowListVect();
-             
-   const LevelData<EdgeDataBox>& Efield = a_emfields.getFilteredElectricField();
-   const LevelData<FluxBox>&     Bfield = a_emfields.getMagneticField();
-   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getVirtualElectricField();
-   const LevelData<FArrayBox>&     Bfield_virt = a_emfields.getVirtualMagneticField();
-   
-   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
-   for (int b(0); b<bdry_layout.size(); b++) {
-      
-      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
-      const int bdry_dir = this_bdry_layout.dir();
-      const int bdry_side(this_bdry_layout.side());
-   
-      // compute the boundary location
-      Real Xbdry;
-      if(bdry_side==0) Xbdry = Xmin[bdry_dir];
-      else Xbdry = Xmax[bdry_dir]; 
-
-      List<JustinsParticle>& pList = inflow_list_vect[b];
-      if(pList.length()==0) continue;      
-   
-      for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-
-         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
-         const EdgeDataBox& Efield_inPlane = Efield[interior_dit];
-         const FluxBox&     Bfield_inPlane = Bfield[interior_dit];
-         const FArrayBox&   Efield_virtual = Efield_virt[interior_dit].getFab();
-         const FArrayBox&   Bfield_virtual = Bfield_virt[interior_dit];
-         applyForcesToInflowParticles( pList, a_emfields, 
-                                       Efield_inPlane, Bfield_inPlane, 
-                                       Efield_virtual, Bfield_virtual, 
-                                       bdry_dir, bdry_side, cnormDt ); 
-         advanceInflowPositions( pList, bdry_dir, bdry_side, cnormDt ); 
-         applyForcesToInflowParticles( pList, a_emfields, 
-                                       Efield_inPlane, Bfield_inPlane, 
-                                       Efield_virtual, Bfield_virtual, 
-                                       bdry_dir, bdry_side, cnormDt ); 
-
-         // transfer not converged particles to a temp list
-         List<JustinsParticle> temp_pList;
-         const int pListLengthStart = pList.length();      
-         PicSpeciesUtils::stepNormTransferInflow( pList, temp_pList, dX, Xbdry,
-                                                  bdry_dir, cnormDt, m_rtol, false );
-   
-         // loop over temp list and move back to main list when converged     
-         int iter(1);
-         while(temp_pList.length()>0) {
-            advanceInflowPositions( temp_pList, bdry_dir, bdry_side, cnormDt ); 
-            applyForcesToInflowParticles( temp_pList, a_emfields, 
-                                          Efield_inPlane, Bfield_inPlane, 
-                                          Efield_virtual, Bfield_virtual, 
-                                          bdry_dir, bdry_side, cnormDt ); 
-            
-            PicSpeciesUtils::stepNormTransferInflow( pList, temp_pList, dX, Xbdry,
-                                                     bdry_dir, cnormDt, m_rtol, true );
-            if(temp_pList.length()==0) break;
-            
-            if(iter>=m_iter_max) {
-
-               int num_not_converged = temp_pList.length();
-               if ( num_not_converged>0 ) {
-                  cout << "JRA: Picard for inflow particles: iter = " << iter << endl;
-                  cout << "JRA: num not converged = " << num_not_converged << endl;
-                  ListIterator<JustinsParticle> lit(temp_pList);
-                  for(lit.begin(); lit.ok(); ++lit) {
-                     cout << "position = " << lit().position() << endl;
-                     cout << "velocity = " << lit().velocity()[0] << endl;
-                     cout << "position old = " << lit().position_old() << endl;
-                     cout << "velocity old = " << lit().velocity_old()[0] << endl;
-                  }
-               }
-               break;
-
-            }
-            iter += 1;
-
-         }
-
-         // put back particles that could not converge...     
-         ListIterator<JustinsParticle> lit(temp_pList);
-         for(lit.begin(); lit.ok();) pList.transfer(lit);
-        
-         // make sure we got all the particles
-         const int pListLengthEnd = pList.length();      
-         if(pListLengthEnd!=pListLengthStart) exit(EXIT_FAILURE);
-
-      }
-   }
-
 }
 
 void PicSpecies::mergeSubOrbitParticles()
@@ -1758,7 +1677,7 @@ void PicSpecies::removeOutflowParticles()
    if(!m_motion) return;
     
    // remove the outcasts that are out of bounds
-   m_species_bc->removeOutflowParticles();
+   m_species_bc->removeOutflowParticles( m_surfaceCharge_nodes );
    
    if(!m_data.isClosed()) {
       List<JustinsParticle>& outcast_list = m_data.outcast();
@@ -1789,8 +1708,8 @@ void PicSpecies::createInflowParticles( const Real  a_time,
 void PicSpecies::injectInflowParticles()
 {
    CH_TIME("PicSpecies::injectInflowParticles()");
-   if(m_suborbit_inflowJ) return;
-   else m_species_bc->injectInflowParticles( m_data );
+   if( m_suborbit_inflowJ ) { return; }
+   else { m_species_bc->injectInflowParticles( m_data, m_surfaceCharge_nodes ); }
 }
 
 void PicSpecies::updateOldParticlePositions()
@@ -2001,7 +1920,8 @@ void PicSpecies::initialize( const CodeUnits&    a_units,
    
    // define BCs object for this species
    int verbosity = 1; 
-   m_species_bc = new PicSpeciesBC( m_name, m_mass, m_mesh, a_units, verbosity );
+   m_species_bc = new PicSpeciesBC( m_name, m_mass, m_charge, m_interpRhoToGrid, 
+		                    m_mesh, a_units, verbosity );
       
    if(m_interp_bc_check) { // only used for charge-conserving schemes so far
       const IntVect& is_outflow_bc_lo = m_species_bc->getIsOutflowBC_lo(); 
@@ -2322,6 +2242,9 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
                IntVect ipg = pbit();
               
 	       if(cylindrical_profile) {
+                  for(int dir=0; dir<SpaceDim; dir++) {
+                     Xpart[dir] += (ipg[dir] + 0.5)*dXpart[dir];
+                  }
                   Real Rpart = std::pow(Xpart[0]-cyl_base[0],2) + std::pow(Xpart[1]-cyl_base[1],2);
 		  Rpart = std::sqrt(Rpart);
 		  if(Rpart>1.0) { part_outside = true; }
@@ -2495,7 +2418,8 @@ void PicSpecies::perturbPositions()
       }
       
    }
-   applyBCs(false);
+   const Real dummy_time = 0.0;
+   applyBCs(false,dummy_time);
 
 }
 
@@ -2546,11 +2470,30 @@ void PicSpecies::initializeFromRestartFile( const Real          a_time,
       m_EnergyIn_lo[dir] = header.m_real["energyIn_lo"+dirstr];
       m_EnergyIn_hi[dir] = header.m_real["energyIn_hi"+dirstr];
    }
+      
+   if( m_charge != 0 ) { // read in the cumulative surface charge diagnostic
+      int read_error;
+      LevelData<NodeFArrayBox> sigma_temp;
+      const DisjointBoxLayout& grids(m_mesh.getDBL());
+      read_error = read(handle, sigma_temp, "surface_charge", grids);
+      if(read_error==1) {
+         if(!procID()) {
+	    cout << "Notice: surface_charge not found in checkpoint file " 
+		 << a_restart_file_name << " for group = " << group_name << endl;
+	    cout << "...most likely an old restart file..." << endl;
+	 }
+      }
+      else{
+        sigma_temp.copyTo(m_surfaceCharge_nodes);  
+#if CH_SPACEDIM>1
+        postWriteSurfaceCharge();
+#endif
+      }
+   }
 
    // read in the particle data
    readParticlesFromHDF( handle, m_data, "particles" );
    handle.close();
-   
 
    m_data.remapOutcast();
    CH_assert(m_data.isClosed());
@@ -3092,109 +3035,78 @@ void PicSpecies::setCurrentDensity( const bool  a_from_explicit_solver )
       }
    }
 
-   // apply BC to J (only used for symmetry BC right now)
-   m_species_bc->applyToJ(m_currentDensity,m_currentDensity_virtual);
-   
-   // add ghost cells to valid cells
-   LDaddEdgeOp<EdgeDataBox> addEdgeOp;
-   m_currentDensity.exchange(m_currentDensity.interval(), m_mesh.reverseCopier(), addEdgeOp);
-   //SpaceUtils::exchangeEdgeDataBox(m_currentDensity); // needed if more than 1 box per proccesor. bug?
-                                                      // also needed if only 1 proc in Z for 2D RZ..?
-  
-   // divide by Jacobian after doing exchange (Corrected Jacobian does not have ghosts) 
-   const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
-   for(dit.begin(); dit.ok(); ++dit) {
-      EdgeDataBox& J_inPlane = m_currentDensity[dit];
-      for (int dir=0; dir<SpaceDim; ++dir) {
-         J_inPlane[dir].divide(Jec[dit][dir],0,0,1);
-      }
-   }
+   // apply BCs (which are done in the EMfields class), doing addOp exchange, 
+   // and dividing by the corrected Jacobian are now done by caller of this function
 
-#if CH_SPACEDIM<3
-   LDaddNodeOp<NodeFArrayBox> addNodeOp;
-   m_currentDensity_virtual.exchange(m_currentDensity_virtual.interval(), 
-                                     m_mesh.reverseCopier(), addNodeOp);
-   //SpaceUtils::exchangeNodeFArrayBox(m_currentDensity_virtual); // needed if more than 1 box per proccesor. bug?
-                                                                // also needed if only 1 proc in Z for 2D RZ..?
-   
-   const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
-   for(dit.begin(); dit.ok(); ++dit) {
-      FArrayBox& J_virtual = m_currentDensity_virtual[dit].getFab();
-      for (int comp=0; comp<J_virtual.nComp(); ++comp) {
-         J_virtual.divide(Jnc[dit].getFab(),0,comp,1);
-      }
-   }
-#endif
-   
 }
 
-void PicSpecies::setInflowJ( const Real  a_dt )
+void PicSpecies::advanceInflowParticlesAndSetJ( const EMFields&  a_emfields,
+                                                const Real       a_dt,
+                                                const bool       a_from_emjacobian )
 {
-   CH_TIME("PicSpecies::setInflowJ()");
- 
-   const DisjointBoxLayout& grids(m_mesh.getDBL());
-   DataIterator dit = grids.dataIterator();
-
-   // set containers to zero
-   for(dit.begin(); dit.ok(); ++dit) {
-      EdgeDataBox& J_inPlane = m_inflowJ[dit];
-      for (int dir=0; dir<SpaceDim; ++dir) J_inPlane[dir].setVal(0.0);
-#if CH_SPACEDIM<3
-      FArrayBox& J_virtual = m_inflowJ_virtual[dit].getFab();
-      J_virtual.setVal(0.0);
-#endif
-   }
-
-   // deposit inflow J
-   const Real cnormDt = a_dt*m_cvac_norm;
-   m_species_bc->depositInflowJ( m_inflowJ, m_inflowJ_virtual, 
-                                *m_meshInterp, cnormDt );
-
-   // multiply by charge/volume
-   const Real volume_scale = m_mesh.getVolumeScale();
-   for(dit.begin(); dit.ok(); ++dit) {
-#if CH_SPACEDIM<3
-      m_inflowJ_virtual[dit].getFab().mult(m_charge/volume_scale);
-#endif
-      for (int dir=0; dir<SpaceDim; ++dir) {
-         m_inflowJ[dit][dir].mult(m_charge/volume_scale);
-      }
-   }
-
-   // apply BC to J (only used for symmetry BC right now)
-   m_species_bc->applyToJ(m_inflowJ,m_inflowJ_virtual);
+   CH_TIME("PicSpecies::advanceInflowParticlesAndSetJ()");
+   if(!m_suborbit_inflowJ) { return; }
    
-   // add ghost cells to valid cells
-   LDaddEdgeOp<EdgeDataBox> addEdgeOp;
-   m_inflowJ.exchange(m_inflowJ.interval(), m_mesh.reverseCopier(), addEdgeOp);
-   //SpaceUtils::exchangeEdgeDataBox(m_inflowJ); // needed if more than 1 box per proccesor. bug?
-                                               // also needed if only 1 proc in Z for 2D RZ..?
-  
-   // divide by Jacobian after doing exchange (Corrected Jacobian does not have ghosts) 
-   const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
-   for(dit.begin(); dit.ok(); ++dit) {
-      EdgeDataBox& J_inPlane = m_inflowJ[dit];
-      for (int dir=0; dir<SpaceDim; ++dir) {
-         J_inPlane[dir].divide(Jec[dit][dir],0,0,1);
+   SpaceUtils::zero( m_inflowJ );
+   SpaceUtils::zero( m_inflowJ_virtual );
+   
+   Vector<List<JustinsParticle>>& inflow_list_vect = m_species_bc->getInflowListVect();
+             
+   const LevelData<EdgeDataBox>&   Efield = a_emfields.getFilteredElectricField();
+   const LevelData<FluxBox>&       Bfield = a_emfields.getMagneticField();
+   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getVirtualElectricField();
+   const LevelData<FArrayBox>&     Bfield_virt = a_emfields.getVirtualMagneticField();
+   
+   const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
+   for (int b(0); b<bdry_layout.size(); b++) {
+      
+      const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
+      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
+      const int bdry_dir = this_bdry_layout.dir();
+      const int bdry_side(this_bdry_layout.side());
+   
+      const IntVect& is_inflow_bc_lo = m_species_bc->getIsInflowBC_lo();
+      const IntVect& is_inflow_bc_hi = m_species_bc->getIsInflowBC_hi();
+   
+      bool is_inflow_bdry = false;
+      if(bdry_side==0 && is_inflow_bc_lo[bdry_dir]==1) { is_inflow_bdry = true; }
+      else if(bdry_side==1 && is_inflow_bc_hi[bdry_dir]==1) { is_inflow_bdry = true; }
+      if( !is_inflow_bdry ) { continue; }
+
+      List<JustinsParticle>& pList = inflow_list_vect[b];
+      if(pList.length()==0) { continue; }
+   
+      for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+
+         const DataIndex& interior_dit( this_bdry_layout.dataIndex(dit) );
+         const EdgeDataBox& Efield_inPlane = Efield[interior_dit];
+         const FluxBox&     Bfield_inPlane = Bfield[interior_dit];
+         const FArrayBox&   Efield_virtual = Efield_virt[interior_dit].getFab();
+         const FArrayBox&   Bfield_virtual = Bfield_virt[interior_dit];
+      
+         EdgeDataBox& local_J = m_inflowJ[interior_dit]; 
+         FArrayBox& local_Jv  = m_inflowJ_virtual[interior_dit].getFab(); 
+
+         advanceSubOrbitParticlesAndSetJ( pList, local_J, local_Jv, a_emfields,
+	  	                          Efield_inPlane, Bfield_inPlane,
+		                          Efield_virtual, Bfield_virtual,
+				          bdry_dir, bdry_side,
+		                          a_dt, a_from_emjacobian );
+
+         // multiply by charge/volume
+         const Real volume_scale = m_mesh.getVolumeScale();
+#if CH_SPACEDIM<3
+         local_Jv.mult(m_charge/volume_scale);
+#endif
+         for (int dir=0; dir<SpaceDim; ++dir) {
+           local_J[dir].mult(m_charge/volume_scale);
+         }
+
       }
+
    }
 
-#if CH_SPACEDIM<3
-   LDaddNodeOp<NodeFArrayBox> addNodeOp;
-   m_inflowJ_virtual.exchange(m_inflowJ_virtual.interval(), 
-                              m_mesh.reverseCopier(), addNodeOp);
-   //SpaceUtils::exchangeNodeFArrayBox(m_inflowJ_virtual); // needed if more than 1 box per proccesor. bug?
-                                                         // also needed if only 1 proc in Z for 2D RZ..?
-   
-   const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
-   for(dit.begin(); dit.ok(); ++dit) {
-      FArrayBox& J_virtual = m_inflowJ_virtual[dit].getFab();
-      for (int comp=0; comp<J_virtual.nComp(); ++comp) {
-         J_virtual.divide(Jnc[dit].getFab(),0,comp,1);
-      }
-   }
-#endif
-  
+
 }
 
 void PicSpecies::advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
@@ -3203,20 +3115,11 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
 {
    CH_TIME("PicSpecies::advanceSubOrbitParticlesAndSetJ()");
 
-   int axisymm_car_push = 0;
-   if(m_push_type==CYL_CAR) axisymm_car_push = 1;
-   else if(m_push_type==SPH_CAR) axisymm_car_push = 2;
-   
-   int iter_min = 0;
- 
-   int iter_max = m_iter_max;
-   if(m_suborbit_testing) iter_max = std::max(10,iter_max); // used for CYL pusher test
-   if(a_from_emjacobian) iter_max += iter_max; // increase iters for buffer
-
    SpaceUtils::zero( m_suborbitJ );
    SpaceUtils::zero( m_suborbitJ_virtual );
-
-   const Real cnormDt = a_dt*m_cvac_norm;
+   
+   const int dummy_bdry_dir = -1;
+   const int dummy_bdry_side = -1;
 
    const LevelData<EdgeDataBox>& Efield = a_emfields.getFilteredElectricField();
    const LevelData<FluxBox>&     Bfield = a_emfields.getMagneticField();
@@ -3231,246 +3134,294 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
       const FluxBox&     Bfield_inPlane = Bfield[dit];
       const FArrayBox& Efield_virtual = Efield_virt[dit].getFab();
       const FArrayBox& Bfield_virtual = Bfield_virt[dit];
-
-      // define references to suborbitJ containers on this box      
+      
       EdgeDataBox& local_J = m_suborbitJ[dit]; 
       FArrayBox& local_Jv  = m_suborbitJ_virtual[dit].getFab(); 
-     
-      // define local containers to store J from a single particle
-      EdgeDataBox this_Jp(local_J.box(),local_J.nComp());
-      FArrayBox this_Jpv(local_Jv.box(),local_Jv.nComp()); // is this correct?
-      
-      // Loop over each particle in the list and advance/deposit for each suborbit
+
       ListBox<JustinsParticle>& box_list = m_data_suborbit[dit];
       List<JustinsParticle>& pList = box_list.listItems();
-      
-      List<JustinsParticle> temp_pList, finished_pList;
+      if(pList.length()==0) { continue; }
 
-      ListIterator<JustinsParticle> lit(pList);
-      for(lit.begin(); lit.ok();) { 
-         
-     	 const int num_part_suborbits = lit().numSubOrbits();
-         int num_suborbits = num_part_suborbits;
-         Real cnormDt_sub = cnormDt/num_suborbits;
-   
-	 // zero containers to store J from a single particle
-	 this_Jp.setVal(0.0);
-	 this_Jpv.setVal(0.0);
+      advanceSubOrbitParticlesAndSetJ( pList, local_J, local_Jv, a_emfields,
+		                       Efield_inPlane, Bfield_inPlane,
+		                       Efield_virtual, Bfield_virtual,
+				       dummy_bdry_dir, dummy_bdry_side,
+		                       a_dt, a_from_emjacobian );
 
-	 // save the old position and velocity
-         const RealVect& xpold = lit().position_old();
-	 const RealVect xpold0 = xpold;
-	 const std::array<Real,3>& vpold = lit().velocity_old();
-         const std::array<Real,3> vpold0 = vpold;
-
-	 // set xpbar and vpbar to old values for initial guess of first suborbit
-	 lit().setPosition(xpold);
-	 lit().setVelocity(vpold);
-#if CH_SPACEDIM<3
-         std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
-         if(m_push_type==CYL_CYL || m_push_type==CYL_HYB) {
-            position_virt[0] = 0.0; // dtheta
-	 }
-	 else if(m_push_type==SPH_SPH || m_push_type==SPH_HYB) {
-            position_virt[0] = 0.0; // dtheta
-            position_virt[1] = 0.0; // dphi
-	 }
-	 else if(m_push_type==CYL_CAR) {
-            position_virt[0] = xpold[0]; // xpbar
-            position_virt[1] = 0.0;      // ypbar
-	 }
-#if CH_SPACEDIM==1
-	 else if(m_push_type==SPH_CAR) {
-            position_virt[0] = xpold[0]; // xpbar
-            position_virt[1] = 0.0;      // ypbar
-            position_virt[2] = 0.0;      // zpbar
-         }
-#endif
-#endif
-	 // put this particle in a list all by itself
-         List<JustinsParticle> single_pList;
-	 single_pList.transfer(lit);
-	 
-	 // loop over suborbits for this particle
-	 for (int nv = 0; nv<num_suborbits; nv++) {
-
-            int iter(0);
-            while(single_pList.length()>0) {
-               interpolateFieldsToParticles( single_pList, Efield_inPlane, Bfield_inPlane, 
-                                             Efield_virtual, Bfield_virtual ); 
-               addExternalFieldsToParticles( single_pList, a_emfields ); 
-               applyForces(single_pList, cnormDt_sub, true);
-         
-               if(iter>=iter_min) { stepNormTransfer( single_pList, temp_pList, cnormDt_sub, true ); }
-	       else { advancePositionsImplicit( single_pList, cnormDt_sub ); } 
-         
-	       if(single_pList.length()==0) break;
-
-               iter += 1;
-	       if( iter >= iter_max ) { // this suborbit did not converge
-
-                  ListIterator<JustinsParticle> lit_single(single_pList);
-	          lit_single.begin();
-		  if( !a_from_emjacobian ) { // increase # suborbits at start again
-		     cout << "JRA: iter_max reached for suborbit nv = " << nv + 1 << " of " 
-		          << num_suborbits << endl;
-                     num_suborbits++;
-		     cout << "     increasing suborbits to " << num_suborbits << endl;
-		     lit_single().setPosition(xpold0);
-		     lit_single().setOldPosition(xpold0);
-		     lit_single().setVelocity(vpold0);
-		     lit_single().setOldVelocity(vpold0);
-                     lit_single().setNumSubOrbits( num_suborbits );
-                     cnormDt_sub = cnormDt/num_suborbits;
-	             this_Jp.setVal(0.0);
-	             this_Jpv.setVal(0.0);
-#if CH_SPACEDIM<3
-	             if(m_mesh.axisymmetric()) rebaseVirtualPositions( single_pList );
-#endif
-		     nv = -1;
-		     break;
-		  }
-		  else {
-		     cout << "JRA: iter_max reached for suborbit nv = " << nv + 1 << " of " 
-		          << num_suborbits << " during linear stage... not ideal..." << endl;
-	             temp_pList.transfer(lit_single);
-		     break;
-		  }
-
-	       }
-         
-	    }
-	    if(nv==-1) continue;
-
-            // 3) deposit particles J for this suborbit
-            m_meshInterp->depositCurrent( this_Jp[0],
-#if CH_SPACEDIM>=2
-                                          this_Jp[1],
-#else
-                                          this_Jpv,
-#endif
-#if CH_SPACEDIM==3
-                                          this_Jp[2],
-#else
-                                          this_Jpv,
-#endif
-                                          temp_pList,
-                                          m_interpJToGrid,
-                                          axisymm_car_push,
-                                          false );
-
-	    // 4) convert particle quantities from time-centered to new
-            if(m_push_type==CYL_HYB) {
-	       advanceVelocities_CYL_HYB_2ndHalf( a_dt/num_suborbits, temp_pList );
-	       advancePositions_2ndHalf( temp_pList );
-	    } 
-	    else if(m_push_type==CYL_CAR) {
-               advanceParticles_CYL_CAR_2ndHalf( temp_pList );
-	    }
-#if CH_SPACEDIM==1
-	    else if(m_push_type==SPH_HYB) {
-	       advanceVelocities_SPH_HYB_2ndHalf( a_dt/num_suborbits, temp_pList );
-	       advancePositions_2ndHalf( temp_pList );
-	    } 
-	    else if(m_push_type==SPH_CAR) {
-               advanceParticles_SPH_CAR_2ndHalf( temp_pList );
-	    }
-#endif
-	    else {
-	       advanceVelocities_2ndHalf( temp_pList );
-	       advancePositions_2ndHalf( temp_pList );
-	    }
-#if CH_SPACEDIM<3
-	    if(m_mesh.axisymmetric()) rebaseVirtualPositions( temp_pList );
-#endif
-
-	    // 5) reset xpold and vpold to suborbit xpnew and vpnew
-            ListIterator<JustinsParticle> lit_temp(temp_pList);
-            for(lit_temp.begin(); lit_temp.ok();) {
-               RealVect& xpold = lit_temp().position_old();
-	       std::array<Real,3>& vpold = lit_temp().velocity_old();
-	       if(nv==num_suborbits-1) {
-		  xpold = xpold0;
-	          vpold = vpold0;
-	          finished_pList.transfer(lit_temp);
-	       }
-               else { // update old values and put back in single pList
-                  const RealVect& xp = lit_temp().position();
-	          const std::array<Real,3>& vp = lit_temp().velocity();
-	          xpold = xp;
-    	          vpold = vp;
-	          single_pList.transfer(lit_temp);
-	       }
-	    }
-
-	 } // end loop over suborbits for this particle
-
-	 // divide particle J by number of suborbits and add it to the total
-	 for(int dir=0; dir<SpaceDim; dir++) {
-	    this_Jp[dir].divide(num_suborbits);
-	    local_J[dir].plus(this_Jp[dir]);
-	 }
-	 this_Jpv.divide(num_suborbits);
-	 local_Jv.plus(this_Jpv);
-
-      } // end loop over pList particles
-	 
-      // transfer the particles back to the main pList owned by m_data_suborbit
-      ListIterator<JustinsParticle> lit_final(finished_pList);
-      for(lit_final.begin(); lit_final.ok();) pList.transfer(lit_final);
-      
-   } // end loop over boxes
-
-   //////////////////////////////////////////////////////////////////////
-   //
-   //          multiply by constants, set BCs, and exchange
-   //
-   //////////////////////////////////////////////////////////////////////
-
-   // multiply by charge/volume
-   const Real volume_scale = m_mesh.getVolumeScale();
-   for(dit.begin(); dit.ok(); ++dit) {
+      // multiply by charge/volume
+      const Real volume_scale = m_mesh.getVolumeScale();
 #if CH_SPACEDIM<3
       m_suborbitJ_virtual[dit].getFab().mult(m_charge/volume_scale);
 #endif
       for (int dir=0; dir<SpaceDim; ++dir) {
          m_suborbitJ[dit][dir].mult(m_charge/volume_scale);
       }
+
    }
 
-   // apply BC to J (only used for symmetry BC right now)
-   m_species_bc->applyToJ(m_suborbitJ,m_suborbitJ_virtual);
+}
+
+void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pList,
+		                                  EdgeDataBox&            a_local_J,
+		                                  FArrayBox&              a_local_Jv,
+		                            const EMFields&     a_emfields,
+		                            const EdgeDataBox&  a_Efield_inPlane,
+		                            const FluxBox&      a_Bfield_inPlane,
+		                            const FArrayBox&    a_Efield_virtual,
+		                            const FArrayBox&    a_Bfield_virtual,
+					    const int           a_bdry_dir,
+					    const int           a_bdry_side,
+		                            const Real          a_dt,
+                                            const bool          a_from_emjacobian )
+{
+   CH_TIME("PicSpecies::advanceSubOrbitParticlesAndSetJ (from box)");
+
+   int axisymm_car_push = 0;
+   if(m_push_type==CYL_CAR) { axisymm_car_push = 1; }
+   else if(m_push_type==SPH_CAR) { axisymm_car_push = 2; }
    
-   // add ghost cells to valid cells
-   LDaddEdgeOp<EdgeDataBox> addEdgeOp;
-   m_suborbitJ.exchange(m_suborbitJ.interval(), m_mesh.reverseCopier(), addEdgeOp);
-   //SpaceUtils::exchangeEdgeDataBox(m_suborbitJ); // needed if more than 1 box per proccesor. bug?
-                                                 // also needed if only 1 proc in Z for 2D RZ..?
-    
-   // divide by Jacobian after doing exchange (Corrected Jacobian does not have ghosts) 
-   const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
-   for(dit.begin(); dit.ok(); ++dit) {
-      EdgeDataBox& J_inPlane = m_suborbitJ[dit];
-      for (int dir=0; dir<SpaceDim; ++dir) {
-         J_inPlane[dir].divide(Jec[dit][dir],0,0,1);
-      }
-   }
+   int iter_min = 0;
+   int iter_max = m_iter_max;
+   if(m_suborbit_testing) { iter_max = std::max(10,iter_max); } // used for CYL pusher test
+   if(a_from_emjacobian) { iter_max += iter_max; } // increase iters for buffer
 
+   const Real cnormDt = a_dt*m_cvac_norm;
+   bool is_inflow_list = false;
+   if(a_bdry_dir>=0 && a_bdry_side>=0) { is_inflow_list = true; }
+
+   // define local containers to store J from a single particle
+   EdgeDataBox this_Jp(a_local_J.box(),a_local_J.nComp());
+   FArrayBox this_Jpv(a_local_Jv.box(),a_local_Jv.nComp());
+      
+   List<JustinsParticle> temp_pList, finished_pList;
+
+   ListIterator<JustinsParticle> lit(a_pList);
+   for(lit.begin(); lit.ok();) { 
+         
+      const int num_part_suborbits = lit().numSubOrbits();
+      int num_suborbits = num_part_suborbits;
+      Real cnormDt_sub = cnormDt/num_suborbits;
+   
+      // zero containers to store J from a single particle
+      this_Jp.setVal(0.0);
+      this_Jpv.setVal(0.0);
+
+      // save the old position and velocity
+      const RealVect& xpold = lit().position_old();
+      const RealVect xpold0_save = xpold;
+      const std::array<Real,3>& vpold = lit().velocity_old();
+      const std::array<Real,3> vpold0 = vpold;
+	 
+      RealVect xpold0 = xpold0_save;
+      
+      if(is_inflow_list) { // advance particle to bdry and update cnormDt_sub
+         advanceInflowPartToBdry( xpold0, cnormDt_sub, cnormDt, 
+	                          vpold0, a_bdry_dir, a_bdry_side );
+         cnormDt_sub /= num_suborbits;
+	 lit().setOldPosition(xpold0);
+      }
+
+      // set xpbar and vpbar to old values for initial guess of first suborbit
+      lit().setPosition(xpold0);
+      lit().setVelocity(vpold0);
 #if CH_SPACEDIM<3
-   LDaddNodeOp<NodeFArrayBox> addNodeOp;
-   m_suborbitJ_virtual.exchange(m_suborbitJ_virtual.interval(), 
-                              m_mesh.reverseCopier(), addNodeOp);
-   //SpaceUtils::exchangeNodeFArrayBox(m_suborbitJ_virtual); // needed if more than 1 box per proccesor. bug?
-                                                           // also needed if only 1 proc in Z for 2D RZ..?
-   
-   const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
-   for(dit.begin(); dit.ok(); ++dit) {
-      FArrayBox& J_virtual = m_suborbitJ_virtual[dit].getFab();
-      for (int comp=0; comp<J_virtual.nComp(); ++comp) {
-         J_virtual.divide(Jnc[dit].getFab(),0,comp,1);
+      std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
+      if(m_push_type==CYL_CYL || m_push_type==CYL_HYB) {
+         position_virt[0] = 0.0; // dtheta
       }
-   }
+      else if(m_push_type==SPH_SPH || m_push_type==SPH_HYB) {
+         position_virt[0] = 0.0; // dtheta
+         position_virt[1] = 0.0; // dphi
+      }
+      else if(m_push_type==CYL_CAR) {
+         position_virt[0] = xpold0[0]; // xpbar
+         position_virt[1] = 0.0;      // ypbar
+      }
+#if CH_SPACEDIM==1
+      else if(m_push_type==SPH_CAR) {
+         position_virt[0] = xpold0[0]; // xpbar
+         position_virt[1] = 0.0;      // ypbar
+         position_virt[2] = 0.0;      // zpbar
+      }
 #endif
+#endif
+
+      // put this particle in a list all by itself
+      List<JustinsParticle> single_pList;
+      single_pList.transfer(lit);
+	 
+      // loop over suborbits for this particle
+      for (int nv = 0; nv<num_suborbits; nv++) {
+
+         int iter(0);
+         while(single_pList.length()>0) {
+            interpolateFieldsToParticles( single_pList, a_Efield_inPlane, a_Bfield_inPlane, 
+                                          a_Efield_virtual, a_Bfield_virtual ); 
+            addExternalFieldsToParticles( single_pList, a_emfields ); 
+            applyForces(single_pList, cnormDt_sub, true);
+         
+            if(iter>=iter_min) { stepNormTransfer( single_pList, temp_pList, cnormDt_sub, true ); }
+	    else { advancePositionsImplicit( single_pList, cnormDt_sub ); } 
+	       
+	    // check for reflected inflow particle and move it to the finalized list.
+	    // These guys cause a lot of issues when not doing this... 
+	    if(is_inflow_list && single_pList.length()>0) {
+		      
+               ListIterator<JustinsParticle> lit_single(single_pList);
+	       lit_single.begin();
+	       RealVect& xpold = lit_single().position_old();
+	       std::array<Real,3>& vpbar = lit_single().velocity();
+	       Real xpnew0 = xpold[a_bdry_dir] + vpbar[a_bdry_dir]*cnormDt_sub;
+	        
+	       // check for reflected particle
+               const RealVect& Xmin(m_mesh.getXmin());
+               const RealVect& Xmax(m_mesh.getXmax());
+	       if( (a_bdry_side==0 && xpnew0<Xmin[a_bdry_dir]) ||
+	           (a_bdry_side==1 && xpnew0>Xmax[a_bdry_dir]) ) {
+                  for(int n=0; n<3; n++) { vpbar[n] = vpold0[n]; }
+                  vpbar[a_bdry_dir] = 0.0;
+		  lit_single().setPosition(xpold0_save);
+		  lit_single().setOldPosition(xpold0_save);
+		  lit_single().setOldVelocity(vpold0);
+                  lit_single().setNumSubOrbits(1);
+	          this_Jp.setVal(0.0);
+	          this_Jpv.setVal(0.0);
+	          finished_pList.transfer(lit_single);
+               }
+            }
+         
+	    if(single_pList.length()==0) { break; }
+
+            iter += 1;
+	    if( iter >= iter_max ) { // this suborbit did not converge
+
+               ListIterator<JustinsParticle> lit_single(single_pList);
+	       lit_single.begin();
+
+	       if( !a_from_emjacobian ) { // increase # suborbits at start again
+		  cout << "JRA: iter_max reached for suborbit nv = " << nv + 1 << " of " 
+		       << num_suborbits << endl;
+                  num_suborbits++;
+		  cout << "     increasing suborbits to " << num_suborbits << endl;
+		  lit_single().setPosition(xpold0);
+		  lit_single().setOldPosition(xpold0);
+		  lit_single().setVelocity(vpold0);
+		  lit_single().setOldVelocity(vpold0);
+                  lit_single().setNumSubOrbits( num_suborbits );
+                  if(is_inflow_list) { cnormDt_sub = cnormDt_sub*(num_suborbits-1)/num_suborbits; }
+		  else { cnormDt_sub = cnormDt/num_suborbits; }
+		  cnormDt_sub = cnormDt/num_suborbits;
+	          this_Jp.setVal(0.0);
+	          this_Jpv.setVal(0.0);
+#if CH_SPACEDIM<3
+	          if(m_mesh.axisymmetric()) { rebaseVirtualPositions( single_pList ); }
+#endif
+		  nv = -1;
+		  break;
+  	       }
+	       else {
+		  cout << "JRA: iter_max reached for suborbit nv = " << nv + 1 << " of " 
+		       << num_suborbits << " during linear stage... not ideal..." << endl;
+	          temp_pList.transfer(lit_single);
+		  break;
+	       }
+
+	    }
+         
+	 }
+	 if(nv==-1) { continue; }
+        
+	 if(temp_pList.length()==0) { break; } // reflected inflow particle
+
+         // 3) deposit particles J for this suborbit
+         m_meshInterp->depositCurrent( this_Jp[0],
+#if CH_SPACEDIM>=2
+                                       this_Jp[1],
+#else
+                                       this_Jpv,
+#endif
+#if CH_SPACEDIM==3
+                                       this_Jp[2],
+#else
+                                       this_Jpv,
+#endif
+                                       temp_pList,
+                                       m_interpJToGrid,
+                                       axisymm_car_push,
+                                       false );
+
+	 // 4) convert particle quantities from time-centered to new
+         if(m_push_type==CYL_HYB) {
+	    advanceVelocities_CYL_HYB_2ndHalf( a_dt/num_suborbits, temp_pList );
+	    advancePositions_2ndHalf( temp_pList );
+	 } 
+	 else if(m_push_type==CYL_CAR) {
+            advanceParticles_CYL_CAR_2ndHalf( temp_pList );
+	 }
+#if CH_SPACEDIM==1
+	 else if(m_push_type==SPH_HYB) {
+	    advanceVelocities_SPH_HYB_2ndHalf( a_dt/num_suborbits, temp_pList );
+	    advancePositions_2ndHalf( temp_pList );
+	 } 
+	 else if(m_push_type==SPH_CAR) {
+            advanceParticles_SPH_CAR_2ndHalf( temp_pList );
+	 }
+#endif
+	 else {
+	    advanceVelocities_2ndHalf( temp_pList );
+	    advancePositions_2ndHalf( temp_pList );
+	 }
+#if CH_SPACEDIM<3
+	 if(m_mesh.axisymmetric()) { rebaseVirtualPositions( temp_pList ); }
+#endif
+
+	 // 5) reset xpold and vpold to suborbit xpnew and vpnew
+         ListIterator<JustinsParticle> lit_temp(temp_pList);
+         for(lit_temp.begin(); lit_temp.ok();) {
+            RealVect& xpold = lit_temp().position_old();
+	    std::array<Real,3>& vpold = lit_temp().velocity_old();
+	    if(nv==num_suborbits-1) {
+	       xpold = xpold0_save;
+	       vpold = vpold0;
+	       if(is_inflow_list) { // need to convert xp and vp from new to bar
+		                    // for inflow particles
+                  RealVect& xp = lit_temp().position();
+	          std::array<Real,3>& vp = lit_temp().velocity();
+		  for (int dir=0; dir<SpaceDim; dir++) {
+		     xp[dir] = (xp[dir]+xpold[dir])/2.0;
+		  }
+		  for (int n=0; n<3; n++) {
+                     vp[n] = (vp[n] + vpold[n])/2.0;
+		  }
+	       }
+	       finished_pList.transfer(lit_temp);
+	    }
+            else { // update old values and put back in single pList
+               const RealVect& xp = lit_temp().position();
+	       const std::array<Real,3>& vp = lit_temp().velocity();
+	       xpold = xp;
+    	       vpold = vp;
+	       single_pList.transfer(lit_temp);
+	    }
+	 }
+
+      } // end loop over suborbits for this particle
+
+      // divide particle J by number of suborbits and add it to the total
+      for(int dir=0; dir<SpaceDim; dir++) {
+	 if(is_inflow_list) { this_Jp[dir].mult(cnormDt_sub/cnormDt); } 
+	 else { this_Jp[dir].divide(num_suborbits); }
+	 a_local_J[dir].plus(this_Jp[dir]);
+      }
+      if(is_inflow_list) { this_Jpv.mult(cnormDt_sub/cnormDt); }
+      else { this_Jpv.divide(num_suborbits); }
+      a_local_Jv.plus(this_Jpv);
+
+   } // end loop over pList particles
+	 
+   // transfer the particles back to the main pList owned by m_data_suborbit
+   ListIterator<JustinsParticle> lit_final(finished_pList);
+   for(lit_final.begin(); lit_final.ok();) { a_pList.transfer(lit_final); }
 
 }
 
@@ -3748,501 +3699,6 @@ void PicSpecies::interpolateFieldsToParticle( JustinsParticle&  a_particle,
                                             a_Bfield_virtual,
                                             m_interpEToParts );
 
-}
-
-void PicSpecies::applyForcesToInflowParticles( List<JustinsParticle>&  a_pList,
-                                         const EMFields&               a_emfields,
-                                         const EdgeDataBox&            a_Efield_inPlane,
-                                         const FluxBox&                a_Bfield_inPlane,
-                                         const FArrayBox&              a_Efield_virtual,
-                                         const FArrayBox&              a_Bfield_virtual,
-                                         const int                     a_bdry_dir, 
-                                         const int                     a_bdry_side,
-                                         const Real                    a_cnormDt )
-{
-   if(a_pList.length()==0) return;   
-   CH_TIME("PicSpecies::applyForcesToInflowParticles()");
-   
-   // set the boundary position
-   const RealVect& Xmin(m_mesh.getXmin());
-   const RealVect& Xmax(m_mesh.getXmax());
-   Real X0;
-   if(a_bdry_side==0) X0 = Xmin[a_bdry_dir];
-   else X0 = Xmax[a_bdry_dir]; 
-         
-   // gather the electric and magnetic fields at the particle
-   m_meshInterp->interpolateEMfieldsToInflowParts( a_pList,
-                                            a_bdry_dir,
-                                            a_bdry_side,
-                                            a_Efield_inPlane[0],
-#if CH_SPACEDIM >= 2
-                                            a_Efield_inPlane[1],
-#else
-                                            a_Efield_virtual,
-#endif
-                                            a_Efield_virtual,
-                                            a_Bfield_inPlane[0],
-#if CH_SPACEDIM >= 2
-                                            a_Bfield_inPlane[1],
-#else
-                                            a_Bfield_virtual,
-#endif
-                                            a_Bfield_virtual );
-   
-   // add external fields
-   addExternalFieldsToParticles( a_pList, a_emfields ); 
-   
-   // advance the velocities to upbar
-   Real cnormDt0, cnormDt1;
-   Real gammap_old;
-
-   List<JustinsParticle> temp_pList;
-   const int pList_length0 = a_pList.length();
-   ListIterator<JustinsParticle> lit(a_pList);
-   for(lit.begin(); lit.ok();) {
-
-      // compute time step for sub-orbit
-      const RealVect& xpold = lit().position_old();
-      const std::array<Real,3>& upold = lit().velocity_old();
-
-      gammap_old = 1.0; 
-#ifdef RELATIVISTIC_PARTICLES
-      gammap_old += upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
-      gammap_old = sqrt(gammap_old);
-#endif
-
-      cnormDt0 = (X0-xpold[a_bdry_dir])*gammap_old/upold[a_bdry_dir];
-      cnormDt1 = a_cnormDt - cnormDt0;
-      CH_assert(cnormDt1>0.0);
-         
-      // put this particle in a list all by itself
-      List<JustinsParticle> single_pList;
-      single_pList.transfer(lit);
-   
-      // Boris push this particle
-      applyForces(single_pList, cnormDt1, true);
-      
-      // check for reflection and move this particle to the temp list
-      ListIterator<JustinsParticle> lit_single(single_pList);
-      for(lit_single.begin(); lit_single.ok();) {
-         std::array<Real,3>& upbar = lit_single().velocity();
-         int sign_fact = 1 - 2*a_bdry_side;
-         if(sign_fact*upbar[a_bdry_dir]<=0.0) {
-            for(int n=0; n<3; n++) upbar[n] = upold[n];
-            upbar[a_bdry_dir] = 0.0;
-         }
-         temp_pList.transfer(lit_single);
-      }
-
-   }
-   
-   // transfer particles from the temp list back to the passed list 
-   ListIterator<JustinsParticle> lit_temp(temp_pList);
-   for(lit_temp.begin(); lit_temp.ok();) a_pList.transfer(lit_temp);
-   CH_assert(a_pList.length()==pList_length0);
-
-}
-
-void PicSpecies::getFieldDerivativesAtParticle( RealVect&         a_dExdy,
-                                                RealVect&         a_dEydy,
-                                                RealVect&         a_dEzdy,
-                                                RealVect&         a_dBxdy,
-                                                RealVect&         a_dBydy,
-                                                RealVect&         a_dBzdy,
-                                          const JustinsParticle&  a_particle,
-                                          const EdgeDataBox&      a_Efield_inPlane,
-                                          const FluxBox&          a_Bfield_inPlane,
-                                          const FArrayBox&        a_Efield_virtual,
-                                          const FArrayBox&        a_Bfield_virtual )
-{
-   CH_TIME("PicSpecies::getFieldDerivativesAtParticle() single particle");
-
-   m_meshInterp->getFieldDerivativesAtPart( a_dExdy, a_dEydy, a_dEzdy,
-                                            a_dBxdy, a_dBydy, a_dBzdy,
-                                            a_particle,
-                                            a_Efield_inPlane[0],
-#if CH_SPACEDIM >= 2
-                                            a_Efield_inPlane[1],
-#else
-                                            a_Efield_virtual,
-#endif
-                                            a_Efield_virtual,
-                                            a_Bfield_inPlane[0],
-#if CH_SPACEDIM >= 2
-                                            a_Bfield_inPlane[1],
-#else
-                                            a_Bfield_virtual,
-#endif
-                                            a_Bfield_virtual,
-                                            m_interpEToParts );
-
-
-}
-
-int PicSpecies::newtonParticleUpdate( List<JustinsParticle>&  a_pList,
-                                const Real          a_cnormDt, 
-                                const EMFields&     a_emfields,
-                                const EdgeDataBox&  a_Efield_inPlane,
-                                const FluxBox&      a_Bfield_inPlane,
-                                const FArrayBox&    a_Efield_virtual,
-                                const FArrayBox&    a_Bfield_virtual )
-{
-   CH_TIME("PicSpecies::newtonParticleUpdate()");
-
-   // Newton method to get self-consistent particle position and velocity. 
-   // Sometimes Picard iteration method is slow or it fails.
-   // I've only seen failures with CC0 scheme at cell crossings where 
-   // oscillating solutions can occur. Note that the CC1 scheme reduces 
-   // to CC0 near physical boundaries.
-   //
-   // Only implemented for 1D planar far. 
-   // What about axisymmetric ?
-   // What about 2D ?
-   
-   CH_assert(SpaceDim==1);
-   CH_assert(m_interpEToParts!=TSC); // derivative calc for TSC not implemented yet
-   
-   int not_converged_count = 0;   
-   
-   Real *yp = new Real[m_newton_maxits+1]; 
-   Real fp, dfpdy;
-   RealVect dExdy, dEydy, dEzdy;
-   RealVect dBxdy, dBydy, dBzdy;
-   RealVect dbxdy, dbydy, dbzdy;
-   
-   const Real alphas = m_fnorm_const*a_cnormDt/2.0;
-   
-   // get boundary info neeed to properly treat particles at 
-   // inflow/outflow boundaries
-   const IntVect& is_outflow_bc_lo = m_species_bc->getIsOutflowBC_lo(); 
-   const IntVect& is_outflow_bc_hi = m_species_bc->getIsOutflowBC_hi(); 
-   const RealVect& Xmin(m_mesh.getXmin());
-   const RealVect& Xmax(m_mesh.getXmax());
-   const RealVect& dX(m_mesh.getdX());
- 
-   Real denom, dbpsq;
-   Real gammap_hat, gammap_bar;
-#ifdef RELATIVISTIC_PARTICLES
-   Real gammap_old, gammap_new, dgpbdy, dgphdy;
-   std::array<Real,3> upnew;
-#endif
-   std::array<Real,3> dupdy, wp, bp, dwpdy, dbpdy;
-   Real wpdotbp, dwpdotbp;
-            
-   ListIterator<JustinsParticle> lit(a_pList);
-   for(lit.begin(); lit.ok(); ++lit) {
-      
-      const RealVect& xpold = lit().position_old();
-      const std::array<Real,3>& upold = lit().velocity_old();
-      RealVect& xpbar = lit().position();
-      std::array<Real,3>& upbar = lit().velocity();
-      std::array<Real,3>& Ep = lit().electric_field();
-      std::array<Real,3>& Bp = lit().magnetic_field();
-      
-#ifdef RELATIVISTIC_PARTICLES
-      gammap_old = 1.0 + upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
-      gammap_old = sqrt(gammap_old);
-      for(int n=0; n<3; n++) upnew[n] = 2.0*upbar[n] - upold[n];
-      gammap_new = 1.0 + upnew[0]*upnew[0] + upnew[1]*upnew[1] + upnew[2]*upnew[2];
-      gammap_new = sqrt(gammap_new);
-      gammap_hat = 0.5*(gammap_old + gammap_new);
-#else
-      gammap_hat = 1.0;
-#endif
-
-      RealVect xpnew;
-      
-      //  use current value of upbar to set initial value for y = xpnew-xpold 
-      for(int dir=0; dir<SpaceDim; dir++) {
-         yp[0] = a_cnormDt*upbar[dir]/gammap_hat;
-      }
-       
-      // use newton method to get self-consistent upbar and xpbar
-      int n_last = 0, ng_last = 0;
-      Real dyp, rel_error;
-      Real yp0 = yp[0];
-
-      // guess loop is experimental! 
-      Real guess_factor = 1.0;
-      //Real damping_factor = 1.0;
-      bool converged = false;
-      bool is_bdry_part = false;
-      for (int ng=0; ng<m_newton_num_guess; ng++) {
-      
-         guess_factor = 1.0 + 0.1*ng;
-         if(ng>19) guess_factor = 1.0 + 0.01*(ng-19);
-         if(ng>29) guess_factor = 1.0 + 0.001*(ng-29);
-               
-         if(is_bdry_part && xpold[0]<Xmin[0]) {
-            //if(ng<10) damping_factor = 1.0 - 0.1*ng;
-            if(ng>1) { // not ideal to change xpold, but its ok for inflow
-                   // particles because it won't affect charge-conservation
-                   // and convergence issues are typically only observed
-                   // for low-velocity particles that barely cross the bdry.
-                   // Still a WIP....
-                   // tried using damp_fact>1 and it did help some cases,
-                   // but it can also lead to issues via an unphysical xpnew
-               //damping_factor = 1.0;
-               guess_factor = 1.0;
-               RealVect& xpold_2 = lit().position_old();
-               Real dxpold = (xpold[0]-Xmin[0])/pow((double)ng,2);
-               xpold_2[0] = Xmin[0] + dxpold; // updates xpold[0]
-               yp0 = max(Xmin[0] - xpold[0],yp[m_newton_maxits]);
-            }
-         }
-         
-         yp[0] = yp0*guess_factor;
-
-         for (int n=0; n<m_newton_maxits; n++) { // Newton iterations
-              
-            // this is a hack, but it seems to work much better 
-            // than using a damping factor 
-            if(is_bdry_part && xpold[0]<Xmin[0]) {
-               if(ng==1) {
-               RealVect& xpold_2 = lit().position_old();
-               xpold_2[0] = xpnew[0] - upbar[0]/gammap_hat*a_cnormDt;
-               }
-            }       
- 
-            // update xpnew and xpbar 
-            xpnew[0] = xpold[0] + yp[n];
-            xpbar[0] = (xpold[0] + xpnew[0])/2.0;
-         
-            // redefine initial guess for boundary crosssing 
-            // particle to ensure that it crosses the boundary
-            if(is_outflow_bc_lo[0] && !is_bdry_part) {
-               if(xpnew[0]<Xmin[0] || xpold[0]<Xmin[0]) {
-                  is_bdry_part = true;
-                  yp0 = Xmin[0] - xpold[0];
-               }
-            }
-            if(is_outflow_bc_hi[0] && !is_bdry_part) {
-               if(xpnew[0]>Xmax[0] || xpold[0]>Xmax[0]) {
-                  is_bdry_part = true;
-                  yp0 = Xmax[0] - xpold[0];
-               }
-            }
-
-            // update Ep and Bp using current value of xpbar     
-            interpolateFieldsToParticle( lit(), 
-                                         a_Efield_inPlane, a_Bfield_inPlane, 
-                                         a_Efield_virtual, a_Bfield_virtual );
-            if(a_emfields.externalFields()) {
-               std::array<Real,3> extE, extB;
-               extE = a_emfields.getExternalE(xpbar);
-               extB = a_emfields.getExternalB(xpbar);
-               for (int n=0; n<3; n++) {
-                  Ep[n] += extE[n];
-                  Bp[n] += extB[n];
-               }
-            }
-
-            // compute upbar[0]
-      
-            // add half acceleration to old velocity
-            wp[0] = upold[0] + alphas*Ep[0];
-            wp[1] = upold[1] + alphas*Ep[1];
-            wp[2] = upold[2] + alphas*Ep[2];
-      
-            // compute relativistic factor for Lorentz force
-            gammap_bar = 1.0;
-#ifdef RELATIVISTIC_PARTICLES
-            gammap_bar += wp[0]*wp[0] + wp[1]*wp[1] + wp[2]*wp[2];
-            gammap_bar = sqrt(gammap_bar);
-#endif
-            if(m_push_type==CYL_HYB) {
-           
-               const Real dthp = lit().position_virt(0);
-               const Real costhp = std::cos(dthp);
-               const Real sinthp = std::sin(dthp);
-      
-               const Real upoldr_2 = costhp*upold[0] + sinthp*upold[1]; 
-               const Real upoldth_2 = -sinthp*upold[0] + costhp*upold[1]; 
-            
-               wp[0] = upoldr_2 + alphas*Ep[0];
-               wp[1] = upoldth_2 + alphas*Ep[1];
-
-            } 
-   
-            // scale Bp by alpha/gammap_bar
-            bp[0] = alphas*Bp[0]/gammap_bar;
-            bp[1] = alphas*Bp[1]/gammap_bar;
-            bp[2] = alphas*Bp[2]/gammap_bar;
-            if(m_push_type==CYL_CYL) { 
-               const Real dtheta = lit().position_virt(0);
-               bp[2] = bp[2] + sin(dtheta);
-            }
-	    else if(m_push_type==SPH_SPH) { 
-               const Real dtheta = lit().position_virt(0);
-               const Real dphi = lit().position_virt(1);
-               bp[0] += std::sin(dphi)*dtheta;
-               bp[1] -= dphi;
-               bp[2] += std::cos(dphi)*dtheta;
-	    }
-            denom = 1.0 + bp[0]*bp[0] + bp[1]*bp[1] + bp[2]*bp[2];
-            wpdotbp = wp[0]*bp[0] + wp[1]*bp[1] + wp[2]*bp[2];
-
-            //
-            //
-            //
-
-            // update upbar
-            upbar[0] = ( wp[0] + wp[1]*bp[2] - wp[2]*bp[1] + wpdotbp*bp[0] )/denom;
-            upbar[1] = ( wp[1] + wp[2]*bp[0] - wp[0]*bp[2] + wpdotbp*bp[1] )/denom;
-            upbar[2] = ( wp[2] + wp[0]*bp[1] - wp[1]*bp[0] + wpdotbp*bp[2] )/denom;
-  
-            // update dEp/dy and dBp/dy using current value of xpbar     
-            getFieldDerivativesAtParticle( dExdy, dEydy, dEzdy, dBxdy, dBydy, dBzdy,
-                                           lit(), a_Efield_inPlane, a_Bfield_inPlane, 
-                                           a_Efield_virtual, a_Bfield_virtual ); 
-            
-            int dir0 = 0;
-            if(a_emfields.externalFields()) {
-               std::array<Real,3> extdEdX, extdBdX;
-               extdEdX = a_emfields.getExternaldEdX(xpbar,dir0);
-               dExdy[0] += 0.5*extdEdX[0];
-               dEydy[0] += 0.5*extdEdX[1];
-               dEzdy[0] += 0.5*extdEdX[2];
-               extdBdX = a_emfields.getExternaldBdX(xpbar,dir0);
-               dBxdy[0] += 0.5*extdBdX[0];
-               dBydy[0] += 0.5*extdBdX[1];
-               dBzdy[0] += 0.5*extdBdX[2];
-            }
-            
-            // compute dwpdy
-            dwpdy[0] = alphas*dExdy[dir0];
-            dwpdy[1] = alphas*dEydy[dir0];
-            dwpdy[2] = alphas*dEzdy[dir0];
-
-            // compute dbpdy
-#ifdef RELATIVISTIC_PARTICLES
-            dgpbdy = (wp[0]*dwpdy[0] + wp[1]*dwpdy[1] + wp[2]*dwpdy[2] )/gammap_bar;
-            dbpdy[0] = (alphas*dBxdy[dir0] - bp[0]*dgpbdy)/gammap_bar;
-            dbpdy[1] = (alphas*dBydy[dir0] - bp[1]*dgpbdy)/gammap_bar;
-            dbpdy[2] = (alphas*dBzdy[dir0] - bp[2]*dgpbdy)/gammap_bar;
-#else
-            dbpdy[0] = alphas*dBxdy[dir0]/gammap_bar;
-            dbpdy[1] = alphas*dBydy[dir0]/gammap_bar;
-            dbpdy[2] = alphas*dBzdy[dir0]/gammap_bar;
-#endif
-            
-            // compute dupdy
-            dwpdotbp = dwpdy[0]*bp[0] + dwpdy[1]*bp[1] + dwpdy[2]*bp[2]
-                     + wp[0]*dbpdy[0] + wp[1]*dbpdy[1] + wp[2]*dbpdy[2];
-            dbpsq = 2.0*(dbpdy[0]*bp[0] + dbpdy[0]*bp[1] + dbpdy[0]*bp[2]);
-
-            dupdy[0] = ( dwpdy[0] + dwpdy[1]*bp[2] - dwpdy[2]*bp[1] 
-                                  + wp[1]*dbpdy[2] - wp[2]*dbpdy[1]
-                     +   dwpdotbp*bp[0] + wpdotbp*dbpdy[0]
-                     -   upbar[0]*dbpsq )/denom;
-            
-            dupdy[1] = ( dwpdy[1] + dwpdy[2]*bp[0] - dwpdy[0]*bp[2] 
-                                  + wp[2]*dbpdy[0] - wp[0]*dbpdy[2]
-                     +   dwpdotbp*bp[1] + wpdotbp*dbpdy[1]
-                     -   upbar[1]*dbpsq )/denom;
-            
-            dupdy[2] = ( dwpdy[2] + dwpdy[0]*bp[1] - dwpdy[1]*bp[0] 
-                                  + wp[0]*dbpdy[1] - wp[1]*dbpdy[0]
-                     +   dwpdotbp*bp[2] + wpdotbp*dbpdy[2]
-                     -   upbar[2]*dbpsq )/denom;
-
-            // compute fp and dfp/dy
-            fp = yp[n] - a_cnormDt*upbar[0]/gammap_hat;
-#ifdef RELATIVISTIC_PARTICLES
-            dgphdy = (upnew[0]*dupdy[0] + upnew[1]*dupdy[1] + upnew[2]*dupdy[2])/gammap_new;
-            dfpdy = 1.0 - a_cnormDt/gammap_hat*(dupdy[0] - upbar[0]*dgphdy/gammap_hat);
-#else
-            dfpdy = 1.0 - a_cnormDt*dupdy[0]/gammap_hat;
-#endif
-
-            // update yp with Newton correction
-            dyp = -fp/dfpdy;
-            yp[n+1] = yp[n] + dyp;
-            //yp[n+1] = yp[n] + dyp*damping_factor;
-         
-            // compute relative tolerance
-            n_last = n;
-            rel_error = abs(dyp/dX[0]);
-            if(rel_error<m_rtol) {
-               converged = true;
-               break;
-            }
-
-         } // end Newton iterations
-      
-         ng_last = ng;
-         if(converged) break;
-
-      } // end initial guess loop
- 
-
-      if(n_last>std::round(m_newton_maxits/2)) cout << "particle newton iter = " << n_last << endl;
-      if(ng_last>1) cout << "particle guess iter = " << ng_last << endl;
-      //if(ng_last>1) cout << "damping factor = " << damping_factor << endl;
-      if(!converged) {
-      
-         not_converged_count += 1;
-         cout << "JRA: newton not converged " << endl;
-         cout << "rel_error = " << rel_error << endl;
-         
-         // compute data needed to run local newton solve in matlab
-         // to explore particles that won't converge
-         IntVect index_old_stag, index_new_stag;
-         IntVect index_lo_stag, index_up_stag, index_lo, index_up;
-         Real Ex0, Ex1, By0, By1, Ez0, Ez1, Ez2;
-         for(int dir=0; dir<SpaceDim; dir++) {
-            xpnew[dir] = xpold[dir] + yp0;
-            xpbar[dir] = (xpold[dir] + xpnew[dir])/2.0;
-            index_old_stag[dir] = floor((xpold[dir] - Xmin[dir])/dX[dir]);
-            index_new_stag[dir] = floor((xpnew[dir] - Xmin[dir])/dX[dir]);
-            index_lo[dir] = floor((xpbar[dir] - Xmin[dir] - 0.5*dX[dir])/dX[dir]);
-            index_up[dir] = index_lo[dir]+1;
-            index_lo_stag[dir] = floor((xpbar[dir] - Xmin[dir])/dX[dir]);
-            index_up_stag[dir] = index_lo_stag[dir]+1;
-            Ex0 = a_Efield_inPlane[dir](index_lo,0);
-            Ex1 = a_Efield_inPlane[dir](index_up,0);
-            By0 = a_Bfield_virtual(index_lo,0);
-            By1 = a_Bfield_virtual(index_up,0);
-            Ez0 = a_Efield_virtual(-IntVect::Unit,1);
-            Ez1 = a_Efield_virtual(IntVect::Zero,1);
-            Ez2 = a_Efield_virtual(IntVect::Unit,1);
-         }
-         cout << std::setprecision(16) << std::scientific << endl;
-         cout << "index_old = " << index_old_stag[0] << endl;
-         cout << "index_new = " << index_new_stag[0] << endl;
-         cout << "index_lo = " << index_lo[0] << endl;
-         cout << "index_lo_stag = " << index_lo_stag[0] << endl;
-         cout << "xpold = " << xpold[0] << endl;
-         cout << "xpbar = " << xpbar[0] << endl;
-         //cout << "cnormDt = " << a_cnormDt << endl;
-         //cout << "alphas = " << alphas << endl;
-         //cout << "yp0 = " << yp0 << ";" << endl;
-         //cout << "xpold = " << xpold[0] << ";" << endl;
-         //cout << "upold_x = " << upold[0] << ";" << endl;
-         //cout << "upold_y = " << upold[1] << ";" << endl;
-         //cout << "upold_z = " << upold[2] << ";" << endl;
-         //cout << "Ex0 = " << Ex0 << ";" << endl;
-         //cout << "Ex1 = " << Ex1 << ";" << endl;
-         //cout << "Ez0 = " << Ez0 << ";" << endl;
-         //cout << "Ez1 = " << Ez1 << ";" << endl;
-         //cout << "Ez2 = " << Ez2 << ";" << endl;
-         //cout << "By0 = " << By0 << ";" << endl;
-         //cout << "By1 = " << By1 << ";" << endl;
-         cout << std::setprecision(3) << std::scientific << endl;
-
-      }
-     
-   } // end loop over particle list
-   
-   // only in-plane vpbar is set above. apply Forces
-   // to update all components of vpbar
-   applyForces(a_pList, a_cnormDt, true);
-  
-   delete[] yp;
-
-   int num_converged = a_pList.length()-not_converged_count;
-   return num_converged;
- 
 }
 
 void PicSpecies::addExternalFieldsToParticles( const EMFields&  a_emfields )
@@ -4729,6 +4185,29 @@ Real PicSpecies::minimumJacobian( ) const
   
   return min_Jacobian_global;
 
+}
+
+void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList ) const
+{
+            
+   ListIterator<JustinsParticle> lit(a_pList);
+   for(lit.begin(); lit.ok(); ++lit) {
+      cout << "position bar = " << lit().position() << endl;
+      cout << "position old = " << lit().position_old() << endl;
+      cout << "position new = " << 2.0*lit().position()-lit().position_old() << endl;
+      cout << "theta =        " << lit().position_virt(0) << endl;
+      cout << "vpbar = " << lit().velocity()[0] << ", " << lit().velocity()[1] << ", " 
+	                 << lit().velocity()[2] << endl;
+      cout << "vpold = " << lit().velocity_old()[0] << ", " << lit().velocity_old()[1] << ", " 
+	                 << lit().velocity_old()[2] << endl;
+         std::array<Real,3>& Ep = lit().electric_field();
+         std::array<Real,3>& Bp = lit().magnetic_field();
+      cout << "Ep = " << Ep[0] << ", " << Ep[1] << ", " << Ep[2] << endl;
+      cout << "Bp = " << Bp[0] << ", " << Bp[1] << ", " << Bp[2] << endl;
+      cout << endl;
+         
+   }
+      
 }
 
 void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList,

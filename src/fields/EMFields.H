@@ -79,6 +79,7 @@ public:
   bool writeDivs() const { return m_writeDivs; }
   bool writeCurls() const { return m_writeCurls; }
   bool writeRho() const { return m_writeRho; }
+  bool writeSigma() const { return m_writeSigma; }
   bool writeExB() const { return m_writeExB; }
   
   Real stableDt() const { return m_stable_dt; }
@@ -119,11 +120,13 @@ public:
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
   const LevelData<NodeFArrayBox>& getChargeDensity() const {return m_chargeDensity;}
+  const LevelData<NodeFArrayBox>& getSurfaceCharge() const {return m_surfaceCharge;}
   
   // non-const references to charge/current density
   LevelData<EdgeDataBox>& getCurrentDensity() {return m_currentDensity;}
   LevelData<NodeFArrayBox>& getVirtualCurrentDensity() {return m_currentDensity_virtual;}
   LevelData<NodeFArrayBox>& getChargeDensity() {return m_chargeDensity;}
+  LevelData<NodeFArrayBox>& getSurfaceCharge() {return m_surfaceCharge;}
   
   // const reference to m_rhs_vector and m_phi_vector zero comp
   const LevelData<NodeFArrayBox>& getPotential() const {return *m_phi_vector[0];}
@@ -249,6 +252,15 @@ public:
       FArrayBox& rho = m_chargeDensity[dit].getFab();
       const FArrayBox& this_pic_rho = a_pic_rho[dit].getFab();
       rho.copy(this_pic_rho,0,0,rho.nComp());
+    }
+  }
+  
+  void setSurfaceCharge( const LevelData<NodeFArrayBox>&  a_pic_sigma ) {
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    for(DataIterator dit(grids); dit.ok(); ++dit) {
+      FArrayBox& sigma = m_surfaceCharge[dit].getFab();
+      const FArrayBox& this_pic_sigma = a_pic_sigma[dit].getFab();
+      sigma.copy(this_pic_sigma,0,0,sigma.nComp());
     }
   }
   
@@ -541,13 +553,16 @@ public:
   void applyBCs_electricField( const Real  a_time );
   void applyBCs_magneticField( const Real  a_time );
 
-  void assemblePrecondMatrix( BandedMatrix&  a_P,
-                              const bool     a_use_mass_matrices,
-                              const Real     a_cnormdt );
+  void assemblePrecondMatrix( BandedMatrix&,
+                              const bool,
+                              const Real,
+                              const EMVecType& );
+
+  void computePrecondMatrixNNZ( const EMVecType& );
 
   inline int numPCMatBands() const 
   {
-    return m_pcmat_nbands;
+    return m_pcmat_nnz;
   }
   
 private:
@@ -562,7 +577,7 @@ private:
   bool m_advanceB, m_advanceB_inPlane, m_advanceB_virtual; 
   std::array<bool,3> m_advanceE_comp;
   std::array<bool,3> m_advanceB_comp;
-  bool m_writeDivs, m_writeCurls, m_writeRho, m_writeExB; 
+  bool m_writeDivs, m_writeCurls, m_writeRho, m_writeSigma, m_writeExB; 
   Real m_stable_dt;
   Real m_cvacNorm;
   Real m_Jnorm_factor; // mu0*qe*cvac*Xscale/Bscale
@@ -616,6 +631,7 @@ private:
   LevelData<EdgeDataBox> m_currentDensity;          
   LevelData<NodeFArrayBox> m_currentDensity_virtual;  // needed for 1D/2D simulations
   LevelData<NodeFArrayBox> m_chargeDensity;
+  LevelData<NodeFArrayBox> m_surfaceCharge;
 
   // containers for curlE
   LevelData<FluxBox> m_curlE;          
@@ -660,8 +676,8 @@ private:
   // global DOF
   GlobalDOFEMFields m_gdofs;
 
-  // number of bands in Jacobian matrix
-  int m_pcmat_nbands;
+  // number of nonzeros per row in Jacobian matrix
+  int m_pcmat_nnz;
   // number of nearest neighbors to include in
   // mass matrix contributions to preconditioner
   int m_pc_mass_matrix_width;
@@ -683,6 +699,15 @@ private:
   IntVect m_ncomp_xx_pc, m_ncomp_xy_pc, m_ncomp_xz_pc;
   IntVect m_ncomp_yx_pc, m_ncomp_yy_pc, m_ncomp_yz_pc;
   IntVect m_ncomp_zx_pc, m_ncomp_zy_pc, m_ncomp_zz_pc;
+
+  void assemblePrecondMatrixB(  BandedMatrix&,
+                                const bool,
+                                const Real );
+
+  void assemblePrecondMatrixE(  BandedMatrix&,
+                                const bool,
+                                const bool,
+                                const Real );
 
 };
 

@@ -16,6 +16,11 @@ class EMResidualFunction: public NonlinearFunction<Vec,Ops>
       m_cur_time = 0.0;
       m_ops = nullptr;
       m_update_pc = true;
+
+      // flag to update pc after call to preRHS() 
+      // at t = 0 and on restart
+      m_update_pc_init = true;
+
       m_is_Defined = false; 
     }
 
@@ -62,8 +67,7 @@ class EMResidualFunction: public NonlinearFunction<Vec,Ops>
     bool m_is_Defined;
     double m_cur_time, m_dt, m_dtfac;
     bool m_update_pc;
-    mutable bool m_update_pc_init = true; // flag to update pc after call to preRHS() 
-                                          // at t = 0 and on restart
+    bool m_update_pc_init;
 
     Vec m_Z, m_F, m_R;
     Ops* m_ops;

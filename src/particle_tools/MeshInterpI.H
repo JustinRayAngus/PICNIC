@@ -165,7 +165,10 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoV0,
          FORT_CC0_2D_DEPOSIT_CURRENT( CHF_FRA1(a_rhoV0, 0),
                                       CHF_FRA1(a_rhoV1, 0),
                                       CHF_FRA1(a_rhoV2, z_comp),
+                                      CHF_CONST_INTVECT(m_bc_check_lo),
+                                      CHF_CONST_INTVECT(m_bc_check_hi),
                                       CHF_CONST_REALVECT(m_domainLeftEdge),
+                                      CHF_CONST_REALVECT(m_domainRightEdge),
                                       CHF_CONST_REALVECT(m_dx),
                                       CHF_CONST_REALVECT(xpold),
                                       CHF_CONST_REALVECT(xp),
@@ -198,7 +201,10 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoV0,
                                       CHF_FRA1(a_rhoV1, 0),
                                       CHF_FRA1(a_rhoV2, z_comp),
                                       CHF_CONST_INT(m_ghosts),
+                                      CHF_CONST_INTVECT(m_bc_check_lo),
+                                      CHF_CONST_INTVECT(m_bc_check_hi),
                                       CHF_CONST_REALVECT(m_domainLeftEdge),
+                                      CHF_CONST_REALVECT(m_domainRightEdge),
                                       CHF_CONST_REALVECT(m_dx),
                                       CHF_CONST_REALVECT(xpold),
                                       CHF_CONST_REALVECT(xp),
@@ -242,7 +248,7 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
 
    int anticyclic_fact = 1;
    if(a_anticyclic) { anticyclic_fact = -1;}
-
+      
    const int z_comp = a_Jz.nComp()-1; 
    for (ListIterator<P> lit(a_particleList); lit; ++lit) {
 
@@ -295,7 +301,10 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
       
       switch (a_interpType) {
          case CIC:
-         FORT_CIC_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
+         FORT_CIC_DEPOSIT_MASS_MATRIX( CHF_FRA1(a_Jx, 0),
+                                       CHF_FRA1(a_Jy, 0),
+                                       CHF_FRA1(a_Jz, z_comp),
+				       CHF_FRA(a_sigma_xx),
                                        CHF_FRA(a_sigma_xy),
                                        CHF_FRA(a_sigma_xz),
                                        CHF_FRA(a_sigma_yx),
@@ -304,31 +313,30 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                        CHF_FRA(a_sigma_zx),
                                        CHF_FRA(a_sigma_zy),
                                        CHF_FRA(a_sigma_zz),
-                                       CHF_FRA1(a_Jx, 0),
-                                       CHF_FRA1(a_Jy, 0),
-                                       CHF_FRA1(a_Jz, z_comp),
-                                 CHF_CONST_FRA1(a_Bx, 0),
-                                 CHF_CONST_FRA1(a_By, 0),
-                                 CHF_CONST_FRA1(a_Bz, z_comp),
-                                 CHF_CONST_REALVECT(m_domainLeftEdge),
-                                 CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(xpold),
-                                 CHF_CONST_REALVECT(xpbar),
-                                 CHF_CONST_REAL(upold[0]),
-                                 CHF_CONST_REAL(upold[1]),
-                                 CHF_CONST_REAL(upold[2]),
-                                 CHF_CONST_REAL(upbar0[0]),
-                                 CHF_CONST_REAL(upbar0[1]),
-                                 CHF_CONST_REAL(upbar0[2]),
-                                 CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_INT(a_inert_type),
-                                 CHF_CONST_REAL(inert_fact1),
-                                 CHF_CONST_REAL(inert_fact2),
-                                 CHF_CONST_INT(anticyclic_fact),
-                                 CHF_CONST_REAL(wp) );
+                                       CHF_CONST_FRA1(a_Bx, 0),
+                                       CHF_CONST_FRA1(a_By, 0),
+                                       CHF_CONST_FRA1(a_Bz, z_comp),
+                                       CHF_CONST_REAL(upold[0]),
+                                       CHF_CONST_REAL(upold[1]),
+                                       CHF_CONST_REAL(upold[2]),
+                                       CHF_CONST_REAL(upbar0[0]),
+                                       CHF_CONST_REAL(upbar0[1]),
+                                       CHF_CONST_REAL(upbar0[2]),
+                                       CHF_CONST_REAL(a_alphas),
+                                       CHF_CONST_INT(a_inert_type),
+                                       CHF_CONST_REAL(inert_fact1),
+                                       CHF_CONST_REAL(inert_fact2),
+                                       CHF_CONST_INT(anticyclic_fact),
+                                       CHF_CONST_REAL(wp),
+                                       CHF_CONST_REALVECT(m_domainLeftEdge),
+                                       CHF_CONST_REALVECT(m_dx),
+                                       CHF_CONST_REALVECT(xpbar) );
          break;
          case TSC:
-         FORT_TSC_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
+         FORT_TSC_DEPOSIT_MASS_MATRIX( CHF_FRA1(a_Jx, 0),
+                                       CHF_FRA1(a_Jy, 0),
+                                       CHF_FRA1(a_Jz, z_comp),
+				       CHF_FRA(a_sigma_xx),
                                        CHF_FRA(a_sigma_xy),
                                        CHF_FRA(a_sigma_xz),
                                        CHF_FRA(a_sigma_yx),
@@ -337,133 +345,135 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                        CHF_FRA(a_sigma_zx),
                                        CHF_FRA(a_sigma_zy),
                                        CHF_FRA(a_sigma_zz),
-                                       CHF_FRA1(a_Jx, 0),
-                                       CHF_FRA1(a_Jy, 0),
-                                       CHF_FRA1(a_Jz, z_comp),
-                                 CHF_CONST_FRA1(a_Bx, 0),
-                                 CHF_CONST_FRA1(a_By, 0),
-                                 CHF_CONST_FRA1(a_Bz, z_comp),
-                                 CHF_CONST_REALVECT(m_domainLeftEdge),
-                                 CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(xpold),
-                                 CHF_CONST_REALVECT(xpbar),
-                                 CHF_CONST_REAL(upold[0]),
-                                 CHF_CONST_REAL(upold[1]),
-                                 CHF_CONST_REAL(upold[2]),
-                                 CHF_CONST_REAL(upbar0[0]),
-                                 CHF_CONST_REAL(upbar0[1]),
-                                 CHF_CONST_REAL(upbar0[2]),
-                                 CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_INT(a_inert_type),
-                                 CHF_CONST_REAL(inert_fact1),
-                                 CHF_CONST_REAL(inert_fact2),
-                                 CHF_CONST_INT(anticyclic_fact),
-                                 CHF_CONST_REAL(wp) );
+                                       CHF_CONST_FRA1(a_Bx, 0),
+                                       CHF_CONST_FRA1(a_By, 0),
+                                       CHF_CONST_FRA1(a_Bz, z_comp),
+                                       CHF_CONST_REAL(upold[0]),
+                                       CHF_CONST_REAL(upold[1]),
+                                       CHF_CONST_REAL(upold[2]),
+                                       CHF_CONST_REAL(upbar0[0]),
+                                       CHF_CONST_REAL(upbar0[1]),
+                                       CHF_CONST_REAL(upbar0[2]),
+                                       CHF_CONST_REAL(a_alphas),
+                                       CHF_CONST_INT(a_inert_type),
+                                       CHF_CONST_REAL(inert_fact1),
+                                       CHF_CONST_REAL(inert_fact2),
+                                       CHF_CONST_INT(anticyclic_fact),
+                                       CHF_CONST_REAL(wp),
+                                       CHF_CONST_REALVECT(m_domainLeftEdge),
+                                       CHF_CONST_REALVECT(m_dx),
+                                       CHF_CONST_REALVECT(xpbar) );
          break;
          case CC0:
 #if CH_SPACEDIM == 1
-         FORT_CC0_1D_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
-                                       CHF_FRA(a_sigma_xy),
-                                       CHF_FRA(a_sigma_xz),
-                                       CHF_FRA(a_sigma_yx),
-                                       CHF_FRA(a_sigma_yy),
-                                       CHF_FRA(a_sigma_yz),
-                                       CHF_FRA(a_sigma_zx),
-                                       CHF_FRA(a_sigma_zy),
-                                       CHF_FRA(a_sigma_zz),
-                                       CHF_FRA1(a_Jx, 0),
-                                       CHF_FRA1(a_Jy, 0),
-                                       CHF_FRA1(a_Jz, z_comp),
-                                 CHF_CONST_FRA1(a_Bx, 0),
-                                 CHF_CONST_FRA1(a_By, 0),
-                                 CHF_CONST_FRA1(a_Bz, z_comp),
-                                 CHF_CONST_INTVECT(m_bc_check_lo),
-                                 CHF_CONST_INTVECT(m_bc_check_hi),
-                                 CHF_CONST_REALVECT(m_domainLeftEdge),
-                                 CHF_CONST_REALVECT(m_domainRightEdge),
-                                 CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(xpold),
-                                 CHF_CONST_REALVECT(xpbar),
-                                 CHF_CONST_REAL(upold[0]),
-                                 CHF_CONST_REAL(upold[1]),
-                                 CHF_CONST_REAL(upold[2]),
-                                 CHF_CONST_REAL(upbar0[0]),
-                                 CHF_CONST_REAL(upbar0[1]),
-                                 CHF_CONST_REAL(upbar0[2]),
-                                 CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_INT(a_inert_type),
-                                 CHF_CONST_REAL(inert_fact1),
-                                 CHF_CONST_REAL(inert_fact2),
-                                 CHF_CONST_REAL(wp) );
+         FORT_CC0_1D_DEPOSIT_MASS_MATRIX( CHF_FRA1(a_Jx, 0),
+                                          CHF_FRA1(a_Jy, 0),
+                                          CHF_FRA1(a_Jz, z_comp),
+			                  CHF_FRA(a_sigma_xx),
+                                          CHF_FRA(a_sigma_xy),
+                                          CHF_FRA(a_sigma_xz),
+                                          CHF_FRA(a_sigma_yx),
+                                          CHF_FRA(a_sigma_yy),
+                                          CHF_FRA(a_sigma_yz),
+                                          CHF_FRA(a_sigma_zx),
+                                          CHF_FRA(a_sigma_zy),
+                                          CHF_FRA(a_sigma_zz),
+                                          CHF_CONST_FRA1(a_Bx, 0),
+                                          CHF_CONST_FRA1(a_By, 0),
+                                          CHF_CONST_FRA1(a_Bz, z_comp),
+                                          CHF_CONST_REAL(upold[0]),
+                                          CHF_CONST_REAL(upold[1]),
+                                          CHF_CONST_REAL(upold[2]),
+                                          CHF_CONST_REAL(upbar0[0]),
+                                          CHF_CONST_REAL(upbar0[1]),
+                                          CHF_CONST_REAL(upbar0[2]),
+                                          CHF_CONST_REAL(a_alphas),
+                                          CHF_CONST_INT(a_inert_type),
+                                          CHF_CONST_REAL(inert_fact1),
+                                          CHF_CONST_REAL(inert_fact2),
+                                          CHF_CONST_INT(anticyclic_fact),
+                                          CHF_CONST_REAL(wp),
+                                          CHF_CONST_INTVECT(m_bc_check_lo),
+                                          CHF_CONST_INTVECT(m_bc_check_hi),
+                                          CHF_CONST_REALVECT(m_domainLeftEdge),
+                                          CHF_CONST_REALVECT(m_domainRightEdge),
+                                          CHF_CONST_REALVECT(m_dx),
+                                          CHF_CONST_REALVECT(xpold),
+                                          CHF_CONST_REALVECT(xpbar) );
 #endif
          break;
          case CC1:
 #if CH_SPACEDIM == 1
-         FORT_CC1_1D_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
-                                       CHF_FRA(a_sigma_xy),
-                                       CHF_FRA(a_sigma_xz),
-                                       CHF_FRA(a_sigma_yx),
-                                       CHF_FRA(a_sigma_yy),
-                                       CHF_FRA(a_sigma_yz),
-                                       CHF_FRA(a_sigma_zx),
-                                       CHF_FRA(a_sigma_zy),
-                                       CHF_FRA(a_sigma_zz),
-                                       CHF_FRA1(a_Jx, 0),
-                                       CHF_FRA1(a_Jy, 0),
-                                       CHF_FRA1(a_Jz, z_comp),
-                                 CHF_CONST_FRA1(a_Bx, 0),
-                                 CHF_CONST_FRA1(a_By, 0),
-                                 CHF_CONST_FRA1(a_Bz, z_comp),
-                                 CHF_CONST_INTVECT(m_bc_check_lo),
-                                 CHF_CONST_INTVECT(m_bc_check_hi),
-                                 CHF_CONST_REALVECT(m_domainLeftEdge),
-                                 CHF_CONST_REALVECT(m_domainRightEdge),
-                                 CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(xpold),
-                                 CHF_CONST_REALVECT(xpbar),
-                                 CHF_CONST_REAL(upold[0]),
-                                 CHF_CONST_REAL(upold[1]),
-                                 CHF_CONST_REAL(upold[2]),
-                                 CHF_CONST_REAL(upbar0[0]),
-                                 CHF_CONST_REAL(upbar0[1]),
-                                 CHF_CONST_REAL(upbar0[2]),
-                                 CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_INT(a_inert_type),
-                                 CHF_CONST_REAL(inert_fact1),
-                                 CHF_CONST_REAL(inert_fact2),
-                                 CHF_CONST_REAL(wp) );
+         FORT_CC1_1D_DEPOSIT_MASS_MATRIX( CHF_FRA1(a_Jx, 0),
+                                          CHF_FRA1(a_Jy, 0),
+                                          CHF_FRA1(a_Jz, z_comp),
+			                  CHF_FRA(a_sigma_xx),
+                                          CHF_FRA(a_sigma_xy),
+                                          CHF_FRA(a_sigma_xz),
+                                          CHF_FRA(a_sigma_yx),
+                                          CHF_FRA(a_sigma_yy),
+                                          CHF_FRA(a_sigma_yz),
+                                          CHF_FRA(a_sigma_zx),
+                                          CHF_FRA(a_sigma_zy),
+                                          CHF_FRA(a_sigma_zz),
+                                          CHF_CONST_FRA1(a_Bx, 0),
+                                          CHF_CONST_FRA1(a_By, 0),
+                                          CHF_CONST_FRA1(a_Bz, z_comp),
+                                          CHF_CONST_REAL(upold[0]),
+                                          CHF_CONST_REAL(upold[1]),
+                                          CHF_CONST_REAL(upold[2]),
+                                          CHF_CONST_REAL(upbar0[0]),
+                                          CHF_CONST_REAL(upbar0[1]),
+                                          CHF_CONST_REAL(upbar0[2]),
+                                          CHF_CONST_REAL(a_alphas),
+                                          CHF_CONST_INT(a_inert_type),
+                                          CHF_CONST_REAL(inert_fact1),
+                                          CHF_CONST_REAL(inert_fact2),
+                                          CHF_CONST_INT(anticyclic_fact),
+                                          CHF_CONST_REAL(wp),
+                                          CHF_CONST_INTVECT(m_bc_check_lo),
+                                          CHF_CONST_INTVECT(m_bc_check_hi),
+                                          CHF_CONST_REALVECT(m_domainLeftEdge),
+                                          CHF_CONST_REALVECT(m_domainRightEdge),
+                                          CHF_CONST_REALVECT(m_dx),
+                                          CHF_CONST_REALVECT(xpold),
+                                          CHF_CONST_REALVECT(xpbar) );
 #endif
 #if CH_SPACEDIM == 2
-         FORT_CC1_2D_DEPOSIT_MASS_MATRIX( CHF_FRA(a_sigma_xx),
-                                       CHF_FRA(a_sigma_xy),
-                                       CHF_FRA(a_sigma_xz),
-                                       CHF_FRA(a_sigma_yx),
-                                       CHF_FRA(a_sigma_yy),
-                                       CHF_FRA(a_sigma_yz),
-                                       CHF_FRA(a_sigma_zx),
-                                       CHF_FRA(a_sigma_zy),
-                                       CHF_FRA(a_sigma_zz),
-                                       CHF_FRA1(a_Jx, 0),
-                                       CHF_FRA1(a_Jy, 0),
-                                       CHF_FRA1(a_Jz, z_comp),
-                                 CHF_CONST_FRA1(a_Bx, 0),
-                                 CHF_CONST_FRA1(a_By, 0),
-                                 CHF_CONST_FRA1(a_Bz, z_comp),
-                                 CHF_CONST_REALVECT(m_domainLeftEdge),
-                                 CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(xpold),
-                                 CHF_CONST_REALVECT(xpbar),
-                                 CHF_CONST_REAL(upold[0]),
-                                 CHF_CONST_REAL(upold[1]),
-                                 CHF_CONST_REAL(upold[2]),
-                                 CHF_CONST_REAL(upbar0[0]),
-                                 CHF_CONST_REAL(upbar0[1]),
-                                 CHF_CONST_REAL(upbar0[2]),
-                                 CHF_CONST_REAL(a_alphas),
-                                 CHF_CONST_INT(a_inert_type),
-                                 CHF_CONST_REAL(inert_fact1),
-                                 CHF_CONST_INT(anticyclic_fact),
-                                 CHF_CONST_REAL(wp) );
+         FORT_CC1_2D_DEPOSIT_MASS_MATRIX( CHF_FRA1(a_Jx, 0),
+                                          CHF_FRA1(a_Jy, 0),
+                                          CHF_FRA1(a_Jz, z_comp),
+				          CHF_FRA(a_sigma_xx),
+                                          CHF_FRA(a_sigma_xy),
+                                          CHF_FRA(a_sigma_xz),
+                                          CHF_FRA(a_sigma_yx),
+                                          CHF_FRA(a_sigma_yy),
+                                          CHF_FRA(a_sigma_yz),
+                                          CHF_FRA(a_sigma_zx),
+                                          CHF_FRA(a_sigma_zy),
+                                          CHF_FRA(a_sigma_zz),
+                                          CHF_CONST_FRA1(a_Bx, 0),
+                                          CHF_CONST_FRA1(a_By, 0),
+                                          CHF_CONST_FRA1(a_Bz, z_comp),
+                                          CHF_CONST_REAL(upold[0]),
+                                          CHF_CONST_REAL(upold[1]),
+                                          CHF_CONST_REAL(upold[2]),
+                                          CHF_CONST_REAL(upbar0[0]),
+                                          CHF_CONST_REAL(upbar0[1]),
+                                          CHF_CONST_REAL(upbar0[2]),
+                                          CHF_CONST_REAL(a_alphas),
+                                          CHF_CONST_INT(a_inert_type),
+                                          CHF_CONST_REAL(inert_fact1),
+                                          CHF_CONST_REAL(inert_fact2),
+                                          CHF_CONST_INT(anticyclic_fact),
+                                          CHF_CONST_REAL(wp),
+                                     CHF_CONST_INTVECT(m_bc_check_lo),
+                                     CHF_CONST_INTVECT(m_bc_check_hi),
+                                     CHF_CONST_REALVECT(m_domainLeftEdge),
+                                     CHF_CONST_REALVECT(m_domainRightEdge),
+                                          CHF_CONST_REALVECT(m_dx),
+                                          CHF_CONST_REALVECT(xpold),
+                                          CHF_CONST_REALVECT(xpbar) );
 #endif
          break;
          default:
@@ -623,7 +633,10 @@ void MeshInterp::interpolateEMfieldsToPart( List<P>&     a_particleList,
                                      CHF_CONST_FRA1(a_B0, 0),
                                      CHF_CONST_FRA1(a_B1, 0),
                                      CHF_CONST_FRA1(a_B2, z_comp),
+                                     CHF_CONST_INTVECT(m_bc_check_lo),
+                                     CHF_CONST_INTVECT(m_bc_check_hi),
                                      CHF_CONST_REALVECT(m_domainLeftEdge),
+                                     CHF_CONST_REALVECT(m_domainRightEdge),
                                      CHF_CONST_REALVECT(m_dx),
                                      CHF_CONST_REALVECT(this_xpold),
                                      CHF_CONST_REALVECT(this_xp) );
@@ -666,7 +679,10 @@ void MeshInterp::interpolateEMfieldsToPart( List<P>&     a_particleList,
                                      CHF_CONST_FRA1(a_B1, 0),
                                      CHF_CONST_FRA1(a_B2, z_comp),
                                      CHF_CONST_INT(m_ghosts),
+                                     CHF_CONST_INTVECT(m_bc_check_lo),
+                                     CHF_CONST_INTVECT(m_bc_check_hi),
                                      CHF_CONST_REALVECT(m_domainLeftEdge),
+                                     CHF_CONST_REALVECT(m_domainRightEdge),
                                      CHF_CONST_REALVECT(m_dx),
                                      CHF_CONST_REALVECT(this_xpold),
                                      CHF_CONST_REALVECT(this_xp) );
@@ -769,7 +785,10 @@ void MeshInterp::interpolateEMfieldsToPart( P&           a_particle,
                                      CHF_CONST_FRA1(a_B0, 0),
                                      CHF_CONST_FRA1(a_B1, 0),
                                      CHF_CONST_FRA1(a_B2, z_comp),
+                                     CHF_CONST_INTVECT(m_bc_check_lo),
+                                     CHF_CONST_INTVECT(m_bc_check_hi),
                                      CHF_CONST_REALVECT(m_domainLeftEdge),
+                                     CHF_CONST_REALVECT(m_domainRightEdge),
                                      CHF_CONST_REALVECT(m_dx),
                                      CHF_CONST_REALVECT(this_xpold),
                                      CHF_CONST_REALVECT(this_xp) );
@@ -812,7 +831,10 @@ void MeshInterp::interpolateEMfieldsToPart( P&           a_particle,
                                      CHF_CONST_FRA1(a_B1, 0),
                                      CHF_CONST_FRA1(a_B2, z_comp),
                                      CHF_CONST_INT(m_ghosts),
+                                     CHF_CONST_INTVECT(m_bc_check_lo),
+                                     CHF_CONST_INTVECT(m_bc_check_hi),
                                      CHF_CONST_REALVECT(m_domainLeftEdge),
+                                     CHF_CONST_REALVECT(m_domainRightEdge),
                                      CHF_CONST_REALVECT(m_dx),
                                      CHF_CONST_REALVECT(this_xpold),
                                      CHF_CONST_REALVECT(this_xp) );
@@ -823,141 +845,6 @@ void MeshInterp::interpolateEMfieldsToPart( P&           a_particle,
    }
    a_particle.setElectricField(this_Ep);
    a_particle.setMagneticField(this_Bp);
-
-}
-
-template <class P>
-void MeshInterp::getFieldDerivativesAtPart( RealVect&    a_dExdy,
-                                            RealVect&    a_dEydy,
-                                            RealVect&    a_dEzdy,
-                                            RealVect&    a_dBxdy,
-                                            RealVect&    a_dBydy,
-                                            RealVect&    a_dBzdy,
-                                      const P&           a_particle,
-                                      const FArrayBox&   a_E0,
-                                      const FArrayBox&   a_E1,
-                                      const FArrayBox&   a_E2,
-                                      const FArrayBox&   a_B0,
-                                      const FArrayBox&   a_B1,
-                                      const FArrayBox&   a_B2,
-                                      const InterpType&  a_interpType ) const
-{
- 
-  const int z_comp = a_E2.nComp()-1;
- 
-  const RealVect& this_xpold = a_particle.position_old();
-  const RealVect& this_xp = a_particle.position();
-
-  for (int dir=0; dir<SpaceDim; dir++) {
-    a_dExdy[dir] = 0.0;
-    a_dEydy[dir] = 0.0;
-    a_dEzdy[dir] = 0.0;
-    a_dBxdy[dir] = 0.0;
-    a_dBydy[dir] = 0.0;
-    a_dBzdy[dir] = 0.0;
-  }
-     
-  switch (a_interpType) {
-     case CIC:
-     FORT_CIC_FIELD_DERIVATIVES( CHF_REALVECT(a_dExdy),
-                                 CHF_REALVECT(a_dEydy),
-                                 CHF_REALVECT(a_dEzdy),
-                                 CHF_REALVECT(a_dBxdy),
-                                 CHF_REALVECT(a_dBydy),
-                                 CHF_REALVECT(a_dBzdy),
-                                 CHF_CONST_FRA1(a_E0, 0),
-                                 CHF_CONST_FRA1(a_E1, 0),
-                                 CHF_CONST_FRA1(a_E2, z_comp),
-                                 CHF_CONST_FRA1(a_B0, 0),
-                                 CHF_CONST_FRA1(a_B1, 0),
-                                 CHF_CONST_FRA1(a_B2, z_comp),
-                                 CHF_CONST_REALVECT(m_domainLeftEdge),
-                                 CHF_CONST_REALVECT(m_dx),
-                                 CHF_CONST_REALVECT(this_xp) );
-     break;
-     //case TSC:
-     //break;
-     case CC0:
-     FORT_CC0_1D_FIELD_DERIVATIVES( CHF_REALVECT(a_dExdy),
-                                    CHF_REALVECT(a_dEydy),
-                                    CHF_REALVECT(a_dEzdy),
-                                    CHF_REALVECT(a_dBxdy),
-                                    CHF_REALVECT(a_dBydy),
-                                    CHF_REALVECT(a_dBzdy),
-                                    CHF_CONST_FRA1(a_E0, 0),
-                                    CHF_CONST_FRA1(a_E1, 0),
-                                    CHF_CONST_FRA1(a_E2, z_comp),
-                                    CHF_CONST_FRA1(a_B0, 0),
-                                    CHF_CONST_FRA1(a_B1, 0),
-                                    CHF_CONST_FRA1(a_B2, z_comp),
-                                    CHF_CONST_INTVECT(m_bc_check_lo),
-                                    CHF_CONST_INTVECT(m_bc_check_hi),
-                                    CHF_CONST_REALVECT(m_domainLeftEdge),
-                                    CHF_CONST_REALVECT(m_domainRightEdge),
-                                    CHF_CONST_REALVECT(m_dx),
-                                    CHF_CONST_REALVECT(this_xpold),
-                                    CHF_CONST_REALVECT(this_xp) );
-     break;
-     case CC1:
-#if CH_SPACEDIM == 1
-     FORT_CC1_1D_FIELD_DERIVATIVES( CHF_REALVECT(a_dExdy),
-                                    CHF_REALVECT(a_dEydy),
-                                    CHF_REALVECT(a_dEzdy),
-                                    CHF_REALVECT(a_dBxdy),
-                                    CHF_REALVECT(a_dBydy),
-                                    CHF_REALVECT(a_dBzdy),
-                                    CHF_CONST_FRA1(a_E0, 0),
-                                    CHF_CONST_FRA1(a_E1, 0),
-                                    CHF_CONST_FRA1(a_E2, z_comp),
-                                    CHF_CONST_FRA1(a_B0, 0),
-                                    CHF_CONST_FRA1(a_B1, 0),
-                                    CHF_CONST_FRA1(a_B2, z_comp),
-                                    CHF_CONST_INTVECT(m_bc_check_lo),
-                                    CHF_CONST_INTVECT(m_bc_check_hi),
-                                    CHF_CONST_REALVECT(m_domainLeftEdge),
-                                    CHF_CONST_REALVECT(m_domainRightEdge),
-                                    CHF_CONST_REALVECT(m_dx),
-                                    CHF_CONST_REALVECT(this_xpold),
-                                    CHF_CONST_REALVECT(this_xp) );
-#endif
-#if CH_SPACEDIM == 2
-#endif
-      break;
-      default:
-      MayDay::Error("Invalid interpolation type in MeshInterp::getFieldDerivativesAtPart()");
-   }
-
-}
-
-template <class P>
-void MeshInterp::interpolateBfieldsToPart1D( List<P>&     a_particleList,
-                                       const FArrayBox&   a_Bx,
-                                       const FArrayBox&   a_Bvirt,
-                                       const InterpType&  a_interpType ) const
-{
-  
-  for (ListIterator<P> lit(a_particleList); lit; ++lit) {
-     std::array<Real,3> this_Bp = {0.0,0.0,0.0};
-     P& this_particle = lit();
-     const RealVect& this_xp = this_particle.position();
-   
-     switch (a_interpType) {
-        case CIC:
-        FORT_CIC_INTERPOLATE_MAGNETIC_FIELD( CHF_REAL(this_Bp[0]),
-                                             CHF_REAL(this_Bp[1]),
-                                             CHF_REAL(this_Bp[2]),
-                                             CHF_CONST_FRA1(a_Bx, 0),
-                                             CHF_CONST_FRA1(a_Bvirt, 0),
-                                             CHF_CONST_FRA1(a_Bvirt, 1),
-                                             CHF_CONST_REALVECT(m_domainLeftEdge),
-                                             CHF_CONST_REALVECT(m_dx),
-                                             CHF_CONST_REALVECT(this_xp) );
-        break;
-        default:
-        MayDay::Error("Invalid interpolation type in MeshInterp::interpolateBfieldsToPart1D()");
-     }
-     this_particle.setMagneticField(this_Bp);
-  }
 
 }
 
@@ -1068,178 +955,6 @@ void MeshInterp::setWeightFromGridProfile( List<P>&    a_particleList,
 //   non-fortran functions
 //
 /////////////
-
-template <class P>
-void MeshInterp::depositInflowCurrent( FArrayBox&   a_rhoVx,
-                                       FArrayBox&   a_rhoVy,
-                                       FArrayBox&   a_rhoVz,
-                                 const List<P>&     a_particleList,
-                                 const int          a_bdry_dir, 
-                                 const int          a_bdry_side,
-                                 const Real         a_cnormDt ) const
-{
-   CH_TIME("MeshInterp::depositInflowCurrent()");
-   
-   // inflow current is deposited via time-orbit-averged NGP for in-plane J
-   // and time-orbit-averaged CIC for out-of-plane J
-
-   // Note that this function is only called from the implicit solver.
-
-#if CH_SPACEDIM == 1
-   
-   const int z_comp = a_rhoVz.nComp()-1;
-   
-   Real X0;
-   if(a_bdry_side==0) X0 = m_domainLeftEdge[a_bdry_dir];
-   else X0 = m_domainRightEdge[a_bdry_dir];
-
-   IntVect index1, ii;
-   RealVect xpnew, xpbar1;
-   Real cnormDt0, cnormDt1; 
-   Real volume = m_dx.product();
-   Real w0, l0, orbit_fact;
-
-   for (ListIterator<P> lit(a_particleList); lit; ++lit) {
-
-     const Real& wp = lit().weight();
-     const RealVect& xpold = lit().position_old();
-     const RealVect& xpbar = lit().position();
-     const std::array<Real,3>& upold = lit().velocity_old(); 
-     const std::array<Real,3>& upbar = lit().velocity(); 
-
-     if(upbar[a_bdry_dir]==0.0) continue;
-      
-     Real gammap_old = 1.0;
-     Real gammap = 1.0;
-#ifdef RELATIVISTIC_PARTICLES
-     std::array<Real,3> upnew;
-     Real gbsq_old, gbsq_new;
-     for(int n=0; n<3; n++) upnew[n] = 2.0*upbar[n] - upold[n];
-     gbsq_old = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
-     gbsq_new = upnew[0]*upnew[0] + upnew[1]*upnew[1] + upnew[2]*upnew[2];
-     gammap_old = sqrt(1.0 + gbsq_old);
-     gammap = 0.5*(gammap_old + sqrt(1.0+gbsq_new));
-#endif
-
-     cnormDt0 = (X0-xpold[a_bdry_dir])/(upold[a_bdry_dir]/gammap_old);
-     cnormDt1 = a_cnormDt - cnormDt0;
-     
-     for (int dir=0; dir<SpaceDim; dir++) {
-       xpnew[dir] = 2.0*xpbar[dir] - xpold[dir];
-       if(dir==a_bdry_dir) xpbar1[dir] = (xpnew[dir] + X0)/2.0;
-       else xpbar1[dir] = xpbar[dir];
-       index1[dir] = floor((xpbar1[dir] - m_domainLeftEdge[dir])/m_dx[dir]);
-     }
-     
-     // this method assumes that the new position is no more than half a grid
-     // spacing away from the boundary
-     if(a_bdry_side==0) {CH_assert(xpnew[a_bdry_dir]<X0+m_dx[a_bdry_dir]/2.0);} 
-     else {CH_assert(xpnew[a_bdry_dir]>X0-m_dx[a_bdry_dir]/2.0);}
-      
-     // orbit-averaged NGP for in-plane J
-     orbit_fact = cnormDt1/a_cnormDt;
-     a_rhoVx(index1,0) += orbit_fact*wp*upbar[0]/gammap/volume;
-
-     // orbit-averaged CIC for out-of-plane J
-     ii = index1;
-     l0 = xpbar1[0] - (m_domainLeftEdge[0] + ii[0]*m_dx[0]);
-     w0 = 1.0 - abs(l0/m_dx[0]);
-     a_rhoVy(ii,0) += orbit_fact*w0*wp*upbar[1]/gammap/volume;
-     a_rhoVz(ii,z_comp) += orbit_fact*w0*wp*upbar[2]/gammap/volume;
-     
-     w0 = 1.0 - w0;
-     ii[0] += 1;
-     a_rhoVy(ii,0) += orbit_fact*w0*wp*upbar[1]/gammap/volume;
-     a_rhoVz(ii,z_comp) += orbit_fact*w0*wp*upbar[2]/gammap/volume;
-
-   }
-#endif
-}
-
-template <class P>
-void MeshInterp::interpolateEMfieldsToInflowParts( List<P>&     a_particleList,
-                                             const int          a_bdry_dir, 
-                                             const int          a_bdry_side,
-                                             const FArrayBox&   a_Ex,
-                                             const FArrayBox&   a_Ey,
-                                             const FArrayBox&   a_Ez,
-                                             const FArrayBox&   a_Bx,
-                                             const FArrayBox&   a_By,
-                                             const FArrayBox&   a_Bz ) const
-{
-   CH_TIME("MeshInterp::interpolateEMfieldsToInflowParts()");
-
-#if CH_SPACEDIM == 1
-  
-   const int z_comp = a_Ez.nComp()-1;
-   
-   Real X0;
-   if(a_bdry_side==0) X0 = m_domainLeftEdge[a_bdry_dir];
-   else X0 = m_domainRightEdge[a_bdry_dir];
-  
-   IntVect index1, ii;
-   RealVect xpnew, xpbar1;
-   std::array<Real,3> Ep, Bp;
-   Real l0, w0;
-
-   for (ListIterator<P> lit(a_particleList); lit; ++lit) {
-     
-     Ep = {0.0,0.0,0.0};
-     Bp = {0.0,0.0,0.0};
-
-     P& this_particle = lit();
-     const RealVect& xpold = this_particle.position_old();
-     const RealVect& xpbar = this_particle.position();
-     
-     for (int dir=0; dir<SpaceDim; dir++) {
-       xpnew[dir] = 2.0*xpbar[dir] - xpold[dir];
-       if(dir==a_bdry_dir) xpbar1[dir] = (xpnew[dir] + X0)/2.0;
-       else xpbar1[dir] = xpbar[dir];
-       index1[dir] = floor((xpbar1[dir] - m_domainLeftEdge[dir])/m_dx[dir]);
-     }
-
-     // this method assumes that the new position is no more than half a grid
-     // spacing away from the boundary
-     if(a_bdry_side==0) {CH_assert(xpnew[a_bdry_dir]<X0+m_dx[a_bdry_dir]/2.0);} 
-     else {CH_assert(xpnew[a_bdry_dir]>X0-m_dx[a_bdry_dir]/2.0);}
-     
-     // NGP for in-plane E
-     Ep[0] += a_Ex(index1,0);
-     
-     // CIC for out-of-plane E and in-plane B
-     ii = index1;
-     l0 = xpbar1[0] - (m_domainLeftEdge[0] + ii[0]*m_dx[0]);
-     w0 = 1.0 - abs(l0/m_dx[0]);
-     Bp[0] += w0*a_Bx(ii,0);
-     Ep[1] += w0*a_Ey(ii,0);
-     Ep[2] += w0*a_Ez(ii,z_comp);
-     
-     w0 = 1.0 - w0;
-     ii[0] += 1;
-     Bp[0] += w0*a_Bx(ii,0);
-     Ep[1] += w0*a_Ey(ii,0);
-     Ep[2] += w0*a_Ez(ii,z_comp);
-     
-     // CIC for out-of-plane B
-     ii = index1;
-     l0 = xpbar1[0] - (m_domainLeftEdge[0] + ii[0]*m_dx[0]/2.0);
-     w0 = 1.0 - abs(l0/m_dx[0]);
-     Bp[1] += w0*a_By(ii,0);
-     Bp[2] += w0*a_Bz(ii,z_comp);
-     
-     w0 = 1.0 - w0;
-     ii = index1;
-     ii[a_bdry_dir] += 2*a_bdry_side - 1;
-     Bp[1] += w0*a_By(ii,0);
-     Bp[2] += w0*a_Bz(ii,z_comp);
-      
-     this_particle.setElectricField(Ep);
-     this_particle.setMagneticField(Bp);
-
-   }
-#endif
-
-}
 
 template <class P>
 void MeshInterp::depositCurrent_testing( FArrayBox&   a_rhoVx,
