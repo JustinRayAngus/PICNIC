@@ -111,7 +111,7 @@ namespace ScatteringUtils {
                  const Real                 a_sinth,
                  const Real                 a_phi );
    
-  void computeDeltaU( std::array<Real,3>&  a_deltaU,
+   void computeDeltaU( std::array<Real,3>&  a_deltaU,
                 const Real                 ux, 
                 const Real                 uy, 
                 const Real                 uz, 
@@ -127,6 +127,16 @@ namespace ScatteringUtils {
                  const Real                 a_costh,
                  const Real                 a_sinth,
                  const Real                 a_phi );
+
+#ifdef RELATIVISTIC_PARTICLES
+   void LorentzTransform( Real&                gammapst,
+                          std::array<Real,3>&  upst,
+                    const Real                 gammap,
+                    const std::array<Real,3>&  up,
+                    const Real                 gammacm,
+                    const std::array<Real,3>&  ucm,
+                    const bool                 reverse = false );
+#endif
 
    Real semilogInterp( const std::vector<Real>&  a_X,
                        const std::vector<Real>&  a_Y,

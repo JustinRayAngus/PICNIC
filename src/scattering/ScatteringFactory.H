@@ -8,6 +8,7 @@
 #include "VariableHardSphere.H"
 #include "TakizukaAbe.H"
 #include "Coulomb.H"
+#include "Fusion.H"
 #include "Elastic.H"
 #include "Ionization.H"
 #include "ChargeExchange.H"
@@ -88,6 +89,9 @@ RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&    a_pp,
    //}
    else if (model == "izn" || model=="IZN") {
       result = RefCountedPtr<Scattering>( new Ionization( a_pp, a_verbosity ) );
+   }
+   else if (model == "fusion" || model == "FUSION") {
+      result = RefCountedPtr<Scattering>( new Fusion( a_pp, a_verbosity ) );
    }
    else if (model == "cex" || model=="CEX") {
       result = RefCountedPtr<Scattering>( new ChargeExchange( a_pp, a_weight_method, a_verbosity ) );

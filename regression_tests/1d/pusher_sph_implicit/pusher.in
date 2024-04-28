@@ -7,19 +7,16 @@ simulation.verbosity = 10
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
 pic_species.iter_max_particles = 101
-pic_species.rtol_particles = 1.0e-15
-### use below to see 4th order accuracy at small dt for SPH_CAR
-#pic_species.iter_max_particles = 11
-#pic_species.rtol_particles = -1.0e-17
+pic_species.rtol_particles = 1.0e-14
 pic_species.mod_init_advance = false
 
 pic_em_theta_implicit.solver_type = "newton"
 
-newton.rtol = 1.0e-6
 newton.atol = 1.0e-12
+newton.rtol = 1.0e-6
 
-gmres.rtol = 1.0e-4
 gmres.atol = 1.0e-12
+gmres.rtol = 1.0e-4
 
 #####################################################
 # Time Stepping Definitions
@@ -70,8 +67,13 @@ em_fields.external.magnetic.1.value = 0.0
 em_fields.external.magnetic.2.type = "constant"
 em_fields.external.magnetic.2.value = 0.0
 
-em_fields.external.electric.0.type = "constant"
-em_fields.external.electric.0.value = 1.0
+# exponential: f(x) = (A + B*exp(-x^p))/(C + x^(p-1)) with x = r/a
+em_fields.external.electric.0.type = "exponential"
+em_fields.external.electric.0.a = 0.01
+em_fields.external.electric.0.p = 3.0
+em_fields.external.electric.0.A = 1.0
+em_fields.external.electric.0.B = -1.0
+em_fields.external.electric.0.C = 0.0
 em_fields.external.electric.1.type = "constant"
 em_fields.external.electric.1.value = 0.0
 em_fields.external.electric.2.type = "constant"

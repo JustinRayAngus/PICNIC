@@ -53,7 +53,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
             if(!procID()) { 
                cout << "EXIT FAILURE!!!" << endl;
                cout << "push_type = " << push_type_str << " for species = " << m_species
-	   	    << " is not a valid push_type" << endl;
+	            << " is not a valid push_type" << endl;
                cout << "Valid options for " << geom_type << " geometry are "
 		    << "SPH_SPH, SPH_HYB, SPH_CAR" << endl; 
             }
@@ -72,7 +72,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
             if(!procID()) { 
                cout << "EXIT FAILURE!!!" << endl;
                cout << "push_type = " << push_type_str << " for species = " << m_species 
-	   	    << " is not a valid push_type" << endl;
+	            << " is not a valid push_type" << endl;
                cout << "Valid options for " << geom_type << " geometry are "
 		    << "CYL_BORIS, CYL_CYL, CYL_HYB, CYL_CAR" << endl; 
             }
@@ -757,7 +757,7 @@ void PicSpecies::stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
       if(a_reverse) { // if converged, transfer to out_pList
          if(rel_diff_max < m_rtol) { a_out_pList.transfer(lit); }
          else {
-            // update particle position	and iterator 
+            // update particle position and iterator 
             for(int dir=0; dir<SpaceDim; dir++) { xpbar[dir] = xpold[dir] + dxp[dir]; }
             position_virt[0] = (xpnew + xpold[0])/2.0;
             position_virt[1] = ypnew/2.0;
@@ -802,7 +802,7 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
 
       std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
 
-      // compute rpnew using updated value of CAR positions	 
+      // compute rpnew using updated value of CAR positions
       xpnew = xpold[0] + a_cnormDt*upbar[0];
       ypnew = a_cnormDt*upbar[1];
       zpnew = a_cnormDt*upbar[2];
@@ -816,7 +816,7 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
       // check for convergence (or lack thereof)
       if(a_reverse) { 
 	 // if converged, transfer to out_pList
-         if(rel_diff_max < m_rtol) { a_out_pList.transfer(lit);	}
+         if(rel_diff_max < m_rtol) { a_out_pList.transfer(lit); }
          else { // update particle position and iterator
             rpbar[0] = (rpnew + xpold[0])/2.0;
             position_virt[0] = (xpnew + xpold[0])/2.0;
@@ -2973,7 +2973,8 @@ void PicSpecies::setChargeDensityOnNodes( const bool  a_use_filtering )
    
 }
 
-void PicSpecies::setCurrentDensity( const bool  a_from_explicit_solver )
+void PicSpecies::setCurrentDensity( const Real  a_dt,
+                                    const bool  a_from_explicit_solver )
 {
    CH_TIME("PicSpecies::setCurrentDensity()");
     
@@ -2985,6 +2986,8 @@ void PicSpecies::setCurrentDensity( const bool  a_from_explicit_solver )
  
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    DataIterator dit = grids.dataIterator();
+   
+   const Real cnormDt = a_dt*m_cvac_norm;
    
    // deposit particle current
    for(dit.begin(); dit.ok(); ++dit) {
@@ -3011,6 +3014,7 @@ void PicSpecies::setCurrentDensity( const bool  a_from_explicit_solver )
 #endif
                                     pList,
                                     m_interpJToGrid,
+                                    cnormDt,
                                     axisymm_car_push,
                                     a_from_explicit_solver );
 
@@ -3021,7 +3025,7 @@ void PicSpecies::setCurrentDensity( const bool  a_from_explicit_solver )
    // particles for iterative implicit solvers is handled differently.
    if(a_from_explicit_solver) {
       m_species_bc->depositInflowOutflowJ( m_currentDensity, m_currentDensity_virtual,
-                                          *m_meshInterp, m_interpJToGrid, true );
+                                          *m_meshInterp, m_interpJToGrid, cnormDt, true );
    }
    
    // multiply by charge/volume
@@ -3088,7 +3092,7 @@ void PicSpecies::advanceInflowParticlesAndSetJ( const EMFields&  a_emfields,
          FArrayBox& local_Jv  = m_inflowJ_virtual[interior_dit].getFab(); 
 
          advanceSubOrbitParticlesAndSetJ( pList, local_J, local_Jv, a_emfields,
-	  	                          Efield_inPlane, Bfield_inPlane,
+	                                  Efield_inPlane, Bfield_inPlane,
 		                          Efield_virtual, Bfield_virtual,
 				          bdry_dir, bdry_side,
 		                          a_dt, a_from_emjacobian );
@@ -3318,7 +3322,7 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pLis
 #endif
 		  nv = -1;
 		  break;
-  	       }
+               }
 	       else {
 		  cout << "JRA: iter_max reached for suborbit nv = " << nv + 1 << " of " 
 		       << num_suborbits << " during linear stage... not ideal..." << endl;
@@ -3347,6 +3351,7 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pLis
 #endif
                                        temp_pList,
                                        m_interpJToGrid,
+                                       cnormDt_sub,
                                        axisymm_car_push,
                                        false );
 
@@ -3507,6 +3512,7 @@ void PicSpecies::accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx,
 #endif
                                          qovs,
                                          alphas,
+                                         cnormDt,
                                          inert_type,
                                          m_mesh.anticyclic(),
                                          pList,
@@ -4192,10 +4198,14 @@ void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList ) const
             
    ListIterator<JustinsParticle> lit(a_pList);
    for(lit.begin(); lit.ok(); ++lit) {
+      cout << std::setprecision(16) << std::scientific << endl;
       cout << "position bar = " << lit().position() << endl;
       cout << "position old = " << lit().position_old() << endl;
       cout << "position new = " << 2.0*lit().position()-lit().position_old() << endl;
-      cout << "theta =        " << lit().position_virt(0) << endl;
+      std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
+      cout << "pos_virt0 =  " << position_virt[0] << endl;
+      if (position_virt.size()>1) { cout << "pos_virt1 =  " << position_virt[1] << endl; }
+      if (position_virt.size()>2) { cout << "pos_virt2 =  " << position_virt[2] << endl; }
       cout << "vpbar = " << lit().velocity()[0] << ", " << lit().velocity()[1] << ", " 
 	                 << lit().velocity()[2] << endl;
       cout << "vpold = " << lit().velocity_old()[0] << ", " << lit().velocity_old()[1] << ", " 
@@ -4204,6 +4214,7 @@ void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList ) const
          std::array<Real,3>& Bp = lit().magnetic_field();
       cout << "Ep = " << Ep[0] << ", " << Ep[1] << ", " << Ep[2] << endl;
       cout << "Bp = " << Bp[0] << ", " << Bp[1] << ", " << Bp[2] << endl;
+      cout << std::setprecision(8) << std::defaultfloat << endl;
       cout << endl;
          
    }
@@ -4221,14 +4232,23 @@ void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList,
             
    ListIterator<JustinsParticle> lit(a_pList);
    for(lit.begin(); lit.ok(); ++lit) {
+      cout << std::setprecision(16) << std::scientific << endl;
       cout << "position bar = " << lit().position() << endl;
       cout << "position old = " << lit().position_old() << endl;
       cout << "position new = " << 2.0*lit().position()-lit().position_old() << endl;
-      cout << "theta =        " << lit().position_virt(0) << endl;
+      std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
+      cout << "pos_virt0 =  " << position_virt[0] << endl;
+      if (position_virt.size()>1) { cout << "pos_virt1 =  " << position_virt[1] << endl; }
+      if (position_virt.size()>2) { cout << "pos_virt2 =  " << position_virt[2] << endl; }
       cout << "vpbar = " << lit().velocity()[0] << ", " << lit().velocity()[1] << ", " 
 	                 << lit().velocity()[2] << endl;
       cout << "vpold = " << lit().velocity_old()[0] << ", " << lit().velocity_old()[1] << ", " 
 	                 << lit().velocity_old()[2] << endl << endl;
+      std::array<Real,3>& Ep = lit().electric_field();
+      std::array<Real,3>& Bp = lit().magnetic_field();
+      cout << "Ep = " << Ep[0] << ", " << Ep[1] << ", " << Ep[2] << endl;
+      cout << "Bp = " << Bp[0] << ", " << Bp[1] << ", " << Bp[2] << endl;
+      cout << std::setprecision(8) << std::defaultfloat << endl;
    }
       
    if(a_print_fields) {

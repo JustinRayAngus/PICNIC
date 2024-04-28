@@ -23,6 +23,7 @@ typedef enum { ELASTIC,
                IONIZATION, 
                MONTE_CARLO_NULL, 
                COULOMB, 
+               FUSION,
                CHARGE_EXCHANGE } ScatteringType;
 
 typedef enum { PROBABILISTIC,
@@ -55,6 +56,9 @@ class Scattering
       
       virtual Real getDeltaEexc() const { return 0.0; }
       virtual void zeroDeltaEexc() const {;} 
+      
+      virtual Real getDeltaEfusion() const { return 0.0; }
+      virtual void zeroDeltaEfusion() const {;} 
       
       virtual void applyScattering( PicSpeciesInterface&  a_pic_species_intf,
                               const DomainGrid&           a_mesh,

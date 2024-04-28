@@ -66,6 +66,7 @@ public:
                        FArrayBox&   a_rhoVz,
                  const List<P>&     a_particleList,
                  const InterpType&  a_interpType,
+                 const Real         a_cnormDt,
                  const int          a_axisymm_car_push,
                  const bool         a_from_explicit_solver ) const;
   
@@ -87,6 +88,7 @@ public:
                       const FArrayBox&   a_Bz,
                       const Real         a_qovs,
                       const Real         a_alphas,
+                      const Real         a_cnormDt,
                       const int          a_inertial_type,
                       const bool         a_anticylic,
                       const List<P>&     a_particleList,

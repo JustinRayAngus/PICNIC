@@ -1,5 +1,5 @@
 #####################################################
-#TEST np=35, timelimit=00:05:00
+#TEST np=36, timelimit=00:05:00
 #####################################################
 # Verbosity and writing Definitions
 #####################################################
@@ -80,7 +80,7 @@ history.species1_probes = true
 #####################################################
 grid.num_cells     = 216
 grid.is_periodic   = 0
-grid.config_decomp = 27
+grid.config_decomp = 36
 grid.geometry      = "cartesian"
 grid.num_ghosts    = 3
 

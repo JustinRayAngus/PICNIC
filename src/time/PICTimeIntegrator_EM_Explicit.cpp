@@ -132,7 +132,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
     // compute current density at t_{n+1} and 
     // advance E from t_{n+1/2} to t_{n+1} using B_{n+1} and J_{n+1}
     if(m_fields->advanceE()) {
-      m_pic_species->setCurrentDensity( *m_fields, true, true );
+      m_pic_species->setCurrentDensity( *m_fields, a_dt, true, true );
       if(m_fields->useFiltering()) { m_pic_species->filterJ( *m_fields, a_time ); }
       const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
       const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();

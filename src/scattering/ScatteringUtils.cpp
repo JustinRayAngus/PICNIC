@@ -77,6 +77,32 @@ void ScatteringUtils::computeDeltaU( std::array<Real,3>&  a_deltaU,
    
 }
 
+#ifdef RELATIVISTIC_PARTICLES
+void ScatteringUtils::LorentzTransform( Real&                gammapst,
+                                        std::array<Real,3>&  upst,
+                                  const Real                 gammap,
+                                  const std::array<Real,3>&  up,
+                                  const Real                 gammacm,
+                                  const std::array<Real,3>&  ucm,
+                                  const bool                 reverse )
+{
+    // Relativistic LorentzTransform to st frame (u = gamma*beta)
+
+    long double ucmdotup = ucm[0]*up[0] + ucm[1]*up[1] + ucm[2]*up[2];
+    if (reverse) { // same as using -ucm
+        gammapst = gammacm*gammap + ucmdotup;
+        long double upst_fact = (1.0/(1.0+gammacm)*ucmdotup + gammap);
+        for(int n=0; n<3; n++) { upst[n] = up[n] + upst_fact*ucm[n]; }
+    }
+    else {
+        gammapst = gammacm*gammap - ucmdotup;
+        long double upst_fact = (1.0/(1.0+gammacm)*ucmdotup - gammap);
+        for(int n=0; n<3; n++) { upst[n] = up[n] + upst_fact*ucm[n]; }
+    }
+
+}
+#endif
+
 Real ScatteringUtils::semilogInterp( const std::vector<Real>&  a_X,
                                      const std::vector<Real>&  a_Y,
                                      const Real                a_X0,

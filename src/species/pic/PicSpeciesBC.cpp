@@ -672,6 +672,7 @@ void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDe
                                           LevelData<NodeFArrayBox>&  a_currentDensity_virtual, 
                                     const MeshInterp&                a_meshInterp, 
                                     const InterpType                 a_interpJToGrid,
+                                    const Real                       a_cnormDt,
                                     const bool                       a_from_explicit_solver )
 {
    CH_TIME("PicSpeciesBC::depositInflowOutflowJ()");
@@ -706,6 +707,7 @@ void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDe
 #endif
                                       outflow_list,
                                       a_interpJToGrid,
+                                      a_cnormDt,
                                       false,
                                       a_from_explicit_solver );
 
@@ -723,6 +725,7 @@ void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDe
 #endif
                                       inflow_list,
                                       a_interpJToGrid,
+                                      a_cnormDt,
                                       false,
                                       a_from_explicit_solver );
 

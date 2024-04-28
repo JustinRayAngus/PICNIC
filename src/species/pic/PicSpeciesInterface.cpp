@@ -774,6 +774,7 @@ void PicSpeciesInterface::setChargeDensityOnNodes( const bool  a_use_filtering )
 }
   
 void PicSpeciesInterface::setCurrentDensity( const EMFields&  a_emfields,
+                                             const Real       a_dt,
 		                             const bool       a_finalizeJ,
 		                             const bool       a_from_explicit_solver )
 {
@@ -790,7 +791,7 @@ void PicSpeciesInterface::setCurrentDensity( const EMFields&  a_emfields,
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if(species->charge()==0) continue;
-      species->setCurrentDensity( a_from_explicit_solver );
+      species->setCurrentDensity( a_dt, a_from_explicit_solver );
       const LevelData<EdgeDataBox>& species_J = species->getCurrentDensity();
       for(DataIterator dit(grids); dit.ok(); ++dit) {
          for (int dir=0; dir<SpaceDim; dir++) {
@@ -887,7 +888,7 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
                species->advanceParticlesIteratively( a_emfields, a_dt );
             }
          }
-         setCurrentDensity( a_emfields, false );
+         setCurrentDensity( a_emfields, a_dt, false );
 #ifdef MASS_MATRIX_TEST
          setMassMatrices( a_emfields, a_dt );
          computeJfromMassMatrices( a_emfields );
@@ -905,6 +906,9 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
             species->interpolateFieldsToParticles( a_emfields );
             species->addExternalFieldsToParticles( a_emfields ); 
             species->advanceVelocities( a_dt, true );
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+            species->advancePositionsImplicit( a_dt );
+#endif
          }
          else { species->advanceParticlesIteratively( a_emfields, a_dt ); }
       }
@@ -918,13 +922,13 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
                species->advanceVelocities( a_dt, true );
             }
          }
-         setCurrentDensity( a_emfields, false );
+         setCurrentDensity( a_emfields, a_dt, false );
 #endif
          setMassMatrices( a_emfields, a_dt );
          computeJfromMassMatrices( a_emfields );
       }
       else {
-         setCurrentDensity( a_emfields, false );
+         setCurrentDensity( a_emfields, a_dt, false );
 #ifdef MASS_MATRIX_TEST
          setMassMatrices( a_emfields, a_dt );
          computeJfromMassMatrices( a_emfields );

@@ -51,6 +51,7 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoV0,
                                  FArrayBox&   a_rhoV2,
                            const List<P>&     a_particleList,
                            const InterpType&  a_interpType,
+                           const Real         a_cnormDt,
                            const int          a_axisymm_car_push,
                            const bool         a_from_explicit_solver ) const
 {
@@ -159,6 +160,7 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoV0,
                                       CHF_CONST_REAL(up0[0]),
                                       CHF_CONST_REAL(up0[1]),
                                       CHF_CONST_REAL(up0[2]),
+                                      CHF_CONST_REAL(a_cnormDt),
                                       CHF_CONST_REAL(wpog) );
 #endif
 #if CH_SPACEDIM == 2
@@ -175,6 +177,7 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoV0,
                                       CHF_CONST_REAL(up0[0]),
                                       CHF_CONST_REAL(up0[1]),
                                       CHF_CONST_REAL(up0[2]),
+                                      CHF_CONST_REAL(a_cnormDt),
                                       CHF_CONST_REAL(wpog) );
 #endif
          break;
@@ -194,6 +197,7 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoV0,
                                       CHF_CONST_REAL(up0[0]),
                                       CHF_CONST_REAL(up0[1]),
                                       CHF_CONST_REAL(up0[2]),
+                                      CHF_CONST_REAL(a_cnormDt),
                                       CHF_CONST_REAL(wpog) );
 #endif
 #if CH_SPACEDIM == 2
@@ -211,6 +215,7 @@ void MeshInterp::depositCurrent( FArrayBox&   a_rhoV0,
                                       CHF_CONST_REAL(up0[0]),
                                       CHF_CONST_REAL(up0[1]),
                                       CHF_CONST_REAL(up0[2]),
+                                      CHF_CONST_REAL(a_cnormDt),
                                       CHF_CONST_REAL(wpog) );
 #endif
          break;
@@ -240,6 +245,7 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                 const FArrayBox&   a_Bz,
                                 const Real         a_qovs,
                                 const Real         a_alphas,
+                                const Real         a_cnormDt,
                                 const int          a_inert_type,
                                 const bool         a_anticyclic,
                                 const List<P>&     a_particleList,
@@ -426,6 +432,7 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                           CHF_CONST_REAL(upbar0[1]),
                                           CHF_CONST_REAL(upbar0[2]),
                                           CHF_CONST_REAL(a_alphas),
+                                          CHF_CONST_REAL(a_cnormDt),
                                           CHF_CONST_INT(a_inert_type),
                                           CHF_CONST_REAL(inert_fact1),
                                           CHF_CONST_REAL(inert_fact2),
@@ -462,6 +469,7 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                           CHF_CONST_REAL(upbar0[1]),
                                           CHF_CONST_REAL(upbar0[2]),
                                           CHF_CONST_REAL(a_alphas),
+                                          CHF_CONST_REAL(a_cnormDt),
                                           CHF_CONST_INT(a_inert_type),
                                           CHF_CONST_REAL(inert_fact1),
                                           CHF_CONST_REAL(inert_fact2),

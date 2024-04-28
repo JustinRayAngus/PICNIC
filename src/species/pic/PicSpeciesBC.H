@@ -75,6 +75,7 @@ class PicSpeciesBC
                                LevelData<NodeFArrayBox>&  a_J_virtual, 
                          const MeshInterp&                a_meshInterp, 
                          const InterpType                 a_interpJToGrid,
+                         const Real                       a_cnormDt,
                          const bool                       a_from_explicit_solver );
    
    void createInflowParticles( const Real&  a_time,

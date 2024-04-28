@@ -146,6 +146,7 @@ class System
       bool m_write_wall_time;
       bool m_field_probes;
       bool m_scattering_probes;
+      bool m_fusion_probes;
       std::vector<bool> m_species_probes;
       bool m_field_bdry_probes;
       bool m_species_bdry_probes;

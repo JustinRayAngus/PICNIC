@@ -238,7 +238,6 @@ void PICTimeIntegrator_EM_SemiImplicit::timeStep( const Real a_old_time,
     auto species(pic_species_ptr_vect[sp]);
     species->advanceVelocities_2ndHalf(a_dt);
     species->advancePositions_2ndHalf();
-    species->applyInertialForces(a_dt,true,true);
     species->mergeSubOrbitParticles();
     species->applyBCs( false, new_time );
   }

@@ -217,7 +217,6 @@ void PICTimeIntegrator_EM_ThetaImplicit::timeStep(  const Real a_old_time,
     species->advanceVelocities_2ndHalf( a_dt );
     species->advancePositions_2ndHalf();
     species->mergeSubOrbitParticles();
-    species->applyInertialForces(a_dt,true,true);
     species->applyBCs( false, new_time);
   }
 

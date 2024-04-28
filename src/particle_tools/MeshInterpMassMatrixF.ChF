@@ -849,6 +849,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[upbary], 
      &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_REAL[dt], 
      &                       CHF_CONST_INT[inert_type], 
      &                       CHF_CONST_REAL[inert_fact1], 
      &                       CHF_CONST_REAL[inert_fact2], 
@@ -1007,7 +1008,7 @@ c     compute the new particle position and dXp
         xpnew(idir) = two*xpbar(idir) - xpold(idir)
         dXp(idir) = abs(xpnew(idir) - xpold(idir))
       enddo     
-     
+
       bc_seg_factor = 1.0
       i0 = 0
       xpold0 = xpold
@@ -1016,6 +1017,11 @@ c     compute the new particle position and dXp
       else
         shift = 1
       endif
+
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+c     overwrite in-plane J kernal to get exact charge conservation
+      fpx = qp/(CHF_DTERM[dx(0);*dx(1);*dx(2)])*(xpnew(i0)-xpold(i0))/dt
+#endif     
 
 c     do this after setting dXp    
       if( bc_check_left(i0)==1 ) then
@@ -1064,7 +1070,7 @@ c     set max cell crossings permitted
         print*, "JRA: xpold = ", xpold0(0)
         print*, "JRA: xpbar = ", xpbar(0)
         print*, "JRA: xpnew = ", xpnew(0)
-        STOP 'ERROR, not enough ghost layers'
+        STOP 'ERROR, particle crossing more cell than allowed. Decrease time step or increase ghost layers'
       endif      
 
 cccccccccccccccccccccccc
@@ -1234,6 +1240,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[upbary], 
      &                       CHF_CONST_REAL[upbarz], 
      &                       CHF_CONST_REAL[alphas], 
+     &                       CHF_CONST_REAL[dt], 
      &                       CHF_CONST_INT[inert_type], 
      &                       CHF_CONST_REAL[inert_fact1], 
      &                       CHF_CONST_REAL[inert_fact2], 
@@ -1415,6 +1422,12 @@ c     compute slopes assuming 2D
       slope = dXp(i1)/dXp(i0)
       slope_inv = 1.0/slope
 
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+c     overwrite in-plane J kernal to get exact charge conservation
+      fpx = qp/(CHF_DTERM[dx(0);*dx(1);*dx(2)])*dXp(i0)/dt
+      fpy = qp/(CHF_DTERM[dx(0);*dx(1);*dx(2)])*dXp(i1)/dt
+#endif
+
 c     do check for bc particles after setting dXp 
       call truncate_boundaries( xpold, xpnew, 
      &                          bc_check_left, bc_check_right,
@@ -1434,7 +1447,7 @@ c     do check for bc particles after setting dXp
         if(cell_crossings(idir)>maxXings) then
         print*, "JRA: idir = ", idir
         print*, "JRA: cell_crossings(idir) = ", cell_crossings(idir)
-        STOP 'ERROR, not enough ghost layers'
+        STOP 'ERROR, particle crossing more cell than allowed. Decrease time step or increase ghost layers'
         endif
       enddo     
 

@@ -1,0 +1,159 @@
+#TEST np=25, timelimit=00:05:00
+#####################################################
+# Verbosity and writing Definitions
+#####################################################
+simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
+
+#  helium ion drift transport test in uniform E field
+#  helium ions undergo elastic/charge-exchange collisions
+#  with neutral helium.
+#
+#  E/N = 1e3 Td
+#  See Skullerud, J. Phys B: At. Mol.Oopt. Phys. 23 (1990)
+#  for tranposrt data
+
+system.advance_method = "PIC_EM_EXPLICIT"
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+simulation.max_step            = 200
+#simulation.max_step            = 1000000000
+simulation.max_time            = 200.0
+simulation.fixed_dt            = 5.0e-2
+#simulation.plot_interval       = 1000
+simulation.plot_time_interval  = 10.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 100
+
+history.precision = 8
+history.solver_probes = true
+history.field_probes = true
+history.field_bdry_probes = true
+history.scattering_probes = true
+history.species0_probes = true
+history.species1_probes = true
+history.species2_probes = true
+#
+#simulation.checkpoint_time_interval = 50.0
+#simulation.restart_file = "checkpoint_data/chk200000.1d.hdf5"
+#simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 400
+grid.is_periodic   = 1
+grid.config_decomp = 25
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 2
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0     # num/m^3
+units.temperature    = 1.0     # eV
+units.length         = 1.0e-2  # m
+units.time           = 1.0e-9  # s
+
+#####################################################
+# Field Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = false
+em_fields.external_fields = true
+
+em_fields.external.magnetic.0.type = "constant"
+em_fields.external.magnetic.0.value = 0.0
+em_fields.external.magnetic.1.type = "constant"
+em_fields.external.magnetic.1.value = 0.0
+em_fields.external.magnetic.2.type = "constant"
+em_fields.external.magnetic.2.value = 0.0
+
+em_fields.external.electric.0.type = "constant"
+em_fields.external.electric.0.value = 1.0
+em_fields.external.electric.1.type = "constant"
+em_fields.external.electric.1.value = 0.0
+em_fields.external.electric.2.type = "constant"
+em_fields.external.electric.2.value = 0.0
+
+#####################################################
+# Species Definitions
+#####################################################
+
+# Species 0
+
+pic_species.0.name   = "heliumI"
+pic_species.0.mass   = 7296.3
+pic_species.0.charge = 0
+pic_species.0.motion = false
+pic_species.0.forces = true
+pic_species.0.scatter = true
+
+# Species 1
+
+pic_species.1.name   = "heliumII"
+pic_species.1.mass   = 7295.3
+pic_species.1.charge = 1
+pic_species.1.motion = true
+pic_species.1.forces = true
+pic_species.1.scatter = true
+
+IC.heliumI.X_min = 0.0
+IC.heliumI.X_max = 1.0
+IC.heliumI.use_float_for_weights = true
+IC.heliumI.parts_per_cell = 100
+IC.heliumI.density.type = "constant"
+IC.heliumI.density.value = 1.00e23 # [number/m^3]
+IC.heliumI.temperature_0.type = "constant"
+IC.heliumI.temperature_0.value = 25.3e-3 # [eV]
+IC.heliumI.temperature_1.type = "constant"
+IC.heliumI.temperature_1.value = 25.3e-3 # [eV]
+IC.heliumI.temperature_2.type = "constant"
+IC.heliumI.temperature_2.value = 25.3e-3 # [eV]
+IC.heliumI.velocity_0.type = "constant"
+IC.heliumI.velocity_0.value = 0.0
+IC.heliumI.velocity_1.type = "constant"
+IC.heliumI.velocity_1.value = 0.0
+IC.heliumI.velocity_2.type = "constant"
+IC.heliumI.velocity_2.value = 0.0
+
+IC.heliumII.X_min = 0.1
+IC.heliumII.X_max = 0.1025
+IC.heliumII.use_float_for_weights = true
+IC.heliumII.parts_per_cell = 5000
+IC.heliumII.density.type = "constant"
+IC.heliumII.density.value = 1.00e13 # [number/m^3]
+IC.heliumII.temperature_0.type = "constant"
+IC.heliumII.temperature_0.value = 1.0 # [eV]
+IC.heliumII.temperature_1.type = "constant"
+IC.heliumII.temperature_1.value = 1.0 # [eV]
+IC.heliumII.temperature_2.type = "constant"
+IC.heliumII.temperature_2.value = 1.0 # [eV]
+IC.heliumII.velocity_0.type = "constant"
+IC.heliumII.velocity_0.value = 0.0
+IC.heliumII.velocity_1.type = "constant"
+IC.heliumII.velocity_1.value = 0.0
+IC.heliumII.velocity_2.type = "constant"
+IC.heliumII.velocity_2.value = 0.0
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.0.model = "CEX"
+scattering.0.speciesA = 1
+scattering.0.speciesB = 0
+scattering.0.cross_section_type = "text file"
+scattering.0.file_name = "./cross_sections/helium_charge_exchange.txt"
+scattering.0.weight_method = "conservative"
+#scattering.0.use_loglog_interpolation = true
+
+#####################################################
+

@@ -36,6 +36,8 @@ public:
                   const Real                  a_dt_sec );
 
   void setScatteringProbes();
+  
+  void setFusionProbes();
 
   int numScatter() const { return m_scattering_ptr_vect.size(); }
   
@@ -46,6 +48,8 @@ public:
   Real ionizationEnergy() const { return m_izn_energy_joules; }
   
   Real excitationEnergy() const { return m_exc_energy_joules; }
+  
+  Real fusionEnergy() const { return m_fus_energy_joules; }
 
   void writeCheckpoint( HDF5Handle&  a_handle );
   
@@ -64,11 +68,13 @@ private:
   //
   int m_num_coulomb;
   int m_num_elastic;
+  int m_num_fusion;
   int m_num_inelastic;
   ScatteringPtrVect m_scattering_ptr_vect;
   //
   Real m_izn_energy_joules = 0.0;
   Real m_exc_energy_joules = 0.0;
+  Real m_fus_energy_joules = 0.0;
  
 };
 

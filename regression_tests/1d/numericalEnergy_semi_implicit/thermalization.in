@@ -33,6 +33,7 @@ simulation.dt_scatter_check_interval = 100
 
 history.precision = 8
 history.field_probes = true
+history.solver_probes = true
 history.species0_probes = true
 history.species1_probes = true
 

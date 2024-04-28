@@ -220,7 +220,8 @@ public:
   // ways to get/set current density member
   void currentDensity( LevelData<FArrayBox>&  a_currentDensity );
   
-  void setCurrentDensity( const bool  a_from_explicit_solver = false );
+  void setCurrentDensity( const Real  a_dt,
+                          const bool  a_from_explicit_solver = false );
   const LevelData<EdgeDataBox>& getCurrentDensity() const {return m_currentDensity;}
   const LevelData<NodeFArrayBox>& getCurrentDensity_virtual() const {return m_currentDensity_virtual;}
   LevelData<EdgeDataBox>& getCurrentDensity() {return m_currentDensity;}

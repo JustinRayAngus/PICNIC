@@ -18,7 +18,10 @@ base_dir=$4
 diff_prog=$5
 
 # Absolute tolerance used for comparisons
-atol=$6
+#atol=$6
+
+# Relative tolerance used for comparisons
+rtol=$6
 
 if [ -d "$base_dir/$prob_dir" ]; then
    echo "Checking $prob_dir"
@@ -32,7 +35,8 @@ if [ -d "$base_dir/$prob_dir" ]; then
             if [ -f "$base_file" ]; then
                plot_dir=`echo $base_plot_dir | sed 's/.*\(\/\)//'`
                file=`echo $base_file | sed 's/.*\(\/\)//'`
-               out=`$diff_prog --delta=$atol ${PICNIC_TEST_DIM}d/$prob_dir/$plot_dir/$file $base_file`
+               #out=`$diff_prog --delta=$atol ${PICNIC_TEST_DIM}d/$prob_dir/$plot_dir/$file $base_file`
+               out=`$diff_prog --relative=$rtol ${PICNIC_TEST_DIM}d/$prob_dir/$plot_dir/$file $base_file`
                if [ "$out" != "" ]; then
                   echo $file\:
                   echo "   " $out
@@ -48,7 +52,8 @@ if [ -d "$base_dir/$prob_dir" ]; then
                      plot_dir=`echo $base_plot_dir | sed 's/.*\(\/\)//'`
                      plot_subdir=`echo $base_plot_subdir | sed 's/.*\(\/\)//'`
                      file=`echo $base_file | sed 's/.*\(\/\)//'`
-                     out=`$diff_prog --delta=$atol ${PICNIC_TEST_DIM}d/$prob_dir/$plot_dir/$plot_subdir/$file $base_file`
+                     #out=`$diff_prog --delta=$atol ${PICNIC_TEST_DIM}d/$prob_dir/$plot_dir/$plot_subdir/$file $base_file`
+                     out=`$diff_prog --relative=$rtol ${PICNIC_TEST_DIM}d/$prob_dir/$plot_dir/$plot_subdir/$file $base_file`
                      if [ "$out" != "" ]; then
                         echo $file\:
                         echo "   " $out

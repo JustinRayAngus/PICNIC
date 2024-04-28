@@ -65,6 +65,7 @@ public:
   LevelData<NodeFArrayBox>& getSurfaceChargeOnNodes() {return m_surfaceCharge_nodes;}
   
   void setCurrentDensity( const EMFields&  a_emfields,
+                          const Real       a_dt,
 		          const bool       a_finalizeJ,
 		          const bool       a_from_explicit_solver = false );
 

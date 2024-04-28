@@ -53,18 +53,18 @@ System::System( ParmParse&  a_pp )
    m_implicit_advance = false;
    bool em_advance = false;
    if (m_advance_method == PIC_DSMC) {
-     m_time_integrator = new PICTimeIntegrator_DSMC;
+      m_time_integrator = new PICTimeIntegrator_DSMC;
    } else if (m_advance_method == PIC_EM_EXPLICIT) {
-     m_time_integrator = new PICTimeIntegrator_EM_Explicit;
-     em_advance = true;
+      m_time_integrator = new PICTimeIntegrator_EM_Explicit;
+      em_advance = true;
    } else if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
-     m_time_integrator = new PICTimeIntegrator_EM_SemiImplicit;
-     m_implicit_advance = true;
-     em_advance = true;
+      m_time_integrator = new PICTimeIntegrator_EM_SemiImplicit;
+      m_implicit_advance = true;
+      em_advance = true;
    } else if (m_advance_method == PIC_EM_THETA_IMPLICIT) {
-     m_time_integrator = new PICTimeIntegrator_EM_ThetaImplicit;
-     m_implicit_advance = true;
-     em_advance = true;
+      m_time_integrator = new PICTimeIntegrator_EM_ThetaImplicit;
+      m_implicit_advance = true;
+      em_advance = true;
    }
    else {
       if (!procID()) { 
@@ -352,7 +352,7 @@ void System::initialize( const int           a_cur_step,
       if (m_implicit_advance) {
          m_pic_species->initializeMassMatrices( *m_emfields, a_cur_dt, a_restart_file_name );
       }
-      m_pic_species->setCurrentDensity( *m_emfields, true );
+      m_pic_species->setCurrentDensity( *m_emfields, a_cur_dt, true );
       const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
       const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
       m_emfields->setCurrentDensity( pic_J, pic_Jv );
@@ -432,7 +432,7 @@ void System::writePlotFile( const int     a_cur_step,
             species->setChargeDensityOnNodes( use_filtering );
          }
          if (writeJ) {
-            species->setCurrentDensity();
+            species->setCurrentDensity( a_cur_dt );
             LevelData<EdgeDataBox>& species_J = species->getCurrentDensity();
             LevelData<NodeFArrayBox>& species_Jv = species->getCurrentDensity_virtual();
             m_pic_species->finalizeSettingJ( species_J, species_Jv, *m_emfields );
@@ -485,9 +485,15 @@ void System::writeHistFile( const int   a_cur_step,
    // compute the scattering probes
    Real energyIzn_joules, energyExc_joules;
    if (m_scattering_probes) {
-      m_scattering->setScatteringProbes();
-      energyIzn_joules = m_scattering->ionizationEnergy();
-      energyExc_joules = m_scattering->excitationEnergy();
+       m_scattering->setScatteringProbes();
+       energyIzn_joules = m_scattering->ionizationEnergy();
+       energyExc_joules = m_scattering->excitationEnergy();
+   }
+   
+   Real energyFusion_joules;
+   if (m_fusion_probes) {
+       m_scattering->setFusionProbes();
+       energyFusion_joules = m_scattering->fusionEnergy();
    }
    
    // compute the species probes
@@ -553,6 +559,9 @@ void System::writeHistFile( const int   a_cur_step,
          if (m_scattering_probes) {
             histFile << energyIzn_joules << " ";
             histFile << energyExc_joules << " ";
+         }
+         if (m_fusion_probes) {
+            histFile << energyFusion_joules << " ";
          }
          for( int sp=0; sp<numSpecies; sp++) {
             if (!m_species_probes[sp]) continue;
@@ -623,18 +632,22 @@ void System::setupHistFile(const int a_cur_step)
    m_field_probes = false;
    if (!m_emfields.isNull()) {
       pphist.query("field_probes", m_field_probes);
-      if (!procID()) cout << "field_probes = " << m_field_probes << endl;
+      if (!procID()) { cout << "field_probes = " << m_field_probes << endl; }
    }
    
    m_field_bdry_probes = false;
    if (!m_emfields.isNull()) {
       pphist.query("field_bdry_probes", m_field_bdry_probes);
-      if (!procID()) cout << "field_bdry_probes = " << m_field_bdry_probes << endl;
+      if (!procID()) { cout << "field_bdry_probes = " << m_field_bdry_probes << endl; }
    }
    
    m_scattering_probes = false;
    pphist.query("scattering_probes", m_scattering_probes);
-   if (!procID()) cout << "scattering_probes = " << m_scattering_probes << endl;
+   if (!procID()) { cout << "scattering_probes = " << m_scattering_probes << endl; }
+   
+   m_fusion_probes = false;
+   pphist.query("fusion_probes", m_fusion_probes);
+   if (!procID()) { cout << "fusion_probes = " << m_fusion_probes << endl; }
  
    const int numSpecies = m_pic_species->numSpecies();
    if (numSpecies>0) { 
@@ -725,6 +738,13 @@ void System::setupHistFile(const int a_cur_step)
       probe_names.push_back(ss.str()); 
       ss.str(std::string());
       ss << "#" << probe_names.size() << " excitation energy [Joules]";
+      probe_names.push_back(ss.str()); 
+      ss.str(std::string());
+   }
+   
+   if (m_fusion_probes) {
+      stringstream ss;
+      ss << "#" << probe_names.size() << " fusion energy [Joules]";
       probe_names.push_back(ss.str()); 
       ss.str(std::string());
    }
@@ -1043,6 +1063,7 @@ void System::postTimeStep( Real&        a_cur_time,
       m_specialOps->updateOp(a_dt);
    }
    
+   m_time_integrator->postTimeStep( a_cur_time, a_dt );
    m_pic_species->postTimeStep();
    
    a_cur_time = a_cur_time + a_dt;

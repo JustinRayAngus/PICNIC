@@ -9,6 +9,7 @@
 #include "Heavyside.H"
 #include "Polar.H"
 #include "Bennett.H"
+#include "Exponential.H"
 #include "Constant.H"
 
 #include "NamespaceHeader.H"
@@ -69,6 +70,9 @@ RefCountedPtr<GridFunction> GridFunctionFactory::create(
    }
    else if (model == "bennett") {
       result = RefCountedPtr<GridFunction>( new Bennett( a_pp, a_verbosity ) );
+   }
+   else if (model == "exponential") {
+      result = RefCountedPtr<GridFunction>( new Exponential( a_pp, a_verbosity ) );
    }
    else if (model == "constant") {
       result = RefCountedPtr<GridFunction>( new Constant( a_pp, a_verbosity ) );

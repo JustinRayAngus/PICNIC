@@ -20,6 +20,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[dt], 
      &                       CHF_CONST_REAL[qp]) 
 
       integer index_stag(0:CH_SPACEDIM - 1)
@@ -116,6 +117,7 @@ c     deposit the particle x-current to the grid
         weight = seg_factor
         rhoVx(CHF_IX[ii; jj; kk]) = 
      &  rhoVx(CHF_IX[ii; jj; kk]) + vpx * rhop * weight
+c     &  rhoVx(CHF_IX[ii; jj; kk]) + dXp(i0)/dt * rhop * weight
         
 c     update xpold
         xpold0 = xpnew0
@@ -176,6 +178,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[dt], 
      &                       CHF_CONST_REAL[qp]) 
 
       integer index_stag(0:CH_SPACEDIM - 1)
@@ -302,10 +305,12 @@ c     deposit the particle x-current to the grid
         weight = CHF_DTERM[w0; *w1; *w2]
         rhoVx(CHF_IX[ii; jj; kk]) = 
      &  rhoVx(CHF_IX[ii; jj; kk]) + vpx * rhop * weight
+c     &  rhoVx(CHF_IX[ii; jj; kk]) + dXp(i0)/dt * rhop * weight
         
         weight = CHF_DTERM[w0; *(1.d0-w1); *w2]
         rhoVx(CHF_IX[ii; jj+1; kk]) = 
      &  rhoVx(CHF_IX[ii; jj+1; kk]) + vpx * rhop * weight
+c     &  rhoVx(CHF_IX[ii; jj+1; kk]) + dXp(i0)/dt * rhop * weight
 
 c     deposit the particle y-current to the grid
         CHF_DTERM[
@@ -320,10 +325,12 @@ c     deposit the particle y-current to the grid
         weight = CHF_DTERM[w0; *w1; *w2]
         rhoVy(CHF_IX[ii; jj; kk]) = 
      &  rhoVy(CHF_IX[ii; jj; kk]) + vpy * rhop * weight
+c     &  rhoVy(CHF_IX[ii; jj; kk]) + dXp(i1)/dt * rhop * weight
         
         weight = CHF_DTERM[(1.d0-w0); *w1; *w2]
         rhoVy(CHF_IX[ii+1; jj; kk]) = 
      &  rhoVy(CHF_IX[ii+1; jj; kk]) + vpy * rhop * weight
+c     &  rhoVy(CHF_IX[ii+1; jj; kk]) + dXp(i1)/dt * rhop * weight
 
 c     update xpold
         xpold0 = xpnew0
@@ -946,6 +953,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[dt], 
      &                       CHF_CONST_REAL[qp]) 
 
       integer index(0:CH_SPACEDIM - 1), index_stag(0:CH_SPACEDIM - 1)
@@ -1009,7 +1017,7 @@ c     compute the index of the left most cell/edge that contains this particle c
 
       if(num_segments>ghosts+1) then
         print*, "CC1_1D_DEPOSIT: num_segments = ", num_segments
-        STOP 'ERROR, not enough ghost layers'
+        STOP 'ERROR, particle crossing more cell than allowed. Decrease time step or increase ghost layers'
       endif      
 
 c     calculate the initial Xcell in each direction
@@ -1048,12 +1056,20 @@ c     deposit the particle x-current to the grid
 
         weight = w0*seg_factor
         rhoVx(CHF_IX[ii; jj; kk]) = 
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+     &  rhoVx(CHF_IX[ii; jj; kk]) + dXp(i0)/dt * rhop * weight
+#else
      &  rhoVx(CHF_IX[ii; jj; kk]) + vpx * rhop * weight
-        
+#endif     
+   
         weight = (1.d0-w0)*seg_factor
         rhoVx(CHF_IX[ii+1; jj; kk]) = 
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+     &  rhoVx(CHF_IX[ii+1; jj; kk]) + dXp(i0)/dt * rhop * weight
+#else
      &  rhoVx(CHF_IX[ii+1; jj; kk]) + vpx * rhop * weight
-        
+#endif     
+   
 c     update xpold
         xpold0 = xpnew0
             
@@ -1181,7 +1197,7 @@ c     compute the index of the left most cell/edge that contains this particle c
 
       if(num_segments>ghosts+1) then
         print*, "CC1_1D_INTERP: num_segments = ", num_segments
-        STOP 'ERROR, not enough ghost layers'
+        STOP 'ERROR, particle crossing more cell than allowed. Decrease time step or increase ghost layers'
       endif      
 
 c     calculate the initial Xcell in each direction
@@ -1478,6 +1494,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_REAL[vpx], 
      &                       CHF_CONST_REAL[vpy], 
      &                       CHF_CONST_REAL[vpz], 
+     &                       CHF_CONST_REAL[dt], 
      &                       CHF_CONST_REAL[qp]) 
 
       integer index_stag(0:CH_SPACEDIM - 1)
@@ -1537,7 +1554,7 @@ c     compute the index of the left most cell/edge that contains this particle c
       
       if(num_segments>ghosts+1) then
         print*, "CC1_2D_DEPOSIT: num_segments = ", num_segments
-        STOP 'ERROR, not enough ghost layers'
+        STOP 'ERROR, particle crossing more cell than allowed. Decrease time step or increase ghost layers'
       endif      
 
 c     calculate the initial Xcell in each direction
@@ -1639,12 +1656,19 @@ c     deposit the particle x-current to the grid
 
           weight = (1.0 - delta0)*w1_stag*seg_factor(i0)
           rhoVx(CHF_IX[ii; jj_stag; kk]) = 
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+     &    rhoVx(CHF_IX[ii; jj_stag; kk]) + dXp(i0)/dt * rhop * weight
+#else   
      &    rhoVx(CHF_IX[ii; jj_stag; kk]) + vpx * rhop * weight
-        
+#endif 
+  
           weight = delta0*w1_stag*seg_factor(i0)
           rhoVx(CHF_IX[ii+1; jj_stag; kk]) = 
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+     &    rhoVx(CHF_IX[ii+1; jj_stag; kk]) + dXp(i0)/dt * rhop * weight
+#else
      &    rhoVx(CHF_IX[ii+1; jj_stag; kk]) + vpx * rhop * weight
-
+#endif
         enddo
 
 c     deposit the particle y-current to the grid
@@ -1669,12 +1693,19 @@ c     deposit the particle y-current to the grid
 
           weight = w0_stag*(1.0 - delta1)*seg_factor(i1)
           rhoVy(CHF_IX[ii_stag; jj; kk]) = 
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+     &    rhoVy(CHF_IX[ii_stag; jj; kk]) + dXp(i1)/dt * rhop * weight
+#else
      &    rhoVy(CHF_IX[ii_stag; jj; kk]) + vpy * rhop * weight
-        
+#endif
+   
           weight = w0_stag*delta1*seg_factor(i1)
           rhoVy(CHF_IX[ii_stag; jj+1; kk]) = 
+#ifdef NEW_EXACT_CHARGE_CONSERVATION
+     &    rhoVy(CHF_IX[ii_stag; jj+1; kk]) + dXp(i1)/dt * rhop * weight
+#else
      &    rhoVy(CHF_IX[ii_stag; jj+1; kk]) + vpy * rhop * weight
-        
+#endif        
         enddo
 
 c     update xpold
@@ -1792,7 +1823,7 @@ c     compute the index of the left most cell/edge that contains this particle c
       
       if(num_segments>ghosts+1) then
         print*, "CC1_2D_INTERP: num_segments = ", num_segments
-        STOP 'ERROR, not enough ghost layers'
+        STOP 'ERROR, particle crossing more cell than allowed. Decrease time step or increase ghost layers'
       endif      
 
 c     calculate the initial Xcell in each direction

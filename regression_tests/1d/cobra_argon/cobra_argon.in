@@ -34,6 +34,7 @@ simulation.max_time            = 250.0
 simulation.fixed_dt            = 1.0e-3
 #simulation.plot_interval       = 1000
 simulation.plot_time_interval  = 2.0
+simulation.plot_on_restart     = true
 simulation.plot_prefix         = "plt"
 simulation.history             = true
 simulation.history_interval    = 200
@@ -686,7 +687,7 @@ scattering.0.speciesB = 1
 scattering.0.angular_scattering = "okhrimovskyy"
 scattering.0.cross_section_type = "text file"
 #scattering.0.print_cross_sections = true
-#scattering.0.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_elastic.txt"
+#scattering.0.file_name = "/usr/workspace/angus1/codes/picnic/cross_sections/argon/argon_elastic.txt"
 scattering.0.file_name = "./cross_sections/argon_elastic.txt"
 #scattering.0.use_loglog_interpolation = true
 
@@ -698,7 +699,7 @@ scattering.2.model = "CEX"
 scattering.2.speciesA = 2
 scattering.2.speciesB = 1
 scattering.2.cross_section_type = "text file"
-#scattering.2.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_charge_exchange.txt"
+#scattering.2.file_name = "/usr/workspace/angus1/codes/picnic/cross_sections/argon/argon_charge_exchange.txt"
 scattering.2.file_name = "./cross_sections/argon_charge_exchange.txt"
 
 #
@@ -714,7 +715,7 @@ scattering.3.potential = 15.80 # [eV]
 scattering.3.angular_scattering = "isotropic"
 scattering.3.energy_sharing = "zero"
 scattering.3.cross_section_type = "text file"
-#scattering.3.file_name = "/g/g19/angus1/gitLab/picnic/cross_sections/argon/argon_ionization.txt"
+#scattering.3.file_name = "/usr/workspace/angus1/codes/picnic/cross_sections/argon/argon_ionization.txt"
 scattering.3.file_name = "./cross_sections/argon_ionization.txt"
 #scattering.3.cross_section_type = "Lotz"
 #scattering.3.Lotz.a = 4.0e-18 # [m^2]

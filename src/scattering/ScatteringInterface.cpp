@@ -11,7 +11,8 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
      m_weight_method(PROBABILISTIC),
      m_model_search_count_max(99),
      m_izn_energy_joules(0.0),
-     m_exc_energy_joules(0.0)
+     m_exc_energy_joules(0.0),
+     m_fus_energy_joules(0.0)
 {
 
    ParmParse pp_scatter("scattering");
@@ -37,6 +38,7 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
    
    ScatteringPtrVect coulomb_ptr_vect;
    ScatteringPtrVect elastic_ptr_vect;
+   ScatteringPtrVect fusion_ptr_vect;
    ScatteringPtrVect inelastic_ptr_vect;
    
    if(!procID()) cout << "ScatteringInterface: Creating scattering objects..." << endl;
@@ -69,6 +71,9 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
                  this_scattering->getScatteringType()==CHARGE_EXCHANGE) {
             elastic_ptr_vect.push_back(this_scattering);
          }
+         else if(this_scattering->getScatteringType()==FUSION) {
+            fusion_ptr_vect.push_back(this_scattering);
+         }
          else {
             inelastic_ptr_vect.push_back(this_scattering);
          }
@@ -80,18 +85,21 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
    }
    m_num_coulomb = coulomb_ptr_vect.size();
    m_num_elastic = elastic_ptr_vect.size();
+   m_num_fusion = fusion_ptr_vect.size();
    m_num_inelastic = inelastic_ptr_vect.size();
 
    // concatenate the different ptr vects to m_scattering_ptr_vect
    m_scattering_ptr_vect = coulomb_ptr_vect;
    m_scattering_ptr_vect.append( elastic_ptr_vect );
+   m_scattering_ptr_vect.append( fusion_ptr_vect );
    m_scattering_ptr_vect.append( inelastic_ptr_vect );
         
    if(!procID()) {
       cout << "ScatteringInterface: Finished creating " << m_scattering_ptr_vect.size();
       cout << " scattering objects" << endl;
-      cout << "num_coulomb = " << m_num_coulomb << endl;
-      cout << "num_elastic = " << m_num_elastic << endl;
+      cout << "num_coulomb   = " << m_num_coulomb << endl;
+      cout << "num_elastic   = " << m_num_elastic << endl;
+      cout << "num_fusion    = " << m_num_fusion << endl;
       cout << "num_inelastic = " << m_num_inelastic << endl;
       cout << endl;
    }
@@ -147,6 +155,13 @@ ScatteringInterface::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
    }
    offset += m_num_elastic;
    
+   // do fusion next to last
+   for (int sct=offset; sct<offset+m_num_fusion; sct++) {
+      ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+      this_scattering->applyScattering( a_pic_species_intf, a_mesh, a_dt_sec );
+   }
+   offset += m_num_fusion;
+   
    // do inelastic last
    for (int sct=offset; sct<offset+m_num_inelastic; sct++) {
       ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
@@ -201,6 +216,35 @@ void ScatteringInterface::setScatteringProbes()
 
 }
 
+void ScatteringInterface::setFusionProbes()
+{  
+   CH_TIME("ScatteringInterface::setFusionProbes()");
+   
+   Real deltaE_fus_local = 0.0;
+   for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
+      ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+      if(this_scattering->getScatteringType()==FUSION) {
+         deltaE_fus_local += this_scattering->getDeltaEfusion();
+         this_scattering->zeroDeltaEfusion();
+      }
+   }
+
+   Real deltaE_fus_global = 0.0;
+#ifdef CH_MPI
+   MPI_Allreduce( &deltaE_fus_local,
+                  &deltaE_fus_global,
+                  1,
+                  MPI_DOUBLE,
+                  MPI_SUM,
+                  MPI_COMM_WORLD );
+#else
+   deltaE_fus_global = deltaE_fus_local;   
+#endif
+
+  m_fus_energy_joules += deltaE_fus_global;
+
+}
+
 Real
 ScatteringInterface::scatterDt( const PicSpeciesInterface&  a_pic_species_intf )
 {
@@ -239,7 +283,9 @@ ScatteringInterface::writeCheckpoint( HDF5Handle&  a_handle )
    header.m_real["izn_energy_joules"] = m_izn_energy_joules;
    header.m_real["exc_energy_joules"] = m_exc_energy_joules;
 
+   setFusionProbes();
    header.writeToFile(a_handle);
+   header.m_real["fus_energy_joules"] = m_fus_energy_joules;
    
    //a_handle.setGroup(orig_group);
 
@@ -258,6 +304,7 @@ ScatteringInterface::readCheckpoint( HDF5Handle&  a_handle )
    header.readFromFile( a_handle );
    m_izn_energy_joules = header.m_real["izn_energy_joules"];
    m_exc_energy_joules = header.m_real["exc_energy_joules"];
+   m_fus_energy_joules = header.m_real["fus_energy_joules"];
    
    //a_handle.setGroup(orig_group); // doesnt work for some reason
 

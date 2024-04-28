@@ -111,6 +111,7 @@ em_fields.advance = true
 em_fields.advance_electric_field = 1 1 1
 em_fields.advance_magnetic_field = 1 1 1
 em_fields.write_rho = true
+em_fields.write_sigma = true
 em_fields.write_divs = true
 em_fields.write_curls = true
 
