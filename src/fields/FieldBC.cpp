@@ -8,7 +8,7 @@
 
 FieldBC::FieldBC( const DomainGrid&  a_mesh,
                   const int          a_verbosity )
-   : m_conservative_wall(false),
+   : m_conservative_wall(true),
      m_mesh(a_mesh),
      m_verbosity(a_verbosity)
 {
@@ -17,7 +17,7 @@ FieldBC::FieldBC( const DomainGrid&  a_mesh,
    ParmParse pp(pp_prefix.c_str());
    parseParameters(pp);
    
-   if(m_verbosity) printParameters();
+   if (m_verbosity) { printParameters(); }
 
 }
 
@@ -38,7 +38,7 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
 
    // check if using poisson
    ParmParse pp2("poisson");
-   if(pp2.contains("bc_lo")) {
+   if (pp2.contains("bc_lo")) {
       m_phi_bc_type.resize(bdry_layout.size());
       std::vector<int> bc_lo, bc_hi;
       bc_lo.resize( SpaceDim );
@@ -49,14 +49,14 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
          const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
          int bdry_dir(this_bdry_layout.dir());
          int bdry_side(this_bdry_layout.side());
-	 if(bdry_side == 0) {
-	    if(bc_lo[bdry_dir] == 0) { m_phi_bc_type[b] = "dirichlet"; }
-	    else if(bc_lo[bdry_dir] == 1) { m_phi_bc_type[b] = "neumann"; }
-	 } 
-	 if(bdry_side == 1) {
-	    if(bc_hi[bdry_dir] == 0) { m_phi_bc_type[b] = "dirichlet"; }
-	    else if(bc_hi[bdry_dir] == 1) { m_phi_bc_type[b] = "neumann"; }
-	 }
+         if (bdry_side == 0) {
+            if (bc_lo[bdry_dir] == 0) { m_phi_bc_type[b] = "dirichlet"; }
+            else if (bc_lo[bdry_dir] == 1) { m_phi_bc_type[b] = "neumann"; }
+         }
+         if (bdry_side == 1) {
+            if (bc_hi[bdry_dir] == 0) { m_phi_bc_type[b] = "dirichlet"; }
+            else if (bc_hi[bdry_dir] == 1) { m_phi_bc_type[b] = "neumann"; }
+         }
       }
    }
    
@@ -69,7 +69,7 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
       std::string prefix( a_pp.prefix() );
       prefix += "." + m_bdry_name[b];
       ParmParse fpp( prefix.c_str() );
-      if( fpp.contains("type") ) {
+      if ( fpp.contains("type") ) {
          fpp.get( "type", m_bc_type[b] );
          CH_assert( m_bc_type[b] == "symmetry" ||    
                     m_bc_type[b] == "odd" ||
@@ -80,14 +80,14 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
                     m_bc_type[b] == "extrapolate" || 
                     m_bc_type[b] == "extrapolate_zeroBv" || 
                     m_bc_type[b] == "insulator_conductor" );
-         if(m_bc_type[b]=="insulator_conductor") {
+         if (m_bc_type[b]=="insulator_conductor") {
             m_InsulatorBC[b] = RefCountedPtr<InsulatorBC> (new InsulatorBC(b,m_bdry_name[b],m_mesh));
          }
-         if(m_bc_type[b]=="axis" && !m_mesh.axisymmetric()) m_bc_type[b] = "symmetry";
-         if(m_bc_type[b]=="symmetry" && m_mesh.axisymmetric()) {
+         if (m_bc_type[b]=="axis" && !m_mesh.axisymmetric()) m_bc_type[b] = "symmetry";
+         if (m_bc_type[b]=="symmetry" && m_mesh.axisymmetric()) {
             int bdry_side(this_bdry_layout.side());
             const RealVect& Xmin(m_mesh.getXmin());
-            if(bdry_side==0 && Xmin[0]==0.0) m_bc_type[b] = "axis";
+            if (bdry_side==0 && Xmin[0]==0.0) { m_bc_type[b] = "axis"; }
          }
       }
    }
@@ -263,13 +263,13 @@ void FieldBC::applyNodePCMask( LevelData<NodeFArrayBox>&  a_dst,
 #if CH_SPACEDIM==1
 void FieldBC::applyPhiBC( LevelData<NodeFArrayBox>&  a_phi,
                     const LevelData<NodeFArrayBox>&  a_rho,
-		    const Real                       a_rhoNorm ) const
+                    const Real                       a_rhoNorm ) const
 {
    CH_TIME("FieldBC::applyPhiBC()");
    FieldBCUtils::setPhiBC( a_phi,
- 		           a_rho,
+                           a_rho,
                            m_mesh,
-			   a_rhoNorm,
+                           a_rhoNorm,
                            m_phi_bc_type );
 }
 #endif
@@ -318,22 +318,22 @@ void FieldBC::applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
                            const LevelData<FArrayBox>&    a_B )
 {
    CH_TIME("FieldBC::applyOnAxisCurlBC()");
-   if(!m_mesh.axisymmetric()) return;      
+   if (!m_mesh.axisymmetric()) return;
    
    // set boundry value for curlB assuming B~r ==> 1/r*d(rB)/dr = 4*B(1/2)/dX
    
    const RealVect& dX(m_mesh.getdX());      
 
    const BoundaryBoxLayoutPtrVect& all_bdry_layouts = m_mesh.getBoundaryLayout();
-   for(int b(0); b<all_bdry_layouts.size(); b++) {
+   for (int b(0); b<all_bdry_layouts.size(); b++) {
       const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
       const int bdry_dir = bdry_layout.dir();
       const int bdry_side(bdry_layout.side());
       const std::string this_bc_type (m_bc_type[b]);
-      if(this_bc_type!="axis") continue;      
-         
+      if (this_bc_type!="axis") { continue; }
+
       int curl_dir = 0;
-      if(bdry_dir==0) curl_dir = 1;
+      if (bdry_dir==0) { curl_dir = 1; }
 
       const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
@@ -347,8 +347,8 @@ void FieldBC::applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
          edge_box.enclosedCells(curl_dir);
                
          // collapse edge_box to 1 cell thick in bdry_dir direction                  
-         if(bdry_side==0) edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir));
-         if(bdry_side==1) edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir));
+         if (bdry_side==0) { edge_box.setSmall(bdry_dir,edge_box.bigEnd(bdry_dir)); }
+         if (bdry_side==1) { edge_box.setBig(bdry_dir,edge_box.smallEnd(bdry_dir)); }
 
          // set boundry value for curlB
          IntVect ib, shift;
@@ -356,7 +356,7 @@ void FieldBC::applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
          shift[bdry_dir] = -bdry_side;
          Real bdry_val, B0;
          BoxIterator bit(edge_box);
-         for(bit.begin(); bit.ok(); ++bit) {
+         for (bit.begin(); bit.ok(); ++bit) {
             ib = bit();
             B0 = this_B.get(ib+shift,0);
             bdry_val = 4.0*B0/dX[bdry_dir];
@@ -373,7 +373,7 @@ void FieldBC::applyOnAxisCurlBC( LevelData<NodeFArrayBox>&  a_curlB,
                            const LevelData<FArrayBox>&      a_B )
 {
    CH_TIME("FieldBC::applyOnAxisCurlBC()");
-   if(!m_mesh.axisymmetric()) return;      
+   if (!m_mesh.axisymmetric()) return;
    
    const string& geom_type = m_mesh.geomType();
       
@@ -382,26 +382,26 @@ void FieldBC::applyOnAxisCurlBC( LevelData<NodeFArrayBox>&  a_curlB,
    const RealVect& dX(m_mesh.getdX());      
 
    const BoundaryBoxLayoutPtrVect& all_bdry_layouts = m_mesh.getBoundaryLayout();
-   for(int b(0); b<all_bdry_layouts.size(); b++) {
+   for (int b(0); b<all_bdry_layouts.size(); b++) {
       const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
       const int bdry_dir = bdry_layout.dir();
       const int bdry_side(bdry_layout.side());
       const std::string this_bc_type (m_bc_type[b]);
-      if(this_bc_type!="axis") continue;      
-         
+      if (this_bc_type!="axis") { continue; }
+
       const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
             
          const FArrayBox& this_B( a_B[bdry_layout.dataIndex(dit)] );
          FArrayBox& this_curlB( a_curlB[bdry_layout.dataIndex(dit)].getFab() );
-         
+
          // create fill box right on axis
          const Box& bdry_box( bdry_grids[dit] );
          Box node_box = surroundingNodes(bdry_box);
-               
+
          // collapse node_box to 1 cell thick in bdry_dir direction                  
-         if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
-         if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
+         if (bdry_side==0) { node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir)); }
+         if (bdry_side==1) { node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir)); }
 
          // set boundry value for curlB
          IntVect ib, shift;
@@ -410,16 +410,16 @@ void FieldBC::applyOnAxisCurlBC( LevelData<NodeFArrayBox>&  a_curlB,
          Real bdry_val, B0;
          const int this_comp = 1; // Z-dir is comp 1 for 1D
          BoxIterator bit(node_box);
-         for(bit.begin(); bit.ok(); ++bit) {
+         for (bit.begin(); bit.ok(); ++bit) {
             ib = bit();
             B0 = this_B.get(ib+shift,0);
             bdry_val = 4.0*B0/dX[bdry_dir];
             this_curlB.set(ib,this_comp,bdry_val);
-	    if(geom_type=="sph_R") { // -d(r*Bphi)/dr/r
+            if (geom_type=="sph_R") { // -d(r*Bphi)/dr/r
                B0 = this_B.get(ib+shift,1);
                bdry_val = -4.0*B0/dX[bdry_dir];
                this_curlB.set(ib,0,bdry_val);
-	    }
+            }
          }
 
       }
@@ -432,7 +432,7 @@ void FieldBC::applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
                           const LevelData<EdgeDataBox>&    a_E )
 {
    CH_TIME("FieldBC::applyOnAxisDivBC()");
-   if(!m_mesh.axisymmetric()) return;      
+   if (!m_mesh.axisymmetric()) return;
       
    // set boundry value for d(rEr)/dr/r assuming Er~r 
    // cylindrical: d(rEr)/dr/r = 2*Er(1/2)/r(1/2) = 4*Er(1/2)/dr
@@ -442,7 +442,7 @@ void FieldBC::applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
    const string& geom_type = m_mesh.geomType();
 
    Real geom_factor = 4.0;
-   if(geom_type=="sph_R") geom_factor = 6.0;
+   if (geom_type=="sph_R") { geom_factor = 6.0; }
 
    const BoundaryBoxLayoutPtrVect& all_bdry_layouts = m_mesh.getBoundaryLayout();
    for(int b(0); b<all_bdry_layouts.size(); b++) {
@@ -450,21 +450,21 @@ void FieldBC::applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
       const int bdry_dir = bdry_layout.dir();
       const int bdry_side(bdry_layout.side());
       const std::string this_bc_type (m_bc_type[b]);
-      if(this_bc_type!="axis") continue;      
-         
+      if (this_bc_type!="axis") { continue; }
+
       const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-            
+
          const FArrayBox& this_Edir( a_E[bdry_layout.dataIndex(dit)][bdry_dir] );
          FArrayBox& this_divE( a_divE[bdry_layout.dataIndex(dit)].getFab() );
-         
+
          // create fill box right on axis
          const Box& bdry_box( bdry_grids[dit] );
          Box node_box = surroundingNodes(bdry_box);
-               
+
          // collapse node_box to 1 cell thick in bdry_dir direction                  
-         if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
-         if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
+         if (bdry_side==0) { node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir)); }
+         if (bdry_side==1) { node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir)); }
 
          // set boundry value for d(rEr)/dr/r
          IntVect ib, shift;
@@ -472,10 +472,10 @@ void FieldBC::applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
          shift[bdry_dir] = -bdry_side;
          Real bdry_val, E0;
          BoxIterator bit(node_box);
-         for(bit.begin(); bit.ok(); ++bit) {
+         for (bit.begin(); bit.ok(); ++bit) {
             ib = bit();
             E0 = this_Edir.get(ib+shift,0);
-	    bdry_val = geom_factor*E0/dX[bdry_dir];
+            bdry_val = geom_factor*E0/dX[bdry_dir];
             this_divE.set(ib,0,bdry_val);
          }
 
@@ -507,13 +507,13 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
 #endif
    const LevelData<FArrayBox>& Xcc = m_mesh.getXcc();
       
-   for(int b(0); b<all_bdry_layouts.size(); b++) {
+   for (int b(0); b<all_bdry_layouts.size(); b++) {
       const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
       const std::string this_bc_type (m_bc_type[b]);
          
       const DisjointBoxLayout& bdry_grids( bdry_layout.disjointBoxLayout() );
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-            
+
          const Box& bdry_box( bdry_grids[dit] );
          const int bdry_dir = bdry_layout.dir();
          const int bdry_side(bdry_layout.side());
@@ -521,28 +521,28 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
                                                 // factor of 0.5 on surface. For 1D, can use
                                                 // normal Jacobians, but for D>1 need masked
                                                 // to get shared edges/corners correct
-  
+
          const FArrayBox& this_Bv( a_Bv[bdry_layout.dataIndex(dit)] );
          const FArrayBox& this_Ev( a_Ev[bdry_layout.dataIndex(dit)].getFab() );
          const FArrayBox& this_Xcc( Xcc[bdry_layout.dataIndex(dit)] );         
          const FArrayBox& this_Jnc( masked_Jnc[bdry_layout.dataIndex(dit)].getFab() );         
-     
+
          // get node box
          Box node_box = surroundingNodes(bdry_box);
-               
+
          // collapse node_box to 1 cell thick in bdry_dir direction                  
-         if(bdry_side==0) node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir));
-         if(bdry_side==1) node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir));
+         if (bdry_side==0) { node_box.setSmall(bdry_dir,node_box.bigEnd(bdry_dir)); }
+         if (bdry_side==1) { node_box.setBig(bdry_dir,node_box.smallEnd(bdry_dir)); }
 
 #if CH_SPACEDIM==1
-         const FArrayBox& this_Xnc( Xnc[bdry_layout.dataIndex(dit)].getFab() );         
-            
+         const FArrayBox& this_Xnc( Xnc[bdry_layout.dataIndex(dit)].getFab() );
+
          FArrayBox EyBz(node_box,1);
          FArrayBox EzBy(node_box,1);
 
          // Ey*Bz
-         if(m_mesh.axisymmetric() && geom_type=="sph_R") {
-            if(this_bc_type=="axis") EyBz.setVal(0.0);
+         if (m_mesh.axisymmetric() && geom_type=="sph_R") {
+            if (this_bc_type=="axis") { EyBz.setVal(0.0); }
             else {
                FArrayBox rBz(this_Bv.box(),1);
                rBz.copy(this_Bv,1,0,1);           
@@ -555,11 +555,11 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
          else {
            SpaceUtils::interpolateStag(EyBz,node_box,0,this_Bv,1,bdry_dir);
            EyBz.mult(this_Ev,node_box,0,0,1);
-	 }
+         }
 
          // Ez*By
-         if(m_mesh.axisymmetric()) {
-            if(this_bc_type=="axis") EzBy.setVal(0.0);
+         if (m_mesh.axisymmetric()) {
+            if (this_bc_type=="axis") { EzBy.setVal(0.0); }
             else {
                FArrayBox rBy(this_Bv.box(),1);
                rBy.copy(this_Bv,0,0,1);           
@@ -576,18 +576,18 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
 
          //if(bdry_side==0) a_intSdA_lo[bdry_dir] = -(EyBz.sum(0) - EzBy.sum(0))*bdry_dA; 
          //if(bdry_side==1) a_intSdA_hi[bdry_dir] =  (EyBz.sum(0) - EzBy.sum(0))*bdry_dA; 
-         if(bdry_side==0) {
+         if (bdry_side==0) {
             a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_Jnc,node_box) 
                                   -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA;
-         } 
-         if(bdry_side==1) {
+         }
+         if (bdry_side==1) {
             a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_Jnc,node_box) 
                                   -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA; 
          }
 
 #elif CH_SPACEDIM==2 
             
-         if(bdry_dir==0) {
+         if (bdry_dir==0) {
 
             const FArrayBox& this_Ey( a_E[bdry_layout.dataIndex(dit)][1] );
             const FArrayBox& this_By( a_B[bdry_layout.dataIndex(dit)][1] );
@@ -596,12 +596,12 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
 
             Box edge_box = enclosedCells(node_box,1);
             
-	    if(m_mesh.axisymmetric()) { // 2D RZ geometry (anticyclic)
+            if (m_mesh.axisymmetric()) { // 2D RZ geometry (anticyclic)
             
-	       FArrayBox EyBz(node_box,1);
+               FArrayBox EyBz(node_box,1);
                FArrayBox EzBy(edge_box,1);
 
-               if(this_bc_type=="axis") EzBy.setVal(0.0);
+               if (this_bc_type=="axis") { EzBy.setVal(0.0); }
                else {
                   FArrayBox rBy(this_Bv.box(),1);
                   rBy.copy(this_Bv,0,0,1); // this_Bv = By for this geometry          
@@ -610,83 +610,83 @@ void FieldBC::computeIntSdA( RealVect&                  a_intSdA_lo,
                   EzBy.mult(this_Ey,edge_box,0,0,1); // this_Ey = Ez for this geometry
                   EzBy.divide(this_Xec,edge_box,0,0,1);
                }
-               
-	       if(this_bc_type=="axis") EyBz.setVal(0.0);
+
+               if (this_bc_type=="axis") { EyBz.setVal(0.0); }
                else { // this_By = Bz for this geometry
                   SpaceUtils::interpolateStag(EyBz,node_box,0,this_By,0,bdry_dir);
                   EyBz.mult(this_Ev,node_box,0,0,1); // this_Ev = Ey for this geometry
                }
 
-	       if(bdry_side==0) {
+               if (bdry_side==0) {
                   a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_Jnc,node_box) 
                                         -    EzBy.dotProduct(this_Jec,edge_box) )*bdry_dA; 
                }
-               if(bdry_side==1) {
+               if (bdry_side==1) {
                   a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_Jnc,node_box) 
                                         -    EzBy.dotProduct(this_Jec,edge_box) )*bdry_dA;
                }
 
             }
             else { // Planar 2D geometry
-            
-	       FArrayBox EyBz(edge_box,1);
+
+               FArrayBox EyBz(edge_box,1);
                FArrayBox EzBy(node_box,1);
 
                // Ey*Bz
                SpaceUtils::interpolateStag(EyBz,edge_box,0,this_Bv,0,bdry_dir);
                EyBz.mult(this_Ey,edge_box,0,0,1);
-               
+
                // Ez*By
                SpaceUtils::interpolateStag(EzBy,node_box,0,this_By,0,bdry_dir);
                EzBy.mult(this_Ev,node_box,0,0,1);
-         
-	       if(bdry_side==0) {
+
+               if (bdry_side==0) {
                   a_intSdA_lo[bdry_dir] = -( EyBz.dotProduct(this_Jec,edge_box) 
                                         -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA; 
                }
-               if(bdry_side==1) {
+               if (bdry_side==1) {
                   a_intSdA_hi[bdry_dir] =  ( EyBz.dotProduct(this_Jec,edge_box) 
                                         -    EzBy.dotProduct(this_Jnc,node_box) )*bdry_dA;
                }
 
-	    } 
+            }
 
-         } 
-            
-         else if(bdry_dir==1) {
-            
+         }
+
+         else if (bdry_dir==1) {
+
             const FArrayBox& this_Ex( a_E[bdry_layout.dataIndex(dit)][0] );
             const FArrayBox& this_Bx( a_B[bdry_layout.dataIndex(dit)][0] );
             const FArrayBox& this_Jec( masked_Jec[bdry_layout.dataIndex(dit)][0] );
-               
+
             Box edge_box = enclosedCells(node_box,0);
             FArrayBox ExBz(edge_box,1);
             FArrayBox EzBx(node_box,1);
-               
+
             // Ex*Bz (if 2D RZ, this_Bv = By)
             SpaceUtils::interpolateStag(ExBz,edge_box,0,this_Bv,0,bdry_dir);
             ExBz.mult(this_Ex,edge_box,0,0,1);
-	    if(m_mesh.axisymmetric()) { ExBz.negate(); }
-               
+            if (m_mesh.axisymmetric()) { ExBz.negate(); }
+
             // Ez*Bx (if 2D RZ, this_Ev = Ey);
             SpaceUtils::interpolateStag(EzBx,node_box,0,this_Bx,0,bdry_dir);
             EzBx.mult(this_Ev,node_box,0,0,1);
-	    if(m_mesh.axisymmetric()) { EzBx.negate(); }
-         
-            if(bdry_side==0) {
+            if (m_mesh.axisymmetric()) { EzBx.negate(); }
+
+            if (bdry_side==0) {
                a_intSdA_lo[bdry_dir] = -( EzBx.dotProduct(this_Jnc,node_box) 
                                      -    ExBz.dotProduct(this_Jec,edge_box) )*bdry_dA; 
             }
-            if(bdry_side==1) {
+            if (bdry_side==1) {
                a_intSdA_hi[bdry_dir] =  ( EzBx.dotProduct(this_Jnc,node_box) 
                                      -    ExBz.dotProduct(this_Jec,edge_box) )*bdry_dA; 
             }
 
          }
-#endif 
+#endif
 
       }
- 
+
    }
 
 }

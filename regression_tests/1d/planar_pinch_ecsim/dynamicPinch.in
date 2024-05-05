@@ -69,6 +69,7 @@ history.field_probes = true
 history.field_bdry_probes = true
 history.species0_probes = true
 history.species1_probes = true
+history.species_bdry_probes = true
 
 simulation.checkpoint_time_interval = 22.0
 #simulation.restart_file = "checkpoint_data/chk000500.1d.hdf5"

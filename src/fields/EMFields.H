@@ -48,12 +48,12 @@ public:
                    const CodeUnits&,
                    const bool&,
                    const EMVecType& a = e_and_b);
-  
+
   virtual ~EMFields();
 
   void initialize( const Real          a_cur_time,
                    const std::string&  a_restart_file_name );
-  
+
   void initializeMassMatricesForPC( const IntVect&  a_ncomp_xx,
 		                    const IntVect&  a_ncomp_xy,
 		                    const IntVect&  a_ncomp_xz,
@@ -65,32 +65,32 @@ public:
 		                    const IntVect&  a_ncomp_zz );
 
   void initExternalFields();
-  
+
   bool advance() const { return m_advance; }
-  
+
   bool externalFields() const { return m_external_fields; }
-  
+
   std::array<bool,3> advanceE_comp() const { return m_advanceE_comp; }
   std::array<bool,3> advanceB_comp() const { return m_advanceB_comp; }
-  
+
   bool useFiltering() const { return m_use_filtering; }
   bool usePoisson() const { return m_use_poisson; }
-  
+
   bool writeDivs() const { return m_writeDivs; }
   bool writeCurls() const { return m_writeCurls; }
   bool writeRho() const { return m_writeRho; }
   bool writeSigma() const { return m_writeSigma; }
   bool writeExB() const { return m_writeExB; }
-  
+
   Real stableDt() const { return m_stable_dt; }
-  
-  const FieldBC& getFieldBC() const { return *m_field_bc; }  
+
+  const FieldBC& getFieldBC() const { return *m_field_bc; }
 
   const LevelData<FluxBox>& getMagneticField() const {return m_magneticField;}
   LevelData<FluxBox>& getMagneticField() {return m_magneticField;}
   const LevelData<FArrayBox>& getVirtualMagneticField() const {return m_magneticField_virtual;}
   LevelData<FArrayBox>& getVirtualMagneticField() {return m_magneticField_virtual;}
- 
+
   const LevelData<FluxBox>& getMagneticField_old() const {return m_magneticField_old;}
   LevelData<FluxBox>& getMagneticField_old() {return m_magneticField_old;}
   const LevelData<FArrayBox>& getVirtualMagneticField_old() const {return m_magneticField_virtual_old;}
@@ -100,7 +100,7 @@ public:
   LevelData<EdgeDataBox>& getElectricField() {return m_electricField;}
   const LevelData<NodeFArrayBox>& getVirtualElectricField() const {return m_electricField_virtual;}
   LevelData<NodeFArrayBox>& getVirtualElectricField() {return m_electricField_virtual;}
-  
+
   const LevelData<EdgeDataBox>& getElectricField_old() const {return m_electricField_old;}
   LevelData<EdgeDataBox>& getElectricField_old() {return m_electricField_old;}
   const LevelData<NodeFArrayBox>& getVirtualElectricField_old() const {return m_electricField_virtual_old;}
@@ -121,31 +121,31 @@ public:
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
   const LevelData<NodeFArrayBox>& getChargeDensity() const {return m_chargeDensity;}
   const LevelData<NodeFArrayBox>& getSurfaceCharge() const {return m_surfaceCharge;}
-  
+
   // non-const references to charge/current density
   LevelData<EdgeDataBox>& getCurrentDensity() {return m_currentDensity;}
   LevelData<NodeFArrayBox>& getVirtualCurrentDensity() {return m_currentDensity_virtual;}
   LevelData<NodeFArrayBox>& getChargeDensity() {return m_chargeDensity;}
   LevelData<NodeFArrayBox>& getSurfaceCharge() {return m_surfaceCharge;}
-  
+
   // const reference to m_rhs_vector and m_phi_vector zero comp
   const LevelData<NodeFArrayBox>& getPotential() const {return *m_phi_vector[0];}
   const LevelData<NodeFArrayBox>& getRHS() const {return *m_rhs_vector[0];}
   const LevelData<EdgeDataBox>& getElectricFieldCorrection() const {return m_electricField_correction;}
 
-  // const references to curl of electric field  
+  // const references to curl of electric field
   const LevelData<FluxBox>& getCurlE() const {return m_curlE;}
   const LevelData<FArrayBox>& getCurlE_virtual() const {return m_curlE_virtual;}
-  
-  // const references to curl of magnetic field  
+
+  // const references to curl of magnetic field
   const LevelData<EdgeDataBox>& getCurlB() const {return m_curlB;}
   const LevelData<NodeFArrayBox>& getCurlB_virtual() const {return m_curlB_virtual;}
-  
+
   // const references to divE and divB
   const LevelData<NodeFArrayBox>& getDivE() const {return m_divE;}
   const LevelData<FArrayBox>& getDivB() const {return m_divB;}
-  
-  // non-const references to sigmas for PC 
+
+  // non-const references to sigmas for PC
   LevelData<EdgeDataBox>& getSigmaxxPC() {return m_sigma_xx_pc;}
   LevelData<EdgeDataBox>& getSigmaxyPC() {return m_sigma_xy_pc;}
   LevelData<EdgeDataBox>& getSigmaxzPC() {return m_sigma_xz_pc;}
@@ -157,10 +157,10 @@ public:
   LevelData<NodeFArrayBox>& getSigmazxPC() {return m_sigma_zx_pc;}
   LevelData<NodeFArrayBox>& getSigmazyPC() {return m_sigma_zy_pc;}
   LevelData<NodeFArrayBox>& getSigmazzPC() {return m_sigma_zz_pc;}
-  
+
   const int getMassMatrixPCwidth() const {return m_pc_mass_matrix_width;}
   const bool includeMassMatrixij() const {return m_pc_mass_matrix_include_ij;}
-  
+
   const IntVect& getNcompxxPC() const {return m_ncomp_xx_pc;}
   const IntVect& getNcompxyPC() const {return m_ncomp_xy_pc;}
   const IntVect& getNcompxzPC() const {return m_ncomp_xz_pc;}
@@ -173,7 +173,7 @@ public:
 
   // get external electric field values
   std::array<Real,3> getExternalE( const RealVect&  a_X ) const
-  {  
+  {
      std::array<Real,3> extE = {0.0,0.0,0.0};
      if(m_external_fields) {
         extE[0] = m_gridFunction_extE0->getValue(a_X);
@@ -182,10 +182,10 @@ public:
      }
      return extE;
   }
-  
+
   // get external magnetic field values
   std::array<Real,3> getExternalB( const RealVect&  a_X ) const
-  {  
+  {
      std::array<Real,3> extB = {0.0,0.0,0.0};
      if(m_external_fields) {
         extB[0] = m_gridFunction_extB0->getValue(a_X);
@@ -194,11 +194,11 @@ public:
      }
      return extB;
   }
- 
+
   // get dir derivative of external electric field
   std::array<Real,3> getExternaldEdX( const RealVect&  a_X,
                                       const int        a_dir ) const
-  {  
+  {
      std::array<Real,3> extdEdX = {0.0,0.0,0.0};
      if(m_external_fields) {
         extdEdX[0] = m_gridFunction_extE0->getDerivative(a_X,a_dir);
@@ -207,11 +207,11 @@ public:
      }
      return extdEdX;
   }
-  
+
   // get dir derivative of external magnetic field
   std::array<Real,3> getExternaldBdX( const RealVect&  a_X,
                                       const int        a_dir ) const
-  {  
+  {
      std::array<Real,3> extdBdX = {0.0,0.0,0.0};
      if(m_external_fields) {
         extdBdX[0] = m_gridFunction_extB0->getDerivative(a_X,a_dir);
@@ -224,10 +224,10 @@ public:
   // advance the fields in time
   void computeRHSElectricField( const Real, const Real );
   void computeRHSMagneticField( const Real, const Real );
-  
-  // compute the poynting flux 
+
+  // compute the poynting flux
   void setPoyntingFlux();
-  
+
   // set the filtered fields
   void setFilteredFields() const {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -245,7 +245,7 @@ public:
     if(m_use_filtering) {return m_electricField_filtered;}
     else {return m_electricField;}
   }
-  
+
   void setChargeDensity( const LevelData<NodeFArrayBox>&  a_pic_rho ) {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
     for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -254,7 +254,7 @@ public:
       rho.copy(this_pic_rho,0,0,rho.nComp());
     }
   }
-  
+
   void setSurfaceCharge( const LevelData<NodeFArrayBox>&  a_pic_sigma ) {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
     for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -263,7 +263,7 @@ public:
       sigma.copy(this_pic_sigma,0,0,sigma.nComp());
     }
   }
-  
+
   void setCurrentDensity( const LevelData<EdgeDataBox>&    a_pic_J,
 		          const LevelData<NodeFArrayBox>&  a_pic_Jv ) {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -278,29 +278,29 @@ public:
       this_Jv.copy(this_pic_Jv,0,0,this_Jv.nComp());
     }
   }
-  
-  
-  // const references to components of ExB  
+
+
+  // const references to components of ExB
   const LevelData<EdgeDataBox>& getExB() const {return m_ExB;}
   const LevelData<NodeFArrayBox>& getEvxB() const {return m_EvxB;}
-  
+
   // compute field energy
   Real electricFieldEnergy() const;
   Real magneticFieldEnergy() const;
 
   Real max_wc0dt( const CodeUnits&  a_units,
                   const Real&       a_dt ) const;
- 
-  const RealVect& getIntSdA_lo() const { return m_intSdA_lo; }  
-  const RealVect& getIntSdA_hi() const { return m_intSdA_hi; } 
-  const RealVect& getIntSdAdt_lo() const { return m_intSdAdt_lo; }  
-  const RealVect& getIntSdAdt_hi() const { return m_intSdAdt_hi; }  
 
-  // compute the divegence of the fields 
+  const RealVect& getIntSdA_lo() const { return m_intSdA_lo; }
+  const RealVect& getIntSdA_hi() const { return m_intSdA_hi; }
+  const RealVect& getIntSdAdt_lo() const { return m_intSdAdt_lo; }
+  const RealVect& getIntSdAdt_hi() const { return m_intSdAdt_hi; }
+
+  // compute the divegence of the fields
   void setDivB();
   void setDivE();
-  
-  // compute the curl of the fields 
+
+  // compute the curl of the fields
   void setCurlB();
   void setCurlE();
 
@@ -308,7 +308,7 @@ public:
 		        const Real                       a_time );
   void solvePoisson( const Real  a_time );
   void correctElectricField();
-  
+
   bool advanceE() const { return m_advanceE; }
   bool advanceB() const { return m_advanceB; }
 
@@ -342,7 +342,7 @@ public:
   {
     return 2;
   }
-      
+
   void copyEFromVec( const ODEVector<EMFields>&  a_vec )
   {
     int offset(0);
@@ -384,7 +384,7 @@ public:
     int offset(0);
     copyEoldToVec( a_vec, offset );
   }
-  
+
   void copyERHSFromVec( const ODEVector<EMFields>&  a_vec )
   {
     int offset(0);
@@ -548,7 +548,7 @@ public:
   inline int vecOffsetEFieldVirtual() const { return m_vec_offset_efield_virtual; }
 
   void updateBoundaryProbes( const Real  a_dt );
-  
+
   // applyBCs to fields
   void applyBCs_electricField( const Real  a_time );
   void applyBCs_magneticField( const Real  a_time );
@@ -560,24 +560,24 @@ public:
 
   void computePrecondMatrixNNZ( const EMVecType& );
 
-  inline int numPCMatBands() const 
+  inline int numPCMatBands() const
   {
     return m_pcmat_nnz;
   }
-  
+
 private:
-  
-  const bool m_verbosity; 
-  bool m_use_filtering; 
-  bool m_use_poisson; 
-  bool m_enforce_gauss_startup; 
-  bool m_external_fields; 
-  bool m_advance; 
-  bool m_advanceE, m_advanceE_inPlane, m_advanceE_virtual; 
-  bool m_advanceB, m_advanceB_inPlane, m_advanceB_virtual; 
+
+  const bool m_verbosity;
+  bool m_use_filtering;
+  bool m_use_poisson;
+  bool m_enforce_gauss_startup;
+  bool m_external_fields;
+  bool m_advance;
+  bool m_advanceE, m_advanceE_inPlane, m_advanceE_virtual;
+  bool m_advanceB, m_advanceB_inPlane, m_advanceB_virtual;
   std::array<bool,3> m_advanceE_comp;
   std::array<bool,3> m_advanceB_comp;
-  bool m_writeDivs, m_writeCurls, m_writeRho, m_writeSigma, m_writeExB; 
+  bool m_writeDivs, m_writeCurls, m_writeRho, m_writeSigma, m_writeExB;
   Real m_stable_dt;
   Real m_cvacNorm;
   Real m_Jnorm_factor; // mu0*qe*cvac*Xscale/Bscale
@@ -586,7 +586,7 @@ private:
   Real m_energyB_factor; // Bscale*Bscale/mu0
   Real m_SdA_factor;   // Escale*Bscale/mu0*area_scale
   Real m_time_scale;   // time_scale
-   
+
   // surface integrals of Poynting flux used for diagnostics
   RealVect m_intSdA_lo;
   RealVect m_intSdA_hi;
@@ -601,11 +601,11 @@ private:
   RefCountedPtr<GridFunction> m_gridFunction_extB0;
   RefCountedPtr<GridFunction> m_gridFunction_extB1;
   RefCountedPtr<GridFunction> m_gridFunction_extB2;
-  
+
   const DomainGrid& m_mesh;
-  
-  FieldBC* m_field_bc;  
-  
+
+  FieldBC* m_field_bc;
+
   // containers for BC masking in preconditioner matrix
   LevelData<FluxBox> m_PC_mask_B;
   LevelData<FArrayBox> m_PC_mask_Bv;
@@ -613,33 +613,33 @@ private:
   LevelData<NodeFArrayBox> m_PC_mask_Ev;
 
   // containers for magnetic field
-  LevelData<FluxBox> m_magneticField;          
-  LevelData<FArrayBox> m_magneticField_virtual;       // needed for 1D/2D simulations          
-  LevelData<FluxBox> m_magneticField_old;          
+  LevelData<FluxBox> m_magneticField;
+  LevelData<FArrayBox> m_magneticField_virtual;       // needed for 1D/2D simulations
+  LevelData<FluxBox> m_magneticField_old;
   LevelData<FArrayBox> m_magneticField_virtual_old;
-  
+
   // containers for electric field
-  LevelData<EdgeDataBox> m_electricField;          
+  LevelData<EdgeDataBox> m_electricField;
   LevelData<NodeFArrayBox> m_electricField_virtual;   // needed for 1D/2D simulations
   LevelData<EdgeDataBox> m_electricField_old;
   LevelData<NodeFArrayBox> m_electricField_virtual_old;
-  
+
   // containers for filtered fields
   mutable LevelData<EdgeDataBox> m_electricField_filtered;
-  
+
   // containers for charge/current density
-  LevelData<EdgeDataBox> m_currentDensity;          
+  LevelData<EdgeDataBox> m_currentDensity;
   LevelData<NodeFArrayBox> m_currentDensity_virtual;  // needed for 1D/2D simulations
   LevelData<NodeFArrayBox> m_chargeDensity;
   LevelData<NodeFArrayBox> m_surfaceCharge;
 
   // containers for curlE
-  LevelData<FluxBox> m_curlE;          
+  LevelData<FluxBox> m_curlE;
   LevelData<FArrayBox> m_curlE_virtual;       // needed for 1D/2D simulations
-  
+
   // containers for curlB
-  LevelData<EdgeDataBox> m_curlB;          
-  LevelData<NodeFArrayBox> m_curlB_virtual;       // needed for 1D/2D simulations          
+  LevelData<EdgeDataBox> m_curlB;
+  LevelData<NodeFArrayBox> m_curlB_virtual;       // needed for 1D/2D simulations
 
   // containers for divE and divB
   LevelData<NodeFArrayBox> m_divE;
@@ -648,7 +648,7 @@ private:
   // containers for Poynting_flux: S = ExB
   LevelData<EdgeDataBox> m_ExB;
   LevelData<NodeFArrayBox> m_EvxB;
-  
+
   // poisson solver
   PoissonParameters m_poisson_params;
   Vector<LevelData<NodeFArrayBox>* > m_phi_vector;
@@ -684,6 +684,8 @@ private:
   // include sigma_ij terms in mass matrix contribution
   // to preconditioner
   bool m_pc_mass_matrix_include_ij;
+  // set only the diagonal of the preconditioner matrix
+  bool m_pc_diag_only;
 
   LevelData<EdgeDataBox> m_sigma_xx_pc;
   LevelData<EdgeDataBox> m_sigma_xy_pc;
@@ -700,9 +702,15 @@ private:
   IntVect m_ncomp_yx_pc, m_ncomp_yy_pc, m_ncomp_yz_pc;
   IntVect m_ncomp_zx_pc, m_ncomp_zy_pc, m_ncomp_zz_pc;
 
+  void assemblePrecondMatrixBDiagOnly(  BandedMatrix& );
+
   void assemblePrecondMatrixB(  BandedMatrix&,
                                 const bool,
                                 const Real );
+
+  void assemblePrecondMatrixEDiagOnly(  BandedMatrix&,
+                                  const bool,
+                                  const Real );
 
   void assemblePrecondMatrixE(  BandedMatrix&,
                                 const bool,

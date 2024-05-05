@@ -14,12 +14,12 @@ class EMPCFunction: public PCFunction<T,Ops>
 {
   public:
 
-    EMPCFunction<T,Ops>() 
+    EMPCFunction<T,Ops>()
     {
-      m_is_Defined = false; 
+      m_is_Defined = false;
       m_is_linear = false;
       m_matrix_free = false;
-      m_ops = nullptr; 
+      m_ops = nullptr;
       m_epsJFNK = 1e-6;
       m_op_indent = "";
     }
@@ -48,63 +48,63 @@ class EMPCFunction: public PCFunction<T,Ops>
 
     inline void preCond(T& a_Y, const T& a_X) { a_Y.copy(a_X); }
 
-    inline void create(T& a_Z, const T& a_U)              
-    { 
-      a_Z.define(a_U); 
+    inline void create(T& a_Z, const T& a_U)
+    {
+      a_Z.define(a_U);
     }
 
     inline void assign(T& a_Z, const T& a_U) { a_Z = a_U; }
 
     inline void incr(T& a_Z, const T& a_U, double a_scale)
-    { 
-      a_Z.increment(a_U,a_scale); 
-    } 
+    {
+      a_Z.increment(a_U,a_scale);
+    }
 
     inline void scale(T& a_U, const double& a_scale)
-    { 
-      a_U.scale(a_scale); 
+    {
+      a_U.scale(a_scale);
     }
 
     inline void setToZero (T& a_U)
-    { 
-      a_U.zero(); 
+    {
+      a_U.zero();
     }
 
     inline double dotProduct(T& a_X, const T& a_U)
-    { 
-      return(a_X.dotProduct(a_U)); 
+    {
+      return(a_X.dotProduct(a_U));
     }
 
-    inline double norm(T& a_U, int a_ord) 
-    { 
+    inline double norm(T& a_U, int a_ord)
+    {
       CH_assert(a_ord == 2);
-      return(a_U.norm()); 
+      return(a_U.norm());
     }
 
-    inline bool isDefined() const 
-    { 
-      return (m_is_Defined && m_Pmat.isDefined());  
+    inline bool isDefined() const
+    {
+      return (m_is_Defined && m_Pmat.isDefined());
     }
 
     inline void setBaseSolution (const T& a_U)
-    { 
-      m_Y0.copy(a_U); 
-      m_normY0 = m_Y0.norm(); 
+    {
+      m_Y0.copy(a_U);
+      m_normY0 = m_Y0.norm();
     }
 
     inline void setBaseRHS (const T& a_F)
-    { 
-      m_F0.copy(a_F); 
+    {
+      m_F0.copy(a_F);
     }
 
     inline void setJFNKEps (double a_eps)
-    { 
-      m_epsJFNK = a_eps; 
+    {
+      m_epsJFNK = a_eps;
     }
 
-    inline void setIsLinear (bool a_isLinear) 
-    { 
-      m_is_linear = a_isLinear; 
+    inline void setIsLinear (bool a_isLinear)
+    {
+      m_is_linear = a_isLinear;
     }
 
     inline void curTime( double a_time )
@@ -139,8 +139,13 @@ class EMPCFunction: public PCFunction<T,Ops>
       m_Pmat.setOutputIndent( a_indent );
     }
 
+    inline void setMatrixFree( const bool a_bool )
+    {
+      m_matrix_free = true;
+    }
+
   private:
-  
+
     bool m_is_Defined, m_is_linear;
     bool m_matrix_free;
     double m_cur_time, m_dt, m_dtfac;
@@ -156,12 +161,12 @@ class EMPCFunction: public PCFunction<T,Ops>
 
     void applyRHSOp( T&, const T&, int );
     void applyMatOp( T&, const T&, int );
-   
+
 };
 
 template <class T, class Ops>
-void EMPCFunction<T,Ops>::define( const T&      a_U, 
-                                  Ops* const    a_ops, 
+void EMPCFunction<T,Ops>::define( const T&      a_U,
+                                  Ops* const    a_ops,
                                   const double  a_dtfac )
 {
   m_Z.define  (a_U);
@@ -205,8 +210,8 @@ void EMPCFunction<T,Ops>::applyRHSOp(T& a_F, const T& a_U, int)
       eps = 1.0;
     } else {
       /* eps = error_rel * sqrt(1 + ||U||) / ||a||
-       * M. Pernice and H. F. Walker, "NITSOL: A Newton Iterative Solver for 
-       * Nonlinear Systems", SIAM J. Sci. Stat. Comput.", 1998, vol 19, 
+       * M. Pernice and H. F. Walker, "NITSOL: A Newton Iterative Solver for
+       * Nonlinear Systems", SIAM J. Sci. Stat. Comput.", 1998, vol 19,
        * pp. 302--318. */
       eps = m_epsJFNK * sqrt(1 + m_normY0) / normY;
     }

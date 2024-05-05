@@ -33,20 +33,20 @@ class PetscSNESWrapper : public NonlinearSolver<T, Ops>
       m_count_lin = 0;
 
       /* default values */
-      m_newton_maxits  = 10;
-      m_newton_rtol    = 1e-6;
-      m_newton_atol    = 1e-10;
-      m_newton_stol    = 1e-14;
-      m_newton_maxstep = 1e14;
-      m_newton_maxfail = 1;
-      m_gmres_maxits   = 100;
-      m_gmres_rtol     = 1e-3;
-      m_gmres_atol     = 1e-12;
+      m_newton_maxits  = 100;
+      m_newton_rtol    = 1.0e-6;
+      m_newton_atol    = 0.0;
+      m_newton_stol    = 1.0e-14;
+      m_newton_maxstep = 1.0e14;
+      m_newton_maxfail = 10;
+      m_gmres_maxits   = 1000;
+      m_gmres_rtol     = 1.0e-3;
+      m_gmres_atol     = 0.0;
 
       m_newton_verbose = false;
       m_gmres_verbose = false;
     
-      m_linesearch_type = "bt"; // default for SNES
+      m_linesearch_type = "basic"; // default for SNES in PETSc is backtracing (bt)
 
     }
 

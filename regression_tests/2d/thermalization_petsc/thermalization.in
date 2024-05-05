@@ -36,13 +36,13 @@ jacobian.with_pc = true
 newton.verbose = true
 newton.line_search.type = "basic"
 newton.rtol = 1.0e-14
-newton.atol = -1.0e-24
+newton.atol = 0.0
 newton.maxits = 100
 newton.maxfail = 10
 
 gmres.verbose = false
 gmres.rtol = 1.0e-6
-gmres.atol = -1.0e-12
+gmres.atol = 0.0
 gmres.maxits = 1000
 
 #####################################################

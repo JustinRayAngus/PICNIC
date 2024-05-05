@@ -6,12 +6,22 @@ void EMFields::computePrecondMatrixNNZ( const EMVecType& a_vec_type)
 {
    /* setting number of non-zero elements per row in preconditioner matrix */
 
-   static int nbands_EMfields = 1 + 2*SpaceDim;
-   static int nbands_J_mass_matrix = 1 + 2*3*(m_pc_mass_matrix_width+1);
-   if (a_vec_type == e_and_b) {
-      m_pcmat_nnz = nbands_EMfields + nbands_J_mass_matrix;
-   } else if (a_vec_type == e_only) {
-      m_pcmat_nnz = nbands_J_mass_matrix;
+   if (m_pc_diag_only) {
+     m_pcmat_nnz = 1;
+   } else {
+     static int nbands_EMfields = 1 + 2*SpaceDim;
+#if CH_SPACEDIM==1
+     static int nbands_J_mass_matrix = 1 + 2*3*(m_pc_mass_matrix_width+1);
+#elif CH_SPACEDIM==2
+     static int nbands_J_mass_matrix =    3
+                                        * (1+2*m_pc_mass_matrix_width)
+                                        * (1+2*m_pc_mass_matrix_width);
+#endif
+     if (a_vec_type == e_and_b) {
+        m_pcmat_nnz = nbands_EMfields + nbands_J_mass_matrix;
+     } else if (a_vec_type == e_only) {
+        m_pcmat_nnz = nbands_J_mass_matrix;
+     }
    }
 }
 
@@ -22,24 +32,80 @@ void EMFields::assemblePrecondMatrix( BandedMatrix&  a_P,
 {
   CH_TIME("EMFields::assemblePrecondMatrix()");
   if (a_vec_type == e_only) {
+    if (m_pc_diag_only) {
+      assemblePrecondMatrixEDiagOnly( a_P, a_use_mass_matrices, a_dt );
+    } else {
       assemblePrecondMatrixE( a_P, false, a_use_mass_matrices, a_dt );
+    }
   } else if (a_vec_type == e_and_b) {
+    if (m_pc_diag_only) {
+      assemblePrecondMatrixBDiagOnly( a_P );
+      assemblePrecondMatrixEDiagOnly( a_P, a_use_mass_matrices, a_dt );
+    } else {
       assemblePrecondMatrixB( a_P, true, a_dt );
       assemblePrecondMatrixE( a_P, true, a_use_mass_matrices, a_dt );
+    }
   } else {
       MayDay::Error("EMFields::assemblePrecondMatrix(): not yet implemented");
   }
+}
+
+void EMFields::assemblePrecondMatrixBDiagOnly(  BandedMatrix&  a_P )
+{
+  CH_TIME("EMFields::assemblePrecondMatrixBDiagOnly()");
+
+  const LevelData<FluxBox>& pmap_B_lhs = m_gdofs.dofDataLHSB();
+  const LevelData<FArrayBox>& pmap_Bv_lhs = m_gdofs.dofDataLHSBv();
+
+  auto grids(m_mesh.getDBL());
+  auto phys_domain( grids.physDomain() );
+  const int ghosts(m_mesh.ghosts());
+
+  for (auto dit( grids.dataIterator() ); dit.ok(); ++dit) {
+
+    /* magnetic field */
+    for (int dir = 0; dir < SpaceDim; dir++) {
+      const FArrayBox& pmap( pmap_B_lhs[dit][dir] );
+      auto box( grow(pmap.box(), -ghosts) );
+      int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+      if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+      for (BoxIterator bit(box); bit.ok(); ++bit) {
+        CH_assert(pmap.nComp() == 1);
+        int icol = (int) pmap(bit(),0);
+        Real val = 1.0;
+        a_P.setRowValues( icol, 1, &icol, &val );
+      }
+    }
+
+#if CH_SPACEDIM<3
+    /* virtual magnetic field */
+    {
+      const FArrayBox& pmap( pmap_Bv_lhs[dit] );
+      auto box( grow(pmap.box(), -ghosts) );
+      for (BoxIterator bit(box); bit.ok(); ++bit) {
+        for (int n(0); n < pmap.nComp(); n++) {
+          int icol = (int) pmap(bit(),n);
+          Real val = 1.0;
+          a_P.setRowValues( icol, 1, &icol, &val );
+        }
+      }
+    }
+#endif
+
+  }
+
+  return;
 }
 
 void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
                                   const bool           a_include_EM,
                                   const Real           a_dt )
 {
-  CH_TIME("EMFields::assemblePrecondMatrixEM()");
+  CH_TIME("EMFields::assemblePrecondMatrixB()");
 
   auto grids(m_mesh.getDBL());
 
-  // copy over the mass matrix elements used in the PC and do addOp exchange() 
+  // copy over the mass matrix elements used in the PC and do addOp exchange()
   const Real cnormDt = a_dt*m_cvacNorm;
 
   const LevelData<FluxBox>& pmap_B_lhs = m_gdofs.dofDataLHSB();
@@ -48,7 +114,7 @@ void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
   const LevelData<EdgeDataBox>& pmap_E_rhs = m_gdofs.dofDataRHSE();
 #endif
   const LevelData<NodeFArrayBox>& pmap_Ev_rhs = m_gdofs.dofDataRHSEv();
-  
+
 #if CH_SPACEDIM==1
   const LevelData<FArrayBox>& Xcc(m_mesh.getXcc());
 #endif
@@ -61,7 +127,7 @@ void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
   const int ghosts(m_mesh.ghosts());
   const RealVect& dX(m_mesh.getdX());
 
-#if CH_SPACEDIM==1  
+#if CH_SPACEDIM==1
   const string& geom_type = m_mesh.geomType();
 #endif
 
@@ -81,13 +147,13 @@ void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
         auto ic = bit();
         CH_assert(pmap.nComp() == 1);
         int pc = (int) pmap(ic, 0);
-        
+
         int ncols = m_pcmat_nnz;
         std::vector<int> icols(ncols, -1);
         std::vector<Real> vals(ncols, 0.0);
         int ix = 0;
 
-        icols[ix] = pc; 
+        icols[ix] = pc;
         vals[ix] = 1.0;
         ix++;
 
@@ -141,35 +207,35 @@ void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
       }
     }
 
-#if CH_SPACEDIM<3 
+#if CH_SPACEDIM<3
     /* virtual magnetic field */
     {
       const FArrayBox& pmap( pmap_Bv_lhs[dit] );
       auto box( grow(pmap.box(), -ghosts) );
-  
+
       for (BoxIterator bit(box); bit.ok(); ++bit) {
-  
+
         auto ic = bit();
-  
+
         for (int n(0); n < pmap.nComp(); n++) {
           int pc = (int) pmap(ic, n);
-            
+
           int ncols = m_pcmat_nnz;
           std::vector<int> icols(ncols, -1);
           std::vector<Real> vals(ncols, 0.0);
           int ix = 0;
 
-          icols[ix] = pc; 
+          icols[ix] = pc;
           vals[ix] = 1.0;
           ix++;
 
           if (a_include_EM) {
-#if CH_SPACEDIM==1 
+#if CH_SPACEDIM==1
             int dirj = 0, dirk = 1;
             if (n == 0) {
 
               int sign = -1;
-              
+
 	          // axisymmetric modifications are needed in 1D sph geom
               // sph: dBth_{i+1/2}/dt = (r_{i+1}*Ephi_{i+1} - r_{i}*Ephi_{i})/dr/r_{i+1/2}
 
@@ -181,7 +247,7 @@ void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
                 icols[ix] = pL;
                 if(m_mesh.axisymmetric() && geom_type=="sph_R") {
                   vals[ix] = -aL*Xnc[dit](iL,0)/Xcc[dit](ic,0);
-                } 
+                }
                 else { vals[ix] = -aL; }
                 ix++;
               }
@@ -202,7 +268,7 @@ void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
             } else if (n == 1) {
 
               int sign = 1;
-	    
+
 	          // axisymmetric modifications are needed for 1D cyl and 1D sph geoms
               // cyl: dBz_{i+1/2}/dt = -(r_{i+1}*Eth_{i+1} - r_{i}*Eth_{i})/dr/r_{i+1/2}
               // sph: dBphi_{i+1/2}/dt = -(r_{i+1}*Eth_{i+1} - r_{i}*Eth_{i})/dr/r_{i+1/2}
@@ -292,8 +358,126 @@ void EMFields::assemblePrecondMatrixB(  BandedMatrix&  a_P,
           }
           CH_assert(ix <= m_pcmat_nnz);
           CH_assert(ix <= a_P.getNBands());
-  
+
           a_P.setRowValues( pc, ix, icols.data(), vals.data() );
+        }
+      }
+    }
+#endif
+
+  }
+
+  return;
+}
+
+void EMFields::assemblePrecondMatrixEDiagOnly(  BandedMatrix&  a_P,
+                                          const bool           a_use_mass_matrices,
+                                          const Real           a_dt )
+{
+  CH_TIME("EMFields::assemblePrecondMatrixEDiagOnly()");
+
+  auto grids(m_mesh.getDBL());
+
+  // copy over the mass matrix elements used in the PC and do addOp exchange()
+  const Real cnormDt = a_dt*m_cvacNorm;
+  const Real sig_normC = cnormDt*m_Jnorm_factor;
+  int diag_comp_inPlane=0, diag_comp_virtual=0;
+  if(a_use_mass_matrices) {
+    diag_comp_inPlane = (m_sigma_xx_pc.nComp()-1)/2;
+#if CH_SPACEDIM<3
+    diag_comp_virtual = (m_sigma_zz_pc.nComp()-1)/2;
+#endif
+  }
+
+  const LevelData<EdgeDataBox>& pmap_E_lhs = m_gdofs.dofDataLHSE();
+  const LevelData<NodeFArrayBox>& pmap_Ev_lhs = m_gdofs.dofDataLHSEv();
+
+#if CH_SPACEDIM<3
+  const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();
+#endif
+  const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();
+
+  auto phys_domain( grids.physDomain() );
+  const int ghosts(m_mesh.ghosts());
+
+#define FILTER_PC_TEST
+
+  if (a_use_mass_matrices && m_use_filtering) {
+    SpaceUtils::exchangeEdgeDataBox(m_sigma_xx_pc);
+#if CH_SPACEDIM==1
+    SpaceUtils::exchangeNodeFArrayBox(m_sigma_yy_pc);
+#endif
+    SpaceUtils::exchangeNodeFArrayBox(m_sigma_zz_pc);
+  }
+
+  for (auto dit( grids.dataIterator() ); dit.ok(); ++dit) {
+
+    /* electric field */
+    for (int dir = 0; dir < SpaceDim; dir++) {
+
+      const FArrayBox& pmap( pmap_E_lhs[dit][dir] );
+
+      auto box( grow(pmap.box(), -ghosts) );
+      for (int adir=0; adir<SpaceDim; ++adir) {
+         if (adir != dir) {
+            int idir_bdry = phys_domain.domainBox().bigEnd(adir);
+            if (box.bigEnd(adir) < idir_bdry) box.growHi(adir, -1);
+         }
+      }
+
+      for (BoxIterator bit(box); bit.ok(); ++bit) {
+        auto ic = bit();
+        CH_assert( pmap.nComp() == 1);
+	    const Real sig_norm_ec = sig_normC/Jec[dit][dir](ic,0);
+
+        int icol = ((int) pmap(ic,0));
+        Real val = 1.0;
+
+        if(a_use_mass_matrices) { // dJ_{ic}/dE_{ic}
+#ifdef FILTER_PC_TEST
+           if(m_use_filtering) {
+             val += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-1);
+             val += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
+             val += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
+	       } else {
+#endif
+             val += sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
+#ifdef FILTER_PC_TEST
+	       }
+#endif
+        }
+
+        a_P.setRowValues( icol, 1, &icol, &val );
+      }
+    }
+
+#if CH_SPACEDIM<3
+    /* virtual electric field */
+    {
+      const NodeFArrayBox& pmap( pmap_Ev_lhs[dit] );
+      auto box( surroundingNodes( grow(pmap.box(), -ghosts) ) );
+      for (int dir=0; dir<SpaceDim; ++dir) {
+         int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+         if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+      }
+
+      for (BoxIterator bit(box); bit.ok(); ++bit) {
+        auto ic = bit();
+        const Real sig_norm_nc = sig_normC/Jnc[dit](ic,0);
+        for (int n(0); n < pmap.nComp(); n++) {
+          int icol = (int) pmap(ic, n);
+          Real val = 1.0;
+#if CH_SPACEDIM==1
+          if(a_use_mass_matrices && m_advanceE_comp[1+n]) {
+              val += sig_norm_nc * ( n==0 ? m_sigma_yy_pc[dit](ic,diag_comp_virtual)
+                                          : m_sigma_zz_pc[dit](ic,diag_comp_virtual) );
+          }
+#elif CH_SPACEDIM==2
+          if(a_use_mass_matrices && m_advanceE_comp[2]) {
+            val += sig_norm_nc*m_sigma_zz_pc[dit](ic,diag_comp_virtual);
+          }
+#endif
+          a_P.setRowValues( icol, 1, &icol, &val );
         }
       }
     }
@@ -309,14 +493,14 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                                   const bool           a_use_mass_matrices,
                                   const Real           a_dt )
 {
-  CH_TIME("EMFields::assemblePrecondMatrixEM()");
+  CH_TIME("EMFields::assemblePrecondMatrixE()");
 
   auto grids(m_mesh.getDBL());
 
-  // copy over the mass matrix elements used in the PC and do addOp exchange() 
+  // copy over the mass matrix elements used in the PC and do addOp exchange()
   const Real cnormDt = a_dt*m_cvacNorm;
   const Real sig_normC = cnormDt*m_Jnorm_factor;
-  int diag_comp_inPlane=0, diag_comp_virtual=0; 
+  int diag_comp_inPlane=0, diag_comp_virtual=0;
   if(a_use_mass_matrices) {
     diag_comp_inPlane = (m_sigma_xx_pc.nComp()-1)/2;
 #if CH_SPACEDIM<3
@@ -328,12 +512,11 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
   const LevelData<NodeFArrayBox>& pmap_Ev_lhs = m_gdofs.dofDataLHSEv();
   const LevelData<FArrayBox>& pmap_Bv_rhs = m_gdofs.dofDataRHSBv();
   const LevelData<EdgeDataBox>& pmap_E_rhs = m_gdofs.dofDataRHSE();
-#if CH_SPACEDIM==1
   const LevelData<NodeFArrayBox>& pmap_Ev_rhs = m_gdofs.dofDataRHSEv();
-#else
+#if CH_SPACEDIM>1
   const LevelData<FluxBox>& pmap_B_rhs = m_gdofs.dofDataRHSB();
 #endif
-  
+
   const LevelData<FArrayBox>& Xcc(m_mesh.getXcc());
 #if CH_SPACEDIM==1
   const LevelData<NodeFArrayBox>& Xnc(m_mesh.getXnc());
@@ -343,9 +526,9 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
 #endif
 
 #if CH_SPACEDIM<3
-  const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
+  const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();
 #endif
-  const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
+  const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();
 
   auto phys_domain( grids.physDomain() );
   const int ghosts(m_mesh.ghosts());
@@ -373,7 +556,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
     SpaceUtils::exchangeNodeFArrayBox(m_sigma_zz_pc);
   }
 
-#if CH_SPACEDIM==1  
+#if CH_SPACEDIM==1
   const string& geom_type = m_mesh.geomType();
 #endif
 
@@ -397,18 +580,18 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
         auto ic = bit();
         CH_assert( pmap.nComp() == 1);
         int pc = (int) pmap(ic, 0);
-              
+
 	      const Real sig_norm_ec = sig_normC/Jec[dit][dir](ic,0);
-        
+
         int ncols = m_pcmat_nnz;
         std::vector<int> icols(ncols, -1);
         std::vector<Real> vals(ncols, 0.0);
 
         int ix = 0;
-        icols[ix] = pc; 
+        icols[ix] = pc;
         vals[ix] = 1.0;
         if(a_use_mass_matrices) { // dJ_{ic}/dE_{ic}
-#ifdef FILTER_PC_TEST  
+#ifdef FILTER_PC_TEST
            if(m_use_filtering) {
              vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-1);
              vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
@@ -450,7 +633,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
             if (pL >= 0) {
               icols[ix] = pL;
               vals[ix] = 0.0;
-#ifdef FILTER_PC_TEST   
+#ifdef FILTER_PC_TEST
               if(m_use_filtering && n==1) { // dJ_{ic}/dE_{ic-1}
                 vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane-1);
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](iL,diag_comp_inPlane);
@@ -475,7 +658,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
 
                 vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-2);
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-1);
-                
+
                 IntVect ip(ic); ip[0] += 1;
                 int pR = (int) pmap_E_rhs[dit][dir](ip, 0);
                 if(pR >= 0) {
@@ -501,13 +684,13 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
 #endif
               ix++;
             }
-            
+
             IntVect iR(ic); iR[0] += n;
             int pR = (int) pmap_E_rhs[dit][dir](iR, 0);
-            if (pR >= 0) { 
+            if (pR >= 0) {
               icols[ix] = pR;
               vals[ix] = 0.0;
-#ifdef FILTER_PC_TEST   
+#ifdef FILTER_PC_TEST
               if(m_use_filtering && n==1) { // dJ_{ic}/dE_{ic+1}
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
                 vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
@@ -529,10 +712,10 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                 if(pL >= 0) {
                   vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](im,diag_comp_inPlane+2);
                 }
-                
+
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+1);
                 vals[ix] += sig_norm_ec*4.0/16.0*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+2);
- 
+
                 IntVect ip(ic); ip[0] += 1;
                 vals[ix] += sig_norm_ec*1.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane);
                 vals[ix] += sig_norm_ec*2.0/16.0*m_sigma_xx_pc[dit][dir](ip,diag_comp_inPlane+1);
@@ -563,9 +746,9 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
 
             /* sigma_xy contributions */
             for (int n = 0; n < m_pc_mass_matrix_width; n++) {
-  
+
               if (n > m_sigma_xy_pc.nComp()/2-1) break;
-  
+
               IntVect iL(ic); iL[0] -= n;
               int pL = (int) pmap_Ev_rhs[dit](iL,0);
               if (pL >= 0) {
@@ -573,7 +756,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                 vals[ix] = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,m_sigma_xy_pc.nComp()/2-1-n);
                 ix++;
               }
-  
+
               IntVect iR(ic); iR[0] += (n+1);
               int pR = (int) pmap_Ev_rhs[dit](iR,0);
               if (pR >= 0) {
@@ -581,14 +764,14 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                 vals[ix] = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,m_sigma_xy_pc.nComp()/2+n);
                 ix++;
               }
-  
+
             }
-  
+
             /* sigma_xz contributions */
             for (int n = 0; n < m_pc_mass_matrix_width; n++) {
-  
+
               if (n > m_sigma_xz_pc.nComp()/2-1) break;
-  
+
               IntVect iL(ic); iL[0] -= n;
               int pL = (int) pmap_Ev_rhs[dit](iL,1);
               if (pL >= 0) {
@@ -596,7 +779,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                 vals[ix] = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,m_sigma_xz_pc.nComp()/2-1-n);
                 ix++;
               }
-  
+
               IntVect iR(ic); iR[0] += (n+1);
               int pR = (int) pmap_Ev_rhs[dit](iR,1);
               if (pR >= 0) {
@@ -604,18 +787,134 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                 vals[ix] = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,m_sigma_xz_pc.nComp()/2+n);
                 ix++;
               }
-  
+
+            }
+          }
+        }
+#elif CH_SPACEDIM==2
+        if (    a_use_mass_matrices
+             && (    (m_advanceE_comp[0] && (dir==0))
+                  || (m_advanceE_comp[1] && (dir==1)) ) ) {
+
+          /* sigma_xx/yy contributions */
+          int idx(0);
+          int pc_mass_matrix_width_x = 0;
+          int pc_mass_matrix_width_y = 0;
+          if (dir == 0) {
+            pc_mass_matrix_width_x = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:2);
+            pc_mass_matrix_width_y = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:3);
+          } else {
+            pc_mass_matrix_width_x = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:3);
+            pc_mass_matrix_width_y = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:2);
+          }
+          for (int j = 0; j < (1+2*pc_mass_matrix_width_y); j++) {
+            for (int i = 0; i < (1+2*pc_mass_matrix_width_x); i++) {
+              if (!((i==pc_mass_matrix_width_x) && (j==pc_mass_matrix_width_y))) {
+                IntVect iL(ic);
+                iL[0] += (i-pc_mass_matrix_width_x);
+                iL[1] += (j-pc_mass_matrix_width_y);
+                int pL = (int) pmap_E_rhs[dit][dir](iL, 0);
+                if (pL >= 0) {
+                  icols[ix] = pL;
+                  vals[ix] = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,idx);
+                  ix++;
+                }
+              }
+              idx++;
+            }
+          }
+
+          if (m_pc_mass_matrix_include_ij) {
+
+            if (dir == 0) {
+
+              /* sigma_xy contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>3?3:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<2*pc_mass_matrix_width; j++) {
+                  for (int i(0); i<2*pc_mass_matrix_width; i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i+1-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_E_rhs[dit][dir+1](iL,0);
+                    if (pL >= 0) {
+                      icols[ix] = pL;
+                      vals[ix] = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,idx);
+                    }
+                    idx++;
+                  }
+                }
+              }
+              /* sigma_xz contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>2?2:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<(1+2*pc_mass_matrix_width); j++) {
+                  for (int i(0); i<2*pc_mass_matrix_width; i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i+1-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_Ev_rhs[dit](iL,0);
+                    if (pL >= 0) {
+                      icols[ix] = pL;
+                      vals[ix] = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,idx);
+                    }
+                    idx++;
+                  }
+                }
+              }
+
+            } else {
+
+              /* sigma_yx contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>3?3:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<2*pc_mass_matrix_width; j++) {
+                  for (int i(0); i<2*pc_mass_matrix_width; i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j+1-pc_mass_matrix_width);
+                    int pL = (int) pmap_E_rhs[dit][dir-1](iL,0);
+                    if (pL >= 0) {
+                      icols[ix] = pL;
+                      vals[ix] = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,idx);
+                    }
+                    idx++;
+                  }
+                }
+              }
+              /* sigma_yz contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>2?2:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<2*pc_mass_matrix_width; j++) {
+                  for (int i(0); i<(1+2*pc_mass_matrix_width); i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j+1-pc_mass_matrix_width);
+                    int pL = (int) pmap_Ev_rhs[dit](iL,0);
+                    if (pL >= 0) {
+                      icols[ix] = pL;
+                      vals[ix] = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,idx);
+                    }
+                    idx++;
+                  }
+                }
+              }
+
             }
           }
         }
 #endif
-        
-#if CH_SPACEDIM==2 
+
+#if CH_SPACEDIM==2
         if (a_include_EM) {
           int tdir = (dir + 1) % SpaceDim;
           int sign = 1 - 2*dir;
           if(m_mesh.anticyclic()) sign *= -1;
-              
+
 	      // JRA, here is where axisymmetric modifications are needed in 2D RZ
           // dEz_{i,j+1/2}/dt + Jz_{i,j+1/2} = (r_{i+1/2}*Bth_{i+1/2,j+1/2} - r_{i-1/2}*Bth_{i-1/2,j+1/2})/dr/r_{i}
           // for r_{i=0}=0, d(rBth)/dr/r = 4*Bth_{i=1/2,j+1/2}/dr
@@ -661,7 +960,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
       }
     }
 
-#if CH_SPACEDIM<3 
+#if CH_SPACEDIM<3
     /* virtual electric field */
     {
       const NodeFArrayBox& pmap( pmap_Ev_lhs[dit] );
@@ -671,22 +970,22 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
          int idir_bdry = phys_domain.domainBox().bigEnd(dir);
          if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
       }
-  
+
       for (BoxIterator bit(box); bit.ok(); ++bit) {
-  
+
         auto ic = bit();
         const Real sig_norm_nc = sig_normC/Jnc[dit](ic,0);
-  
+
         for (int n(0); n < pmap.nComp(); n++) {
 
           int pc = (int) pmap(ic, n);
-            
+
           int ncols = m_pcmat_nnz;
           std::vector<int> icols(ncols, -1);
           std::vector<Real> vals(ncols, 0.0);
           int ix = 0;
 
-          icols[ix] = pc; 
+          icols[ix] = pc;
           vals[ix] = 1.0;
 #if CH_SPACEDIM==1
           if(a_use_mass_matrices && m_advanceE_comp[1+n]) {
@@ -716,24 +1015,23 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                                                 : m_sigma_zz_pc[dit](ic,diag_comp_virtual-s) );
                 ix++;
               }
-                
+
               IntVect iR(ic); iR[0] += s;
               int pR = (int) pmap_Ev_rhs[dit](iR, n);
-              if (pR >= 0) { 
+              if (pR >= 0) {
                 icols[ix] = pR;
                 vals[ix] = sig_norm_nc * ( n==0 ? m_sigma_yy_pc[dit](ic,diag_comp_virtual+s)
                                                 : m_sigma_zz_pc[dit](ic,diag_comp_virtual+s) );
                 ix++;
               }
             }
-             
             if (m_pc_mass_matrix_include_ij) {
 
               // sigma_yx/zx contributions
               for (int s = 0; s < m_pc_mass_matrix_width; s++) {
-  
+
                 if (s > m_sigma_yx_pc.nComp()/2-1) break;
-  
+
                 IntVect iL(ic); iL[0] -= (s+1);
                 int pL = (int) pmap_E_rhs[dit][0](iL,0);
                 if (pL >= 0) {
@@ -742,7 +1040,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                                                   : m_sigma_zx_pc[dit](ic,m_sigma_zx_pc.nComp()/2-1-s) );
                   ix++;
                 }
-  
+
                 IntVect iR(ic); iR[0] += s;
                 int pR = (int) pmap_E_rhs[dit][0](iR,0);
                 if (pR >= 0) {
@@ -751,9 +1049,9 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                                                   : m_sigma_zx_pc[dit](ic,m_sigma_zx_pc.nComp()/2+s) );
                   ix++;
                 }
-  
+
               }
-  
+
               // sigma_yz/zy contributions
               {
                 IntVect ii(ic);
@@ -766,9 +1064,9 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                 }
               }
               for (int s = 1; s < m_pc_mass_matrix_width+1; s++) {
-  
+
                 if (s > (m_sigma_yz_pc.nComp()-1)/2) break;
-  
+
                 IntVect iL(ic); iL[0] -= s;
                 int pL = (int) pmap_Ev_rhs[dit](iL, !n);
                 if (pL >= 0) {
@@ -777,7 +1075,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                                                   : m_sigma_zy_pc[dit](ic,(m_sigma_zy_pc.nComp()-1)/2-s) );
                   ix++;
                 }
-  
+
                 IntVect iR(ic); iR[0] += s;
                 int pR = (int) pmap_Ev_rhs[dit](iR, !n);
                 if (pR >= 0) {
@@ -787,13 +1085,58 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
                   ix++;
                 }
               }
-  
+
+            }
+#elif CH_SPACEDIM==2
+
+            /* sigma_zz contributions */
+            {
+              int idx(0);
+              int pc_mass_matrix_width(m_pc_mass_matrix_width<2?m_pc_mass_matrix_width:1);
+              for (int j = 0; j < (1+2*pc_mass_matrix_width); j++) {
+                for (int i = 0; i < (1+2*pc_mass_matrix_width); i++) {
+                  if (!((i==pc_mass_matrix_width) && (j==pc_mass_matrix_width))) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_Ev_rhs[dit](iL,n);
+                    if (pL >= 0) {
+                      icols[ix] = pL;
+                      vals[ix] = sig_norm_nc *  m_sigma_zz_pc[dit](ic,idx);
+                      ix++;
+                    }
+                  }
+                  idx++;
+                }
+              }
+            }
+
+            if (m_pc_mass_matrix_include_ij) {
+              /* sigma_zx/zy contribution */
+              for (int dir = 0; dir < SpaceDim; dir++) {
+                int idx(0);
+                int pc_mass_matrix_width(m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:2);
+                for (int j(0); j<(dir+2*pc_mass_matrix_width); j++) {
+                  for (int i(0); i<((1-dir)+2*pc_mass_matrix_width); i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_E_rhs[dit][dir](iL,0);
+                    if (pL >= 0) {
+                      icols[ix] = pL;
+                      vals[ix] = sig_norm_nc * (dir == 0 ? m_sigma_zx_pc[dit](ic,idx)
+                                                         : m_sigma_zy_pc[dit](ic,idx) );
+                    }
+                    idx++;
+                  }
+                }
+              }
             }
 #endif
           }
-    
+
           if (a_include_EM) {
-#if CH_SPACEDIM==1 
+#if CH_SPACEDIM==1
 
             int dirj = 0, dirk = 1;
             if (n == 0) {
@@ -874,7 +1217,7 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
               }
 
             }
-#elif CH_SPACEDIM==2 
+#elif CH_SPACEDIM==2
             int dirj = 0, dirk = 1;
             {
               int sign = 1;
@@ -932,10 +1275,10 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
             }
 #endif
           }
-    
+
           CH_assert(ix <= m_pcmat_nnz);
           CH_assert(ix <= a_P.getNBands());
-  
+
           a_P.setRowValues( pc, ix, icols.data(), vals.data() );
         }
       }

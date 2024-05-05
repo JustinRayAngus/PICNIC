@@ -1,5 +1,4 @@
-#####################################################
-#TEST np=27, timelimit=00:05:00
+#TEST np=108, timelimit=00:05:00
 #####################################################
 # Verbosity and writing Definitions
 #####################################################
@@ -7,7 +6,6 @@ simulation.verbosity = 10
 simulation.fixed_random_seed = 1983
 pic_species.write_species_nppc = true
 
-#system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
 pic_species.iter_max_particles = 11
@@ -26,31 +24,34 @@ pic_em_theta_implicit.pc_update_freq = 1
 jacobian.with_pc = true
 
 newton.verbose = false
-newton.atol = 1.0e-12
-newton.rtol = 1.0e-10
+newton.line_search.type = "basic"
+newton.atol = 0.0
+newton.rtol = 1.0e-8
 newton.maxits = 100
+newton.maxfail = 10
+#newton.linear_solver = "petsc_ksp"
 
 gmres.verbose = false
-gmres.atol = 1.0e-12
+gmres.atol = 0.0
 gmres.rtol = 1.0e-4
 gmres.maxits = 1000
 
 #####################################################
 # Time Stepping Definitions
 #####################################################
-simulation.max_step            = 200
-simulation.max_time            = 164.0 # t0 = Rp0/u0
+simulation.max_step            = 200 # 1000000000
+simulation.max_time            = 220.0 # 1.35*t0
 simulation.fixed_dt            = 1.0e-3
-#simulation.plot_interval       = 1000
-simulation.plot_time_interval  = 1.64
+simulation.plot_time_interval  = 1.1
+simulation.plot_parts_factor   = 10
+simulation.plot_on_restart     = false
+simulation.plot_on_final_step  = true
 simulation.plot_prefix         = "plt"
 simulation.history             = true
-simulation.history_interval    = 200
+simulation.history_interval    = 100
 
-simulation.dt_parts_check_interval     = 100 
-simulation.dt_scatter_check_interval   = 100 
-simulation.dt_cyclotron_check_interval = 100 
-simulation.dt_cyclotron_factor = 2.0 
+simulation.dt_parts_check_interval   = 100
+simulation.dt_scatter_check_interval = 100
 
 history.precision = 8
 history.solver_probes = true
@@ -60,27 +61,25 @@ history.field_bdry_probes = true
 history.species0_probes = true
 history.species1_probes = true
 history.species_bdry_probes = true
-#
-#simulation.checkpoint_time_interval = 8.2
-#simulation.restart_file = "checkpoint_data/chk090200.1d.hdf5"
-simulation.wall_time_hrs = 0.95
+
+simulation.checkpoint_time_interval = 11.0
+#simulation.restart_file = "checkpoint_data/chk066000.2d.hdf5"
+simulation.wall_time_hrs = 23.9
 
 #####################################################
 # Computational Grid Definitions
 #####################################################
-grid.num_cells     = 216
-grid.is_periodic   = 0
-grid.config_decomp = 27
-#grid.geometry      = "cartesian"
-grid.geometry      = "cyl_R"
-grid.volume_correction = "conservative"
-#grid.axisymmetric = false
-grid.num_ghosts    = 3
+grid.num_cells     = 270 10
+grid.is_periodic   = 0   1
+grid.config_decomp = 54  2
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 3 3
 
 grid.X_min = 0.0
 grid.X_max = 1.54
+grid.Z_min = 0.0
+grid.Z_max = 0.057
 grid.verbosity = 1
-grid.write_jacobians = true
 
 #####################################################
 # Units Definitions
@@ -95,8 +94,8 @@ units.time           = 1.0e-9  # s
 #####################################################
 em_fields.use = true
 em_fields.advance = true
-em_fields.advance_electric_field = 1 0 1
-em_fields.advance_magnetic_field = 0 1 0
+em_fields.advance_electric_field = 1 1 1
+em_fields.advance_magnetic_field = 1 1 1
 em_fields.write_rho = true
 em_fields.write_divs = true
 em_fields.write_curls = true
@@ -115,14 +114,16 @@ IC.em_fields.electric.1.value = 0.0
 IC.em_fields.electric.2.type = "constant"
 IC.em_fields.electric.2.value = 0.0
 
-#BC.em_fields.dir0_lower.type = "axis"
+BC.em_fields.conservative_wall = true
 BC.em_fields.dir0_lower.type = "symmetry"
 BC.em_fields.dir0_upper.type = "insulator_conductor"
-BC.insulator.dir0_upper.X0_min = 1.54
+BC.insulator.dir0_upper.X0_min = 1.53
 BC.insulator.dir0_upper.X0_max = 1.60
+BC.insulator.dir0_upper.X1_min = -1.0
+BC.insulator.dir0_upper.X1_max = 1.0
 BC.insulator.dir0_upper.time_function.type = "ramp"
-BC.insulator.dir0_upper.time_function.rise_time = 8.2 # t0/20 = Rp0/u0/20
-BC.insulator.dir0_upper.time_function.amplitude = 7.7688e3 # mu0*I0/(2*pi*(Rmax+dr/2))/Bscale
+BC.insulator.dir0_upper.time_function.rise_time = 8.1541 # t0/20 = u0/Rp0/20
+BC.insulator.dir0_upper.time_function.amplitude = 7.9944e3 # By(x=x0_max)
 
 #####################################################
 # Species Definitions
@@ -139,17 +140,13 @@ pic_species.0.scatter = true
 pic_species.0.interp_type_N = "TSC"
 pic_species.0.interp_type_J = "CC1"
 pic_species.0.interp_type_E = "CC1"
-pic_species.0.push_type = "CYL_CAR"
 pic_species.0.use_suborbit_model = true
-pic_species.0.suborbit_fast_particles = true
 
 IC.electron.X_min = 0.0
 IC.electron.X_max = 1.5
-IC.electron.parts_per_cell = 2
-IC.electron.uniform_particle_weights = true
-#IC.electron.nppc_jacobian_scaling = true
-#IC.electron.nppc_jacobian_scaling.power = 0.5
-IC.electron.use_float_for_weights = true
+IC.electron.Z_min = -1.0
+IC.electron.Z_max = 1.0
+IC.electron.parts_per_cell = 10 10
 IC.electron.density.type = "constant"
 IC.electron.density.value = 1.0e23 # [number/m^3]
 IC.electron.temperature_0.type = "constant"
@@ -165,7 +162,6 @@ IC.electron.velocity_1.value = 0.0
 IC.electron.velocity_2.type = "constant"
 IC.electron.velocity_2.value = 0.0
 
-#BC.electron.dir0_lower.type = "axis"
 BC.electron.dir0_lower.type = "symmetry"
 BC.electron.dir0_upper.type = "outflow"
 
@@ -180,17 +176,13 @@ pic_species.1.scatter = true
 pic_species.1.interp_type_N = "TSC"
 pic_species.1.interp_type_J = "CC1"
 pic_species.1.interp_type_E = "CC1"
-pic_species.1.push_type = "CYL_CAR"
 pic_species.1.use_suborbit_model = true
-#pic_species.1.suborbit_fast_particles = true
 
 IC.deuterium.X_min = 0.0
 IC.deuterium.X_max = 1.5
-IC.deuterium.parts_per_cell = 2
-IC.deuterium.uniform_particle_weights = true
-#IC.deuterium.nppc_jacobian_scaling = true
-#IC.deuterium.nppc_jacobian_scaling.power = 0.5
-IC.deuterium.use_float_for_weights = true
+IC.deuterium.Z_min = -1.0
+IC.deuterium.Z_max = 1.0
+IC.deuterium.parts_per_cell = 10 10
 IC.deuterium.density.type = "constant"
 IC.deuterium.density.value = 1.0e23 # [number/m^3]
 IC.deuterium.temperature_0.type = "constant"
@@ -206,7 +198,6 @@ IC.deuterium.velocity_1.value = 0.0
 IC.deuterium.velocity_2.type = "constant"
 IC.deuterium.velocity_2.value = 0.0
 
-#BC.deuterium.dir0_lower.type = "axis"
 BC.deuterium.dir0_lower.type = "symmetry"
 BC.deuterium.dir0_upper.type = "outflow"
 
@@ -218,31 +209,19 @@ scattering.0.model = "COULOMB"
 scattering.0.speciesA = 0
 scattering.0.speciesB = 0
 scattering.0.angular_scattering = "NANBU"
-#scattering.0.coulomb_logarithm = 10.0
-#scattering.0.max_subcycles = 10
-#scattering.0.enforce_conservations = true
-#scattering.0.sort_weighted_particles = true
-#scattering.0.energy_fraction = 0.02
+scattering.0.coulomb_logarithm = 10.0
 
 scattering.1.model = "COULOMB"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
 scattering.1.angular_scattering = "NANBU"
-#scattering.1.coulomb_logarithm = 10.0
-#scattering.1.max_subcycles = 10
-#scattering.1.enforce_conservations = true
-#scattering.1.sort_weighted_particles = true
-#scattering.1.energy_fraction = 0.02
+scattering.1.coulomb_logarithm = 10.0
 
 scattering.2.model = "COULOMB"
 scattering.2.speciesA = 1
 scattering.2.speciesB = 0
 scattering.2.angular_scattering = "NANBU"
-#scattering.2.coulomb_logarithm = 10.0
-#scattering.2.max_subcycles = 10
-#scattering.2.enforce_conservations = true
-#scattering.2.sort_weighted_particles = true
-#scattering.2.energy_fraction = 0.02
+scattering.2.coulomb_logarithm = 10.0
 
 #####################################################
 

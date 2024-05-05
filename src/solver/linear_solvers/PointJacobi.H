@@ -16,9 +16,9 @@ class PointJacobiSolver : public LinearFunctionSolver<T, Ops>
   public:
 
     PointJacobiSolver<T,Ops>()
-    { 
-      m_is_defined = false; 
-      m_op = nullptr; 
+    {
+      m_is_defined = false;
+      m_op = nullptr;
       m_verbose = false;
       m_omega = 0.9;
       m_its = 200;
@@ -31,13 +31,13 @@ class PointJacobiSolver : public LinearFunctionSolver<T, Ops>
     void define (Ops* const, LinearFunction<T,Ops>* const, const T&);
     void solve(T&, const T&, int a_its = -1);
 
-    inline void verbose(const bool a_v) 
+    inline void verbose(const bool a_v)
     {
       m_verbose = a_v;
     }
 
-    virtual void setOutputIndent( const std::string& a_indent ) 
-    { 
+    virtual void setOutputIndent( const std::string& a_indent )
+    {
       m_op_indent = a_indent;
       if (m_op) {
         m_op->setOutputIndent(m_op_indent);
@@ -45,7 +45,7 @@ class PointJacobiSolver : public LinearFunctionSolver<T, Ops>
     }
 
   private:
-    
+
     bool m_is_defined;
     bool m_verbose;
     std::string m_op_indent;
@@ -72,7 +72,7 @@ class PointJacobiSolver : public LinearFunctionSolver<T, Ops>
 
 template <class T, class Ops>
 void PointJacobiSolver<T,Ops>::define(  Ops* const,
-                                        LinearFunction<T,Ops>* const  a_op, 
+                                        LinearFunction<T,Ops>* const  a_op,
                                         const T&                      a_x )
 {
   m_op = a_op;
@@ -80,6 +80,8 @@ void PointJacobiSolver<T,Ops>::define(  Ops* const,
 
   ParmParse pp_Jac( _LINSOLVER_JACOBI_ );
   parseParameters( pp_Jac );
+
+  m_op->setMatrixFree(true);
 
   m_y.define(a_x);
   m_is_defined = true;
@@ -104,14 +106,14 @@ void PointJacobiSolver<T,Ops>::solve(T& a_x, const T& a_b, int a_its)
     if (n == 0) norm0 = norm;
     if (m_verbose && (!procID())) {
       printf("%s(%s) iter %4d, residual = %1.6e (abs.), %1.6e (rel.)\n",
-              m_op_indent.c_str(), _LINSOLVER_JACOBI_, 
+              m_op_indent.c_str(), _LINSOLVER_JACOBI_,
               n, norm, norm/norm0 );
     }
 
     if ((norm < m_atol) || (norm/norm0 < m_rtol)) break;
     if (norm/norm0 > 1) {
       if (m_verbose && (!procID())) {
-        printf( "%s(%s) solver diverged.\n", 
+        printf( "%s(%s) solver diverged.\n",
                 m_op_indent.c_str(), _LINSOLVER_JACOBI_ );
       }
       break;
