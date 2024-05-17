@@ -9,7 +9,14 @@ PROFILE=FALSE
 MPI=TRUE
 
 # main compiler/linker options
-XTRALIBFLAGS+= -llapack  -lblas
+# XTRALIBFLAGS+= -llapack  -lblas     # for system using LAPACK/BLAS
+
+XTRALIBFLAGS+= -L$(MKLROOT)/lib/intel64 -Wl,--start-group \
+               $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
+               $(MKLROOT)/lib/intel64/libmkl_core.a \
+               $(MKLROOT)/lib/intel64/libmkl_sequential.a \
+               -Wl,--end-group -lpthread -lm -ldl	# for systems using intel MKL
+
 
 # Chombo optional features
 USE_64=TRUE#        #64bit pointers
