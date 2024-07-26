@@ -63,6 +63,13 @@ class FieldBC
       void applyOnAxisDivBC( LevelData<NodeFArrayBox>&  a_divE,
                        const LevelData<EdgeDataBox>&    a_E );
 
+      void applyAbsorbingBCs( LevelData<FArrayBox>&      a_Bv,
+                        const LevelData<NodeFArrayBox>&  a_Evold,
+                        const LevelData<NodeFArrayBox>&  a_Jvmid,
+                        const Real                       a_Jnorm,
+                        const Real                       a_time,
+                        const Real                       a_cvacDt );
+
       void computeIntSdA( RealVect&                  a_intSdA_lo, 
                           RealVect&                  a_intSdA_hi,
                     const LevelData<EdgeDataBox>&    a_E, 
@@ -81,7 +88,8 @@ class FieldBC
       Vector<std::string> m_bc_type, m_phi_bc_type;
       bool m_conservative_wall; // if true, E for insulator/conductor BCs will be set
                                 // such that energy is conserved  
- 
+      bool m_absorbing_bc = false; // will set true if there are any absorbing bcs
+
       Vector<RefCountedPtr<InsulatorBC>> m_InsulatorBC;
    
    private:

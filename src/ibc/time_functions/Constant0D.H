@@ -28,7 +28,7 @@ class Constant0D : public TimeFunction
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "Constant0D function parameters:" << std::endl;
-            std::cout << " amplitude = " << m_amplitude  << std::endl << std::endl;
+            std::cout << "  amplitude = " << m_amplitude  << std::endl;
          }
       }
       
@@ -47,9 +47,6 @@ class Constant0D : public TimeFunction
       void parseParameters( ParmParse& pp )
       {
          pp.get( "amplitude", m_amplitude );
-         if (m_verbosity) {
-            printParameters();
-         }
       }
 
       Real m_amplitude;

@@ -1256,30 +1256,30 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
 {
    CH_TIME("dataFileIO::writeSpeciesMomentsFile()");
    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
-   
+
    if (!procID()) {
       cout << "writing moments file for species " << a_species << endl;
    }
-   
+
    // It is the job of the caller to maker sure the moments are set
    const LevelData<FArrayBox>& density  = a_picSpecies.getNumberDensity();
    const LevelData<FArrayBox>& momentum = a_picSpecies.getMomentumDensity();
    const LevelData<FArrayBox>& energy   = a_picSpecies.getEnergyDensity();
-  
+
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
-   
+
    // create the species moment file
    std::string base_dir = dirPrefix("mesh");
    stringstream s;
-   s << base_dir << "species" << a_species; 
+   s << base_dir << "species" << a_species;
    std::string prefix = s.str();
    std::string plotFileNameParts( plotFileName( prefix,
                                                 "moments",
                                                 a_cur_step ) );
 
    HDF5Handle handleParts( plotFileNameParts.c_str(), HDF5Handle::CREATE );
-   
+
    handleParts.setGroup("/");
 
    //
@@ -1287,7 +1287,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    //
 
    HDF5HeaderData headerParts;
-   
+
    Vector<string> vectNames;
    char field_name[50];
    char comp_name[50];
@@ -1319,11 +1319,11 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    headerParts.writeToFile(handleParts);
 
    //
-   ///////////////////////////////////// 
+   /////////////////////////////////////
    //
 
    const std::string groupName = std::string("species_data");
-   handleParts.setGroup(groupName);  
+   handleParts.setGroup(groupName);
 
 
    headerParts.m_real["mass"] = a_picSpecies.mass();
@@ -1334,10 +1334,10 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    headerParts.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
    //headerParts.m_real["number_density_scale_SI"] = m_units.getScale(m_units.NUMBER_DENSITY);
    headerParts.m_box["prob_domain"] = domain.domainBox();
-   
+
    // write the header 
    headerParts.writeToFile(handleParts);
- 
+
 
    // write the moment data
    LevelData<FArrayBox> momentData;
@@ -1346,78 +1346,78 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
       int compData = 0;
       momentData[dit].copy(density[dit],0,compData,1);
       compData = compData + 1;
-      for (int dir=0; dir<momentum.nComp(); dir++) { 
+      for (int dir=0; dir<momentum.nComp(); dir++) {
          momentData[dit].copy(momentum[dit],dir,compData,1);
          compData = compData + 1;
-      } 
+      }
       for (int dir=0; dir<energy.nComp(); dir++) { 
          momentData[dit].copy(energy[dit],dir,compData,1);
          compData = compData + 1;
-      } 
+      }
    }
    write(handleParts, momentData.boxLayout());
    write(handleParts, momentData, "data", density.ghostVect());
-   
+
    if (a_write_charge_density) {
-      
+
       //
       // write the cell centered charge density
       //
-   
+
       const LevelData<FArrayBox>& chargeDensity  = a_picSpecies.getChargeDensity();
-      
+
       const std::string groupRho_Name = std::string("cell_centered_charge_density");
       handleParts.setGroup(groupRho_Name);
-   
+
       headerParts.clear();
       headerParts.m_int["is_cellbox"] = 1;
       headerParts.m_int["num_components"] = chargeDensity.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, chargeDensity.boxLayout());
       write(handleParts, chargeDensity, "data", chargeDensity.ghostVect());
 
       //
       // write the face centered charge density
       //
-   
+
       const LevelData<FluxBox>& chargeDenOnFaces  = a_picSpecies.getChargeDensityOnFaces();
 
       const std::string groupRhoFaces_Name = std::string("face_centered_charge_density");
       handleParts.setGroup(groupRhoFaces_Name);
-   
+
       headerParts.clear();
       headerParts.m_int["is_fluxbox"] = 1;
       headerParts.m_int["num_components"] = chargeDenOnFaces.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, chargeDenOnFaces.boxLayout());
       write(handleParts, chargeDenOnFaces, "data", chargeDenOnFaces.ghostVect());
-      
+
       //
       // write the node centered charge density
       //
-   
+
       const LevelData<NodeFArrayBox>& chargeDenOnNodes  = a_picSpecies.getChargeDensityOnNodes();
 
       const std::string groupRhoNodes_Name = std::string("node_centered_charge_density");
       handleParts.setGroup(groupRhoNodes_Name);
-   
+
       headerParts.clear();
       headerParts.m_int["is_nodebox"] = 1;
       headerParts.m_int["num_components"] = chargeDenOnNodes.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, chargeDenOnNodes.boxLayout());
       write(handleParts, chargeDenOnNodes, "data", chargeDenOnNodes.ghostVect());
 
    }
-   
+
    if (a_write_surface_charge) {
-      
+
       //
       // write the node centered surface charge
       //
@@ -1428,13 +1428,13 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
 
       const std::string group_name = std::string("node_centered_surface_charge");
       handleParts.setGroup(group_name);
-   
+
       headerParts.clear();
       headerParts.m_int["is_nodebox"] = 1;
       headerParts.m_int["num_components"] = surfaceCharge.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, surfaceCharge.boxLayout());
       write(handleParts, surfaceCharge, "data", surfaceCharge.ghostVect());
 
@@ -1449,109 +1449,198 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
       const LevelData<EdgeDataBox>& JonEdges  = a_picSpecies.getCurrentDensity();
       const std::string groupJ_Name = std::string("current_density");
       handleParts.setGroup(groupJ_Name);
-   
+
       headerParts.clear();
       headerParts.m_int["is_edgebox"] = 1;
       headerParts.m_int["num_components"] = JonEdges.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, JonEdges.boxLayout());
       write(handleParts, JonEdges, "data", JonEdges.ghostVect());
 
       //
       // write the node centered virtual current density for 1D/2D sims
       //
-   
+
       if (SpaceDim<3) {
          const LevelData<NodeFArrayBox>& JvirtOnNodes  = a_picSpecies.getCurrentDensity_virtual();
          const std::string groupJvirtOnNodes_Name = std::string("virtual_current_density");
          handleParts.setGroup(groupJvirtOnNodes_Name);
-   
+
          headerParts.clear();
          headerParts.m_int["is_nodebox"] = 1;
          headerParts.m_int["num_components"] = JvirtOnNodes.nComp();
-         headerParts.m_box["prob_domain"] = domain.domainBox(); 
+         headerParts.m_box["prob_domain"] = domain.domainBox();
          headerParts.writeToFile(handleParts);
-   
+
          write(handleParts, JvirtOnNodes.boxLayout());
          write(handleParts, JvirtOnNodes, "data", JvirtOnNodes.ghostVect());
       }
 
    }
-   
+
    if (a_write_nppc) {
-      
+
       //
       // write the macro particle count in each cell
       //
-   
+
       const LevelData<FArrayBox>& Nppc  = a_picSpecies.getNppc();
-      
+
       const std::string groupNppc_Name = std::string("cell_centered_nppc");
       handleParts.setGroup(groupNppc_Name);
-   
+
       headerParts.clear();
       headerParts.m_int["is_cellbox"] = 1;
       headerParts.m_int["num_components"] = Nppc.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, Nppc.boxLayout());
       write(handleParts, Nppc, "data", Nppc.ghostVect());
 
    }
-   
+
    if (a_write_energy_off_diag) {
-      
+
       //
       // write the off-diagonal components of the energy density tensor
       //
-   
+
       const LevelData<FArrayBox>& energyOD  = a_picSpecies.getEnergyOffDiag();
-      
+
       const std::string groupName = std::string("cell_centered_energy_off_diag");
       handleParts.setGroup(groupName);
-   
+
       headerParts.clear();
       headerParts.m_int["is_cellbox"] = 1;
       headerParts.m_int["num_components"] = energyOD.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, energyOD.boxLayout());
       write(handleParts, energyOD, "data", energyOD.ghostVect());
 
    }
-   
+
    if (a_write_energy_flux) {
-      
+
       //
       // write the energy density flux
       //
-   
+
       const LevelData<FArrayBox>& energyFlux  = a_picSpecies.getEnergyDensityFlux();
       
       const std::string groupName = std::string("cell_centered_energy_flux");
       handleParts.setGroup(groupName);
-   
+
       headerParts.clear();
       headerParts.m_int["is_cellbox"] = 1;
       headerParts.m_int["num_components"] = energyFlux.nComp();
-      headerParts.m_box["prob_domain"] = domain.domainBox(); 
+      headerParts.m_box["prob_domain"] = domain.domainBox();
       headerParts.writeToFile(handleParts);
-   
+
       write(handleParts, energyFlux.boxLayout());
       write(handleParts, energyFlux, "data", energyFlux.ghostVect());
 
    }
-   
+
    //
    // close the handle
    //
 
    handleParts.close();
-   
+
+}
+
+void dataFileIO::writeFusionProductsDataFile( const ScatteringPtrVect&  a_scattering_ptr_vect,
+                                              const int                 a_num_fusion,
+                                              const int                 a_cur_step,
+                                              const double              a_cur_time )
+{
+    CH_TIME("dataFileIO::writeFusionProductsDataFile()");
+    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+
+    if (!procID()) {
+        cout << "writing fusion diagnostic file for fusion products" << std::endl;
+    }
+
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    const ProblemDomain& domain(m_mesh.getDomain());
+
+    // create the species moment file
+    std::string base_dir = dirPrefix("mesh");
+    stringstream s;
+    s << base_dir << "fusion";
+    std::string prefix = s.str();
+    std::string plotFileNameParts( plotFileName( prefix,
+                                                "products",
+                                                a_cur_step ) );
+
+    HDF5Handle handle( plotFileNameParts.c_str(), HDF5Handle::CREATE );
+    handle.setGroup("/");
+
+    HDF5HeaderData header;
+
+    header.m_int["num_fusion"] = a_num_fusion;
+    header.m_int["step_number"] = a_cur_step;
+    header.m_real["time"] = a_cur_time;
+    header.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
+    header.writeToFile(handle);
+
+    writeFusionProducts( handle, a_scattering_ptr_vect );
+
+    // close the handle
+    handle.close();
+
+}
+
+void dataFileIO::writeFusionProducts( HDF5Handle&         a_handle,
+                                const ScatteringPtrVect&  a_scattering_ptr_vect )
+{
+    CH_TIME("dataFileIO::writeFusionProducts()");
+
+    const ProblemDomain& domain(m_mesh.getDomain());
+    HDF5HeaderData header;
+
+    int fusion_num = -1;
+    for (int sct=0; sct<a_scattering_ptr_vect.size(); sct++) {
+        ScatteringPtr this_scattering(a_scattering_ptr_vect[sct]);
+        if (this_scattering->getScatteringType()==FUSION) {
+
+            // Create the group name for this fusion process. DO NOT CHANGE!
+            // The same naming convention is used to read in from the checkpoint
+            // file on a restart. See ScatteringInterface::readCheckpoint();
+            fusion_num += 1;
+            stringstream ssfn;
+            ssfn << "fusion_data_" << fusion_num;
+            const std::string groupName = ssfn.str();
+            a_handle.setGroup(groupName);
+
+            const LevelData<FArrayBox>& fusionProducts = this_scattering->getFusionProducts();
+            const int num_comps = fusionProducts.nComp();
+            const std::string fusion_type = this_scattering->getScatteringSubTypeName();
+
+            header.clear();
+            header.m_int["sct_num"]  = sct;
+            header.m_string["fusion_type"] = fusion_type;
+            header.m_int["species1"] = this_scattering->species1();
+            header.m_int["species2"] = this_scattering->species2();
+            header.m_real["fusionQ"] = this_scattering->getFusionQ();
+            if (num_comps>1) { header.m_real["fusionQb"] = this_scattering->getFusionQb(); }
+
+            header.m_int["is_cellbox"] = 1;
+            header.m_int["num_components"] = num_comps;
+            header.m_box["prob_domain"] = domain.domainBox();
+            header.writeToFile(a_handle);
+
+            write(a_handle, fusionProducts.boxLayout());
+            write(a_handle, fusionProducts, "data", fusionProducts.ghostVect());
+
+        }
+    }
+
 }
 
 void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,
@@ -1564,7 +1653,7 @@ void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>& 
       cout << "at step = " << a_cur_step << " and time = " << a_cur_time << endl;
       cout << "... " << endl;
    }
-   
+
    ///////////// 
    //
    //   write the particles
@@ -1575,15 +1664,15 @@ void dataFileIO::writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>& 
                                                 a_cur_step ) );
 
    HDF5Handle handleParts( plotFileNameParts.c_str(), HDF5Handle::CREATE );
-   
+
    handleParts.setGroup("/");
-   
+
    // There is no function to write BinFab???????????
    //write(handleParts, grids);
    //writeParticlesToHDF(handleParts, a_Pdata, "particles");
 
    handleParts.close();
-   
+
    if (!procID()) { cout << "finished writing binfab particle data file" << endl << endl; }
 
 }
@@ -1599,6 +1688,13 @@ void dataFileIO::writeCheckpointEMFields( HDF5Handle&  a_handle,
       writeEMFields_old( a_handle, a_emfield );
    }
 
+}
+
+void dataFileIO::writeCheckpointFusion( HDF5Handle&         a_handle,
+                                  const ScatteringPtrVect&  a_scattering_ptr_vect )
+{
+   CH_TIME("dataFileIO::writeCheckpointFusion()");
+   writeFusionProducts( a_handle, a_scattering_ptr_vect );
 }
 
 void dataFileIO::writeCheckpointPicSpecies( HDF5Handle&           a_handle,
@@ -1619,19 +1715,19 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
                                      const int          a_species )
 {
    CH_TIME("dataFileIO::writeCheckpointParticles()");
-  
+
    // get references to particle data   
    const ParticleData<JustinsParticle>& a_Pdata = a_picSpecies.partData();
-   
+
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const ProblemDomain& domain(m_mesh.getDomain());
-   
+
    HDF5HeaderData headerParts;
-   
+
    stringstream s;
-   s << "species" << a_species; 
+   s << "species" << a_species;
    const std::string groupName = std::string( s.str() + "_data");
-   a_handle.setGroup(groupName);  
+   a_handle.setGroup(groupName);
 
    int totalParticleCount = a_Pdata.numParticles();
    headerParts.m_int["species_number"] = a_species;
@@ -1640,7 +1736,7 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
    headerParts.m_int["charge"] = a_picSpecies.charge();
    headerParts.m_real["Uint"]  = a_picSpecies.Uint();
    headerParts.m_box["prob_domain"] = domain.domainBox();
-      
+
    const RealVect& massOut_lo = a_picSpecies.getMassOut_lo();
    const RealVect& massOut_hi = a_picSpecies.getMassOut_hi();
    const RealVect& momXOut_lo = a_picSpecies.getMomXOut_lo();
@@ -1651,7 +1747,7 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
    const RealVect& momZOut_hi = a_picSpecies.getMomZOut_hi();
    const RealVect& energyOut_lo = a_picSpecies.getEnergyOut_lo();
    const RealVect& energyOut_hi = a_picSpecies.getEnergyOut_hi();
-      
+
    const RealVect& massIn_lo = a_picSpecies.getMassIn_lo();
    const RealVect& massIn_hi = a_picSpecies.getMassIn_hi();
    const RealVect& momXIn_lo = a_picSpecies.getMomXIn_lo();
@@ -1663,7 +1759,7 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
    const RealVect& energyIn_lo = a_picSpecies.getEnergyIn_lo();
    const RealVect& energyIn_hi = a_picSpecies.getEnergyIn_hi();
 
-   for(int dir=0; dir<SpaceDim; dir++) {         
+   for (int dir=0; dir<SpaceDim; dir++) {
       if (domain.isPeriodic(dir)) { continue; }
       std::string dirstr = std::to_string(dir);
       headerParts.m_real["massOut_lo"+dirstr] = massOut_lo[dir];
@@ -1676,7 +1772,7 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
       headerParts.m_real["momZOut_hi"+dirstr] = momZOut_hi[dir];
       headerParts.m_real["energyOut_lo"+dirstr] = energyOut_lo[dir];
       headerParts.m_real["energyOut_hi"+dirstr] = energyOut_hi[dir];
-      
+
       headerParts.m_real["massIn_lo"+dirstr] = massIn_lo[dir];
       headerParts.m_real["massIn_hi"+dirstr] = massIn_hi[dir];
       headerParts.m_real["momXIn_lo"+dirstr] = momXIn_lo[dir];
@@ -1687,10 +1783,10 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
       headerParts.m_real["momZIn_hi"+dirstr] = momZIn_hi[dir];
       headerParts.m_real["energyIn_lo"+dirstr] = energyIn_lo[dir];
       headerParts.m_real["energyIn_hi"+dirstr] = energyIn_hi[dir];
-   } 
-   
-   if (a_picSpecies.charge()!=0) { 
-     // write the cumulative surface charge diagnostic 
+   }
+
+   if (a_picSpecies.charge()!=0) {
+     // write the cumulative surface charge diagnostic
 #if CH_SPACEDIM>1
      a_picSpecies.preWriteSurfaceCharge();
 #endif
@@ -1700,7 +1796,7 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
 
    // write the header 
    headerParts.writeToFile(a_handle);
- 
+
    // write the particles
    write(a_handle, grids);
    const bool writeAll = true;

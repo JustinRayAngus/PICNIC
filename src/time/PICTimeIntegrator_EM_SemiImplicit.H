@@ -36,7 +36,8 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
     }
 
     virtual 
-    void define( PicSpeciesInterface* const,
+    void define( System* const,
+                 PicSpeciesInterface* const,
                  EMFields* const );
 
     virtual void initialize( const std::string&  a_restart_file_name );

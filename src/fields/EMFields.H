@@ -74,6 +74,8 @@ public:
   std::array<bool,3> advanceB_comp() const { return m_advanceB_comp; }
 
   bool useFiltering() const { return m_use_filtering; }
+  bool filterE_inPlane() const { return m_filterE_inPlane; }
+  bool filterE_virtual() const { return m_filterE_virtual; }
   bool usePoisson() const { return m_use_poisson; }
 
   bool writeDivs() const { return m_writeDivs; }
@@ -222,28 +224,66 @@ public:
   }
 
   // advance the fields in time
-  void computeRHSElectricField( const Real, const Real );
-  void computeRHSMagneticField( const Real, const Real );
+  void computeRHSElectricField( const Real  a_dt );
+  void computeRHSMagneticField( const Real  a_dt );
 
   // compute the poynting flux
   void setPoyntingFlux();
-
+  
+  void setEoldFromE() {
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         m_electricField_old[dit][dir].copy(m_electricField[dit][dir]);
+      }
+      m_electricField_virtual_old[dit].getFab().copy(m_electricField_virtual[dit].getFab());
+    }
+  }
+  
+  void setBoldFromB() {
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (int dir=0; dir<SpaceDim; dir++) {
+         m_magneticField_old[dit][dir].copy(m_magneticField[dit][dir]);
+      }
+      m_magneticField_virtual_old[dit].copy(m_magneticField_virtual[dit]);
+    }
+  }
+  
   // set the filtered fields
   void setFilteredFields() const {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
     for(DataIterator dit(grids); dit.ok(); ++dit) {
-      for (int dir=0; dir<SpaceDim; dir++) {
-         m_electricField_filtered[dit][dir].copy(m_electricField[dit][dir]);
+      if (m_filterE_inPlane) {
+        for (int dir=0; dir<SpaceDim; dir++) {
+           m_electricField_filtered[dit][dir].copy(m_electricField[dit][dir]);
+        }
+      }
+      if (m_filterE_virtual) {
+        FArrayBox& this_Ev_filtered = m_electricField_virtual_filtered[dit].getFab();
+        const FArrayBox& this_Ev = m_electricField_virtual[dit].getFab();
+        this_Ev_filtered.copy(this_Ev,0,0,this_Ev.nComp());
       }
     }
-    SpaceUtils::applyBinomialFilter(m_electricField_filtered);
     const Real dummy_time = 0.0;
-    SpaceUtils::exchangeEdgeDataBox(m_electricField_filtered);
-    m_field_bc->applyEdgeBC( m_electricField_filtered, dummy_time );
+    if (m_filterE_inPlane) {
+      SpaceUtils::applyBinomialFilter(m_electricField_filtered);
+      SpaceUtils::exchangeEdgeDataBox(m_electricField_filtered);
+      m_field_bc->applyEdgeBC( m_electricField_filtered, dummy_time );
+    }
+    if (m_filterE_virtual) {
+      SpaceUtils::applyBinomialFilter(m_electricField_virtual_filtered);
+      SpaceUtils::exchangeNodeFArrayBox(m_electricField_virtual_filtered);
+      m_field_bc->applyNodeBC( m_electricField_virtual_filtered, dummy_time );
+    }
   }
   const LevelData<EdgeDataBox>& getFilteredElectricField() const {
-    if(m_use_filtering) {return m_electricField_filtered;}
-    else {return m_electricField;}
+    if (m_use_filtering && m_filterE_inPlane) { return m_electricField_filtered; }
+    else { return m_electricField; }
+  }
+  const LevelData<NodeFArrayBox>& getFilteredVirtualElectricField() const {
+    if (m_use_filtering && m_filterE_virtual) { return m_electricField_virtual_filtered; }
+    else { return m_electricField_virtual; }
   }
 
   void setChargeDensity( const LevelData<NodeFArrayBox>&  a_pic_rho ) {
@@ -285,8 +325,9 @@ public:
   const LevelData<NodeFArrayBox>& getEvxB() const {return m_EvxB;}
 
   // compute field energy
-  Real electricFieldEnergy() const;
-  Real magneticFieldEnergy() const;
+  Real fieldEnergyMod( const Real  a_dt ) const;
+  Real electricFieldEnergy( const bool  is_stag ) const;
+  Real magneticFieldEnergy( const bool  is_stag ) const;
 
   Real max_wc0dt( const CodeUnits&  a_units,
                   const Real&       a_dt ) const;
@@ -552,6 +593,8 @@ public:
   // applyBCs to fields
   void applyBCs_electricField( const Real  a_time );
   void applyBCs_magneticField( const Real  a_time );
+  void applyAbsorbingBCs( const Real  time,
+                          const Real  a_dt );
 
   void assemblePrecondMatrix( BandedMatrix&,
                               const bool,
@@ -568,13 +611,14 @@ public:
 private:
 
   const bool m_verbosity;
-  bool m_use_filtering;
-  bool m_use_poisson;
-  bool m_enforce_gauss_startup;
-  bool m_external_fields;
-  bool m_advance;
-  bool m_advanceE, m_advanceE_inPlane, m_advanceE_virtual;
-  bool m_advanceB, m_advanceB_inPlane, m_advanceB_virtual;
+  bool m_use_filtering; 
+  bool m_filterE_inPlane, m_filterE_virtual; 
+  bool m_use_poisson; 
+  bool m_enforce_gauss_startup; 
+  bool m_external_fields; 
+  bool m_advance; 
+  bool m_advanceE, m_advanceE_inPlane, m_advanceE_virtual; 
+  bool m_advanceB, m_advanceB_inPlane, m_advanceB_virtual; 
   std::array<bool,3> m_advanceE_comp;
   std::array<bool,3> m_advanceB_comp;
   bool m_writeDivs, m_writeCurls, m_writeRho, m_writeSigma, m_writeExB;
@@ -626,7 +670,8 @@ private:
 
   // containers for filtered fields
   mutable LevelData<EdgeDataBox> m_electricField_filtered;
-
+  mutable LevelData<NodeFArrayBox> m_electricField_virtual_filtered;
+  
   // containers for charge/current density
   LevelData<EdgeDataBox> m_currentDensity;
   LevelData<NodeFArrayBox> m_currentDensity_virtual;  // needed for 1D/2D simulations

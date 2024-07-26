@@ -28,14 +28,13 @@ class Table0D : public TimeFunction
       virtual void printParameters() const {
          if (!procID()) {
             std::cout << "Table0D function parameters:" << std::endl;
-            std::cout << "table count = " << m_count << std::endl;
+            std::cout << "  table count = " << m_count << std::endl;
             if(m_display_data) {
-               cout << "count  data0   data1" << endl;
+               cout << "  count  data0   data1" << endl;
                for (int n=0; n<m_count; n++) {
                   cout << n << "      " << m_time_vec.at(n); 
                   cout << "      " << m_amplitude_vec.at(n) << endl;
                }
-               cout << endl;
             }
          }
       }
@@ -76,8 +75,6 @@ class Table0D : public TimeFunction
             
          m_amplitude_vec.resize( m_count );
          pp.getarr( "table_data1", m_amplitude_vec, 0, m_count );
-
-         if (m_verbosity) printParameters();
       }
 
       int m_count;

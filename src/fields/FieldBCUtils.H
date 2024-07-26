@@ -104,7 +104,7 @@ namespace FieldBCUtils {
 
       return flag;
    }
-   
+
    inline
    void setInsulatorConductorBC_Bv( LevelData<FArrayBox>&  a_dst,
                               const DomainGrid&            a_mesh,
@@ -113,37 +113,37 @@ namespace FieldBCUtils {
                               const Real                   a_time )
    {
       CH_TIME("FieldBCUtils::setInsulatorConductorBC_Bv()");
-         
+
       const LevelData<FArrayBox>& Xphys = a_mesh.getXcc();
-      
+
       const DisjointBoxLayout& bdry_grids( a_bdry_layout.disjointBoxLayout() );
       const LevelData<FArrayBox>& ICbinary = a_insulator_bc.getICbinary_cc();
       const RealVect& Xmin_insulator = a_insulator_bc.getXmin();
+      const int TEM_comp = a_insulator_bc.getBvComp();
       const int bdry_dir = a_bdry_layout.dir();
 
       Real bdry_val = a_insulator_bc.getTimeFunctionValue(a_time);
 
       for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
-            
+
          const DataIndex& interior_dit( a_bdry_layout.dataIndex(dit) );
          const FArrayBox& this_ICbinary( ICbinary[interior_dit] );
          const FArrayBox& this_X( Xphys[interior_dit] );
          FArrayBox& this_dst( a_dst[interior_dit] );
-        
+
          // grow fill box to include tranverse ghosts 
          const Box fill_box( bdry_grids[dit] );
          IntVect grow_vect = a_dst.ghostVect();
          grow_vect[bdry_dir] = 0;
          Box insulator_box = grow(fill_box,grow_vect);
-           
+
          // reduce grown fill_box to insulator box
          getInsulatorBox(insulator_box,this_ICbinary,bdry_dir);     
-               
+
          // set the value in the boundary for the appropriate comp
-         const int TEM_comp = 0; // this should come from insulator_bc object
          IntVect ib;         // cell index
          Real local_X, local_val;
-         BoxIterator bit(insulator_box); // grid indices for boundary box    
+         BoxIterator bit(insulator_box); // grid indices for boundary box
          for(bit.begin(); bit.ok(); ++bit) {
             ib = bit();
             if(a_mesh.axisymmetric()) {
@@ -159,7 +159,7 @@ namespace FieldBCUtils {
 
       }
    }
-   
+
    inline
    void setInsulatorConductorBC_B( LevelData<FluxBox>&  a_dst,
                              const BoundaryBoxLayout&   a_bdry_layout,
@@ -381,6 +381,118 @@ namespace FieldBCUtils {
    //
    //
    //////////////////////////////////////////////////////////////////////
+
+   inline
+   void setAbsorbingBC_Bv( LevelData<FArrayBox>&      a_Bv,
+                     const LevelData<NodeFArrayBox>&  a_Evold,
+                     const LevelData<NodeFArrayBox>&  a_Jvmid,
+                     const DomainGrid&              a_mesh,
+                     const BoundaryBoxLayout&       a_bdry_layout,
+                     const InsulatorBC&             a_insulator_bc,
+                     const Real                     a_Jnorm,
+                     const Real                     a_time,
+                     const Real                     a_cnormDt )
+   {
+      CH_TIME("FieldBCUtils::setAbsorbingBC_Bv (virtual magnetic field)");
+
+      // 1D CAR: Bv(n=0) = By,  Bv(n=1) = Bz     2D CAR: Bv(n=0) = Bz
+      // 1D CYL: Bv(n=0) = Bth, Bv(n=1) = Bz     2D CYL: Bv(n=0) = Bth
+      // 1D SPH: Bv(n=0) = Bth, Bv(n=1) = Bphi
+
+      //const LevelData<FArrayBox>& Jacobian = a_mesh.getJcc();
+      const RealVect& dX = a_mesh.getdX();
+      const string& geom_type = a_mesh.geomType();
+      const LevelData<FArrayBox>& Xphys = a_mesh.getXcc();
+
+      const DisjointBoxLayout& bdry_grids( a_bdry_layout.disjointBoxLayout() );
+      const LevelData<FArrayBox>& ICbinary = a_insulator_bc.getICbinary_cc();
+      const RealVect& Xmin_insulator = a_insulator_bc.getXmin();
+      const int Bv_comp = a_insulator_bc.getBvComp();
+      const int bdry_dir = a_bdry_layout.dir();
+      const int bdry_side(a_bdry_layout.side());
+
+      // not setup to work in axisymmetric geometry yet
+      CH_assert(a_mesh.axisymmetric()==false);
+
+      // get Bv associated with the injected voltage wave
+      Real Bv_in = a_insulator_bc.getTimeFunctionValue(a_time);
+
+      for (DataIterator dit( bdry_grids ); dit.ok(); ++dit) {
+
+         const DataIndex& interior_dit( a_bdry_layout.dataIndex(dit) );
+         const FArrayBox& this_ICbinary( ICbinary[interior_dit] );
+         const FArrayBox& this_X( Xphys[interior_dit] );
+         FArrayBox& this_Bv( a_Bv[interior_dit] );
+         const FArrayBox& this_Ev( a_Evold[interior_dit].getFab() );
+         const FArrayBox& this_Jv( a_Jvmid[interior_dit].getFab() );
+
+         // grow fill box to include tranverse ghosts
+         const Box fill_box( bdry_grids[dit] );
+         IntVect grow_vect = a_Bv.ghostVect();
+         grow_vect[bdry_dir] = 0;
+         Box insulator_box = grow(fill_box,grow_vect);
+
+         // reduce grown fill_box to insulator box
+         getInsulatorBox(insulator_box,this_ICbinary,bdry_dir);
+
+         // collapse edge_box to 1 cell thick in bdry_dir direction (Ev is Ev_old. No Ghosts)
+         if(bdry_side==0) { insulator_box.setSmall(bdry_dir,insulator_box.bigEnd(bdry_dir)); }
+         if(bdry_side==1) { insulator_box.setBig(bdry_dir,insulator_box.smallEnd(bdry_dir)); }
+
+         // set the value in the boundary for the appropriate comp
+         IntVect ib;         // cell index
+         int Ev_comp, sign;
+         IntVect shift = IntVect::Zero;
+         if (bdry_side==0) { shift[bdry_dir] = 1; }
+         else { shift[bdry_dir] = -1; }
+         Real local_X, local_Bv, local_Bv_in;
+         BoxIterator bit(insulator_box); // grid indices for boundary box
+         for(bit.begin(); bit.ok(); ++bit) {
+            ib = bit();
+
+	    for (int n=0; n<this_Bv.nComp(); n++) {
+
+               if (n==0) {
+                  sign = 1;
+                  Ev_comp = 1;
+               }
+               else {
+                  sign = -1;
+                  Ev_comp = 0;
+               }
+
+               // set the incoming source term for Bv
+               local_Bv_in = 0.0;
+               if (n==Bv_comp) {
+                  if (a_mesh.axisymmetric()) {
+                     local_X = this_X.get(ib,bdry_dir);
+                     local_Bv_in = Bv_in*Xmin_insulator[bdry_dir]/local_X;
+                  }
+                  else { local_Bv_in = Bv_in; }
+               }
+
+               // set the total incoming plus outgoing terms
+               local_Bv = 4.0*local_Bv_in + this_Bv.get(ib+shift,n)*(a_cnormDt/dX[bdry_dir]-1.0);
+               if (bdry_side==0) {
+                  local_Bv += sign*2.0*this_Ev.get(ib+shift,Ev_comp);
+                  local_Bv -= sign*a_cnormDt*a_Jnorm*this_Jv.get(ib+shift,Ev_comp);
+               }
+               else {
+                  local_Bv -= sign*2.0*this_Ev.get(ib,Ev_comp);
+                  local_Bv += sign*a_cnormDt*a_Jnorm*this_Jv.get(ib,Ev_comp);
+               }
+               local_Bv /= (1.0 + a_cnormDt/dX[bdry_dir]);
+
+               this_Bv.set(ib,n,local_Bv);
+
+	    }
+
+         }
+
+      }
+
+   } // end function
+
 
    inline
    void setCellBC( LevelData<FArrayBox>&        a_dst,

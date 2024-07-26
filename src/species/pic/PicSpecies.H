@@ -371,6 +371,8 @@ public:
   
   void advanceVelocities_2ndHalf( const Real  a_dt = 0.0 );
   
+  void averageVelocities();
+  
   void advanceVelocities_2ndHalf( List<JustinsParticle>&  a_pList );
 
   void advanceVelocities_CYL_HYB_2ndHalf( const Real  a_dt,

@@ -37,10 +37,10 @@ class Ramp0D : public TimeFunction
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "Ramp0D function parameters:" << std::endl;
-            std::cout << " rise time = " << m_rise_time  << std::endl;
-            std::cout << " steady_time = " << m_steady_time  << std::endl;
-            std::cout << " fall_time = " << m_fall_time  << std::endl;
-            std::cout << " amplitude = " << m_amplitude  << std::endl << std::endl;
+            std::cout << "  rise time = " << m_rise_time  << std::endl;
+            std::cout << "  steady_time = " << m_steady_time  << std::endl;
+            std::cout << "  fall_time = " << m_fall_time  << std::endl;
+            std::cout << "  amplitude = " << m_amplitude  << std::endl;
          }
       }
       
@@ -68,9 +68,6 @@ class Ramp0D : public TimeFunction
          if(pp.contains("steady_time")) {
             pp.get( "steady_time", m_steady_time );
             pp.get( "fall_time", m_fall_time );
-         }
-         if (m_verbosity) {
-            printParameters();
          }
       }
 

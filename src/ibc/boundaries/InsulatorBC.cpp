@@ -7,12 +7,10 @@
 InsulatorBC::InsulatorBC( const int&         a_bdry_layout_index,
                           const string&      a_bdry_name,
                           const DomainGrid&  a_mesh )
-   : m_Bv_comp(0),
-     m_bdry_layout_index(a_bdry_layout_index)
+   : m_bdry_layout_index(a_bdry_layout_index)
 {
 
    parseParameters(a_bdry_name);
-
    defineInsulatorBinaries( a_mesh );
 
 }
@@ -77,7 +75,12 @@ InsulatorBC::parseParameters( const std::string&  a_bdry_name )
    string prefix0 = "BC.insulator.";
    prefix0 += a_bdry_name;
    ParmParse fpp0( prefix0.c_str() );
- 
+   
+   fpp0.query("absorbing",m_absorbing);
+#if CH_SPACEDIM==1
+   fpp0.query("Bv_comp",m_Bv_comp);
+#endif
+
    fpp0.get( "X0_min", m_Xmin_insulator[0] );
    fpp0.get( "X0_max", m_Xmax_insulator[0] );
    if (SpaceDim>1) {        
@@ -96,18 +99,21 @@ InsulatorBC::parseParameters( const std::string&  a_bdry_name )
    TimeFunctionFactory  timeFactory;
    m_timeFunction = timeFactory.create(tfpp,1);
          
-   if(!procID()) {
-      cout << "  " << a_bdry_name << " contains insulator : " << endl;
-      cout << "X0_min_insulator = " << m_Xmin_insulator[0] << endl;
-      cout << "X0_max_insulator = " << m_Xmax_insulator[0] << endl;
-      if(SpaceDim>1) {
-         cout << "X1_min_insulator = " << m_Xmin_insulator[1] << endl;
-         cout << "X1_max_insulator = " << m_Xmax_insulator[1] << endl;
-      }
-      if(SpaceDim>2) {
-         cout << "X2_min_insulator = " << m_Xmin_insulator[2] << endl;
-         cout << "X2_max_insulator = " << m_Xmax_insulator[2] << endl;
-      }
+   if (!procID()) {
+      cout << a_bdry_name << " contains insulator : " << endl;
+      cout << "  X0_min_insulator = " << m_Xmin_insulator[0] << endl;
+      cout << "  X0_max_insulator = " << m_Xmax_insulator[0] << endl;
+#if CH_SPACEDIM>1
+      cout << "  X1_min_insulator = " << m_Xmin_insulator[1] << endl;
+      cout << "  X1_max_insulator = " << m_Xmax_insulator[1] << endl;
+#elif CH_SPACEDIM>2
+      cout << "  X2_min_insulator = " << m_Xmin_insulator[2] << endl;
+      cout << "  X2_max_insulator = " << m_Xmax_insulator[2] << endl;
+#endif
+      if (m_absorbing) { cout << "  Boundary is an absorbing boundary " << endl; }
+      cout << "  Bv_comp = " << m_Bv_comp << endl;
+      m_timeFunction->printParameters();
+      cout << std::endl;
    }
 
 }

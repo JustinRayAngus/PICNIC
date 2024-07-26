@@ -14,16 +14,16 @@
 /**
  * Fusion scattering class:
  * D + D   ==> T(1.01 MeV)   + p(3.02 MeV)
- * D + D   ==> He3(0.82 MeV) + n(2.45 MeV) 
- * D + T   ==> He4(3.5 MeV)  + n(14.1 MeV) 
- * D + He3 ==> He4(3.6 MeV)  + p(14.7 MeV) 
+ * D + D   ==> He3(0.82 MeV) + n(2.45 MeV)
+ * D + T   ==> He4(3.5 MeV)  + n(14.1 MeV)
+ * D + He3 ==> He4(3.6 MeV)  + p(14.7 MeV)
 */
 
 class Fusion : public Scattering
 {
    public:
-      
-      Fusion( ParmParse&  a_pp, 
+
+      Fusion( ParmParse&  a_pp,
         const int&        a_verbosity )
          : Scattering(a_verbosity)
       {
@@ -33,22 +33,33 @@ class Fusion : public Scattering
       }
 
       virtual ~Fusion() = default;
-      
+
       virtual ScatteringType getScatteringType() const { return FUSION; }
-      
+
+      virtual std::string getScatteringSubTypeName() const {
+          if      (m_fusion_type==DDa)  { return "DDa"; }
+          else if (m_fusion_type==DDb)  { return "DDb"; }
+          else if (m_fusion_type==DDab) { return "DDab"; }
+          else if (m_fusion_type==DT)   { return "DT"; }
+          else if (m_fusion_type==DHe3) { return "DHe3"; }
+          else { return "invalid"; }
+      }
+
       virtual int species1() const { return m_sp1; }
-      
+
       virtual int species2() const { return m_sp2; }
-      
+
       virtual void setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const;
-      
+
       virtual void initialize( const PicSpeciesInterface&  a_pic_species_intf,
                                const DomainGrid&           a_mesh );
 
       virtual Real scatterDt() const { return m_scatter_dt; }
-      
+
+      virtual Real getFusionQ() const { return m_Q; }
+      virtual Real getFusionQb() const { return m_Qb; }
       virtual Real getDeltaEfusion() const { return m_deltaE_fusion; }
-      virtual void zeroDeltaEfusion() const { m_deltaE_fusion=0.0; } 
+      virtual void zeroDeltaEfusion() const { m_deltaE_fusion=0.0; }
 
       virtual void printParameters()  const {
          if (procID()==0) {
@@ -76,10 +87,10 @@ class Fusion : public Scattering
                 std::cout << "  fusion type:  D + He3 ==> He4(3.6 MeV) + p(14.7 MeV)" << std::endl;
             }
             if (m_fusion_type==DDab) { 
-                std::cout << "  Qa = " << m_Q << " eV" << std::endl;
-                std::cout << "  Qb = " << m_Qb << " eV" << std::endl; 
+                std::cout << "  fusion Qa = " << m_Q  << " eV" << std::endl;
+                std::cout << "  fusion Qb = " << m_Qb << " eV" << std::endl;
             }
-            else { std::cout << "  Q = " << m_Q << std::endl; }
+            else { std::cout << "  fusion Q = " << m_Q << " eV" << std::endl; }
             std::cout << "  fmulti = " << m_fmulti << std::endl;
             std::cout << std::endl;
          }
@@ -88,9 +99,9 @@ class Fusion : public Scattering
       virtual void applyScattering( PicSpeciesInterface&  a_pic_species_intf,
                               const DomainGrid&           a_mesh,
                               const Real                  a_dt_sec ) const;
-      
+
    private:
-      
+
       void setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
                         const LevelData<FArrayBox>&  a_energyDensity1,
                         const LevelData<FArrayBox>&  a_numberDensity2,
@@ -104,7 +115,7 @@ class Fusion : public Scattering
                                PicSpecies&  a_picSpecies4,
                          const DomainGrid&  a_mesh,
                          const Real         a_dt_sec ) const;
-       
+
       void intraSpeciesFusion( PicSpecies&  a_picSpecies1,
                                PicSpecies&  a_picSpecies3,
                                PicSpecies&  a_picSpecies4,
@@ -117,7 +128,7 @@ class Fusion : public Scattering
          LOTZ,
          TEXT_FILE
       };
-      
+
       enum FUSION_TYPE {
          DDa,  // D + D   ==> T   + p
          DDb,  // D + D   ==> He3 + n
@@ -125,7 +136,7 @@ class Fusion : public Scattering
          DT,   // D + T   ==> He4 + n
          DHe3  // D + He3 ==> He4 + p
       };
-      
+
       Real getSigma( Real& a_ratio_b, const Real  a_Erel_eV ) const;
       Real getDDaSigma( const Real  a_Erel_eV ) const;
       Real getDDbSigma( const Real  a_Erel_eV ) const;
@@ -133,7 +144,7 @@ class Fusion : public Scattering
       Real getDHe3Sigma( const Real  a_Erel_eV ) const;
 
       // Parse the input database for parameters.
-      void parseParameters( ParmParse&  a_pp ) 
+      void parseParameters( ParmParse&  a_pp )
       {
           // get the fusion type
           std::string fusion_type;
@@ -147,9 +158,9 @@ class Fusion : public Scattering
               MayDay::Error( "Fusion: invalid fusion_type. Valid types are DDa, DDb, DDab, DT, and DHe3" );
           }
           a_pp.query( "fmulti", m_fmulti );
-          
+
           // get number associated with each species
-          a_pp.get( "species1", m_sp1 ); 
+          a_pp.get( "species1", m_sp1 );
           a_pp.get( "species2", m_sp2 );
 
           if (m_fusion_type==DDab) {
@@ -178,27 +189,26 @@ class Fusion : public Scattering
       std::string m_species4_name;
       std::string m_species3b_name;
       std::string m_species4b_name;
-      mutable Real m_scatter_dt; // (mean free time)
+      mutable Real m_scatter_dt;    // (mean free time)
       mutable Real m_deltaE_fusion; // running sum of energy gained from fusion
-      int m_sp1;     // species 1 identifier
-      int m_sp2;     // species 2 identifier
-      int m_sp3;     // species 3 identifier
-      int m_sp4;     // species 4 identifier
+      int m_sp1;      // species 1 identifier
+      int m_sp2;      // species 2 identifier
+      int m_sp3;      // species 3 identifier
+      int m_sp4;      // species 4 identifier
       int m_sp3b;     // species 3b identifier
       int m_sp4b;     // species 4b identifier
-      Real m_mass1;  // species 1 mass / electron mass
-      Real m_mass2;  // species 2 mass / electron mass
-      Real m_mass3;  // species 3 mass / electron mass
-      Real m_mass4;  // species 4 mass / electron mass
+      Real m_mass1;   // species 1 mass / electron mass
+      Real m_mass2;   // species 2 mass / electron mass
+      Real m_mass3;   // species 3 mass / electron mass
+      Real m_mass4;   // species 4 mass / electron mass
       Real m_mass3b;  // species 3b mass / electron mass
       Real m_mass4b;  // species 4b mass / electron mass
-      Real m_mu;     // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
-      Real m_Q;      // Reaction energy [eV]     
-      Real m_Qb=0;   // Reaction energy for channel b of DDab [eV]    
-      Real m_fmulti = 1.0; // production factor    
- 
-      FUSION_TYPE m_fusion_type;
+      Real m_mu;      // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
+      Real m_Q  = 0.0;     // Reaction energy [eV]
+      Real m_Qb = 0.0;     // Reaction energy for channel b of DDab [eV]
+      Real m_fmulti = 1.0; // production factor (for better statistics)
 
+      FUSION_TYPE m_fusion_type;
       Real m_mcSq;
 
 };

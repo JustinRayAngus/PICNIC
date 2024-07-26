@@ -7,6 +7,7 @@
 #include "ParticleData.H"
 #include "BinFab.H"
 #include "ScatteringUtils.H"
+#include "SpaceUtils.H"
 
 #include <iostream>
 #include <fstream>
@@ -120,6 +121,13 @@ void Fusion::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 
     m_Q = (m_mass1 + m_mass2 - m_mass3 - m_mass4)*m_mcSq; // reaction energy in eV
     m_Qb = (m_mass1 + m_mass2 - m_mass3b - m_mass4b)*m_mcSq; // reaction energy in eV
+
+    // define the fusion product diagnostic container
+    const DisjointBoxLayout& grids(a_mesh.getDBL());
+    int n_comps = 1;
+    if (m_fusion_type==DDab) { n_comps = 2; };
+    m_fusionProducts.define(grids,n_comps,IntVect::Zero);
+    SpaceUtils::zero( m_fusionProducts );
  
     if (m_verbosity) { printParameters(); }
 
@@ -133,7 +141,7 @@ void Fusion::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) c
    PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
    PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
    
-   if(!this_species1->scatter() || !this_species2->scatter()) return;
+   if (!this_species1->scatter() || !this_species2->scatter()) return;
    
    const bool setMoments = false;
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
@@ -176,11 +184,11 @@ void Fusion::setInterMFT( const LevelData<FArrayBox>&  a_numberDensity1,
          // get local density and temperature and compute local VTeff
          local_numberDensity1 = this_numberDensity1.get(ig,0);
          local_numberDensity2 = this_numberDensity2.get(ig,0);
-         if(local_numberDensity1*local_numberDensity2 == 0.0) continue;
+         if (local_numberDensity1*local_numberDensity2 == 0.0) { continue; }
 
          local_betaSqEff1 = 0.0;
          local_betaSqEff2 = 0.0;
-         for( int dir=0; dir<3; dir++) {
+         for (int dir=0; dir<3; dir++) {
             local_betaSqEff1 += 2.0*this_energyDensity1.get(ig,dir);  
             local_betaSqEff2 += 2.0*this_energyDensity2.get(ig,dir);  
          }
@@ -216,8 +224,8 @@ void Fusion::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
       
     PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
     PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-    if(!this_species1->scatter()) { return; }
-    if(!this_species2->scatter()) { return; }
+    if (!this_species1->scatter()) { return; }
+    if (!this_species2->scatter()) { return; }
    
     PicSpeciesPtr this_species3(pic_species_ptr_vect[m_sp3]);
     PicSpeciesPtr this_species4(pic_species_ptr_vect[m_sp4]);
@@ -285,6 +293,8 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
 
         // get references to the scattering species
         BinFab<JustinsParticlePtr>& thisBinFab1_ptr = data1_binfab_ptr[ditg];
+
+        FArrayBox& this_fusionProducts = m_fusionProducts[ditg];
    
         std::vector<JustinsParticlePtr> vector_part_ptrs;
         const Box gridBox = grids.get(ditg);
@@ -296,10 +306,10 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
        
             List<JustinsParticlePtr>& cell_pList1 = thisBinFab1_ptr(ig,0);
             numCell = cell_pList1.length();
-            if(numCell < 2 ) { continue; }
+            if (numCell < 2 ) { continue; }
     
             bool odd_NxN = true;
-            if(numCell % 2 == 0) { odd_NxN = false; }
+            if (numCell % 2 == 0) { odd_NxN = false; }
 
             Naa = numCell - 1;
 
@@ -316,9 +326,9 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                 int p1, p2;
                 if (odd_NxN) {
                     p1 = p % 2;
-                    if(p==0) { p2 = 1; }
-                    else if(p==1) { p2 = 2; }
-                    else if(p==2) { p2 = 2; }
+                    if (p==0) { p2 = 1; }
+                    else if (p==1) { p2 = 2; }
+                    else if (p==2) { p2 = 2; }
                 }
                 else {
                     p1 = p;
@@ -342,7 +352,7 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                 den12 = wpMax*Naa/cellV_SI;
                 if (odd_NxN) {
                     den12 = den12/2.0;
-                    if(p==2) { odd_NxN = false; }
+                    if (p==2) { odd_NxN = false; }
                     // needed for case where p = 0, 1, or 2 were previously killed 
                     // p = 0: p1 = 0, p2 = 1
                     // p = 1: p1 = 1, p2 = 2
@@ -378,17 +388,20 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                 ScatteringUtils::LorentzTransform( gammap1st, up1st, gammap1, up1, gammacm, ucm );
                 ScatteringUtils::LorentzTransform( gammap2st, up2st, gammap2, up2, gammacm, ucm );
 
-                // compute relative beta
+                // compute relative beta in cm frame | beta1st - beta2st|
                 std::array<Real,3> betaR;
-                Real vp1stdotvp2st = up1st[0]*up2st[0] + up1st[1]*up2st[1] + up1st[2]*up2st[2];
-                vp1stdotvp2st = vp1stdotvp2st/(gammap1st*gammap2st);
                 g12sq = 0.0;
+                Real p1st_sq = 0.0;
                 for (int n=0; n<3; n++) {
-                    betaR[n] = (up1st[n]/gammap1st - up2st[n]/gammap2st)/(1.0-vp1stdotvp2st);
+                    betaR[n] = (up1st[n]/gammap1st - up2st[n]/gammap2st);
                     g12sq = g12sq + betaR[n]*betaR[n];
+                    p1st_sq = p1st_sq + up1st[n]*up1st[n];
                 }
                 g12 = std::sqrt(g12sq);
-                KEcm_eV = (Ecm - (m_mass1 + m_mass2))*m_mcSq;
+                p1st_sq = p1st_sq*m_mass1*m_mass1; // square of p1 in cm frame
+
+                // compute KE = Ecm - m1 - m2 in cm frame (using round-off error free method)
+                KEcm_eV = m_mcSq*p1st_sq*(1.0/m_mass1/(1.0+gammap1st) + 1.0/m_mass2/(1.0+gammap2st));
 
 #else
                 g12sq = 0.0;
@@ -410,14 +423,10 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                 Real fmulti = m_fmulti; // >= 1.0
                 arg = fmulti*g12*Constants::CVAC*sigma*den12*a_dt_sec;
 #ifdef RELATIVISTIC_PARTICLES
-                // Note: I'm not sure exactly which expression is to be used here
-                // See Eq. 5.5 of Frankel PRA 1979 for another reference.
-                // Also see Moller's invariant flux factor
-                //const Real gammaR = 2.0*gammap1st*gammap2st - 1.0; // relation found emperically
-                // const Real invariant_factor = gammaR;  // from chat gbt
-                // const Real invariant_factor = gammacm; // Wu 2021 Eq 6
-                const Real invariant_factor = gammap1st*gammap2st/(gammap1*gammap2); // Perez 2012
-                arg *= invariant_factor;
+                // See LandL Ch. 2 Sec. 12 on invariant cross section
+                // const Real gamma_factor = gammacm; // Wu 2021 Eq 6 (WRONG. Don't use)
+                const Real gamma_factor = gammap1st*gammap2st/(gammap1*gammap2); // Perez 2012
+                arg *= gamma_factor;
 #endif
                 if (arg > 1.0) {
                     std::cout << "Notice: arg = " << arg << " in intraSpeciesFusion" << std::endl;
@@ -428,15 +437,38 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                     arg = 1.0;
                     fmulti = arg/(g12*Constants::CVAC*sigma*den12*a_dt_sec);
 #ifdef RELATIVISTIC_PARTICLES
-                    fmulti /= invariant_factor;
+                    fmulti /= gamma_factor;
 #endif
                     if (fmulti < 1.0) { fmulti = 1.0; }
                 }
                 //q12 = 1.0 - exp(-arg);
                 q12 = arg;
-                rand_num = MathUtils::rand();
 
-                if(rand_num<=q12) { // this pair collides
+                // compute weight for fusion products
+                wp34 = std::min(wp1,wp2)/fmulti;
+
+                if (q12 > 0.0) { // update grid-based product density diagnostic
+                    const long double new_product = q12*wp34/cellV_SI;
+                    if (m_fusion_type==DDab) {
+                        const long double new_product_a = (1.0-ratio_b)*new_product;
+                        const long double old_product_a = this_fusionProducts.get(ig,0);
+                        const long double total_product_a = old_product_a + new_product_a;
+                        this_fusionProducts.set(ig,0,total_product_a);
+                        //
+                        const long double new_product_b = ratio_b*new_product;
+                        const long double old_product_b = this_fusionProducts.get(ig,1);
+                        const long double total_product_b = old_product_b + new_product_b;
+                        this_fusionProducts.set(ig,1,total_product_b);
+                    }
+                    else {
+                        const long double old_product = this_fusionProducts.get(ig,0);
+                        const long double total_product = old_product + new_product;
+                        this_fusionProducts.set(ig,0,total_product);
+                    }
+                }
+
+                rand_num = MathUtils::rand();
+                if (rand_num<=q12) { // this pair collides
                 
                     // determine which channel for type DDab
                     Real mass3 = m_mass3;
@@ -551,9 +583,6 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                     const Real deltaE = (KE_after - KE_before)*m_mcSq;
                     //std::cout << "JRA: Q = " << Q << "; deltaE = " << deltaE << std::endl;
 
-                    // compute weight for fusion products
-                    wp34 = std::min(wp1,wp2)/fmulti;
-                    
                     // update energy gained by fusion 
                     // (not exactly Q for non-relativistic)
                     //m_deltaE_fusion += Q*wp34*Constants::JOULE_PER_EV; // Joules
@@ -611,19 +640,19 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                     // from list and tag to kill if needed
                     wp1 = wp1 - wp34;
                     wp2 = wp2 - wp34;
-                    if(wp1<1.0e-8*wp34) {
+                    if (wp1<1.0e-8*wp34) {
                         part1_ptr->setKillTag();
                         cell_pList1.remove(part1_ptr);
                         numCell = numCell - 1;
                     }
-                    if(wp2<1.0e-8*wp34) {
+                    if (wp2<1.0e-8*wp34) {
                         part2_ptr->setKillTag();
                         cell_pList1.remove(part2_ptr);
                         numCell = numCell - 1;
                     }
                
                     // check that there are still particles left in the list      
-                    if(numCell==0) { break; }
+                    if (numCell==0) { break; }
 
                 }
 
@@ -653,7 +682,7 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
         ListIterator<JustinsParticle> lit1(pList1);
         for (lit1.begin(); lit1.ok();) {
             const int& kill = lit1().killTag();
-            if(kill) { pList1.remove(lit1); }
+            if (kill) { pList1.remove(lit1); }
             else { ++lit1; }
         }
       
@@ -711,6 +740,8 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
         // get references to the scattering species
         BinFab<JustinsParticlePtr>& thisBinFab1_ptr = data1_binfab_ptr[ditg];
         BinFab<JustinsParticlePtr>& thisBinFab2_ptr = data2_binfab_ptr[ditg];
+
+        FArrayBox& this_fusionProducts = m_fusionProducts[ditg];
      
         std::vector<JustinsParticlePtr> vector_part1_ptrs, vector_part2_ptrs;
         const Box gridBox = grids.get(ditg);
@@ -729,7 +760,7 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
             Nmax = std::max(numCell1,numCell2);
     
             bool Nmin_species1 = false;
-            if(Nmin==numCell1) { Nmin_species1 = true; }
+            if (Nmin==numCell1) { Nmin_species1 = true; }
 
             // copy the iterators to a vector in order to shuffle
             vector_part1_ptrs.clear();
@@ -804,17 +835,20 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
                 //for (int n=0; n<3; n++) { up2st[n] = -m_mass1/m_mass2*up1st[n]; }
                 //gammap2st = std::sqrt(1.0 + up2st[0]*up2st[0] + up2st[1]*up2st[1] + up2st[2]*up2st[2]);
 
-                // compute relative beta
+                // compute relative beta in cm frame | beta1st - beta2st|
                 std::array<Real,3> betaR;
-                Real vp1stdotvp2st = up1st[0]*up2st[0] + up1st[1]*up2st[1] + up1st[2]*up2st[2];
-                vp1stdotvp2st = vp1stdotvp2st/(gammap1st*gammap2st);
                 g12sq = 0.0;
+                Real p1st_sq = 0.0;
                 for (int n=0; n<3; n++) {
-                    betaR[n] = (up1st[n]/gammap1st - up2st[n]/gammap2st)/(1.0-vp1stdotvp2st);
+                    betaR[n] = (up1st[n]/gammap1st - up2st[n]/gammap2st);
                     g12sq = g12sq + betaR[n]*betaR[n];
+                    p1st_sq = p1st_sq + up1st[n]*up1st[n];
                 }
                 g12 = std::sqrt(g12sq);
-                KEcm_eV = (Ecm - (m_mass1 + m_mass2))*m_mcSq;
+                p1st_sq = p1st_sq*m_mass1*m_mass1; // square of p1 in cm frame
+
+                // compute KE = Ecm - m1 - m2 in cm frame (using round-off error free method)
+                KEcm_eV = m_mcSq*p1st_sq*(1.0/m_mass1/(1.0+gammap1st) + 1.0/m_mass2/(1.0+gammap2st));
 
 #else
                 g12sq = 0.0;
@@ -836,14 +870,10 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
                 Real fmulti = m_fmulti; // >= 1.0
                 arg = fmulti*g12*Constants::CVAC*sigma*den12*a_dt_sec;
 #ifdef RELATIVISTIC_PARTICLES
-                // Note: I'm not sure exactly which expression is to be used here
-                // See Eq. 5.5 of Frankel PRA 1979 for another reference.
-                // Also see Moller's invariant flux factor
-                //const Real gammaR = 2.0*gammap1st*gammap2st - 1.0; // relation found emperically
-                // const Real invariant_factor = gammaR;  // from chat gbt
-                // const Real invariant_factor = gammacm; // Wu 2021 Eq 6
-                const Real invariant_factor = gammap1st*gammap2st/(gammap1*gammap2); // Perez 2012
-                arg *= invariant_factor;
+                // See LandL Ch. 2 Sec. 12 on invariant cross section
+                // const Real gamma_factor = gammacm; // Wu 2021 Eq 6 (WRONG. Don't use)
+                const Real gamma_factor = gammap1st*gammap2st/(gammap1*gammap2); // Perez 2012
+                arg *= gamma_factor;
 #endif
                 if (arg > 1.0) {
                     std::cout << "Notice: arg = " << arg << " in interSpeciesFusion" << std::endl;
@@ -855,14 +885,24 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
                     arg = 1.0;
                     fmulti = arg/(g12*Constants::CVAC*sigma*den12*a_dt_sec);
 #ifdef RELATIVISTIC_PARTICLES
-                    fmulti /= invariant_factor;
+                    fmulti /= gamma_factor;
 #endif
                     if (fmulti < 1.0) { fmulti = 1.0; }
                 }
                 //q12 = 1.0 - exp(-arg);
                 q12 = arg;
-                rand_num = MathUtils::rand();
 
+                // compute weight for fusion products
+                wp34 = std::min(wp1,wp2)/fmulti;
+
+                if (q12 > 0.0) { // update grid-based product density diagnostic
+                    const long double new_product = q12*wp34/cellV_SI;
+                    const long double old_product = this_fusionProducts.get(ig,0);
+                    const long double total_product = old_product + new_product;
+                    this_fusionProducts.set(ig,0,total_product);
+                }
+
+                rand_num = MathUtils::rand();
                 if (rand_num<=q12) { // this pair collides
 
                     // compute total lab-frame energy before fusion
@@ -971,9 +1011,6 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
                     //std::cout << "JRA: Q = " << m_Q << "; deltaE = " << deltaE << std::endl;
                     //std::cout << "JRA: deltaE - Q = " << deltaE - m_Q << std::endl;
 
-                    // compute weight for fusion products
-                    wp34 = std::min(wp1,wp2)/fmulti;
-
                     // update energy gained by fusion 
                     // (not exactly Q for non-relativistic)
                     //m_deltaE_fusion += Q*wp34*Constants::JOULE_PER_EV; // Joules
@@ -1036,7 +1073,7 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
                     // from list and tag to kill if needed
                     wp1 = wp1 - wp34;
                     wp2 = wp2 - wp34;
-                    if(wp1<1.0e-8*wp34) {
+                    if (wp1<1.0e-8*wp34) {
                         part1_ptr->setKillTag();
                         if (Nmin_species1) {
                             vector_part1_ptrs.erase(vector_part1_ptrs.begin()+p1);
@@ -1044,7 +1081,7 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
                         cell_pList1.remove(part1_ptr);
                         numCell1 = numCell1 - 1;
                     }
-                    if(wp2<1.0e-8*wp34) {
+                    if (wp2<1.0e-8*wp34) {
                         part2_ptr->setKillTag();
                         if (!Nmin_species1) {
                             vector_part2_ptrs.erase(vector_part2_ptrs.begin()+p2);
@@ -1086,7 +1123,7 @@ void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
         ParticleData<JustinsParticle>& pData2 = a_species2.partData();
         List<JustinsParticle>& pList2 = pData2[ditg].listItems();
         ListIterator<JustinsParticle> lit2(pList2);
-        for(lit2.begin(); lit2.ok();) {
+        for (lit2.begin(); lit2.ok();) {
             const int& kill = lit2().killTag();
             if (kill) { pList2.remove(lit2); }
             else { ++lit2; }

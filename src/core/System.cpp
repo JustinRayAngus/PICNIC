@@ -86,7 +86,7 @@ System::System( ParmParse&  a_pp )
       }
       exit(EXIT_FAILURE);
    }
-   m_time_integrator->define( m_pic_species, 
+   m_time_integrator->define( this, m_pic_species, 
                               m_emfields ); // m_emfields can't be NULL for implicit solvers
 }
 
@@ -450,6 +450,13 @@ void System::writePlotFile( const int     a_cur_step,
 
    }
 
+   // write the fusion products diagnostics file
+   const int num_fusion = m_scattering->numFusion();
+   if (num_fusion>0) {
+      const ScatteringPtrVect& scatter_ptr_vect = m_scattering->getScatterPtrVect();
+      m_dataFile->writeFusionProductsDataFile( scatter_ptr_vect, num_fusion, a_cur_step, a_cur_time );
+   }
+
 }
 
 void System::writeHistFile( const int   a_cur_step,
@@ -458,9 +465,9 @@ void System::writeHistFile( const int   a_cur_step,
                             const bool  a_startup )
 {
    CH_TIME("System::writeHistFile()");
-   
+
    if (a_startup) setupHistFile(a_cur_step);
-   
+
    // compute solver probes
    int l_exit_status=0, nl_exit_status=0;
    int l_total_iter=0, nl_total_iter=0;
@@ -472,16 +479,30 @@ void System::writeHistFile( const int   a_cur_step,
                                               nl_exit_status, nl_iter, nl_total_iter,
                                               nl_abs_res, nl_rel_res, step_wall_time );
    }
-   
+
    // compute the field probes
    Real energyE_joules, energyB_joules;
    Real max_wc0dt = 0.0;
    if (m_field_probes) {
-      energyE_joules = m_emfields->electricFieldEnergy();
-      energyB_joules = m_emfields->magneticFieldEnergy();
+      bool E_is_stag = false;
+      bool B_is_stag = false;
+      if (m_advance_method==PIC_EM_EXPLICIT) { E_is_stag = true; };
+      if (m_advance_method==PIC_EM_SEMI_IMPLICIT) { B_is_stag = true; };
+      energyE_joules = m_emfields->electricFieldEnergy( E_is_stag );
+      energyB_joules = m_emfields->magneticFieldEnergy( B_is_stag );
+      if (m_advance_method==PIC_EM_EXPLICIT) {
+         // adjust field energy to be of form that is exactly conserved 
+         // in the asymptotic limit of vp*dt/dx -> 0
+         //m_pic_species->setCurrentDensity( *m_emfields, a_cur_dt, true, true );
+         //const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
+         //const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
+         //m_emfields->setCurrentDensity( pic_J, pic_Jv );
+         //Real energyE_mod = m_emfields->fieldEnergyMod( a_cur_dt );
+         //energyE_joules += energyE_mod;
+      }
       max_wc0dt = m_emfields->max_wc0dt(*m_units,a_cur_dt);
    }
-   
+
    // compute the scattering probes
    Real energyIzn_joules, energyExc_joules;
    if (m_scattering_probes) {
@@ -489,13 +510,13 @@ void System::writeHistFile( const int   a_cur_step,
        energyIzn_joules = m_scattering->ionizationEnergy();
        energyExc_joules = m_scattering->excitationEnergy();
    }
-   
+
    Real energyFusion_joules;
    if (m_fusion_probes) {
        m_scattering->setFusionProbes();
        energyFusion_joules = m_scattering->fusionEnergy();
    }
-   
+
    // compute the species probes
    const int numSpecies = m_pic_species->numSpecies();
    std::vector<int> num_particles(numSpecies);
@@ -505,17 +526,17 @@ void System::writeHistFile( const int   a_cur_step,
    std::vector<Real> max_wpdt(numSpecies);
    std::vector<Real> max_wcdt(numSpecies);
    PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
-   for( int sp=0; sp<numSpecies; sp++) {
-      if (!m_species_probes[sp]) continue;
+   for (int sp=0; sp<numSpecies; sp++) {
+      if (!m_species_probes[sp]) { continue; }
       PicSpeciesPtr species(pic_species_ptr_vect[sp]);
       num_particles[sp] = species->numParticles();
       species->globalMoments(global_moments.at(sp));
-      if (m_species_bdry_probes) species->bdryMoments(bdry_moments.at(sp));
+      if (m_species_bdry_probes) { species->bdryMoments(bdry_moments.at(sp)); }
       max_wpdt.at(sp) = species->max_wpdt(*m_units,a_cur_dt);
       max_wcdt.at(sp) = max_wc0dt*abs(species->charge())/species->mass();
-      if (m_species_solver_probes) species->picardParams(species_solver.at(sp));
+      if (m_species_solver_probes) { species->picardParams(species_solver.at(sp)); }
    }
-   
+
    //
    // write probe data to the history file 
    //
@@ -544,12 +565,12 @@ void System::writeHistFile( const int   a_cur_step,
             histFile << energyB_joules << " ";
          }
          if (m_field_bdry_probes) {
-            const RealVect& intSdA_lo = m_emfields->getIntSdA_lo();  
-            const RealVect& intSdA_hi = m_emfields->getIntSdA_hi();  
-            const RealVect& intSdAdt_lo = m_emfields->getIntSdAdt_lo();  
-            const RealVect& intSdAdt_hi = m_emfields->getIntSdAdt_hi(); 
-            for(int dir=0; dir<SpaceDim; ++dir) { 
-               if (m_is_periodic[dir]) continue;
+            const RealVect& intSdA_lo = m_emfields->getIntSdA_lo();
+            const RealVect& intSdA_hi = m_emfields->getIntSdA_hi();
+            const RealVect& intSdAdt_lo = m_emfields->getIntSdAdt_lo();
+            const RealVect& intSdAdt_hi = m_emfields->getIntSdAdt_hi();
+            for (int dir=0; dir<SpaceDim; ++dir) {
+               if (m_is_periodic[dir]) { continue; }
                histFile << intSdA_lo[dir] << " ";
                histFile << intSdA_hi[dir] << " ";
                histFile << intSdAdt_lo[dir] << " ";
@@ -563,11 +584,11 @@ void System::writeHistFile( const int   a_cur_step,
          if (m_fusion_probes) {
             histFile << energyFusion_joules << " ";
          }
-         for( int sp=0; sp<numSpecies; sp++) {
-            if (!m_species_probes[sp]) continue;
+         for (int sp=0; sp<numSpecies; sp++) {
+            if (!m_species_probes[sp]) { continue; }
             histFile << num_particles[sp] << " ";
             std::vector<Real>& species_moments = global_moments.at(sp);
-            for(int mom=0; mom<species_moments.size(); ++mom) {
+            for (int mom=0; mom<species_moments.size(); ++mom) {
                histFile << species_moments.at(mom) << " ";
             }
             histFile << max_wpdt.at(sp) << " ";
@@ -575,16 +596,16 @@ void System::writeHistFile( const int   a_cur_step,
             if (m_species_bdry_probes) {
                std::vector<Real>& this_bdry_moment = bdry_moments.at(sp);
                const int num_per_dir = this_bdry_moment.size()/SpaceDim;
-               for(int dir=0; dir<SpaceDim; ++dir) { 
-                  if (m_is_periodic[dir]) continue;
-                  for(int mom=0; mom<num_per_dir; ++mom) {
+               for (int dir=0; dir<SpaceDim; ++dir) {
+                  if (m_is_periodic[dir]) { continue; }
+                  for (int mom=0; mom<num_per_dir; ++mom) {
                      histFile << this_bdry_moment.at(mom+dir*num_per_dir) << " ";
                   }
                }
             }
             if (m_species_solver_probes) {
                std::vector<Real>& this_species_solver = species_solver.at(sp);
-               for(int its=0; its<this_species_solver.size(); ++its) {
+               for (int its=0; its<this_species_solver.size(); ++its) {
                   histFile << this_species_solver.at(its) << " ";
                }
             }
@@ -596,7 +617,7 @@ void System::writeHistFile( const int   a_cur_step,
 
 }
 
-void System::setupHistFile(const int a_cur_step) 
+void System::setupHistFile(const int a_cur_step)
 {
    CH_TIME("System::setupHistFile()");
    if (!procID()) {
@@ -611,14 +632,14 @@ void System::setupHistFile(const int a_cur_step)
 
    // parse input for different probes to include in the history file
    ParmParse pphist("history");
-   
+
    m_history_precision = 5;
    pphist.query("precision", m_history_precision);
-   
+
    m_solver_probes = false;
    if (m_time_integrator!=NULL) {
       pphist.query("solver_probes", m_solver_probes);
-      if (!procID()) cout << "solver_probes = " << m_solver_probes << endl;
+      if (!procID()) { cout << "solver_probes = " << m_solver_probes << endl; }
    }
 
 #ifdef hist_incl_wtime
@@ -627,28 +648,28 @@ void System::setupHistFile(const int a_cur_step)
    m_write_wall_time = false;
 #endif
    pphist.query("step_walltime", m_write_wall_time);
-   if (!procID()) cout << "write_step_walltime = " << m_write_wall_time << endl;
-   
+   if (!procID()) { cout << "write_step_walltime = " << m_write_wall_time << endl; }
+
    m_field_probes = false;
    if (!m_emfields.isNull()) {
       pphist.query("field_probes", m_field_probes);
       if (!procID()) { cout << "field_probes = " << m_field_probes << endl; }
    }
-   
+
    m_field_bdry_probes = false;
    if (!m_emfields.isNull()) {
       pphist.query("field_bdry_probes", m_field_bdry_probes);
       if (!procID()) { cout << "field_bdry_probes = " << m_field_bdry_probes << endl; }
    }
-   
+
    m_scattering_probes = false;
    pphist.query("scattering_probes", m_scattering_probes);
    if (!procID()) { cout << "scattering_probes = " << m_scattering_probes << endl; }
-   
+
    m_fusion_probes = false;
    pphist.query("fusion_probes", m_fusion_probes);
    if (!procID()) { cout << "fusion_probes = " << m_fusion_probes << endl; }
- 
+
    const int numSpecies = m_pic_species->numSpecies();
    if (numSpecies>0) { 
       m_species_probes.resize(numSpecies,false);
@@ -660,16 +681,16 @@ void System::setupHistFile(const int a_cur_step)
             pphist.get(ss.str().c_str(), this_boolean);
             m_species_probes[species] = this_boolean;
          }
-         if (!procID()) cout << ss.str() << " = " << m_species_probes[species] << endl;
+         if (!procID()) { cout << ss.str() << " = " << m_species_probes[species] << endl; }
       }
       m_species_bdry_probes = false;
       pphist.query("species_bdry_probes", m_species_bdry_probes);
-      if (!procID()) cout << "species_bdry_probes = " << m_species_bdry_probes << endl;
+      if (!procID()) { cout << "species_bdry_probes = " << m_species_bdry_probes << endl; }
       m_species_solver_probes = false;
       pphist.query("species_solver_probes", m_species_solver_probes);
-      if (!procID()) cout << "species_solver_probes = " << m_species_solver_probes << endl;
+      if (!procID()) { cout << "species_solver_probes = " << m_species_solver_probes << endl; }
    }
-   
+
    if (m_solver_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " nonlinear solver exit status";
@@ -702,7 +723,7 @@ void System::setupHistFile(const int a_cur_step)
         ss.str(std::string());
       }
    }
-   
+
    if (m_field_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " electric field energy [Joules]";
@@ -712,10 +733,10 @@ void System::setupHistFile(const int a_cur_step)
       probe_names.push_back(ss.str()); 
       ss.str(std::string());
    }
-   
+
    if (m_field_bdry_probes) {
       for (int dir=0; dir<SpaceDim; dir++) {
-         if (m_is_periodic[dir]) continue;
+         if (m_is_periodic[dir]) { continue; }
          stringstream ss;
          ss << "#" << probe_names.size() << " int S=ExB/mu0 dA from lo-side, dir = " << dir << " [Joules/s]";
          probe_names.push_back(ss.str()); 
@@ -731,7 +752,7 @@ void System::setupHistFile(const int a_cur_step)
          ss.str(std::string());
       }
    }
-   
+
    if (m_scattering_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " ionization energy [Joules]";
@@ -741,16 +762,16 @@ void System::setupHistFile(const int a_cur_step)
       probe_names.push_back(ss.str()); 
       ss.str(std::string());
    }
-   
+
    if (m_fusion_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " fusion energy [Joules]";
       probe_names.push_back(ss.str()); 
       ss.str(std::string());
    }
-   
-   for( int species=0; species<numSpecies; species++) {
-      if (!m_species_probes[species]) continue;
+
+   for ( int species=0; species<numSpecies; species++) {
+      if (!m_species_probes[species]) { continue; }
       stringstream ss;
       ss << "#" << probe_names.size() << " species " << species << ": macro particles";
       probe_names.push_back(ss.str()); 
@@ -778,67 +799,67 @@ void System::setupHistFile(const int a_cur_step)
       ss.str(std::string());
       if (m_species_bdry_probes) {
       for (int dir=0; dir<SpaceDim; dir++) {
-         if (m_is_periodic[dir]) continue;
+         if (m_is_periodic[dir]) { continue; }
          stringstream ss;
          ss << "#" << probe_names.size() << " species " << species << ": mass out from lo-side, dir = " << dir << " [kg]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": mass out from hi-side, dir = " << dir << " [kg]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": energy out from lo-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": energy out from hi-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": mass in from lo-side, dir = " << dir << " [kg]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": mass in from hi-side, dir = " << dir << " [kg]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": energy in from lo-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": energy in from hi-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
       }
       }
       if (m_species_solver_probes) {
@@ -850,11 +871,11 @@ void System::setupHistFile(const int a_cur_step)
          ss.str(std::string());
       }
    }
-   
+
    // setup or restart the history file
    if (!procID()) {
 
-      const std::string hf_name = "history.txt"; 
+      const std::string hf_name = "history.txt";
       if (a_cur_step==0) {
 
          std::ofstream histFile(hf_name,std::ofstream::out);
@@ -868,13 +889,13 @@ void System::setupHistFile(const int a_cur_step)
             cout << "Problem creating/opening history.txt file" << endl;
          }
 
-      } 
+      }
       else {
          std::ifstream histFile;
          std::ofstream histFile_temp;
          std::string this_line;
          int this_step;
-      
+
          histFile.open(hf_name,std::ifstream::in);
          histFile_temp.open("history_temp.txt",std::ofstream::out);
          if (histFile.is_open()) {
@@ -887,8 +908,8 @@ void System::setupHistFile(const int a_cur_step)
                   break;
                }
                else {
-                  histFile_temp << this_line; 
-                  histFile_temp << "\n"; 
+                  histFile_temp << this_line;
+                  histFile_temp << "\n";
                }
             }
             histFile.close();
@@ -929,6 +950,12 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
    
    if (m_scattering->numScatter()>0) { m_scattering->writeCheckpoint( a_handle ); }
    
+   // write the cummulative fusion products data
+   if (m_scattering->numFusion()>0) {
+      const ScatteringPtrVect& scatter_ptr_vect = m_scattering->getScatterPtrVect();
+      m_dataFile->writeCheckpointFusion( a_handle, scatter_ptr_vect );
+   }
+
    const int write_old_data = m_time_integrator->prepForCheckpoint();
    
    // write the field data
@@ -991,12 +1018,12 @@ void System::readCheckpointFile( const std::string&  a_chkpt_fname )
 void System::parseParameters( ParmParse&  a_ppsys )
 {
    a_ppsys.query("advance_method", m_advance_method);
-   if (m_advance_method == "DSMC") m_advance_method = PIC_DSMC;
-   if (m_advance_method == PICMC_EXPLICIT) m_advance_method = PIC_EM_EXPLICIT;
-   if (m_advance_method == PICMC_SEMI_IMPLICIT) m_advance_method = PIC_EM_SEMI_IMPLICIT;
-   if (m_advance_method == PICMC_FULLY_IMPLICIT) m_advance_method = PIC_EM_THETA_IMPLICIT;
+   if (m_advance_method == "DSMC") { m_advance_method = PIC_DSMC; }
+   if (m_advance_method == PICMC_EXPLICIT) { m_advance_method = PIC_EM_EXPLICIT; }
+   if (m_advance_method == PICMC_SEMI_IMPLICIT) { m_advance_method = PIC_EM_SEMI_IMPLICIT; }
+   if (m_advance_method == PICMC_FULLY_IMPLICIT) { m_advance_method = PIC_EM_THETA_IMPLICIT; }
 
-   if (!procID()) cout << "advance method  = " << m_advance_method << endl << endl;
+   if (!procID()) { cout << "advance method  = " << m_advance_method << endl << endl; }
  
 }
 
@@ -1033,7 +1060,9 @@ void System::timeStep( const Real  a_cur_time,
    gettimeofday(&start, NULL);
 
    m_time_integrator->timeStep( a_cur_time, a_dt, a_step_number );
-   scatterParticles( a_dt );
+   if (m_advance_method!=PIC_EM_EXPLICIT) {
+      scatterParticles( a_dt );
+   }
 
    gettimeofday(&end, NULL);
    {

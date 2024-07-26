@@ -24,6 +24,8 @@ public:
   
    const RealVect& getXmax() const {return m_Xmax_insulator;}
   
+   const bool isAbsorbing() const { return m_absorbing; }
+
    const LevelData<FArrayBox>& getICbinary_cc() const {return m_ICbinary_cc;}
   
    const LevelData<FluxBox>& getICbinary_fc() const {return m_ICbinary_fc;}
@@ -44,8 +46,10 @@ private:
    void parseParameters(const std::string&  a_bdry_name);
    void defineInsulatorBinaries( const DomainGrid&  a_mesh );
  
-   int m_Bv_comp;
+   int m_Bv_comp = 0;
    int m_bdry_layout_index;   
+
+   bool m_absorbing = false;
 
    RealVect m_Xmin_insulator; // should create a ProblemDomain for insulator...
    RealVect m_Xmax_insulator;

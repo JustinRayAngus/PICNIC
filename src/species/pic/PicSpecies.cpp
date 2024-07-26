@@ -39,18 +39,18 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    m_name = a_name;
 
    std::string push_type_str = "PLANAR";
-   if(m_mesh.axisymmetric()) {
+   if (m_mesh.axisymmetric()) {
    
       const string& geom_type = m_mesh.geomType();
 
-      if(geom_type=="sph_R") { // 1D spherical
+      if (geom_type=="sph_R") { // 1D spherical
          push_type_str = "SPH_SPH";
          a_ppspc.query("push_type",push_type_str);
-         if(push_type_str=="SPH_SPH") {m_push_type = SPH_SPH;}
-         else if(push_type_str=="SPH_HYB") {m_push_type = SPH_HYB;}
-         else if(push_type_str=="SPH_CAR") {m_push_type = SPH_CAR;}
+         if (push_type_str=="SPH_SPH") {m_push_type = SPH_SPH;}
+         else if (push_type_str=="SPH_HYB") {m_push_type = SPH_HYB;}
+         else if (push_type_str=="SPH_CAR") {m_push_type = SPH_CAR;}
          else {
-            if(!procID()) { 
+            if (!procID()) {
                cout << "EXIT FAILURE!!!" << endl;
                cout << "push_type = " << push_type_str << " for species = " << m_species
                     << " is not a valid push_type" << endl;
@@ -63,13 +63,13 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       else { // 1D or 2D cylindrical
          push_type_str = "CYL_CYL";
          a_ppspc.query("push_type",push_type_str);
-         if(push_type_str=="CYL_BORIS") {m_push_type = CYL_BORIS;}
-         else if(push_type_str=="CYL_CYL") {m_push_type = CYL_CYL;}
-         else if(push_type_str=="CYL_HYBRID") {m_push_type = CYL_HYB;} // legacy
-         else if(push_type_str=="CYL_HYB") {m_push_type = CYL_HYB;}
-         else if(push_type_str=="CYL_CAR") {m_push_type = CYL_CAR;}
+         if (push_type_str=="CYL_BORIS") {m_push_type = CYL_BORIS;}
+         else if (push_type_str=="CYL_CYL") {m_push_type = CYL_CYL;}
+         else if (push_type_str=="CYL_HYBRID") {m_push_type = CYL_HYB;} // legacy
+         else if (push_type_str=="CYL_HYB") {m_push_type = CYL_HYB;}
+         else if (push_type_str=="CYL_CAR") {m_push_type = CYL_CAR;}
          else {
-            if(!procID()) { 
+            if (!procID()) {
                cout << "EXIT FAILURE!!!" << endl;
                cout << "push_type = " << push_type_str << " for species = " << m_species 
                     << " is not a valid push_type" << endl;
@@ -86,25 +86,25 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
   
    std::string interp_type_N="CIC";
    a_ppspc.query( "interp_type_N", interp_type_N );
-   //if(interp_type_N=="NGP") m_interpRhoToGrid = NGP;
-   if(interp_type_N=="CIC") m_interpRhoToGrid = CIC;
-   if(interp_type_N=="TSC") m_interpRhoToGrid = TSC;
+   //if (interp_type_N=="NGP") { m_interpRhoToGrid = NGP; }
+   if (interp_type_N=="CIC") { m_interpRhoToGrid = CIC; }
+   if (interp_type_N=="TSC") { m_interpRhoToGrid = TSC; }
 
    std::string interp_type_J="CIC";
    a_ppspc.query( "interp_type_J", interp_type_J );
-   if(interp_type_J=="CIC") m_interpJToGrid = CIC;
-   if(interp_type_J=="TSC") m_interpJToGrid = TSC;
-   if(interp_type_J=="CC0") m_interpJToGrid = CC0;
-   if(interp_type_J=="CC1") m_interpJToGrid = CC1;
+   if (interp_type_J=="CIC") { m_interpJToGrid = CIC; }
+   if (interp_type_J=="TSC") { m_interpJToGrid = TSC; }
+   if (interp_type_J=="CC0") { m_interpJToGrid = CC0; }
+   if (interp_type_J=="CC1") { m_interpJToGrid = CC1; }
    
    std::string interp_type_E="CIC";
    a_ppspc.query( "interp_type_E", interp_type_E );
-   if(interp_type_E=="CIC") m_interpEToParts = CIC;
-   if(interp_type_E=="TSC") m_interpEToParts = TSC;
-   if(interp_type_E=="CC0") m_interpEToParts = CC0;
-   if(interp_type_E=="CC1") m_interpEToParts = CC1;
+   if (interp_type_E=="CIC") { m_interpEToParts = CIC; }
+   if (interp_type_E=="TSC") { m_interpEToParts = TSC; }
+   if (interp_type_E=="CC0") { m_interpEToParts = CC0; }
+   if (interp_type_E=="CC1") { m_interpEToParts = CC1; }
  
-   if(m_interpJToGrid==CC0 || m_interpJToGrid==CC1) m_charge_conserving_deposit = true;
+   if (m_interpJToGrid==CC0 || m_interpJToGrid==CC1) { m_charge_conserving_deposit = true; }
 
    // flags for energy/charge conservation at physical boundaries
    m_interp_bc_check = false;
@@ -243,20 +243,20 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
 {
    CH_TIME("PicSpecies::applyForces()");
     
-   if(a_pList.length()==0) return;   
+   if (a_pList.length()==0) return;
 
-   if(m_push_type==CYL_CAR) { 
+   if (m_push_type==CYL_CAR) {
       
       // transform Ep and Bp from CYL to CAR
       
       std::array<int,3> dirp = {0,1,2};
-      if(m_mesh.anticyclic()) {
+      if (m_mesh.anticyclic()) {
          dirp[1] = 2;
          dirp[2] = 1;
       }
    
       ListIterator<JustinsParticle> lit(a_pList);
-      for(lit.begin(); lit.ok(); ++lit) {
+      for (lit.begin(); lit.ok(); ++lit) {
          
          std::array<Real,3>& Ep = lit().electric_field();
          std::array<Real,3>& Bp = lit().magnetic_field();
@@ -281,12 +281,12 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
 
    }
 #if CH_SPACEDIM==1
-   else if(m_push_type==SPH_CAR) { 
+   else if (m_push_type==SPH_CAR) {
       
       // transform Ep and Bp from SPH to CAR
       
       ListIterator<JustinsParticle> lit(a_pList);
-      for(lit.begin(); lit.ok(); ++lit) {
+      for (lit.begin(); lit.ok(); ++lit) {
          
          std::array<Real,3>& Ep = lit().electric_field();
          std::array<Real,3>& Bp = lit().magnetic_field();
@@ -326,19 +326,19 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
    }
 #endif
    
-   if(m_push_type==CYL_CYL) {
+   if (m_push_type==CYL_CYL) {
       PicSpeciesUtils::applyForces_CYL_CYL( a_pList, m_fnorm_const, a_cnormDt,
                                            a_byHalfDt, m_mesh.anticyclic() );
    }
-   else if(m_push_type==SPH_SPH) {
+   else if (m_push_type==SPH_SPH) {
       PicSpeciesUtils::applyForces_SPH_SPH( a_pList, m_fnorm_const, a_cnormDt,
                                             a_byHalfDt );
    }
-   else if(m_push_type==CYL_HYB) {
+   else if (m_push_type==CYL_HYB) {
       PicSpeciesUtils::applyForces_CYL_HYB( a_pList, m_fnorm_const, a_cnormDt,
                                           m_mesh.anticyclic() );
    }
-   else if(m_push_type==SPH_HYB) {
+   else if (m_push_type==SPH_HYB) {
       PicSpeciesUtils::applyForces_SPH_HYB( a_pList, m_fnorm_const, a_cnormDt );
    }
    else {
@@ -346,21 +346,21 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
                                     a_byHalfDt, m_mesh.anticyclic() ); 
    }
    
-   if(m_push_type==CYL_HYB) { // compute thpbar and convert upbar from CAR to CYL
+   if (m_push_type==CYL_HYB) { // compute thpbar and convert upbar from CAR to CYL
       
       std::array<int,3> dirp = {0,1,2};
-      if(m_mesh.anticyclic()) {
+      if (m_mesh.anticyclic()) {
          dirp[1] = 2;
          dirp[2] = 1;
       }
 
       ListIterator<JustinsParticle> lit(a_pList);
-      for(lit.begin(); lit.ok(); ++lit) {
+      for (lit.begin(); lit.ok(); ++lit) {
          
          std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
          Real thpbar = position_virt[0];
          //if(thpbar!=0.0) break;
-         if(thpbar==0.0) {
+         if (thpbar==0.0) {
             const RealVect& xpold = lit().position_old();
             std::array<Real,3>& upbar = lit().velocity();
             
@@ -391,15 +391,15 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
       }
 
    }
-   else if(m_push_type==SPH_HYB) { // compute thpbar, phpbar, and convert upbar from CAR to SPH
+   else if (m_push_type==SPH_HYB) { // compute thpbar, phpbar, and convert upbar from CAR to SPH
       
       ListIterator<JustinsParticle> lit(a_pList);
-      for(lit.begin(); lit.ok(); ++lit) {
+      for (lit.begin(); lit.ok(); ++lit) {
          
          std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
          Real thpbar = position_virt[0];
          Real phpbar = position_virt[1];
-         if(thpbar==0.0 && phpbar==0.0) {
+         if (thpbar==0.0 && phpbar==0.0) {
             const RealVect& xpold = lit().position_old();
             std::array<Real,3>& upbar = lit().velocity();
             
@@ -421,8 +421,8 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
             const Real ypbar = a_cnormDt/2.0*upy;
             const Real zpbar = a_cnormDt/2.0*upz;
             const Real rpbar = std::sqrt(xpbar*xpbar + ypbar*ypbar + zpbar*zpbar);
-            if(rpbar>0.0) phpbar = std::asin(zpbar/rpbar);
-            else phpbar = 0.0;
+            if (rpbar>0.0) { phpbar = std::asin(zpbar/rpbar); }
+            else { phpbar = 0.0; }
             thpbar = std::atan2(ypbar,xpbar);
             position_virt[0] = thpbar;
             position_virt[1] = phpbar;
@@ -518,32 +518,26 @@ void PicSpecies::advancePositionsImplicit( List<JustinsParticle>&  a_pList,
    // gamma^{n} = sqrt(1 + up^{n})
    // xpbar = (xp^{n+1} + xp^{n})/2.0
 
-#ifdef RELATIVISTIC_PARTICLES
-   Real gammap, gbsq_old, gbsq_new;
-   std::array<Real,3> upnew;
-#endif
-      
-   if(m_push_type==CYL_CAR) { advancePositions_CYL_CAR( a_pList, a_cnormDt ); }
+   if (m_push_type==CYL_CAR) { advancePositions_CYL_CAR( a_pList, a_cnormDt ); }
 #if CH_SPACEDIM==1
-   else if(m_push_type==SPH_CAR) { advancePositions_SPH_CAR( a_pList, a_cnormDt ); }
+   else if (m_push_type==SPH_CAR) { advancePositions_SPH_CAR( a_pList, a_cnormDt ); }
 #endif
    else {
    
       const Real cnormHalfDt = a_cnormDt*0.5;
       ListIterator<JustinsParticle> lit(a_pList);
-      for(lit.begin(); lit.ok(); ++lit) {
+      for (lit.begin(); lit.ok(); ++lit) {
          RealVect& xp = lit().position();
          const RealVect& xpold = lit().position_old();
          const std::array<Real,3>& upbar = lit().velocity();
 #ifdef RELATIVISTIC_PARTICLES
          const std::array<Real,3>& upold = lit().velocity_old();
-         for(int n=0; n<3; n++) upnew[n] = 2.0*upbar[n] - upold[n];
-         gbsq_old = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
-         gbsq_new = upnew[0]*upnew[0] + upnew[1]*upnew[1] + upnew[2]*upnew[2];
-         gammap = 0.5*(sqrt(1.0 + gbsq_old) + sqrt(1.0 + gbsq_new));
-         for(int dir=0; dir<SpaceDim; dir++) xp[dir] = xpold[dir] + upbar[dir]/gammap*cnormHalfDt;
+         std::array<Real,3> upnew;
+         for (int n=0; n<3; n++) { upnew[n] = 2.0*upbar[n] - upold[n]; }
+         Real gammap = PicSpeciesUtils::getImplicitGamma(upold,upnew);
+         for (int dir=0; dir<SpaceDim; dir++) { xp[dir] = xpold[dir] + upbar[dir]/gammap*cnormHalfDt; }
 #else
-         for(int dir=0; dir<SpaceDim; dir++) xp[dir] = xpold[dir] + upbar[dir]*cnormHalfDt;
+         for (int dir=0; dir<SpaceDim; dir++) { xp[dir] = xpold[dir] + upbar[dir]*cnormHalfDt; }
 #endif
       }
 
@@ -559,22 +553,31 @@ void PicSpecies::advancePositions_CYL_CAR( List<JustinsParticle>&  a_pList,
    // advance particle positions by half dt using CAR method in CYL geometry
 
    std::array<int,3> dirp = {0,1,2};
-   if(m_mesh.anticyclic()) {
+   if (m_mesh.anticyclic()) {
       dirp[1] = 2;
       dirp[2] = 1;
    }
    
    ListIterator<JustinsParticle> lit(a_pList);
-   for(lit.begin(); lit.ok(); ++lit) {
+   for (lit.begin(); lit.ok(); ++lit) {
       
       RealVect& xpbar = lit().position();
       const RealVect& xpold = lit().position_old();
       const std::array<Real,3>& upbar = lit().velocity();
       std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
          
+#ifdef RELATIVISTIC_PARTICLES
+      const std::array<Real,3>& upold = lit().velocity_old();
+      std::array<Real,3> upnew;
+      for (int n=0; n<3; n++) { upnew[n] = 2.0*upbar[n] - upold[n]; }
+      Real gammap = PicSpeciesUtils::getImplicitGamma(upold,upnew);
+      const Real xpnew = xpold[0] + upbar[0]/gammap*a_cnormDt;
+      const Real ypnew = upbar[dirp[1]]/gammap*a_cnormDt;
+#else
       const Real xpnew = xpold[0] + upbar[0]*a_cnormDt;
       const Real ypnew = upbar[dirp[1]]*a_cnormDt;
-      const Real rpnew = sqrt(xpnew*xpnew + ypnew*ypnew);
+#endif
+      const Real rpnew = std::sqrt(xpnew*xpnew + ypnew*ypnew);
 
       // update CAR xpbar and ypbar      
       position_virt[0] = (xpnew + xpold[0])/2.0;
@@ -583,7 +586,11 @@ void PicSpecies::advancePositions_CYL_CAR( List<JustinsParticle>&  a_pList,
       // update CYL rpbar and zpbar
       xpbar[0] = (rpnew + xpold[0])/2.0;
 #if CH_SPACEDIM==2
+#ifdef RELATIVISTIC_PARTICLES
+      xpbar[1] = xpold[1] + upbar[dirp[2]]/gammap*a_cnormDt/2.0;
+#else
       xpbar[1] = xpold[1] + upbar[dirp[2]]*a_cnormDt/2.0;
+#endif
 #endif
 
    }
@@ -601,13 +608,23 @@ void PicSpecies::advancePositions_SPH_CAR( List<JustinsParticle>&  a_pList,
    Real xpnew, ypnew, zpnew;
 
    ListIterator<JustinsParticle> lit(a_pList);
-   for(lit.begin(); lit.ok(); ++lit) {
+   for (lit.begin(); lit.ok(); ++lit) {
       
       const RealVect& xpold = lit().position_old();
       const std::array<Real,3>& upbar = lit().velocity();
+#ifdef RELATIVISTIC_PARTICLES
+      const std::array<Real,3>& upold = lit().velocity_old();
+      std::array<Real,3> upnew;
+      for (int n=0; n<3; n++) { upnew[n] = 2.0*upbar[n] - upold[n]; }
+      Real gammap = PicSpeciesUtils::getImplicitGamma(upold,upnew);
+      xpnew = xpold[0] + a_cnormDt*upbar[0]/gammap;
+      ypnew = a_cnormDt*upbar[1]/gammap;
+      zpnew = a_cnormDt*upbar[2]/gammap;
+#else
       xpnew = xpold[0] + a_cnormDt*upbar[0];
       ypnew = a_cnormDt*upbar[1];
       zpnew = a_cnormDt*upbar[2];
+#endif
 
       std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
       position_virt[0] = (xpnew + xpold[0])/2.0;
@@ -635,11 +652,11 @@ void PicSpecies::stepNormTransfer( List<JustinsParticle>&  a_in_pList,
    // a_reverse = true: if converged, move particle to out_pList
    // a_reverse = false: if not converged, move particle to out_pList
       
-   if(m_push_type==CYL_CAR) { 
+   if (m_push_type==CYL_CAR) {
       stepNormTransfer_CYL_CAR( a_in_pList, a_out_pList, a_cnormDt, a_reverse );
    }
 #if CH_SPACEDIM==1
-   else if(m_push_type==SPH_CAR) {
+   else if (m_push_type==SPH_CAR) {
       stepNormTransfer_SPH_CAR( a_in_pList, a_out_pList, a_cnormDt, a_reverse );
    }
 #endif
@@ -647,16 +664,12 @@ void PicSpecies::stepNormTransfer( List<JustinsParticle>&  a_in_pList,
 
       Real dxp0, rel_diff_dir, rel_diff_max;
       RealVect dxp;
-#ifdef RELATIVISTIC_PARTICLES
-      Real gammap, gbsq_new, gbsq_old;
-      std::array<Real,3> upnew;
-#endif
 
       const Real cnormHalfDt = 0.5*a_cnormDt;
       const RealVect& dX = m_mesh.getdX();
       
       ListIterator<JustinsParticle> li(a_in_pList);
-      for(li.begin(); li.ok();) {
+      for (li.begin(); li.ok();) {
  
          RealVect& xpbar = li().position();
          const RealVect& xpold = li().position_old();
@@ -664,10 +677,9 @@ void PicSpecies::stepNormTransfer( List<JustinsParticle>&  a_in_pList,
 
 #ifdef RELATIVISTIC_PARTICLES
          const std::array<Real,3>& upold = li().velocity_old();
-         for(int n=0; n<3; n++) upnew[n] = 2.0*upbar[n] - upold[n];
-         gbsq_old = upold[0]*upold[0] + upold[1]*upold[1] + upold[2]*upold[2];
-         gbsq_new = upnew[0]*upnew[0] + upnew[1]*upnew[1] + upnew[2]*upnew[2];
-         gammap = 0.5*( sqrt(1.0 + gbsq_old) + sqrt(1.0 + gbsq_new) );
+         std::array<Real,3> upnew;
+         for (int n=0; n<3; n++) { upnew[n] = 2.0*upbar[n] - upold[n]; }
+         Real gammap = PicSpeciesUtils::getImplicitGamma(upold,upnew);
 #endif         
 
          // compute step error in the particle position
@@ -731,7 +743,7 @@ void PicSpecies::stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
    const RealVect& dX = m_mesh.getdX();
       
    ListIterator<JustinsParticle> lit(a_in_pList);
-   for(lit.begin(); lit.ok();) {
+   for (lit.begin(); lit.ok();) {
          
       RealVect& xpbar = lit().position();
       const RealVect& xpold = lit().position_old();
@@ -739,8 +751,17 @@ void PicSpecies::stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
       std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
 
       // compute rpnew using updated value of CAR positions
+#ifdef RELATIVISTIC_PARTICLES
+      const std::array<Real,3>& upold = lit().velocity_old();
+      std::array<Real,3> upnew;
+      for (int n=0; n<3; n++) { upnew[n] = 2.0*upbar[n] - upold[n]; }
+      Real gammap = PicSpeciesUtils::getImplicitGamma(upold,upnew);
+      xpnew = xpold[0] + upbar[0]/gammap*a_cnormDt;
+      ypnew = upbar[dirp[1]]/gammap*a_cnormDt;
+#else
       xpnew = xpold[0] + a_cnormDt*upbar[0];
       ypnew = a_cnormDt*upbar[dirp[1]];
+#endif
       rpnew = std::sqrt(xpnew*xpnew + ypnew*ypnew);
 
       dxp0 = xpbar[0]-xpold[0];
@@ -748,27 +769,31 @@ void PicSpecies::stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
       rel_diff_max = std::abs(dxp0-dxp[0])/dX[0];
 #if CH_SPACEDIM==2
       dxp0 = xpbar[1]-xpold[1];
+#ifdef RELATIVISTIC_PARTICLES
+      dxp[1]  = upbar[dirp[2]]/gammap*cnormHalfDt;
+#else
       dxp[1]  = upbar[dirp[2]]*cnormHalfDt;
+#endif
       Real rel_diff_dir = std::abs(dxp0-dxp[1])/dX[1];
       rel_diff_max = std::max(rel_diff_max,rel_diff_dir);
 #endif 
 
       // check for convergence (or lack thereof)
-      if(a_reverse) { // if converged, transfer to out_pList
-         if(rel_diff_max < m_rtol) { a_out_pList.transfer(lit); }
+      if (a_reverse) { // if converged, transfer to out_pList
+         if (rel_diff_max < m_rtol) { a_out_pList.transfer(lit); }
          else {
             // update particle position and iterator 
-            for(int dir=0; dir<SpaceDim; dir++) { xpbar[dir] = xpold[dir] + dxp[dir]; }
+            for (int dir=0; dir<SpaceDim; dir++) { xpbar[dir] = xpold[dir] + dxp[dir]; }
             position_virt[0] = (xpnew + xpold[0])/2.0;
             position_virt[1] = ypnew/2.0;
             ++lit;
          }
       }
       else { // update position and, if not converged, transfer to out_pList
-         for(int dir=0; dir<SpaceDim; dir++) { xpbar[dir] = xpold[dir] + dxp[dir]; }
+         for (int dir=0; dir<SpaceDim; dir++) { xpbar[dir] = xpold[dir] + dxp[dir]; }
          position_virt[0] = (xpnew + xpold[0])/2.0;
          position_virt[1] = ypnew/2.0;
-         if(rel_diff_max >= m_rtol) { 
+         if (rel_diff_max >= m_rtol) {
             a_out_pList.transfer(lit);
          }
          else { ++lit; }
@@ -794,7 +819,7 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
    const RealVect& dX = m_mesh.getdX();
 
    ListIterator<JustinsParticle> lit(a_in_pList);
-   for(lit.begin(); lit.ok();) {
+   for (lit.begin(); lit.ok();) {
  
       RealVect& rpbar = lit().position();
       const RealVect& xpold = lit().position_old();
@@ -803,9 +828,19 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
       std::array<Real,4-CH_SPACEDIM>& position_virt = lit().position_virt();
 
       // compute rpnew using updated value of CAR positions
+#ifdef RELATIVISTIC_PARTICLES
+      const std::array<Real,3>& upold = lit().velocity_old();
+      std::array<Real,3> upnew;
+      for (int n=0; n<3; n++) { upnew[n] = 2.0*upbar[n] - upold[n]; }
+      Real gammap = PicSpeciesUtils::getImplicitGamma(upold,upnew);
+      xpnew = xpold[0] + a_cnormDt*upbar[0]/gammap;
+      ypnew = a_cnormDt*upbar[1]/gammap;
+      zpnew = a_cnormDt*upbar[2]/gammap;
+#else
       xpnew = xpold[0] + a_cnormDt*upbar[0];
       ypnew = a_cnormDt*upbar[1];
       zpnew = a_cnormDt*upbar[2];
+#endif
       rpnew = std::sqrt(xpnew*xpnew + ypnew*ypnew + zpnew*zpnew);
          
       // compute step error in the particle position
@@ -814,9 +849,9 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
       rel_diff_max = std::abs(drp0-drp1)/dX[0];
 
       // check for convergence (or lack thereof)
-      if(a_reverse) { 
+      if (a_reverse) {
          // if converged, transfer to out_pList
-         if(rel_diff_max < m_rtol) { a_out_pList.transfer(lit); }
+         if (rel_diff_max < m_rtol) { a_out_pList.transfer(lit); }
          else { // update particle position and iterator
             rpbar[0] = (rpnew + xpold[0])/2.0;
             position_virt[0] = (xpnew + xpold[0])/2.0;
@@ -830,7 +865,7 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
          position_virt[0] = (xpnew + xpold[0])/2.0;
          position_virt[1] = ypnew/2.0;
          position_virt[2] = zpnew/2.0;
-         if(rel_diff_max >= m_rtol) { 
+         if (rel_diff_max >= m_rtol) {
             a_out_pList.transfer(lit); 
          }
          else { ++lit; }
@@ -948,9 +983,9 @@ void PicSpecies::advancePositions_2ndHalf()
 {
    CH_TIME("PicSpecies::advancePositions_2ndHalf()");
    
-   if(!m_motion) return;
-   if(m_push_type==CYL_CAR) return;
-   if(m_push_type==SPH_CAR) return;
+   if (!m_motion) return;
+   if (m_push_type==CYL_CAR) return;
+   if (m_push_type==SPH_CAR) return;
     
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
@@ -1111,7 +1146,7 @@ void PicSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
 
    }
 #if CH_SPACEDIM==1
-   else if(m_push_type==SPH_HYB) {
+   else if (m_push_type==SPH_HYB) {
 
       const BoxLayout& BL = m_data.getBoxes();
       DataIterator dit(BL);
@@ -1121,7 +1156,7 @@ void PicSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
          advanceVelocities_SPH_HYB_2ndHalf( a_dt, pList );
       }
    }
-   else if(m_push_type==SPH_CAR) {
+   else if (m_push_type==SPH_CAR) {
    
       const BoxLayout& BL = m_data.getBoxes();
       DataIterator dit(BL);
@@ -1145,6 +1180,32 @@ void PicSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
 
       }
       
+   }
+
+}
+
+void PicSpecies::averageVelocities()
+{
+   if(!m_forces) return;
+   CH_TIME("PicSpecies::averageVelocities()");
+   
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+      ListIterator<JustinsParticle> lit(pList);
+      for(lit.begin(); lit.ok(); ++lit) {
+         
+         std::array<Real,3>& up = lit().velocity();
+         const std::array<Real,3>& upold = lit().velocity_old();
+       
+         up[0] = (up[0] + upold[0])/2.0;
+         up[1] = (up[1] + upold[1])/2.0;
+         up[2] = (up[2] + upold[2])/2.0;
+   
+      }
+
    }
 
 }
@@ -1422,16 +1483,16 @@ void PicSpecies::rebaseVirtualPositions( List<JustinsParticle>&  a_pList )
 
    const int nComps = 4-CH_SPACEDIM; 
 
-   if(m_push_type==CYL_CAR || m_push_type==SPH_CAR) {
+   if (m_push_type==CYL_CAR || m_push_type==SPH_CAR) {
       
       // virtual position is xpbar, ypbar, and (if SPH_CAR) zpbar
       // rotate CAR position vector back to theta = 0 and phi = 0
       ListIterator<JustinsParticle> lit(a_pList);
-      for(lit.begin(); lit.ok(); ++lit) {
+      for (lit.begin(); lit.ok(); ++lit) {
          const RealVect& xp = lit().position();
          std::array<Real,nComps>& position_virt = lit().position_virt();
          position_virt[0] = xp[0];
-         for (int n=1; n<nComps; n++) position_virt[n] = 0.0;
+         for (int n=1; n<nComps; n++) { position_virt[n] = 0.0; }
       }
 
    }
@@ -1440,9 +1501,9 @@ void PicSpecies::rebaseVirtualPositions( List<JustinsParticle>&  a_pList )
       // virtual position is theta, and (if SPH_CAR) phi
       // rotate theta and phi back to zero
       ListIterator<JustinsParticle> lit(a_pList);
-      for(lit.begin(); lit.ok(); ++lit) {
+      for (lit.begin(); lit.ok(); ++lit) {
          std::array<Real,nComps>& position_virt = lit().position_virt();
-         for (int n=0; n<nComps; n++) position_virt[n] = 0.0;
+         for (int n=0; n<nComps; n++) { position_virt[n] = 0.0; }
       }
 
    }
@@ -1553,7 +1614,7 @@ void PicSpecies::advanceParticlesIteratively( const EMFields&  a_emfields,
 
    const LevelData<EdgeDataBox>& Efield = a_emfields.getFilteredElectricField();
    const LevelData<FluxBox>& Bfield = a_emfields.getMagneticField();
-   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getVirtualElectricField();
+   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getFilteredVirtualElectricField();
    const LevelData<FArrayBox>& Bfield_virt = a_emfields.getVirtualMagneticField();
               
    const BoxLayout& BL = m_data.getBoxes();
@@ -1853,7 +1914,7 @@ void PicSpecies::initialize( const CodeUnits&    a_units,
 
    m_cvac_norm = a_units.CvacNorm();
 
-   if(a_restart_file_name.empty()) { initializeFromInputFile(a_units); }
+   if (a_restart_file_name.empty()) { initializeFromInputFile(a_units); }
    else {
       initializeFromRestartFile( a_time, a_restart_file_name );
       
@@ -1865,25 +1926,25 @@ void PicSpecies::initialize( const CodeUnits&    a_units,
       const std::array<Real,3> zero_vect = {0.0,0.0,0.0};
       const BoxLayout& BL = m_data.getBoxes();
       DataIterator dit(BL);
-      for(dit.begin(); dit.ok(); ++dit) {
+      for (dit.begin(); dit.ok(); ++dit) {
          ListBox<JustinsParticle>& box_list = m_data[dit];
          List<JustinsParticle>& pList = box_list.listItems();
          ListIterator<JustinsParticle> lit(pList);
-         for(lit.begin(); lit.ok(); ++lit) {
+         for (lit.begin(); lit.ok(); ++lit) {
             lit().setElectricField( zero_vect );
             lit().setMagneticField( zero_vect );
          }
       }
    }
 
-   if(m_push_type==CYL_CAR) {
+   if (m_push_type==CYL_CAR) {
       const BoxLayout& BL = m_data.getBoxes();
       DataIterator dit(BL);
-      for(dit.begin(); dit.ok(); ++dit) {
+      for (dit.begin(); dit.ok(); ++dit) {
          ListBox<JustinsParticle>& box_list = m_data[dit];
          List<JustinsParticle>& pList = box_list.listItems();
          ListIterator<JustinsParticle> lit(pList);
-         for(lit.begin(); lit.ok(); ++lit) {
+         for (lit.begin(); lit.ok(); ++lit) {
             const Real xp0 = lit().position(0);
 #if CH_SPACEDIM==1
             std::array<Real,3> position_virt = {xp0,0.0,0.0};
@@ -1896,14 +1957,14 @@ void PicSpecies::initialize( const CodeUnits&    a_units,
    }
    
 #if CH_SPACEDIM==1
-   if(m_push_type==SPH_CAR) {
+   if (m_push_type==SPH_CAR) {
       const BoxLayout& BL = m_data.getBoxes();
       DataIterator dit(BL);
-      for(dit.begin(); dit.ok(); ++dit) {
+      for (dit.begin(); dit.ok(); ++dit) {
          ListBox<JustinsParticle>& box_list = m_data[dit];
          List<JustinsParticle>& pList = box_list.listItems();
          ListIterator<JustinsParticle> lit(pList);
-         for(lit.begin(); lit.ok(); ++lit) {
+         for (lit.begin(); lit.ok(); ++lit) {
             const Real xp0 = lit().position(0);
             std::array<Real,3> position_virt = {xp0,0.0,0.0};
             lit().setPositionVirt( position_virt );
@@ -2981,8 +3042,8 @@ void PicSpecies::setCurrentDensity( const Real  a_dt,
    CH_assert(m_charge != 0);
    
    int axisymm_car_push = 0;
-   if(m_push_type==CYL_CAR) axisymm_car_push = 1;
-   else if(m_push_type==SPH_CAR) axisymm_car_push = 2;
+   if (m_push_type==CYL_CAR) { axisymm_car_push = 1; }
+   else if (m_push_type==SPH_CAR) { axisymm_car_push = 2; }
  
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    DataIterator dit = grids.dataIterator();
@@ -3058,7 +3119,7 @@ void PicSpecies::advanceInflowParticlesAndSetJ( const EMFields&  a_emfields,
              
    const LevelData<EdgeDataBox>&   Efield = a_emfields.getFilteredElectricField();
    const LevelData<FluxBox>&       Bfield = a_emfields.getMagneticField();
-   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getVirtualElectricField();
+   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getFilteredVirtualElectricField();
    const LevelData<FArrayBox>&     Bfield_virt = a_emfields.getVirtualMagneticField();
    
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -3127,7 +3188,7 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
 
    const LevelData<EdgeDataBox>& Efield = a_emfields.getFilteredElectricField();
    const LevelData<FluxBox>&     Bfield = a_emfields.getMagneticField();
-   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getVirtualElectricField();
+   const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getFilteredVirtualElectricField();
    const LevelData<FArrayBox>&     Bfield_virt = a_emfields.getVirtualMagneticField();
               
    const BoxLayout& BL = m_data_suborbit.getBoxes();
@@ -3365,19 +3426,19 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pLis
                                        false );
 
          // 4) convert particle quantities from time-centered to new
-         if(m_push_type==CYL_HYB) {
+         if (m_push_type==CYL_HYB) {
             advanceVelocities_CYL_HYB_2ndHalf( a_dt/num_suborbits, temp_pList );
             advancePositions_2ndHalf( temp_pList );
          }
-         else if(m_push_type==CYL_CAR) {
+         else if (m_push_type==CYL_CAR) {
             advanceParticles_CYL_CAR_2ndHalf( temp_pList );
          }
 #if CH_SPACEDIM==1
-         else if(m_push_type==SPH_HYB) {
+         else if (m_push_type==SPH_HYB) {
             advanceVelocities_SPH_HYB_2ndHalf( a_dt/num_suborbits, temp_pList );
             advancePositions_2ndHalf( temp_pList );
          }
-         else if(m_push_type==SPH_CAR) {
+         else if (m_push_type==SPH_CAR) {
             advanceParticles_SPH_CAR_2ndHalf( temp_pList );
          }
 #endif
@@ -3386,18 +3447,18 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pLis
             advancePositions_2ndHalf( temp_pList );
          }
 #if CH_SPACEDIM<3
-         if(m_mesh.axisymmetric()) { rebaseVirtualPositions( temp_pList ); }
+         if (m_mesh.axisymmetric()) { rebaseVirtualPositions( temp_pList ); }
 #endif
 
          // 5) reset xpold and vpold to suborbit xpnew and vpnew
          ListIterator<JustinsParticle> lit_temp(temp_pList);
-         for(lit_temp.begin(); lit_temp.ok();) {
+         for (lit_temp.begin(); lit_temp.ok();) {
             RealVect& xpold = lit_temp().position_old();
             std::array<Real,3>& vpold = lit_temp().velocity_old();
-            if(nv==num_suborbits-1) {
+            if (nv==num_suborbits-1) {
                xpold = xpold0_save;
                vpold = vpold0;
-               if(is_inflow_list) { // need to convert xp and vp from new to bar
+               if (is_inflow_list) { // need to convert xp and vp from new to bar
                                     // for inflow particles
                   RealVect& xp = lit_temp().position();
                   std::array<Real,3>& vp = lit_temp().velocity();
@@ -3443,12 +3504,12 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pLis
       } // end loop over suborbits for this particle
 
       // divide particle J by number of suborbits and add it to the total
-      for(int dir=0; dir<SpaceDim; dir++) {
-         if(is_inflow_list) { this_Jp[dir].mult(cnormDt_sub/cnormDt); }
+      for (int dir=0; dir<SpaceDim; dir++) {
+         if (is_inflow_list) { this_Jp[dir].mult(cnormDt_sub/cnormDt); }
          else { this_Jp[dir].divide(num_suborbits); }
          a_local_J[dir].plus(this_Jp[dir]);
       }
-      if(is_inflow_list) { this_Jpv.mult(cnormDt_sub/cnormDt); }
+      if (is_inflow_list) { this_Jpv.mult(cnormDt_sub/cnormDt); }
       else { this_Jpv.divide(num_suborbits); }
       a_local_Jv.plus(this_Jpv);
 
@@ -3495,12 +3556,12 @@ void PicSpecies::accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx,
    const Real qovs = m_charge/volume_scale;
 
    int inert_type = 0;
-   if(m_push_type==CYL_CYL) inert_type = 1;
-   else if(m_push_type==CYL_HYB) inert_type = 0; // zero is correct here
-   else if(m_push_type==CYL_CAR) inert_type = 2;
-   else if(m_push_type==SPH_SPH) inert_type = 3;
-   else if(m_push_type==SPH_HYB) inert_type = 0;
-   else if(m_push_type==SPH_CAR) inert_type = 4;
+   if(m_push_type==CYL_CYL) { inert_type = 1; }
+   else if(m_push_type==CYL_HYB) { inert_type = 0; } // zero is correct here
+   else if(m_push_type==CYL_CAR) { inert_type = 2; }
+   else if(m_push_type==SPH_SPH) { inert_type = 3; }
+   else if(m_push_type==SPH_HYB) { inert_type = 0; }
+   else if(m_push_type==SPH_CAR) { inert_type = 4; }
 
    for(dit.begin(); dit.ok(); ++dit) {
       
@@ -3565,7 +3626,7 @@ void PicSpecies::interpolateEfieldToParticles( const EMFields&  a_emfields )
   const LevelData<EdgeDataBox>& Efield = a_emfields.getFilteredElectricField();
   const LevelData<FluxBox>& Bfield = a_emfields.getMagneticField();
 #if CH_SPACEDIM < 3
-  const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getVirtualElectricField();
+  const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getFilteredVirtualElectricField();
   const LevelData<FArrayBox>& Bfield_virt = a_emfields.getVirtualMagneticField();
 #endif    
 
@@ -3631,7 +3692,7 @@ void PicSpecies::interpolateFieldsToParticles( const EMFields&  a_emfields )
 
 #else
 
-  const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getVirtualElectricField();
+  const LevelData<NodeFArrayBox>& Efield_virt = a_emfields.getFilteredVirtualElectricField();
   const LevelData<FArrayBox>& Bfield_virt = a_emfields.getVirtualMagneticField();
     
   // should really loop over BL boxes from m_data. For now it is same as grids

@@ -950,11 +950,19 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
 void PicSpeciesInterface::filterJ( const EMFields&  a_emfields,
                                    const Real       a_time )
 {   
-   CH_TIME("PicSpeciesInterface::filterJ()");
-   SpaceUtils::exchangeEdgeDataBox(m_currentDensity);
-   const FieldBC& field_bc = a_emfields.getFieldBC();
-   field_bc.applyEdgeBC( m_currentDensity, a_time );
-   SpaceUtils::applyBinomialFilter(m_currentDensity);
+    CH_TIME("PicSpeciesInterface::filterJ()");
+    if (a_emfields.filterE_inPlane()) {
+        SpaceUtils::exchangeEdgeDataBox(m_currentDensity);
+        const FieldBC& field_bc = a_emfields.getFieldBC();
+        field_bc.applyEdgeBC( m_currentDensity, a_time );
+        SpaceUtils::applyBinomialFilter(m_currentDensity);
+    }
+    if (a_emfields.filterE_virtual()) {
+        SpaceUtils::exchangeNodeFArrayBox(m_currentDensity_virtual);
+        const FieldBC& field_bc = a_emfields.getFieldBC();
+        field_bc.applyNodeBC( m_currentDensity_virtual, a_time );
+        SpaceUtils::applyBinomialFilter(m_currentDensity_virtual);
+    }
 }
  
 void PicSpeciesInterface::postNewtonUpdate( const EMFields&  a_emfields,
@@ -1537,7 +1545,7 @@ void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
 }
 
 void PicSpeciesInterface::prepForScatter( const int   a_num_coulomb,
-	                                  const bool  a_from_scatterDt )
+                                          const bool  a_from_scatterDt )
 {
    CH_TIME("PicSpeciesInterface::prepForScatter()");
    
@@ -1546,17 +1554,17 @@ void PicSpeciesInterface::prepForScatter( const int   a_num_coulomb,
       PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       species->binTheParticles();
       species->setNumberDensityFromBinFab();
-      if(a_from_scatterDt) {
+      if (a_from_scatterDt) {
          species->setMomentumDensityFromBinFab();
          species->setEnergyDensityFromBinFab();
       }
-      else if(a_num_coulomb>0 && species->charge()!=0) {
+      else if (a_num_coulomb>0 && species->charge()!=0) {
          species->setMomentumDensityFromBinFab();
          species->setEnergyDensityFromBinFab();
       }
    }
    
-   if(a_num_coulomb>0) setDebyeLength();
+   if (a_num_coulomb>0) { setDebyeLength(); }
 
 }
 
@@ -1570,68 +1578,71 @@ void PicSpeciesInterface::setDebyeLength()
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
 
       PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->charge()==0) continue;
+      if (species->charge()==0) { continue; }
 
       // job of caller to make sure the momentus are precomputed
       const LevelData<FArrayBox>& numDen = species->getNumberDensityFromBinFab();
       const LevelData<FArrayBox>& momDen = species->getMomentumDensityFromBinFab();
       const LevelData<FArrayBox>& eneDen = species->getEnergyDensityFromBinFab();
       const Real Aconst = Constants::EP0/Constants::QE/(species->charge()*species->charge());
-   
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
-   
+
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
+
                FArrayBox& this_LDe = m_DebyeLength[dit];
          const FArrayBox& this_numDen = numDen[dit];
          const FArrayBox& this_momDen = momDen[dit];
          const FArrayBox& this_eneDen = eneDen[dit];
-     
+
          const Box gridBox = grids.get(dit);
          BoxIterator gbit(gridBox);
          for (gbit.begin(); gbit.ok(); ++gbit) {
 
             const IntVect ig = gbit();
-       
-            Real N = this_numDen.get(ig,0); // [1/m^3]
-            if(N == 0.0) continue;
+
+            Real N = this_numDen.get(ig,0); // number density [1/m^3]
+            if (N==0.0) { continue; }
+            Real R = 1.0/std::cbrt(4.0/3.0*Constants::PI*N); // atomic spacing [m]
             Real rho = N*species->mass();
 
-	    Real rhoUx = this_momDen.get(ig,0); // [m/s*1/m^3]
-	    Real rhoUy = this_momDen.get(ig,1); // [m/s*1/m^3]
-	    Real rhoUz = this_momDen.get(ig,2); // [m/s*1/m^3]
-	    const Real meanE = (rhoUx*rhoUx + rhoUy*rhoUy + rhoUz*rhoUz)/rho/2.0;
-         
+            Real rhoUx = this_momDen.get(ig,0); // [m/s*1/m^3]
+            Real rhoUy = this_momDen.get(ig,1); // [m/s*1/m^3]
+            Real rhoUz = this_momDen.get(ig,2); // [m/s*1/m^3]
+            const Real meanE = (rhoUx*rhoUx + rhoUy*rhoUy + rhoUz*rhoUz)/rho/2.0;
+
+            // compute the species temperature
             Real rhoE = 0.0;
-            for( int dir=0; dir<3; dir++) rhoE += this_eneDen.get(ig,dir); 
-            
+            for (int dir=0; dir<3; dir++) { rhoE += this_eneDen.get(ig,dir); }
             Real T_eV = 2.0/3.0*(rhoE - meanE)/N*mcSq_eV;
-	    T_eV = std::max(T_eV, 0.01);
-            //if(!procID()) cout << "JRA: species = " << species->name() << endl;
+            T_eV = std::max(T_eV, 0.01);
+
             //if(!procID()) cout << "JRA: numDen = " << N << endl;
             //if(!procID()) cout << "JRA: meanE[ig="<<ig<<"] = " << meanE << endl;
             //if(!procID()) cout << "JRA: T_eV[ig="<<ig<<"]  = " << T_eV << endl;
-	    const Real LDe_sq = Aconst*T_eV/N; // [m^2] 
 
-	    // store sum of 1/LDe^2 in LDe container
-	    Real sumLDe_sq_inv = this_LDe.get(ig,0);
-	    sumLDe_sq_inv += 1.0/LDe_sq;
-	    this_LDe.set(ig,0,sumLDe_sq_inv);
+            // compute square of screening length for this species
+            const Real LDe_sq = std::max(Aconst*T_eV/N,R*R); // [m^2]
 
-	 }
+            // store sum of 1/LDe^2 in LDe container
+            Real sumLDe_sq_inv = this_LDe.get(ig,0);
+            sumLDe_sq_inv += 1.0/LDe_sq;
+            this_LDe.set(ig,0,sumLDe_sq_inv);
+
+         }
 
       }
 
    }
 
    // invert sum of species inverse Debye lengths squared and take square root
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
       FArrayBox& this_LDe = m_DebyeLength[dit];
       const Box gridBox = grids.get(dit);
       BoxIterator gbit(gridBox);
       for (gbit.begin(); gbit.ok(); ++gbit) {
          const IntVect ig = gbit();
          Real LDe_sq_inv = this_LDe.get(ig,0);
-	 Real LDe = 1.0/std::sqrt(LDe_sq_inv);
-	 this_LDe.set(ig,0,LDe);
+         Real LDe = 1.0/std::sqrt(LDe_sq_inv); // net screening length [m]
+         this_LDe.set(ig,0,LDe);
          //if(!procID()) cout << "JRA: LDe[ig="<<ig<<"] = " << LDe << " m" << endl;
       }
    }

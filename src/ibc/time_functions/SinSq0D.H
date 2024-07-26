@@ -35,18 +35,17 @@ class SinSq0D : public TimeFunction
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "Sinsq0D function parameters:" << std::endl;
-            std::cout << " rise time = " << m_rise_time  << std::endl;
-            std::cout << " exponent  = " << m_exponent  << std::endl << std::endl;
-            std::cout << " amplitude = " << m_amplitude  << std::endl << std::endl;
+            std::cout << "  rise time = " << m_rise_time  << std::endl;
+            std::cout << "  exponent  = " << m_exponent  << std::endl;
+            std::cout << "  amplitude = " << m_amplitude  << std::endl;
          }
       }
       
       virtual void getValue( Real&  a_value,
                        const Real&  a_time ) const
       {
-         a_value = sin(3.14159/2.0*a_time/m_rise_time);
-         //a_value = a_value*a_value*m_amplitude;
-         a_value = pow(a_value,m_exponent)*m_amplitude;
+         a_value = std::sin(3.14159/2.0*a_time/m_rise_time);
+         a_value = std::pow(a_value,m_exponent)*m_amplitude;
       }
 
    private:
@@ -61,9 +60,6 @@ class SinSq0D : public TimeFunction
          m_exponent = 2.0;
          pp.query( "exponent", m_exponent );
          pp.get( "amplitude", m_amplitude );
-         if (m_verbosity) {
-            printParameters();
-         }
       }
 
       Real m_rise_time;

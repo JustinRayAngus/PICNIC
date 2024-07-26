@@ -95,6 +95,16 @@ EMFields::EMFields( ParmParse&   a_ppflds,
    }
 
    a_ppflds.query( "use_filtering", m_use_filtering );
+   if (m_use_filtering) {
+     m_filterE_inPlane = m_advanceE_inPlane;
+     m_filterE_virtual = m_advanceE_virtual;
+     a_ppflds.query( "filterE_inPlane", m_filterE_inPlane );
+     a_ppflds.query( "filterE_virtual", m_filterE_virtual );
+   }
+   else {
+     m_filterE_inPlane = false;
+     m_filterE_virtual = false;
+   }
 
    // set the Courant time step associated with the speed of light
    const RealVect& meshSpacing(m_mesh.getdX());
@@ -189,7 +199,8 @@ EMFields::EMFields( ParmParse&   a_ppflds,
 
    // define the filtered field containers
    m_electricField_filtered.define(grids,1,ghostVect); // EdgeDataBox with 1 comp
-
+   m_electricField_virtual_filtered.define(grids,3-SpaceDim,ghostVect);
+   
    // define the current density containers
    m_currentDensity.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
    if(SpaceDim<3) {m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);} // NodeFArrayBox
@@ -272,6 +283,10 @@ EMFields::EMFields( ParmParse&   a_ppflds,
                                  << m_advanceB_comp[2] << endl;
       }
       cout << " use binomial filtering = " << m_use_filtering << endl;
+      if (m_use_filtering) {
+        cout << " filterE_inPlane = " << (m_filterE_inPlane?"true":"false") << endl;
+        cout << " filterE_virtual = " << (m_filterE_virtual?"true":"false") << endl;
+      }
       cout << " use poisson = " << m_use_poisson << endl;
       cout << " enforce gauss startup = " << m_enforce_gauss_startup << endl;
       cout << " external fields = " << m_external_fields << endl;
@@ -862,8 +877,7 @@ void EMFields::initExternalFields()
 
 }
 
-void EMFields::computeRHSMagneticField( const Real  a_time,
-                                        const Real  a_dt )
+void EMFields::computeRHSMagneticField( const Real  a_dt )
 {
   CH_TIME("EMFields::computeRHSMagneticField()");
 
@@ -905,8 +919,7 @@ void EMFields::computeRHSMagneticField( const Real  a_time,
   return;
 }
 
-void EMFields::computeRHSElectricField( const Real  a_time,
-                                        const Real  a_dt )
+void EMFields::computeRHSElectricField( const Real  a_dt )
 {
   CH_TIME("EMFields::computeRHSElectricField()");
 
@@ -985,6 +998,21 @@ void EMFields::applyBCs_magneticField( const Real  a_time )
    m_field_bc->applyCellBC( m_magneticField_virtual, a_time );
    m_field_bc->applyCellPCMask( m_PC_mask_Bv, a_time );
    m_PC_mask_Bv.exchange();
+#endif
+
+}
+
+void EMFields::applyAbsorbingBCs( const Real  a_time,
+                                  const Real  a_dt )
+{
+    CH_TIME("EMFields::applyAbsorbingBCs()");
+
+#if CH_SPACEDIM==1
+    const Real cnormDt = a_dt*m_cvacNorm;
+    m_field_bc->applyAbsorbingBCs( m_magneticField_virtual,
+                                   m_electricField_virtual_old,
+                                   m_currentDensity_virtual, m_Jnorm_factor,
+                                   a_time, cnormDt );
 #endif
 
 }
@@ -1144,12 +1172,14 @@ void EMFields::setPoyntingFlux()
 
 }
 
-Real EMFields::electricFieldEnergy() const
+Real EMFields::fieldEnergyMod( const Real  a_dt ) const
 {
-  CH_TIME("EMFields::electricFieldEnergy()");
+  CH_TIME("EMFields::fieldEnergyMod()");
   const DisjointBoxLayout& grids(m_mesh.getDBL());
 
   Real energyE_local = 0.0;
+  const Real cnormDt = a_dt*m_cvacNorm;
+  const Real factor = cnormDt*m_Jnorm_factor;
 
   const LevelData<EdgeDataBox>& masked_Ja_ec(m_mesh.getMaskedJec());
   for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -1159,9 +1189,10 @@ Real EMFields::electricFieldEnergy() const
       edge_box.enclosedCells(dir);
 
       const FArrayBox& this_E  = m_electricField[dit][dir];
+      const FArrayBox& this_J  = m_currentDensity[dit][dir];
       const FArrayBox& this_Ja = masked_Ja_ec[dit][dir];
       for (BoxIterator bit(edge_box); bit.ok(); ++bit) {
-        energyE_local += this_E(bit(),0)*this_E(bit(),0)*this_Ja(bit(),0);
+        energyE_local += this_E(bit(),0)*this_J(bit(),0)*this_Ja(bit(),0);
       }
     }
   }
@@ -1173,10 +1204,78 @@ Real EMFields::electricFieldEnergy() const
     node_box.surroundingNodes();
 
     const FArrayBox& this_E  = m_electricField_virtual[dit].getFab();
+    const FArrayBox& this_J  = m_currentDensity_virtual[dit].getFab();
     const FArrayBox& this_Ja = masked_Ja_nc[dit].getFab();
     for(int n=0; n<this_E.nComp(); n++) {
       for (BoxIterator bit(node_box); bit.ok(); ++bit) {
-        energyE_local += this_E(bit(),n)*this_E(bit(),n)*this_Ja(bit(),0);
+        energyE_local += this_E(bit(),n)*this_J(bit(),n)*this_Ja(bit(),0);
+      }
+    }
+  }
+#endif
+  
+  energyE_local = energyE_local*factor*m_energyE_factor; // [Joules]
+  
+  Real energyE_global = 0.0;
+#ifdef CH_MPI
+  MPI_Allreduce(  &energyE_local,
+                  &energyE_global,
+                  1,
+                  MPI_DOUBLE,
+                  MPI_SUM,
+                  MPI_COMM_WORLD );
+#else
+  energyE_global = energyE_local;
+#endif
+
+  return energyE_global;
+}
+
+Real EMFields::electricFieldEnergy( const bool  a_is_stag ) const
+{
+  CH_TIME("EMFields::electricFieldEnergy()");
+  const DisjointBoxLayout& grids(m_mesh.getDBL());
+ 
+  Real energyE_local = 0.0;
+
+  const LevelData<EdgeDataBox>& masked_Ja_ec(m_mesh.getMaskedJec());
+  for(DataIterator dit(grids); dit.ok(); ++dit) {
+    for(int dir=0; dir<SpaceDim; dir++) {
+      Box edge_box = grids[dit];
+      edge_box.surroundingNodes();
+      edge_box.enclosedCells(dir);
+      
+      const FArrayBox& this_Ja = masked_Ja_ec[dit][dir];
+      const FArrayBox& this_E  = m_electricField[dit][dir];
+      const FArrayBox& this_Eold  = m_electricField_old[dit][dir];
+      for (BoxIterator bit(edge_box); bit.ok(); ++bit) {
+        if (a_is_stag) { // E lives at half steps
+          energyE_local += this_E(bit(),0)*this_Eold(bit(),0)*this_Ja(bit(),0);
+        }
+        else {
+          energyE_local += this_E(bit(),0)*this_E(bit(),0)*this_Ja(bit(),0);
+        }
+      }
+    }
+  }
+  
+#if CH_SPACEDIM<3
+  const LevelData<NodeFArrayBox>& masked_Ja_nc(m_mesh.getMaskedJnc());
+  for(DataIterator dit(grids); dit.ok(); ++dit) {
+    Box node_box = grids[dit];
+    node_box.surroundingNodes();
+
+    const FArrayBox& this_Ja = masked_Ja_nc[dit].getFab();
+    const FArrayBox& this_E  = m_electricField_virtual[dit].getFab();
+    const FArrayBox& this_Eold  = m_electricField_virtual_old[dit].getFab();
+    for(int n=0; n<this_E.nComp(); n++) {
+      for (BoxIterator bit(node_box); bit.ok(); ++bit) {
+        if (a_is_stag) { // E lives at half steps
+          energyE_local += this_E(bit(),n)*this_Eold(bit(),n)*this_Ja(bit(),0);
+        }
+        else {
+          energyE_local += this_E(bit(),n)*this_E(bit(),n)*this_Ja(bit(),0);
+        }
       }
     }
   }
@@ -1199,7 +1298,7 @@ Real EMFields::electricFieldEnergy() const
   return energyE_global;
 }
 
-Real EMFields::magneticFieldEnergy() const
+Real EMFields::magneticFieldEnergy( const bool  a_is_stag ) const
 {
   CH_TIME("EMFields::magneticFieldEnergy()");
   const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -1211,11 +1310,16 @@ Real EMFields::magneticFieldEnergy() const
     for(int dir=0; dir<SpaceDim; dir++) {
       Box face_box = grids[dit];
       face_box.surroundingNodes(dir);
-
-      const FArrayBox& this_B  = m_magneticField[dit][dir];
       const FArrayBox& this_Ja = masked_Ja_fc[dit][dir];
+      const FArrayBox& this_B  = m_magneticField[dit][dir];
+      const FArrayBox& this_Bold  = m_magneticField_old[dit][dir];
       for (BoxIterator bit(face_box); bit.ok(); ++bit) {
-        energyB_local += this_B(bit(),0)*this_B(bit(),0)*this_Ja(bit(),0);
+        if (a_is_stag) { // B lives at half steps
+          energyB_local += this_B(bit(),0)*this_Bold(bit(),0)*this_Ja(bit(),0);
+        }
+        else {
+          energyB_local += this_B(bit(),0)*this_B(bit(),0)*this_Ja(bit(),0);
+        }
       }
     }
   }
@@ -1225,11 +1329,17 @@ Real EMFields::magneticFieldEnergy() const
   for(DataIterator dit(grids); dit.ok(); ++dit) {
     Box cell_box = grids[dit];
 
-    const FArrayBox& this_B  = m_magneticField_virtual[dit];
     const FArrayBox& this_Ja = Ja_cc[dit];
+    const FArrayBox& this_B  = m_magneticField_virtual[dit];
+    const FArrayBox& this_Bold  = m_magneticField_virtual_old[dit];
     for(int n=0; n<this_B.nComp(); n++) {
       for (BoxIterator bit(cell_box); bit.ok(); ++bit) {
-        energyB_local += this_B(bit(),n)*this_B(bit(),n)*this_Ja(bit(),0);
+        if (a_is_stag) { // B lives at half steps
+          energyB_local += this_B(bit(),n)*this_Bold(bit(),n)*this_Ja(bit(),0);
+        }
+        else {
+          energyB_local += this_B(bit(),n)*this_B(bit(),n)*this_Ja(bit(),0);
+        }
       }
     }
   }

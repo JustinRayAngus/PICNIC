@@ -20,7 +20,8 @@ class PICTimeIntegrator_DSMC : public PICTimeIntegrator
     virtual ~PICTimeIntegrator_DSMC() {}
 
     virtual 
-    void define( PicSpeciesInterface* const    a_pic_species,
+    void define( System* const   a_system,
+                 PicSpeciesInterface* const    a_pic_species,
                  EMFields* const  a_fields )
     {
       CH_assert(!isDefined());

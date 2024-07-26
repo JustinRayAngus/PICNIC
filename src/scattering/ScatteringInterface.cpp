@@ -127,7 +127,7 @@ ScatteringInterface::initialize( const PicSpeciesInterface&  a_pic_species_intf,
    if(!a_restart_file_name.empty() && m_scattering_ptr_vect.size()>0) {
 
       HDF5Handle handle( a_restart_file_name, HDF5Handle::OPEN_RDONLY );
-      readCheckpoint( handle );
+      readCheckpoint( handle, a_mesh );
       handle.close();
 
    }
@@ -274,39 +274,60 @@ ScatteringInterface::writeCheckpoint( HDF5Handle&  a_handle )
 {
    HDF5HeaderData header;
    
-   //const std::string& orig_group = a_handle.getGroup();
-
-   //const std::string groupName= std::string("scattering");
-   //a_handle.setGroup(groupName);
-      
    setScatteringProbes();
    header.m_real["izn_energy_joules"] = m_izn_energy_joules;
    header.m_real["exc_energy_joules"] = m_exc_energy_joules;
 
    setFusionProbes();
-   header.writeToFile(a_handle);
    header.m_real["fus_energy_joules"] = m_fus_energy_joules;
-   
-   //a_handle.setGroup(orig_group);
 
+   header.writeToFile(a_handle);
 }
 
 void 
-ScatteringInterface::readCheckpoint( HDF5Handle&  a_handle )
+ScatteringInterface::readCheckpoint( HDF5Handle&  a_handle,
+                               const DomainGrid&  a_mesh )
 {
    HDF5HeaderData header;
    
-   //const std::string& orig_group = a_handle.getGroup();
-   
-   //const std::string groupName= std::string("scattering");
-   //a_handle.setGroup(groupName);  
-
    header.readFromFile( a_handle );
    m_izn_energy_joules = header.m_real["izn_energy_joules"];
    m_exc_energy_joules = header.m_real["exc_energy_joules"];
    m_fus_energy_joules = header.m_real["fus_energy_joules"];
    
-   //a_handle.setGroup(orig_group); // doesnt work for some reason
+   if (m_num_fusion==0) { return; }
+
+   // read in the cummulative fusion products diagnostic
+   const DisjointBoxLayout& grids(a_mesh.getDBL());
+   int fusion_num = -1;
+   for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
+
+      ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+      if (this_scattering->getScatteringType()==FUSION) {
+
+         fusion_num += 1;
+         stringstream ssfn;
+         ssfn << "fusion_data_" << fusion_num;
+         const std::string groupName = ssfn.str();
+         a_handle.setGroup(groupName);
+
+         HDF5HeaderData group_header;
+         group_header.readFromFile( a_handle );
+
+         // assert that the fusion type in restart file matches that for this_scattering object
+         const std::string restart_fusion_type = group_header.m_string["fusion_type"];
+         const std::string this_fusion_type = this_scattering->getScatteringSubTypeName();
+         CH_assert(restart_fusion_type == this_fusion_type);
+
+         // read in the fusion product data
+         LevelData<FArrayBox>& fusionProducts = this_scattering->getFusionProducts();
+         LevelData<FArrayBox> fusionProducts_temp;
+         read(a_handle, fusionProducts_temp, "data", grids);
+         fusionProducts_temp.copyTo(fusionProducts);
+
+      }
+
+   }
 
 }
 

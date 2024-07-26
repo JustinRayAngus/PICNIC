@@ -19,6 +19,7 @@
 #include "DomainGrid.H"
 #include "CodeUnits.H"
 #include "EMFields.H"
+#include "Scattering.H"
 
 #ifdef CH_USE_TIMER
 #include "CH_Timer.H"
@@ -97,7 +98,18 @@ class dataFileIO
                                     const bool         a_write_energy_off_diag,
                                     const bool         a_write_energy_flux,
                                     const bool         a_write_nppc );
-      
+
+      void writeFusionProductsDataFile( const ScatteringPtrVect&  a_scattering_ptr_vect,
+                                        const int                 a_num_fusion,
+                                        const int                 a_cur_step,
+                                        const double              a_cur_time );
+
+      void writeFusionProducts( HDF5Handle&         a_handle,
+                          const ScatteringPtrVect&  a_scattering_ptr_vect );
+
+      void writeCheckpointFusion( HDF5Handle&         a_handle,
+                            const ScatteringPtrVect&  a_scattering_ptr_vect );
+
       void writeBinFabDataFile( const LevelData<BinFab<JustinsParticle>>&  a_Pdata,
                                 const int                      a_cur_step, 
                                 const double                   a_cur_time );

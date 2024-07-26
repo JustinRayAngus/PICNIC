@@ -4,7 +4,8 @@
 
 #include "NamespaceHeader.H"
 
-void PICTimeIntegrator_EM_ThetaImplicit::define( PicSpeciesInterface* const  a_pic_species,
+void PICTimeIntegrator_EM_ThetaImplicit::define( System* const               a_system,
+                                                 PicSpeciesInterface* const  a_pic_species,
                                                  EMFields* const             a_fields )
 {
   CH_assert(!isDefined());
@@ -269,21 +270,26 @@ void PICTimeIntegrator_EM_ThetaImplicit::computeRHS( ODEVector<EMFields>&  a_F,
   
   // this function is called from the nonlinear solvers
 
+#if CH_SPACEDIM==1
+   const Real full_dt = a_dt/m_theta;
+   m_fields->applyAbsorbingBCs( a_time, full_dt );
+#endif
+
   if (m_nlsolver_type == _NLSOLVER_PICARD_) {
     if (a_block == _EM_PICARD_B_FIELD_BLOCK_) {
-      m_fields->computeRHSMagneticField( a_time, a_dt );
+      m_fields->computeRHSMagneticField( a_dt );
       int offset = m_fields->vecOffsetBField();
       m_fields->copyBRHSToVec( a_F, offset );
     } else if (a_block == _EM_PICARD_E_FIELD_BLOCK_) {
-      m_fields->computeRHSElectricField( a_time, a_dt );
+      m_fields->computeRHSElectricField( a_dt );
       int offset = m_fields->vecOffsetEField();
       m_fields->copyERHSToVec( a_F, offset );
     }
   }
   else {
      m_fields->zeroRHS();
-     m_fields->computeRHSMagneticField( a_time, a_dt );
-     m_fields->computeRHSElectricField( a_time, a_dt );
+     m_fields->computeRHSMagneticField( a_dt );
+     m_fields->computeRHSElectricField( a_dt );
      int offset(0);
      m_fields->copyBRHSToVec( a_F, offset );
      m_fields->copyERHSToVec( a_F, offset );

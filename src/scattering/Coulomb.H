@@ -28,12 +28,10 @@ class Coulomb : public Scattering
                const WeightMethod  a_weight_method,
                const int&        a_verbosity )
          : Scattering(a_verbosity),
-           m_Nsubcycle_max(1),
            m_angular_scattering(TAKIZUKA),
            m_weight_method(PROBABILISTIC),
-           m_enforce_conservations(false),
-           m_sort_weighted_particles(false),
-           m_energy_fraction(0.05)
+           m_energy_fraction(0.05),
+           m_energy_fraction_max(0.5)
       {
          m_scatter_dt = DBL_MAX;
          m_Clog = 0.0;
@@ -46,12 +44,10 @@ class Coulomb : public Scattering
                const ParmParse&  a_pp_scatterC,
                const int   a_verbosity )
          : Scattering(a_verbosity),
-           m_Nsubcycle_max(1),
            m_angular_scattering(TAKIZUKA),
            m_weight_method(PROBABILISTIC),
-           m_enforce_conservations(false),
-           m_sort_weighted_particles(false),
-           m_energy_fraction(0.05)
+           m_energy_fraction(0.05),
+           m_energy_fraction_max(0.5)
       {
          m_scatter_dt = DBL_MAX;
          m_sp1 = a_sp1;
@@ -79,30 +75,38 @@ class Coulomb : public Scattering
             std::cout << "Coulomb scattering parameters:" << std::endl;
             std::cout << " species A name:         " << m_species1_name << std::endl;
             std::cout << " species B name:         " << m_species2_name << std::endl;
-            if(m_angular_scattering==TAKIZUKA) {
+            if (m_angular_scattering==TAKIZUKA) {
               std::cout << " angular scattering:     TAKIZUKA " << std::endl;
             }
-            if(m_angular_scattering==NANBU) {
+            else if (m_angular_scattering==NANBU) {
               std::cout << " angular scattering:     NANBU " << std::endl;
             }
-            if(m_weight_method==PROBABILISTIC) {
+            else if (m_angular_scattering==ISOTROPIC) {
+              std::cout << " angular scattering:     ISOTROPIC " << std::endl;
+            }
+            if (m_weight_method==PROBABILISTIC) {
               std::cout << " weight method:          PROBABILISTIC " << std::endl;
               std::cout << " NxN pairings:           " << (m_NxN?"true":"false") << std::endl;
               if (!m_NxN) {
                 std::cout << " NxN Nthresh =           " << m_NxN_Nthresh << std::endl;
               }
-              if(m_enforce_conservations) {
+              if (m_enforce_conservations) {
                 std::cout << " enforce conservations:  true" << std::endl;
-                std::cout << "    sort_weighted_particles " << m_sort_weighted_particles << std::endl;
-                std::cout << "    energy_fraction         " << m_energy_fraction << std::endl;
+                std::cout << "    print_correction_count  " << (m_print_correction_count?"true":"false") << std::endl;
+                std::cout << "    sort_weighted_particles " << (m_sort_weighted_particles?"true":"false") << std::endl;
+                std::cout << "    energy_fraction =       " << m_energy_fraction << std::endl;
+                std::cout << "    energy_fraction_max =   " << m_energy_fraction_max << std::endl;
+                std::cout << "    beta_weight_exponent =  " << m_beta_weight_exponent << std::endl;
               }
               else std::cout << " enforce conservations:  false" << std::endl;
             }
-            if(m_weight_method==CONSERVATIVE) {
+            if (m_weight_method==CONSERVATIVE) {
               std::cout << " weight method:          CONSERVATIVE " << std::endl;
             }
-            if(m_Clog>0.0) std::cout << " fixed Clog =            " << m_Clog << std::endl;
-            std::cout << " max subcycles           " << m_Nsubcycle_max << std::endl << std::endl;
+            if (m_Clog>0.0) {
+               std::cout << " fixed Clog =            " << m_Clog << std::endl;
+            }
+            std::cout << " num subcycles =         " << m_Nsubcycles << std::endl << std::endl;
          }
       }
       
@@ -114,7 +118,8 @@ class Coulomb : public Scattering
 
       enum ANGULAR_SCATTERING {
          TAKIZUKA,
-         NANBU 
+         NANBU,
+         ISOTROPIC
       };
 
       // scatter like species
@@ -164,6 +169,7 @@ class Coulomb : public Scattering
                       const std::array<Real,3>&  a_vp2,
                       const Real                 a_den12,
                       const Real                 a_bmax,
+                      const Real                 a_sigma_max,
                       const Real                 a_dt_sec ) const;
      
       void LorentzScatter( std::array<Real,3>&  a_up1,
@@ -173,6 +179,7 @@ class Coulomb : public Scattering
                      const long double          a_mass2,
                      const Real                 a_den12,
                      const Real                 a_bmax,
+                     const Real                 a_sigma_max,
                      const Real                 a_dt_sec ) const;
 
       // prohibit copying
@@ -191,23 +198,27 @@ class Coulomb : public Scattering
       {
         // a_pp.get( "speciesA", m_sp1 ); 
         // a_pp.get( "speciesB", m_sp2 );
-         if(a_pp.contains("coulomb_logarithm")) {
+         if (a_pp.contains("coulomb_logarithm")) {
             a_pp.get( "coulomb_logarithm", m_Clog ); 
             CH_assert(m_Clog>=2.0);
          }
-         a_pp.query( "max_subcycles", m_Nsubcycle_max ); CH_assert(m_Nsubcycle_max>0);
+         a_pp.query( "num_subcycles", m_Nsubcycles );
+         CH_assert(m_Nsubcycles>0);
          a_pp.query( "NxN", m_NxN );
          a_pp.query( "NxN_Nthresh", m_NxN_Nthresh );
         
          // look for specified scattering model
          std::string scatter_type_str;
          a_pp.query("angular_scattering",scatter_type_str);
-         if(!scatter_type_str.empty()) {
-            if(scatter_type_str=="TAKIZUKA" || scatter_type_str=="takizuka") {
+         if (!scatter_type_str.empty()) {
+            if (scatter_type_str=="TAKIZUKA" || scatter_type_str=="takizuka") {
                m_angular_scattering = TAKIZUKA;
             }
-            else if(scatter_type_str=="NANBU" || scatter_type_str=="nanbu") {
+            else if (scatter_type_str=="NANBU" || scatter_type_str=="nanbu") {
                m_angular_scattering = NANBU;
+            }
+            else if (scatter_type_str=="isotropic") {
+               m_angular_scattering = ISOTROPIC;
             }
             else {
                cout << "angular_scattering = " << scatter_type_str << endl;
@@ -219,11 +230,11 @@ class Coulomb : public Scattering
          // look for specified weighted particle method
          std::string weight_method_str;
          a_pp.query("weight_method",weight_method_str);
-         if(!weight_method_str.empty()) {
-            if(weight_method_str=="PROBABILISTIC" || weight_method_str=="probabilistic") {
+         if (!weight_method_str.empty()) {
+            if (weight_method_str=="PROBABILISTIC" || weight_method_str=="probabilistic") {
                m_weight_method = PROBABILISTIC;
             }
-            else if(weight_method_str=="CONSERVATIVE" || weight_method_str=="conservative") {
+            else if (weight_method_str=="CONSERVATIVE" || weight_method_str=="conservative") {
                m_weight_method = CONSERVATIVE;
             }
             else {
@@ -235,9 +246,13 @@ class Coulomb : public Scattering
 
          // these parameters are used for energy-conserving weighted particle method 
          a_pp.query("enforce_conservations",m_enforce_conservations);
-         if(m_enforce_conservations) {
+         if (m_enforce_conservations) {
+            a_pp.query("print_correction_count",m_print_correction_count);
             a_pp.query("sort_weighted_particles",m_sort_weighted_particles);
             a_pp.query("energy_fraction",m_energy_fraction);
+            a_pp.query("energy_fraction_max",m_energy_fraction_max);
+            a_pp.query("beta_weight_exponent",m_beta_weight_exponent);
+            CH_assert( m_beta_weight_exponent > 0 );
          }
 
       }
@@ -253,10 +268,12 @@ class Coulomb : public Scattering
       long double m_mass1;  // species 1 mass / electron mass
       long double m_mass2;  // species 2 mass / electron mass
       long double m_mu;     // reduced mass / electron mass = mass1*mass2/(mass1+mass2)
-      int m_Nsubcycle_max;  // maximum number of subcycling for weighted particle pairs
+      int m_Nsubcycles = 1;  // number of subcycling for scattering
       
       bool m_NxN = false;
       int m_NxN_Nthresh = 11;
+
+      mutable LevelData<FArrayBox> m_count;
 
       ANGULAR_SCATTERING m_angular_scattering;
       WeightMethod m_weight_method;
@@ -265,11 +282,13 @@ class Coulomb : public Scattering
       Real m_b90_fact, m_bqm_fact; 
 
       // member variables for energy-conserving method for weighted particle collisions
-      bool m_enforce_conservations;
-      bool m_sort_weighted_particles;
+      bool m_enforce_conservations = false;
+      bool m_print_correction_count = false;
+      bool m_sort_weighted_particles = false;
       Real m_energy_fraction;
-      int m_loop_count_max = 20; // hard coded for now
-      int m_conservation_Nmin_save = 20;
+      Real m_energy_fraction_max;
+      int m_beta_weight_exponent = 1;
+      int m_conservation_Nmin_save = 100;
 
       // preallocate some constants to avoid redeclaring many times
       mutable Real m_s12, m_costh, m_sinth, m_phi, m_cosphi, m_sinphi;
@@ -280,11 +299,11 @@ class Coulomb : public Scattering
 
          // costh = 1 + 1/A*ln[ 1 - rand()*(1-exp(-2*A)) ]
          // and A is found from coth(A) - 1/A = exp(-s12)
-         if(a_s12<0.1466) { 
+         if (a_s12<0.1466) {
             m_A12 = 1.0/(a_s12*(1.0 - a_s12/2.0 + a_s12*a_s12/6.0));
             m_costh = 1.0 + 1.0/m_A12*std::log(1.0 - MathUtils::rand()*(1.0-std::exp(-2.0*m_A12)));
          }
-         else if(a_s12<3.0) {
+         else if (a_s12<3.0) {
             m_s12sq = a_s12*a_s12;
             m_s12cu = a_s12*m_s12sq;
             m_A12 = 1.0/(0.0056958 + 0.9560202*a_s12 - 0.508139*m_s12sq
@@ -292,7 +311,7 @@ class Coulomb : public Scattering
                        + 0.02389567*m_s12cu*m_s12sq);
             m_costh = 1.0 + 1.0/m_A12*std::log(1.0 - MathUtils::rand()*(1.0-std::exp(-2.0*m_A12)));
          }
-         else if(a_s12<6.0) {
+         else if (a_s12<6.0) {
             m_A12 = 3.0*std::exp(-a_s12);
             m_costh = 1.0 + 1.0/m_A12*std::log(1.0 - MathUtils::rand()*(1.0-std::exp(-2.0*m_A12)));
          }
@@ -306,6 +325,7 @@ class Coulomb : public Scattering
                                const long double          a_wpmp1,
                                const long double          a_wpmp2,
                                     const double          a_mult,
+                                          double&         a_Erel_cumm,
                                      long double&         a_deltaE ) const
       { 
          // method to add/subtract a small percent of energy from a 
@@ -324,8 +344,25 @@ class Coulomb : public Scattering
          const Real uy = a_betap1[1] - a_betap2[1];
          const Real uz = a_betap1[2] - a_betap2[2];
          const long double usq = ux*ux + uy*uy + uz*uz;
+#ifdef RELATIVISTIC_PARTICLES
+         long double gbsq1 = 0.0;
+         for (int n=0; n<3; n++) { gbsq1 += a_betap1[n]*a_betap1[n]; }
+         long double gbsq2 = 0.0;
+         for (int n=0; n<3; n++) { gbsq2 += a_betap2[n]*a_betap2[n]; }
+         const long double gamma1 = std::sqrt(1.0 + gbsq1);
+         const long double gamma2 = std::sqrt(1.0 + gbsq2);
+         const long double E1 = a_wpmp1*gamma1;
+         const long double E2 = a_wpmp2*gamma2;
+         const long double Etot = E1 + E2;
+         const long double pxtot = a_wpmp1*a_betap1[0] + a_wpmp2*a_betap2[0];
+         const long double pytot = a_wpmp1*a_betap1[1] + a_wpmp2*a_betap2[1];
+         const long double pztot = a_wpmp1*a_betap1[2] + a_wpmp2*a_betap2[2];
+         const long double Ecm = std::sqrt(Etot*Etot - pxtot*pxtot - pytot*pytot - pztot*pztot);
+         const long double Erel = Ecm - a_wpmp1 - a_wpmp2;
+#else
          const long double Erel = muR/2.0*usq;
-         if (Erel==0.0) return;
+#endif
+         if (Erel<=0.0) return;
 
          long double deltaE = sign*m_energy_fraction*a_mult*Erel;
          if (std::abs(deltaE) > std::abs(a_deltaE)) {
@@ -333,8 +370,34 @@ class Coulomb : public Scattering
             a_deltaE = 0.0;
          }
          else { a_deltaE -= deltaE; }
-         const long double uprime_over_u = std::sqrt(1.0 - deltaE/Erel);
+         a_Erel_cumm += Erel - deltaE;
 
+#ifdef RELATIVISTIC_PARTICLES
+         const long double A = Etot - deltaE;
+         const long double D = A*A + E2*E2 - E1*E1;
+         const long double p2dotu = a_wpmp2*(a_betap2[0]*ux + a_betap2[1]*uy + a_betap2[2]*uz);
+         const long double ptdotu = pxtot*ux + pytot*uy + pztot*uz;
+
+         // compute coefficients for quadratic equation for alpha
+         const long double a = A*A*usq - ptdotu*ptdotu;
+         const long double b = D*ptdotu - 2*A*A*p2dotu;
+         const long double c = A*A*E2*E2 - D*D/4.0;
+
+         const long double root = b*b - 4.0*a*c;
+         CH_assert( root >= 0.0 );
+         const long double alpha = (-b + std::sqrt(root))/(2.0*a);
+
+         // update particle velocities
+         const long double ratio1 = alpha/a_wpmp1;
+         const long double ratio2 = alpha/a_wpmp2;
+         a_betap1[0] += ratio1*ux;
+         a_betap1[1] += ratio1*uy;
+         a_betap1[2] += ratio1*uz;
+         a_betap2[0] -= ratio2*ux;
+         a_betap2[1] -= ratio2*uy;
+         a_betap2[2] -= ratio2*uz;
+#else
+         const long double uprime_over_u = std::sqrt(1.0 - deltaE/Erel);
          std::array<Real,3> deltaU;
          deltaU[0] = uprime_over_u*ux - ux;
          deltaU[1] = uprime_over_u*uy - uy;
@@ -344,7 +407,7 @@ class Coulomb : public Scattering
             a_betap1[n] += muR/a_wpmp1*deltaU[n];
             a_betap2[n] -= muR/a_wpmp2*deltaU[n];
          }
-
+#endif
       }
                      
       inline void enforceEnergyConservation( std::array<Real,3>& a_betap, 
@@ -362,7 +425,7 @@ class Coulomb : public Scattering
          const Real Eafter2 = a_mass/2.0*betap_mag;
          betap_mag = std::sqrt(betap_mag);
          betap_r = std::sqrt(betap_r);
-         if(a_Eafter<Eafter2) return; // can happen for particles where weights are off to machine precision 
+         if (a_Eafter<Eafter2) return; // can happen for particles where weights are off to machine precision
          const Real dbeta_perp_mag = std::sqrt(2.0/a_mass*(a_Eafter - Eafter2));
          m_phi = Constants::TWOPI*MathUtils::rand();
          m_cosphi = cos(m_phi);
@@ -373,6 +436,46 @@ class Coulomb : public Scattering
 
          // add delta beta correction
          for (int n=0; n<3; n++) { a_betap[n] += dbeta_perp[n]; }
+
+      }
+
+      inline void printCorrectionCount() const
+      {
+
+         Real count_avg_local = 0.0;
+         const DisjointBoxLayout& grids = m_count.disjointBoxLayout();
+         for (DataIterator dit(grids); dit.ok(); ++dit) {
+            Box cell_box = grids[dit];
+            IntVect range;
+            for (int dir=0; dir<SpaceDim; dir++) {
+               range[dir] = cell_box.bigEnd(dir) - cell_box.smallEnd(dir);
+            }
+            const Real num_cells = range.product();
+            const FArrayBox& this_count = m_count[dit];
+            for (BoxIterator bit(cell_box); bit.ok(); ++bit) {
+               count_avg_local += this_count(bit(),0);
+            }
+            count_avg_local = count_avg_local/num_cells;
+         }
+
+         Real count_avg_global = 0.0;
+#ifdef CH_MPI
+         MPI_Reduce( &count_avg_local,
+                     &count_avg_global,
+                     1,
+                     MPI_DOUBLE,
+                     MPI_SUM,
+                     0,
+                     MPI_COMM_WORLD );
+#else
+         count_avg_global = avg_local;
+#endif
+
+         if (procID()==0) {
+            double count_avg = count_avg_global / (double)numProc();
+            cout << "JRA: numProc() = " << numProc() << endl;
+            cout << "JRA: count_avg = " << count_avg << endl;
+         }
 
       }
 

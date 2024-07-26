@@ -82,6 +82,7 @@ void FieldBC::parseParameters( ParmParse&  a_pp )
                     m_bc_type[b] == "insulator_conductor" );
          if (m_bc_type[b]=="insulator_conductor") {
             m_InsulatorBC[b] = RefCountedPtr<InsulatorBC> (new InsulatorBC(b,m_bdry_name[b],m_mesh));
+            if (m_absorbing_bc==false) { m_absorbing_bc = m_InsulatorBC[b]->isAbsorbing(); }
          }
          if (m_bc_type[b]=="axis" && !m_mesh.axisymmetric()) m_bc_type[b] = "symmetry";
          if (m_bc_type[b]=="symmetry" && m_mesh.axisymmetric()) {
@@ -108,6 +109,36 @@ void FieldBC::printParameters() const
       }
       std::cout << "===============================================" << std::endl << std::endl;
    }
+}
+
+void FieldBC::applyAbsorbingBCs( LevelData<FArrayBox>&      a_Bv,
+                           const LevelData<NodeFArrayBox>&  a_Evold,
+                           const LevelData<NodeFArrayBox>&  a_Jvmid,
+                           const Real                       a_Jnorm,
+                           const Real                       a_time,
+                           const Real                       a_cvacDt )
+{
+   CH_TIME("FieldBC::applyAbsorbingBCs()");
+
+   if (m_absorbing_bc==false) return;
+
+   // This BC only works for 1D planar so far
+   CH_assert(!m_mesh.axisymmetric());
+
+   // apply absorbing insulator BCs to cell variable virtual B
+   const BoundaryBoxLayoutPtrVect& all_bdry_layouts = m_mesh.getBoundaryLayout();
+   for (int b(0); b<all_bdry_layouts.size(); b++) {
+      const BoundaryBoxLayout& bdry_layout( *(all_bdry_layouts[b]) );
+      const std::string this_bc_type (m_bc_type[b]);
+      if (this_bc_type=="insulator_conductor") {
+         if (m_InsulatorBC[b]->isAbsorbing()) {
+            FieldBCUtils::setAbsorbingBC_Bv( a_Bv, a_Evold, a_Jvmid,
+                               m_mesh, bdry_layout, *m_InsulatorBC[b],
+                               a_Jnorm, a_time, a_cvacDt );
+         }
+      }
+   }
+
 }
 
 void FieldBC::applyCellBC( LevelData<FArrayBox>&   a_dst,

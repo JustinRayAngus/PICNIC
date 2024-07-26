@@ -12,6 +12,7 @@
 
 typedef std::string PICTIType;
 
+class System;
 class PICTimeIntegrator
 {
   public:
@@ -20,7 +21,8 @@ class PICTimeIntegrator
 
     virtual ~PICTimeIntegrator() {}
 
-    virtual void define( PicSpeciesInterface* const, 
+    virtual void define( System* const,
+                         PicSpeciesInterface* const, 
                          EMFields* const ) = 0;
 
     virtual void initialize( const std::string&  a_restart_file_name ) { }

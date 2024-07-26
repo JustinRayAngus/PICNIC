@@ -7,6 +7,7 @@
 #include "Ramp0D.H"
 #include "Table0D.H"
 #include "SinSq0D.H"
+#include "GaussianPulse0D.H"
 #include "Constant0D.H"
 
 #include "NamespaceHeader.H"
@@ -48,6 +49,9 @@ RefCountedPtr<TimeFunction> TimeFunctionFactory::create(
    }
    else if (model == "sinsq" || model == "SINSQ") {
       result = RefCountedPtr<TimeFunction>( new SinSq0D( a_pp, a_verbosity ) );
+   }
+   else if (model == "gaussian_pulse") {
+      result = RefCountedPtr<TimeFunction>( new GaussianPulse0D( a_pp, a_verbosity ) );
    }
    else if (model == "constant") {
       result = RefCountedPtr<TimeFunction>( new Constant0D( a_pp, a_verbosity ) );

@@ -4,7 +4,8 @@
 
 #include "NamespaceHeader.H"
 
-void PICTimeIntegrator_EM_SemiImplicit::define( PicSpeciesInterface* const  a_pic_species,
+void PICTimeIntegrator_EM_SemiImplicit::define( System* const               a_system,
+                                                PicSpeciesInterface* const  a_pic_species,
                                                 EMFields* const             a_fields )
 {
   CH_assert(!isDefined());
@@ -141,15 +142,15 @@ void PICTimeIntegrator_EM_SemiImplicit::preTimeStep(  const Real a_time,
   // advance magnetic field to half time-step ahead
   if (a_step == 0) {
     const Real halfDt = 0.5*a_dt;
-    m_fields->computeRHSMagneticField( a_time, halfDt );
+    m_fields->computeRHSMagneticField( halfDt );
     m_fields->copyBRHSToVec( m_FB );
     m_B = m_Bold + m_FB;
-  } else { m_B = 2.0*m_B - m_Bold; }
-  const Real half_time = a_time + a_dt/2.0;
-  m_fields->updatePhysicalState( m_B, half_time, b_only );
+  } 
 
   m_Eold = m_E;
   m_Bold = m_B;
+  m_fields->setBoldFromB(); // needed for energy diagnostic
+  m_fields->setEoldFromE(); // needed for absorbing BC
    
   // update old particle values and create inflow particles  
   for (int sp=0; sp<num_species; sp++) {
@@ -226,12 +227,11 @@ void PICTimeIntegrator_EM_SemiImplicit::timeStep( const Real a_old_time,
   const Real new_time = a_old_time + a_dt;
   m_fields->updatePhysicalState( m_E, new_time, e_only );
   
-  // perform halfDt advance of Bg to go from half_time to new_time
-  const Real halfDt = 0.5*a_dt;
-  m_fields->computeRHSMagneticField( new_time, halfDt );
+  // advance of Bg n+1/2 to n+3/2
+  m_fields->computeRHSMagneticField( a_dt );
   m_fields->copyBRHSToVec( m_FB );
   m_B = m_Bold + m_FB;
-  m_fields->updatePhysicalState( m_B, new_time, b_only );
+  m_fields->updatePhysicalState( m_B, new_time + a_dt/2.0, b_only );
 
   // update particles from half_time to new_time
   for (int sp=0; sp<num_species; sp++) {
@@ -287,7 +287,11 @@ void PICTimeIntegrator_EM_SemiImplicit::computeRHS( ODEVector<EMFields>&  a_F,
 
   // this function is called from the nonlinear solver
 
-  m_fields->computeRHSElectricField( a_time, a_dt );
+#if CH_SPACEDIM==1
+  m_fields->applyAbsorbingBCs( a_time, 2.0*a_dt ); // a_dt here is actually a_dt/2.0
+#endif
+
+  m_fields->computeRHSElectricField( a_dt );
   m_fields->copyERHSToVec( a_F );
 
 }

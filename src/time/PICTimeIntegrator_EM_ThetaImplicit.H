@@ -38,7 +38,8 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     }
 
     virtual 
-    void define( PicSpeciesInterface* const,
+    void define( System* const,
+                 PicSpeciesInterface* const,
                  EMFields* const );
     
     virtual void printParams() const;
@@ -56,6 +57,7 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
                              const int   a_step )
     {
       m_Uold = m_U;
+      m_fields->setEoldFromE(); // needed for absorbing BC
       m_nl_iter = 0;
 
       // update solver verbosity 
