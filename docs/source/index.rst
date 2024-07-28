@@ -8,12 +8,20 @@
 PICNIC
 -----
 
-PICNIC is a framework for advanced, time-based, **electromagnetic & electrostatic Particle-In-Cell** code.
+PICNIC is a framework for implementing and using advanced **Particle-In-Cell** and **Monte-Carlo collision** methods.
 
-It supports many features including:
+The following electromagnetic PIC time solvers are implemented:
 
-    - implicit energy-conserving methods
-    - collisions
+    - explicit leap frog
+    - energy-conserving semi-implicit
+    - energy-conserving fully implicit
+
+It has modules for the following collisional processes:
+
+    - Coulomb collision
+    - charge-exchange
+    - elastic collisions between neutrals (hard sphere and variable hard sphere)
+    - null method for electron tranport in a gas (elastic, ionization, and excitation)
 
 PICNIC documentation
 ====================
