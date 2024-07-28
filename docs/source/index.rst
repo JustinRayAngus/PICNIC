@@ -3,6 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+:orphan:
+
+PICNIC
+-----
+
+PICNIC is a framework for advanced, time-based, **electromagnetic & electrostatic Particle-In-Cell** code.
+
+It supports many features including:
+
+    - implicit energy-conserving methods
+    - collisions
+
 PICNIC documentation
 ====================
 
