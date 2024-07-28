@@ -36,8 +36,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx_copybutton',
-    'sphinx_design',
-    'sphinxcontrib.bibtex'
+    #'sphinxcontrib.bibtex'
+    'sphinx_design'
  ]
 
 templates_path = ['_templates']
