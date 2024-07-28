@@ -8,15 +8,15 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-
+#
 import os
 import subprocess
 import sys
 import urllib.request
 
-#import pybtex.plugin
+import pybtex.plugin
 import sphinx_rtd_theme
-#from pybtex.style.formatting.unsrt import Style as UnsrtStyle
+from pybtex.style.formatting.unsrt import Style as UnsrtStyle
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
