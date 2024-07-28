@@ -37,3 +37,12 @@ language = 'english'
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+# Set the theme options if needed
+html_theme_options = {
+    'collapse_navigation': False,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}
