@@ -14,9 +14,9 @@ import subprocess
 import sys
 import urllib.request
 
-import pybtex.plugin
+#import pybtex.plugin
 import sphinx_rtd_theme
-from pybtex.style.formatting.unsrt import Style as UnsrtStyle
+#from pybtex.style.formatting.unsrt import Style as UnsrtStyle
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -30,6 +30,7 @@ release = '1.0'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'sphinx_rtd_theme',
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
