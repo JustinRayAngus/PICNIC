@@ -21,7 +21,8 @@ It has modules for the following collisional processes:
     - Coulomb collision
     - charge-exchange
     - elastic collisions between neutrals (hard sphere and variable hard sphere)
-    - null method for electron tranport in a gas (elastic, ionization, and excitation)
+    - null method for electron tranport in a gas (elastic + excitation + ionization)
+    - nuclear fusion
 
 The code supports the following geometries:
 
