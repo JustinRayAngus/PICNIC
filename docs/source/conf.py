@@ -37,7 +37,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx_copybutton',
     #'sphinxcontrib.bibtex'
-    'sphinx_design'
+    'sphinx_design',
+    'breathe'
  ]
 
 templates_path = ['_templates']
