@@ -30,15 +30,16 @@ The code supports the following geometries:
     - 1D/2D axisymmetric cylindrical
     - 1D axisymmetric spherical
 
-PICNIC documentation
-====================
-
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
-
-
+Installation
+------------
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :caption: INSTALLATION
+   :maxdepth: 1
+   :hidden:
 
+Data Analysis
+-------------
+.. toctree::
+   :caption: DATA ANALYSIS
+   :maxdepth: 1
+   :hidden:
