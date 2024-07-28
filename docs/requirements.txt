@@ -2,3 +2,5 @@ breathe
 recommonmark
 sphinx
 sphinx-rtd-theme
+sphinx-copybutton
+sphinx-design
