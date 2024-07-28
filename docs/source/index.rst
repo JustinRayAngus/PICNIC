@@ -23,6 +23,12 @@ It has modules for the following collisional processes:
     - elastic collisions between neutrals (hard sphere and variable hard sphere)
     - null method for electron tranport in a gas (elastic, ionization, and excitation)
 
+The code supports the following geometries:
+
+    - 1D/2D planar
+    - 1D/2D axisymmetric cylindrical
+    - 1D axisymmetric spherical
+
 PICNIC documentation
 ====================
 
