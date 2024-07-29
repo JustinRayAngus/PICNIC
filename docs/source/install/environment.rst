@@ -10,7 +10,7 @@ Building PICNIC requires setting environement variables for various compilers an
 compilers
 ----
 
-Set the following environment variables for compilers.
+Set the following environment variables for compilers:
 
 .. code-block:: bash
 
@@ -24,7 +24,7 @@ Set the following environment variables for compilers.
    export MPIF77=$(which mpif77)
    export MPIF90=$(which mpif90)
 
-If installing on LC, these mpi and fortran compilers should be pre-installed. If installing on a personal mac, these comilers can be intalled using brew: 
+If installing on LC, these mpi and fortran compilers should be pre-installed. If installing on a personal mac, these compilers can be intalled using brew:
 
 .. code-block:: bash
 
