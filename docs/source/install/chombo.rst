@@ -1,5 +1,9 @@
 .. _install-chombo:
 
+.. only:: html
+
+   .. image:: chombo_image.jpeg
+
 Obtaining Chombo
 =====
 
@@ -15,6 +19,10 @@ Obtaining Chombo
        float: left;
    }
    </style>
+
+.. only:: html
+
+   .. image:: chombo_image.jpeg
 
 PICNIC uses the Chombo library for data containers and efficient MPI-handling.
 Chombo is developed and maintained by LBL-ANAG. Information about Chombo and
