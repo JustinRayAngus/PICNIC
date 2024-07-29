@@ -38,8 +38,6 @@ The code supports the following geometries:
    install/chombo
    install/environment
 
-Data Analysis
--------------
 .. toctree::
    :caption: DATA ANALYSIS
    :maxdepth: 1
