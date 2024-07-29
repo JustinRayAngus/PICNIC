@@ -51,6 +51,20 @@ If installing on a personal mac, hdf5 can be intalled using brew. We need the mp
 
    brew install hdf5-mpi
 
+The default configuration can be viewed using
+
+.. code-block:: bash
+
+   h5pcc -showconfig
+
+This command will show you the installation point. For me, it is /opt/homebrew/Cellar/hdf5-mpi/1.14.3. Use this path for the environment variables:
+
+.. code-block:: bash
+
+   HDF5_DIR=/opt/homebrew/Cellar/hdf5-mpi/1.14.3
+   export HDF5_DIR_SERIAL="${HDF5_DIR}"
+   export HDF5_DIR_PARALLEL="${HDF5_DIR}"
+
 Libraries
 ----
 
