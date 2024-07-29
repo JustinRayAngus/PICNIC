@@ -5,7 +5,7 @@
 Environment variables
 =====
 
-Building PICNIC requires setting environment variables for various compilers and paths. The environment variables below can be placed in your .bashrc file. 
+Building PICNIC requires pre-installing various compilers/programs and setting corresponding environment variables. The environment variables below can be placed in your .bashrc file. 
 
 Compilers
 ----
