@@ -31,6 +31,26 @@ If installing on LC, these mpi and fortran compilers should be pre-installed. If
    brew install gcc
    brew install open-mpi
 
+HDF5
+----
+
+PICNIC uses the HDF5 format for particles and grid quantities. On LC, set the following environment variables for HDF5:
+
+.. code-block:: bash
+
+   H5DIFF_SUFFIX=/bin/h5diff
+   module load hdf5-parallel/$hdf5_version
+   H5DIFF_PATH=$(which h5diff)
+   HDF5_DIR=${H5DIFF_PATH%$H5DIFF_SUFFIX}
+   export HDF5_DIR_SERIAL="${HDF5_DIR}"
+   export HDF5_DIR_PARALLEL="${HDF5_DIR}"
+
+If installing on a personal mac, hdf5 can be intalled using brew. We need the mpi compatible version (which requires first having open-mpi following instructions above):
+
+.. code-block:: bash
+
+   brew install hdf5-mpi
+
 Libraries
 ----
 
