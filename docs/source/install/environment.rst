@@ -75,3 +75,9 @@ The following environment variables are need for Chombo and PETSc:
    export CHOMBO_DIR="path/to/Chombo"
    export PETSC_DIR="path/to/petsc"
    export PETSC_ARCH="arch-opt"
+
+When installing gcc on Mac OS using brew, I have found that the directory containing the fortran libraries (e.g., libgfortran.a) are in a non-trival location and one has to manually specify this location in the Make.defs.local file. This can be done using an environment variable. When I install gcc using brew on Mac with Sonoma 14.5, I use:
+
+.. code-block:: bash
+
+   export FORT_LIB_DIR="/opt/homebrew/Cellar/gcc/14.1.0_2/lib/gcc/current"
