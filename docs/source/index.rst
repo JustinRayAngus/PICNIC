@@ -36,6 +36,7 @@ The code supports the following geometries:
    :hidden:
 
    install/chombo
+   install/environment
 
 Data Analysis
 -------------
