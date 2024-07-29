@@ -1,14 +1,5 @@
 .. _install-chombo:
 
-.. only:: html
-
-   .. image:: chombo_image.jpeg
-
-Obtaining Chombo
-=====
-
-.. raw:: html
-
    <style>
    .rst-content section>img {
        width: 30px;
@@ -23,6 +14,9 @@ Obtaining Chombo
 .. only:: html
 
    .. image:: chombo_image.jpeg
+
+Obtaining Chombo
+=====
 
 PICNIC uses the Chombo library for data containers and efficient MPI-handling.
 Chombo is developed and maintained by LBL-ANAG. Information about Chombo and
