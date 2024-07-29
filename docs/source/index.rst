@@ -37,7 +37,7 @@ Installation
    :maxdepth: 1
    :hidden:
 
-   install/Chombo
+   install/chombo
 
 Data Analysis
 -------------

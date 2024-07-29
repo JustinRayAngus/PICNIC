@@ -1,9 +1,7 @@
-.. _install-Chombo:
+.. _install-chombo:
 
---------------------
 Obtaining Chombo
-#=====
---------------------
+=====
 
 .. raw:: html
 
