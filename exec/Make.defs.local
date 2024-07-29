@@ -9,7 +9,21 @@ PROFILE=FALSE
 MPI=TRUE
 
 # main compiler/linker options
-XTRALIBFLAGS+= -llapack  -lblas
+
+# use below for Mac OS. Must define environment variable
+# FORT_LIB_DIR to point to directory where fortran libraries
+# live. I.e., where libgfortran.a lives
+#XTRALIBFLAGS+= -L$(FORT_LIB_DIR) -lgfortran -llapack -lblas
+
+# use below for LLNL LC
+XTRALIBFLAGS+= -lgfortran -llapack -lblas
+
+# use below for systems using intel MKL
+#XTRALIBFLAGS+= -L$(MKLROOT)/lib/intel64 -Wl,--start-group \
+#               $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a \
+#               $(MKLROOT)/lib/intel64/libmkl_core.a \
+#               $(MKLROOT)/lib/intel64/libmkl_sequential.a \
+#               -Wl,--end-group -lpthread -lm -ldl
 
 # Chombo optional features
 USE_64=TRUE#        #64bit pointers
