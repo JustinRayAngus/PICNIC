@@ -39,7 +39,7 @@ If this is the first time you are checking out chombo, you may need to checkout 
 Specify the path to chombo
 ----
 
-There is no need to configure or build Chombo. The libraries needed by PICNIC will be built during the initial compilation of PICNIC. An environment variable CHOMBO_DIR that points to the chombo directory is exected by PICNIC at compile time. As an alternative, one may manually specify the path to chombo/lib in the exec/GNUmakefile.
+There is no need to configure or build Chombo. The libraries needed by PICNIC will be built during the initial compilation of PICNIC. An environment variable CHOMBO_DIR that points to the chombo directory is exected by PICNIC at compile time. As an alternative, one may manually specify the path to chombo/lib in the picnic/exec/GNUmakefile.
 
 Chombo Make.defs.local file
 ----
