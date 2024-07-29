@@ -1,11 +1,11 @@
-.. _install-environement:
+.. _install-environment:
 
 .. only::html
 
-Environement variables
+Environment variables
 =====
 
-Building PICNIC requires setting environement variables for various compilers and paths. The environment variables below can be placed in your .bashrc file. 
+Building PICNIC requires setting environment variables for various compilers and paths. The environment variables below can be placed in your .bashrc file. 
 
 compilers
 ----
