@@ -72,6 +72,6 @@ The following environment variables are need for Chombo and PETSc:
 
 .. code-block:: bash
 
-   export CHOMBO_DIR="path/to/chombo/"
-   export PETSC_DIR="path/to/petsc/"
+   export CHOMBO_DIR="path/to/Chombo"
+   export PETSC_DIR="path/to/petsc"
    export PETSC_ARCH="arch-opt"
