@@ -44,12 +44,12 @@ There is no need to configure or build Chombo. The libraries needed by PICNIC wi
 Chombo Make.defs.local file
 ----
 
-Chombo requires a machine-specific Make.defs.local file to be placed in the chombo/lib/mk/ folder. There is one in the picnic/exec/ folder that works for LC clusters Ruby and Dane at Lawrence Livermore National Laboratory. Copy this file into chombo/lib/mk/ prior to compiling.
+Chombo requires a machine-specific Make.defs.local file to be placed in the chombo/lib/mk/ folder. There is one in the picnic/exec/ folder that works for LC clusters Ruby and Dane at Lawrence Livermore National Laboratory. Copy this file into the chombo/lib/mk/ directory prior to compiling.
 
 Cleaning Chombo
 ----
 
-When running into compile issues, it is often necessary to clean the Chombo libraries. This is done using
+When running into compile issues, it can be necessary to clean the Chombo libraries. This is done using
 
 .. code-block:: bash
 
