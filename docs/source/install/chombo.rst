@@ -1,5 +1,7 @@
 .. _install-chombo:
 
+.. raw::html
+
    <style>
    .rst-content section>img {
        width: 30px;
