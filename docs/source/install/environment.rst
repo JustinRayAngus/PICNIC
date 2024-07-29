@@ -7,7 +7,7 @@ Environment variables
 
 Building PICNIC requires setting environment variables for various compilers and paths. The environment variables below can be placed in your .bashrc file. 
 
-compilers
+Compilers
 ----
 
 Set the following environment variables for compilers:
@@ -31,7 +31,7 @@ If installing on LC, these mpi and fortran compilers should be pre-installed. If
    brew install gcc
    brew install open-mpi
 
-libraries
+Libraries
 ----
 
 The following environment variables are need for Chombo and PETSc:
