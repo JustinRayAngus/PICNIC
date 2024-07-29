@@ -37,6 +37,8 @@ Installation
    :maxdepth: 1
    :hidden:
 
+   install/Chombo
+
 Data Analysis
 -------------
 .. toctree::
