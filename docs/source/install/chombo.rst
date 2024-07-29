@@ -61,4 +61,4 @@ When running into compile issues, it can be necessary to clean the Chombo librar
 .. code-block:: bash
 
    cd path/to/Chombo/lib/
-   make distclean
+   make realclean
