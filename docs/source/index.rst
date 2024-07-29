@@ -30,8 +30,6 @@ The code supports the following geometries:
     - 1D/2D axisymmetric cylindrical
     - 1D axisymmetric spherical
 
-Installation
-------------
 .. toctree::
    :caption: INSTALLATION
    :maxdepth: 1
