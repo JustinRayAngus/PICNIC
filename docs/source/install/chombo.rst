@@ -4,7 +4,7 @@
 
    <style>
    .rst-content section>img {
-       width: 30px;
+       width: 20px;
        margin-bottom: 0;
        margin-top: 0;
        margin-right: 15px;
