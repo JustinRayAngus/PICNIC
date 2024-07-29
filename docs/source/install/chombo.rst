@@ -27,7 +27,7 @@ instructions for dowloading can be found at <https://commons.lbl.gov/display/cho
 Obtaining Chombo
 ----
 
-Chombo is controlled using svn. Checking out Chombo require registering for an anag-repo account at https://anag-repo.lbl.gov. To check out Chombo: 
+Chombo is controlled using svn. Checking out Chombo requires registering for an anag-repo account at https://anag-repo.lbl.gov. To check out Chombo: 
 
 .. code-block:: bash
 
@@ -42,7 +42,11 @@ If this is the first time you are checking out Chombo, you may need to checkout 
 Specify the path to Chombo
 ----
 
-There is no need to configure or build Chombo. The libraries needed by PICNIC will be built during the initial compilation of PICNIC. An environment variable CHOMBO_DIR that points to the Chombo directory is exected by PICNIC at compile time.
+There is no need to configure or build Chombo. The libraries needed by PICNIC will be built during the initial compilation of PICNIC. An environment variable CHOMBO_DIR that points to the Chombo directory is expected by PICNIC at compile time:
+
+.. code-block:: bash
+
+   export CHOMBO_DIR = path/to/chombo/
 
 Chombo Make.defs.local file
 ----
