@@ -22,7 +22,7 @@ import sphinx_rtd_theme
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'PICNIC'
-copyright = '2024, Justin Ray Angus'
+copyright = '2024, PICNIC developers'
 author = 'Justin Ray Angus'
 release = '1.0'
 
