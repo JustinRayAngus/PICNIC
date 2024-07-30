@@ -20,12 +20,12 @@
 PETSc
 =====
 
-PICNIC employs several implicit time integrators that use JFNK. The PETSc library is used for both nonlinear (SNES) and linear solvers.
+PICNIC employs several implicit time integrators that use JFNK. The PETSc library (https://petsc.org/release/) is used for both nonlinear (https://petsc.org/main/manual/snes/) and linear (https://petsc.org/main/manual/ksp/) solvers.
 
 Obtaining PETSc
 ----
 
-To checkout PETSc:
+Checkout the main development branch of PETSc:
 
 .. code-block:: bash
 
@@ -34,18 +34,21 @@ To checkout PETSc:
 Set environment variables for PETSc
 ----
 
+The following environment variables need to be set for PICNIC to use PETSc. PICNIC can work without PETSc, you just wont be able to use their efficient linear solvers. Simply to not define PETSC_DIR or undefine it prioer to compiling PICNIC in order to compile without PETSc.
+
 .. code-block:: bash
 
    export PETSC_DIR="path/to/petsc/"
    export PETSC_ARCH="arch-opt"
 
-Configure PETSc to with appropriate linear solvers:
-
 Configure PETSc
 ----
+
+Configure/make PETSc with appropriate linear solvers needed by PICNIC:
 
 .. code-block:: bash
 
    cd $PETSC_DIR
    ./configure --with-batch --with-cc=mpicc --with-fc=mpif90 --with-cxx=mpicxx COPTFLAGS="-O2 -std=c99" FOPTFLAGS="-O2" CXXOPTFLAGS="-O2" --with-shared-libraries --with-debugging=0 --download-make --download-cmake --download-hypre --download-superlu --download-superlu_dist --download-parmetis --download-metis --with-cxx-dialect=C++11
+   make all
 
