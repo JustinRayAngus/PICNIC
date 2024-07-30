@@ -10,7 +10,7 @@ Building PICNIC requires pre-installing various compilers/programs and setting c
 Compilers
 ----
 
-If installing on LC, mpi and the various compilers should be pre-installed. If installing on a personal mac, fortran compilers and mpi can be intalled using brew:
+If installing on LC, mpi and the various compilers should be pre-installed. If installing on a personal mac, fortran compilers and mpi can be installed using brew:
 
 .. code-block:: bash
 
@@ -31,7 +31,7 @@ After installation, set the following environment variables for compilers:
    export MPIF77=$(which mpif77)
    export MPIF90=$(which mpif90)
 
-When installing gcc on Mac OS using brew, I have found that the directory containing the fortran libraries (e.g., libgfortran.a) are in a non-trival location and one has to manually specify this location in the Make.defs.local file. This can be done using an environment variable. When I install gcc using brew on Mac with Sonoma 14.5, I use:
+When installing gcc on Mac OS using brew, I have found that the directory containing the fortran libraries (e.g., libgfortran.a) are in a non-trival location and one has to manually specify this location in the Make.defs.local file used by Chombo. This can be done using an environment variable. When I install gcc using brew on Mac with Sonoma 14.5, I use:
 
 .. code-block:: bash
 
@@ -51,7 +51,7 @@ PICNIC uses the HDF5 format for parallel writing of particles and grid quantitie
    export HDF5_DIR_SERIAL="${HDF5_DIR}"
    export HDF5_DIR_PARALLEL="${HDF5_DIR}"
 
-If installing on a personal mac, hdf5 can be intalled using brew. We need the mpi compatible version (which requires first having open-mpi following instructions above):
+If installing on a personal mac, HDF5 can be intalled using brew. We need the mpi compatible version (which requires first having open-mpi following instructions above):
 
 .. code-block:: bash
 
