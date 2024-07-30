@@ -38,6 +38,7 @@ The code supports the following geometries:
    install/chombo
    install/prerequisites
    install/petsc
+   install/picnic
 
 .. toctree::
    :caption: DATA ANALYSIS
