@@ -37,6 +37,7 @@ The code supports the following geometries:
 
    install/chombo
    install/environment
+   install/petsc
 
 .. toctree::
    :caption: DATA ANALYSIS
