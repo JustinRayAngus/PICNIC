@@ -29,12 +29,12 @@ Checkout the main development branch of PETSc:
 
 .. code-block:: bash
 
-   git clone -b https://gitlab.com/petsc/petsc.git petsc
+   git clone https://gitlab.com/petsc/petsc.git petsc
 
 Set environment variables for PETSc
 ----
 
-The following environment variables need to be set for PICNIC to use PETSc. PICNIC can work without PETSc, you just wont be able to use their efficient linear solvers. Simply to not define PETSC_DIR or undefine it prioer to compiling PICNIC in order to compile without PETSc.
+The following environment variables need to be set for PICNIC to use PETSc. PICNIC can work without PETSc, you just wont be able to use their efficient linear solvers. Simply to not define PETSC_DIR or undefine it prior to compiling PICNIC in order to compile without PETSc.
 
 .. code-block:: bash
 
@@ -44,7 +44,7 @@ The following environment variables need to be set for PICNIC to use PETSc. PICN
 Configure PETSc
 ----
 
-Configure/make PETSc with appropriate linear solvers needed by PICNIC:
+Configure PETSc with appropriate linear solvers needed by PICNIC and then build:
 
 .. code-block:: bash
 
