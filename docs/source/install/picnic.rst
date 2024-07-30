@@ -5,18 +5,18 @@
 PICNIC
 =====
 
-Once you have performed the instrutions in Chombo, Prerequisites, and PETSc (if using PETSc), then follow the instructions here to build PICNIC.
+Once you have performed the instructions in Chombo, Prerequisites, and PETSc (if using PETSc), then follow the instructions here to obtain and build PICNIC.
 
 Obtaining PICNIC
 ----
 
-Checkout PICNIC from LC's czgitlab:
+If you have an LC czgitlab account, checkout PICNIC from LC's czgitlab:
 
 .. code-block:: bash
 
    git clone ssh://git@czgitlab.llnl.gov:7999/angus1/picnic.git PICNIC
 
-Or, if you don't have an czgitlab account on LC, checkout PICNIC from personal github page:
+Or, if you don't have an czgitlab account on LC, checkout PICNIC from github:
 
 .. code-block:: bash
 
@@ -34,9 +34,9 @@ Build PICNIC in 1D and in 2D geometries.
 
 .. code-block:: bash
 
-   cd path/to/picnic/exec/
-   make -j all MPI=TRUE DEBUG=FALSE DIM=1
-   make -j all MPI=TRUE DEBUG=FALSE DIM=2
+   cd path/to/PICNIC/exec/
+   make -j all MPI=TRUE DEBUG=FALSE OPT=TRUE DIM=1
+   make -j all MPI=TRUE DEBUG=FALSE OPT=TRUE DIM=2
 
-The various axisymmetric geometries are used by specifying so in the input file at run time.
+The various axisymmetric geometries available are used by specifying them in the input file at run time.
 
