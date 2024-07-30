@@ -36,7 +36,7 @@ The code supports the following geometries:
    :hidden:
 
    install/chombo
-   install/environment
+   install/prerequisites
    install/petsc
 
 .. toctree::

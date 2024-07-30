@@ -34,7 +34,7 @@ Checkout the main development branch of PETSc:
 Set environment variables for PETSc
 ----
 
-The following environment variables need to be set for PICNIC to use PETSc. PICNIC can work without PETSc, you just wont be able to use their efficient linear solvers. Simply to not define PETSC_DIR or undefine it prior to compiling PICNIC in order to compile without PETSc.
+The following environment variables need to be set for PICNIC to use PETSc. PICNIC can work without PETSc, you just wont be able to use their efficient linear solvers. Simply do not define PETSC_DIR or undefine it prior to compiling PICNIC to compile without PETSc.
 
 .. code-block:: bash
 

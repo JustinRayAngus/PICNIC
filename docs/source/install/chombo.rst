@@ -46,7 +46,7 @@ There is no need to configure or build Chombo. The libraries needed by PICNIC wi
 
 .. code-block:: bash
 
-   export CHOMBO_DIR="path/to/chombo/"
+   export CHOMBO_DIR="path/to/Chombo/"
 
 Chombo Make.defs.local file
 ----
