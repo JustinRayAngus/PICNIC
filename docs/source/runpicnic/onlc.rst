@@ -19,7 +19,7 @@ The simplest way to run PICNIC on the LC is directly from the command line. This
 
 .. code-block:: bash
 
-   srun-n4 -ppdebug path/to/picnic/exec/picnic.ex physics.in
+   srun -n4 -ppdebug path/to/picnic/exec/picnic.ex physics.in
 
 where path/to/picnic.ex is the path to the appropriate picnic executable. The verbose information from the simulation will print directly to the screen during run time. To run in the backgroud and have the simulation information write to a text file, run using
 
