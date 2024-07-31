@@ -20,7 +20,7 @@
 PETSc
 =====
 
-PICNIC employs several implicit time integrators that use JFNK. The PETSc library (https://petsc.org/release/) is used for both nonlinear (https://petsc.org/main/manual/snes/) and linear (https://petsc.org/main/manual/ksp/) solvers.
+PICNIC employs several implicit time integrators. The Jacobian-Free Newton-Krylov (JFNK) method is used to efficiently advance the nonlinear field-particle system when using large time steps. The PETSc library (https://petsc.org/release/) is used for both nonlinear (https://petsc.org/main/manual/snes/) and linear (https://petsc.org/main/manual/ksp/) solvers.
 
 Obtaining PETSc
 ----
