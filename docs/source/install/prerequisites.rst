@@ -13,10 +13,11 @@ Compilers
 If installing on the LC, mpi and the various compilers are pre-installed. However, the default versions may not be the correct ones. The correct versions can be loaded using:
 
 .. code-block:: bash
+
    module load gcc/10.3.1-magic
    module load mvapich2/2.3.7
 
-If installing on a Mac, fortran compilers and mpi can be installed using brew:
+These can be placed near the top of your .bashrc file. If installing on a Mac, fortran compilers and mpi can be installed using brew:
 
 .. code-block:: bash
 
