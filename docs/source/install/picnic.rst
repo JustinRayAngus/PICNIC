@@ -14,18 +14,18 @@ If you have an LC czgitlab account, checkout PICNIC from LC's czgitlab:
 
 .. code-block:: bash
 
-   git clone ssh://git@czgitlab.llnl.gov:7999/angus1/picnic.git PICNIC
+   git clone ssh://git@czgitlab.llnl.gov:7999/angus1/picnic.git picnic
 
 Or, if you don't have an czgitlab account on LC, checkout PICNIC from github:
 
 .. code-block:: bash
 
-   git clone https://github.com/JustinRayAngus/PICNIC.git PICNIC
+   git clone https://github.com/JustinRayAngus/PICNIC.git picnic
 
 Make.defs.local
 ----
 
-Make sure the Make.defs.local file in PICNIC/exec/ folder is placed in Chombo/lib/mk folder and set approporatiely at described in the Chombo installation instructions. 
+Make sure the Make.defs.local file in picnic/exec/ folder is placed in Chombo/lib/mk folder and set approporatiely at described in the Chombo installation instructions. 
 
 Build PICNIC
 ----
@@ -34,7 +34,7 @@ Build PICNIC in 1D and in 2D geometries.
 
 .. code-block:: bash
 
-   cd path/to/PICNIC/exec/
+   cd path/to/picnic/exec/
    make -j all MPI=TRUE DEBUG=FALSE OPT=TRUE DIM=1
    make -j all MPI=TRUE DEBUG=FALSE OPT=TRUE DIM=2
 

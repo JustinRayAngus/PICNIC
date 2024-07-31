@@ -10,7 +10,13 @@ Building PICNIC requires pre-installing various compilers/programs and setting c
 Compilers
 ----
 
-If installing on LC, mpi and the various compilers should be pre-installed. If installing on a personal mac, fortran compilers and mpi can be installed using brew:
+If installing on the LC, mpi and the various compilers are pre-installed. However, the default versions may not be the correct ones. The correct versions can be loaded using:
+
+.. code-block:: bash
+   module load gcc/10.3.1-magic
+   module load mvapich2/2.3.7
+
+If installing on a Mac, fortran compilers and mpi can be installed using brew:
 
 .. code-block:: bash
 
@@ -44,14 +50,14 @@ PICNIC uses the HDF5 format for parallel writing of particles and grid quantitie
 
 .. code-block:: bash
 
-   H5DIFF_SUFFIX=/bin/h5diff
    module load hdf5-parallel/$hdf5_version
+   H5DIFF_SUFFIX=/bin/h5diff
    H5DIFF_PATH=$(which h5diff)
    HDF5_DIR=${H5DIFF_PATH%$H5DIFF_SUFFIX}
    export HDF5_DIR_SERIAL="${HDF5_DIR}"
    export HDF5_DIR_PARALLEL="${HDF5_DIR}"
 
-If installing on a personal mac, HDF5 can be intalled using brew. We need the mpi compatible version (which requires first having open-mpi following instructions above):
+If installing on a Mac, HDF5 can be intalled using brew. We need the mpi compatible version (which requires first having open-mpi following instructions above):
 
 .. code-block:: bash
 
