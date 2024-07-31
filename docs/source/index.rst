@@ -41,6 +41,9 @@ The code supports the following geometries:
    install/picnic
 
 .. toctree::
-   :caption: DATA ANALYSIS
+   :caption: Run PICNIC
    :maxdepth: 1
    :hidden:
+
+   runpicnic/onlc
+
