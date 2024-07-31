@@ -35,8 +35,8 @@ The code supports the following geometries:
    :maxdepth: 1
    :hidden:
 
-   install/chombo
    install/prerequisites
+   install/chombo
    install/petsc
    install/picnic
 
