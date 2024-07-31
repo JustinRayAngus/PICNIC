@@ -30,7 +30,7 @@ where path/to/picnic.ex is the path to the appropriate picnic executable. The ve
 Running using a job script
 ----
 
-For larger jobs, it is best to submit them to the appropriate queue using a job script. An example job script for running with 8 MPI ranks on the debug queue is
+For larger jobs, it is best to submit them to the appropriate queue using a job script. An example job script for running with 8 MPI ranks on the debug queue for a maximum of 10 minutes is
 
 .. code-block:: bash
 
