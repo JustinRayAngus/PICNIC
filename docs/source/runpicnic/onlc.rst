@@ -5,12 +5,12 @@
 Run PICNIC on LC
 =====
 
-PICNIC can be run the CPU-based LC clusters Ruby and Dane. To see information about these machines and limits for jobs on their debug and batch queues, one can type
+PICNIC can be run on the CPU-based LC clusters Ruby and Dane. To see information about these machines and limits for jobs on their debug and batch queues, one can type
 
 .. code-block:: bash
 
-   news job.lim.dane
    news job.lim.ruby
+   news job.lim.dane
 
 Directly from the command line
 ----
