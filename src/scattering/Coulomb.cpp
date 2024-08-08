@@ -384,7 +384,7 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
 
    // predefine some variables
    int numCell, Naa;
-   Real numDen, den12, bmax, sigma_max, cellV_SI, wpMax, wpMin;
+   Real numDen, den12, bmax, sigma_max, cellV_SI, wpMax;
 
    // loop over lists in each cell and test shuffle
    const DisjointBoxLayout& grids = data_binfab_ptr.disjointBoxLayout();
@@ -708,7 +708,7 @@ void Coulomb::applyIntraScattering_SK08( PicSpecies&            a_picSpecies,
 
    // predefine some variables
    int numCell, Naa;
-   Real numDen, den12, bmax, sigma_max, cellV_SI, wpMax, wpMin, Escatter_sum, Ebefore;
+   Real numDen, den12, bmax, sigma_max, cellV_SI, wpMax, Escatter_sum, Ebefore;
    std::array<Real,3> betap_sum, betap_before;
  
    // loop over lists in each cell and test shuffle
@@ -901,7 +901,7 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
  
    // predefine some variables
    int numCell1, numCell2, Nmax, Nmin;
-   Real numDen1, wpMax, wpMin;
+   Real numDen1, wpMax;
    Real numDen2, den12, bmax, sigma_max, cellV_SI;
 
    // loop over lists in each cell and test shuffle
@@ -1344,7 +1344,7 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                            part2_ptr = lit2().getPointer();
                            const std::array<Real,3>& betap_old = part2_ptr->velocity_old();
                            std::array<Real,3>& betap = part2_ptr->velocity();
-                     //      for (int n=0; n<3; n++) { betap[n] = betap_old[n]; }
+                           for (int n=0; n<3; n++) { betap[n] = betap_old[n]; }
                         }
                      }
                      break;
@@ -1401,7 +1401,7 @@ void Coulomb::applyInterScattering_SK08( PicSpecies&            a_picSpecies1,
  
    // predefine some variables
    int numCell1, numCell2, Nmax, Nmin;
-   Real numDen1, wpMax, wpMin;
+   Real numDen1, wpMax;
    Real numDen2, den12, bmax, sigma_max, cellV_SI;
    Real Escatter_sum, Ebefore;
    std::array<Real,3> betap_sum, betap_before;

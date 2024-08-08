@@ -362,7 +362,7 @@ class Coulomb : public Scattering
 #else
          const long double Erel = muR/2.0*usq;
 #endif
-         if (Erel<=0.0) return;
+         if (Erel<=0.0) { return; }
 
          long double deltaE = sign*m_energy_fraction*a_mult*Erel;
          if (std::abs(deltaE) > std::abs(a_deltaE)) {
@@ -384,7 +384,7 @@ class Coulomb : public Scattering
          const long double c = A*A*E2*E2 - D*D/4.0;
 
          const long double root = b*b - 4.0*a*c;
-         CH_assert( root >= 0.0 );
+         if (root < 0.0 || a == 0.0) { return; }
          const long double alpha = (-b + std::sqrt(root))/(2.0*a);
 
          // update particle velocities

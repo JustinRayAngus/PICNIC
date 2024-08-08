@@ -1566,9 +1566,6 @@ void dataFileIO::writeFusionProductsDataFile( const ScatteringPtrVect&  a_scatte
         cout << "writing fusion diagnostic file for fusion products" << std::endl;
     }
 
-    const DisjointBoxLayout& grids(m_mesh.getDBL());
-    const ProblemDomain& domain(m_mesh.getDomain());
-
     // create the species moment file
     std::string base_dir = dirPrefix("mesh");
     stringstream s;
