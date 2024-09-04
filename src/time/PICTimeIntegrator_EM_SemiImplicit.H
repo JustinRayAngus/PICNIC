@@ -19,12 +19,8 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
       m_pic_species = nullptr;
       m_fields = nullptr;
       
-      m_nlsolver_type = _NLSOLVER_PICARD_;
       m_nlsolver = nullptr;
       m_func = nullptr;
-
-      m_pc_update_freq = INT_MAX;
-      m_pc_update_newton = true;
 
       m_is_defined = false;
     }
@@ -110,14 +106,9 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
   protected:
 
     bool m_is_defined;
-    std::string m_nlsolver_type;
 
-    int m_pc_update_freq;
-    bool m_pc_update_newton;
-      
     int m_nl_iter = 0;
     mutable bool m_restart_pc_update_flag = true; // kluge to update pc on restart...
-
 
     PicSpeciesInterface*    m_pic_species;
     EMFields*  m_fields;

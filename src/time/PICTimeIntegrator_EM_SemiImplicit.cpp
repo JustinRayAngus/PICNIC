@@ -22,10 +22,19 @@ void PICTimeIntegrator_EM_SemiImplicit::define( System* const               a_sy
   m_Bold.define(m_B);
   m_FB.define(m_B);
 
-  ParmParse pp("pic_em_semi_implicit");
-  pp.query("solver_type", m_nlsolver_type);
-  pp.query("pc_update_freq", m_pc_update_freq);
-  pp.query("pc_update_newton", m_pc_update_newton);
+  // parse implicit solver parameters
+  ParmParse pp_old("pic_em_semi_implicit");
+  if (pp_old.contains("solver_type")) {
+    if (!procID()) {
+      std::cout << "EXIT FAILURE!!!" << std::endl;
+      std::cout << "Prefix pic_em_semi_implicit no longer accepted." << std::endl;
+      std::cout << "Use implicit_solver prefix instead." << std::endl << std::endl;
+    }
+    exit(EXIT_FAILURE);
+  }
+
+  ParmParse pp("implicit_solver");
+  parseCommonImplicitSolverParams( pp );
 
   //backward compatibility
   if (m_nlsolver_type=="petsc") m_nlsolver_type = _NLSOLVER_PETSCSNES_;

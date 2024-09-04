@@ -1,4 +1,4 @@
-#TEST np=36, timelimit=00:05:00
+TEST np=36, timelimit=00:05:00
 #####################################################
 # Verbosity and writing Definitions
 #####################################################
@@ -9,23 +9,20 @@ system.write_species_current_density = false
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
 
-#pic_em_theta_implicit.solver_type = "picard"
-#pic_em_theta_implicit.solver_type = "newton"
+#implicit_solver.solver_type = "picard"
+#implicit_solver.solver_type = "newton"
+implicit_solver.solver_type = "petsc"
+implicit_solver.pc_update_freq = 1
+implicit_solver.pc_update_newton = true
+jacobian.with_pc = false
+em_fields.pc_mass_matrix_width = 1
+em_fields.pc_mass_matrix_include_ij = true
 
 pic_species.iter_max_particles = 11
 pic_species.rtol_particles = 1.0e-10
 pic_species.quasi_freeze_particles_jacobian = false
 pic_species.use_mass_matrices = false
 pic_species.mod_init_advance = false
-
-pic_em_theta_implicit.pc_update_newton = true
-em_fields.pc_mass_matrix_width = 1
-em_fields.pc_mass_matrix_include_ij = true
-
-#pic_em_theta_implicit.solver_type = "newton"
-pic_em_theta_implicit.solver_type = "petsc"
-pic_em_theta_implicit.pc_update_freq = 1
-jacobian.with_pc = false
 
 newton.verbose = false
 newton.atol = 1.0e-12

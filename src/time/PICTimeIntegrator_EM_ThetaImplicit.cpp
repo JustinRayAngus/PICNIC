@@ -18,11 +18,21 @@ void PICTimeIntegrator_EM_ThetaImplicit::define( System* const               a_s
   m_Uold.define(m_U);
   m_U.printLoadBalanceInfo();
 
-  ParmParse pp("pic_em_theta_implicit");
+  // parse implicit solver parameters
+  ParmParse pp_old("pic_em_theta_implicit");
+  if (pp_old.contains("solver_type")) {
+    if (!procID()) {
+      std::cout << "EXIT FAILURE!!!" << std::endl;
+      std::cout << "Prefix pic_em_theta_implicit no longer accepted." << std::endl;
+      std::cout << "Use implicit_solver prefix instead." << std::endl << std::endl;
+    }
+    exit(EXIT_FAILURE);
+  }
+
+  ParmParse pp("implicit_solver");
+  parseCommonImplicitSolverParams( pp );
   pp.query("theta_parameter", m_theta);
-  pp.query("solver_type", m_nlsolver_type);
-  pp.query("pc_update_freq", m_pc_update_freq);
-  pp.query("pc_update_newton", m_pc_update_newton);
+  pp.query("ec_semi_implicit", m_ec_semi_implicit);
 
   //backward compatibility
   if (m_nlsolver_type=="petsc") m_nlsolver_type = _NLSOLVER_PETSCSNES_;
@@ -70,7 +80,6 @@ void PICTimeIntegrator_EM_ThetaImplicit::define( System* const               a_s
   
   // ec_semi_implicit is for predictor-corrector method that achieves
   // exact energy conservation, but only approximate charge conservation
-  pp.query("ec_semi_implicit", m_ec_semi_implicit);
   if(m_ec_semi_implicit) {
     if(m_nlsolver_type==_NLSOLVER_PETSCSNES_ || m_nlsolver_type==_NLSOLVER_PICARD_) {
       if(!procID()) {

@@ -198,9 +198,22 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
    init_mass_matrices = true;
 #endif
 
-   if(!init_mass_matrices) return;
+   if (!init_mass_matrices) { return; }
    
-   if(!procID()) cout << "Initializing mass matrices..." << endl;
+   if (!procID()) { cout << "Initializing mass matrices..." << endl; }
+#ifdef RELATIVISTIC_PARTICLES
+   if (m_use_mass_matrices && a_emfields.advanceB()) {
+      // relativistic MM assumes Higuera-Cary pusher
+      for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
+         PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+         if (species->charge()==0) { continue; }
+         species->setHigueraCary(true);
+      }
+   }
+   if (!procID()) {
+      cout << "  using higuera-Cary for relativistic particles..." << endl;
+   }
+#endif
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const int ghosts(m_mesh.ghosts());

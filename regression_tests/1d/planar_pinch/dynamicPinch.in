@@ -26,14 +26,13 @@ pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
 pic_species.mod_init_advance = true
 
-pic_em_theta_implicit.pc_update_newton = true
+#implicit_solver.solver_type = "newton"
+implicit_solver.solver_type = "petsc"
+implicit_solver.pc_update_freq = 1
+implicit_solver.pc_update_newton = true
+jacobian.with_pc = true
 em_fields.pc_mass_matrix_width = 1
 em_fields.pc_mass_matrix_include_ij = true
-
-#pic_em_theta_implicit.solver_type = "newton"
-pic_em_theta_implicit.solver_type = "petsc"
-pic_em_theta_implicit.pc_update_freq = 1
-jacobian.with_pc = true
 
 newton.verbose = false
 newton.line_search.type = "basic"
@@ -46,6 +45,11 @@ gmres.verbose = false
 gmres.atol = 1.0e-12
 gmres.rtol = 1.0e-4
 gmres.maxits = 1000
+
+pc.pc_type = "asm"
+pc.pc_asm_overlap = 16
+pc.sub_pc_type = "ilu"
+pc.sub_pc_factor_levels = 2
 
 #####################################################
 # Time Stepping Definitions

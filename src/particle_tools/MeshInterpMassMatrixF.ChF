@@ -31,6 +31,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_INT[inert_type], 
      &                       CHF_CONST_REAL[inert_fact1], 
      &                       CHF_CONST_REAL[inert_fact2], 
+     &                       CHF_CONST_REAL[inert_fact3],
      &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp],
      &                       CHF_CONST_REALVECT[left_edge],
@@ -116,16 +117,17 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-      call compute_mm_kernals( fpx, fpy, fpz, 
+      call compute_mm_kernals( fpx, fpy, fpz,
      &                         fpxx, fpxy, fpxz,
      &                         fpyx, fpyy, fpyz,
      &                         fpzx, fpzy, fpzz,
      &                         Bpx, Bpy, Bpz,
      &                         qp, alphas, dx,
      &                         upoldx, upoldy, upoldz,
-     &                         upbarx, upbary, upbarz, 
-     &                         inert_type, inert_fact1, inert_fact2,
-     &                         anticyclic )
+     &                         upbarx, upbary, upbarz,
+     &                         inert_type,
+     &                         inert_fact1, inert_fact2, inert_fact3,
+     &                         xpbar(0), anticyclic )
 
 c     compute shift for off-diagonal matrices components
       do idir = 0, CH_SPACEDIM - 1
@@ -286,6 +288,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_INT[inert_type], 
      &                       CHF_CONST_REAL[inert_fact1], 
      &                       CHF_CONST_REAL[inert_fact2], 
+     &                       CHF_CONST_REAL[inert_fact3],
      &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp], 
      &                       CHF_CONST_REALVECT[left_edge],
@@ -385,8 +388,9 @@ c     compute the magnetic field at this particle
      &                         qp, alphas, dx,
      &                         upoldx, upoldy, upoldz,
      &                         upbarx, upbary, upbarz, 
-     &                         inert_type, inert_fact1, inert_fact2,
-     &                         anticyclic )
+     &                         inert_type,
+     &                         inert_fact1, inert_fact2, inert_fact3,
+     &                         xpbar(0), anticyclic )
 
 c     compute shift for off-diagonal matrices components
       do idir = 0, CH_SPACEDIM - 1
@@ -548,6 +552,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_INT[inert_type], 
      &                       CHF_CONST_REAL[inert_fact1], 
      &                       CHF_CONST_REAL[inert_fact2], 
+     &                       CHF_CONST_REAL[inert_fact3],
      &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp], 
      &                       CHF_CONST_INTVECT[bc_check_left],
@@ -626,16 +631,17 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-      call compute_mm_kernals( fpx, fpy, fpz, 
+      call compute_mm_kernals( fpx, fpy, fpz,
      &                         fpxx, fpxy, fpxz,
      &                         fpyx, fpyy, fpyz,
      &                         fpzx, fpzy, fpzz,
      &                         Bpx, Bpy, Bpz,
      &                         qp, alphas, dx,
      &                         upoldx, upoldy, upoldz,
-     &                         upbarx, upbary, upbarz, 
-     &                         inert_type, inert_fact1, inert_fact2,
-     &                         anticyclic )
+     &                         upbarx, upbary, upbarz,
+     &                         inert_type,
+     &                         inert_fact1, inert_fact2, inert_fact3,
+     &                         xpbar(0), anticyclic )
 
 c     determine how to set comps for xy, xz, yx, and zx components
       if(index(0)==index_stag(0)) then
@@ -853,6 +859,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_INT[inert_type], 
      &                       CHF_CONST_REAL[inert_fact1], 
      &                       CHF_CONST_REAL[inert_fact2], 
+     &                       CHF_CONST_REAL[inert_fact3],
      &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp],
      &                       CHF_CONST_INTVECT[bc_check_left],
@@ -933,16 +940,17 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-      call compute_mm_kernals( fpx, fpy, fpz, 
+      call compute_mm_kernals( fpx, fpy, fpz,
      &                         fpxx, fpxy, fpxz,
      &                         fpyx, fpyy, fpyz,
      &                         fpzx, fpzy, fpzz,
      &                         Bpx, Bpy, Bpz,
      &                         qp, alphas, dx,
      &                         upoldx, upoldy, upoldz,
-     &                         upbarx, upbary, upbarz, 
-     &                         inert_type, inert_fact1, inert_fact2,
-     &                         anticyclic )
+     &                         upbarx, upbary, upbarz,
+     &                         inert_type,
+     &                         inert_fact1, inert_fact2, inert_fact3,
+     &                         xpbar(0), anticyclic )
 
 c     precompute some weights 
 c      l0_stag = xpbar(0) - index_stag(0)*dx(0) - left_edge(0)
@@ -1244,6 +1252,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                       CHF_CONST_INT[inert_type], 
      &                       CHF_CONST_REAL[inert_fact1], 
      &                       CHF_CONST_REAL[inert_fact2], 
+     &                       CHF_CONST_REAL[inert_fact3],
      &                       CHF_CONST_INT[anticyclic], 
      &                       CHF_CONST_REAL[qp],
      &                       CHF_CONST_INTVECT[bc_check_left],
@@ -1351,16 +1360,17 @@ c     compute the magnetic field at this particle
         enddo;
       enddo]
 
-      call compute_mm_kernals( fpx, fpy, fpz, 
+      call compute_mm_kernals( fpx, fpy, fpz,
      &                         fpxx, fpxy, fpxz,
      &                         fpyx, fpyy, fpyz,
      &                         fpzx, fpzy, fpzz,
      &                         Bpx, Bpy, Bpz,
      &                         qp, alphas, dx,
      &                         upoldx, upoldy, upoldz,
-     &                         upbarx, upbary, upbarz, 
-     &                         inert_type, inert_fact1, inert_fact2,
-     &                         anticyclic )
+     &                         upbarx, upbary, upbarz,
+     &                         inert_type,
+     &                         inert_fact1, inert_fact2, inert_fact3,
+     &                         xpbar(0), anticyclic )
 
 c     loop over all the cells containing this particle cloud and deposit sigma_zz
       CHF_DTERM[
@@ -1883,10 +1893,12 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      &                               CHF_CONST_INT[inert_type], 
      &                               CHF_CONST_REAL[inert_fact1], 
      &                               CHF_CONST_REAL[inert_fact2], 
+     &                               CHF_CONST_REAL[inert_fact3],
+     &                               CHF_CONST_REAL[rpbar],
      &                               CHF_CONST_INT[anticyclic] ) 
       
       REAL_T volume, rhop, gammap_bar 
-      REAL_T Bpsq, arogp
+      REAL_T Bpsq, arogp, costh, sinth, cosph, sinph, rppol, Cp
 #ifdef MASS_MATRIX_TEST
       REAL_T upoldBp, rogp
 #endif
@@ -1894,17 +1906,58 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef RELATIVISTIC_PARTICLES
       REAL_T upnewx, upnewy, upnewz
       REAL_T gammap_old, gammap_new, gammap_tilde
+      REAL_T upnewr, upnewth, upnewph
       
       REAL_T gpx, gpy, gpz, upBp, gp_denom
       REAL_T upfpx, upfpy, upfpz
-      
+#endif
+
+      if(inert_type==2) then
+#if CH_SPACEDIM==2
+c       anticyclic 2DRZ geom: y<==>z
+        call compute_mm_kernals_cyl_car( fpx, fpz, fpy,
+     &                                   fpxx, fpxz, fpxy,
+     &                                   fpzx, fpzz, fpzy,
+     &                                   fpyx, fpyz, fpyy,
+     &                                   Bpx, Bpz, Bpy,
+     &                                   qp, alphas, dx,
+     &                                   upoldx, upoldz, upoldy,
+     &                                   upbarx, upbarz, upbary,
+     &                                   inert_fact1, inert_fact2 )
+#else
+        call compute_mm_kernals_cyl_car( fpx, fpy, fpz,
+     &                                   fpxx, fpxy, fpxz,
+     &                                   fpyx, fpyy, fpyz,
+     &                                   fpzx, fpzy, fpzz,
+     &                                   Bpx, Bpy, Bpz,
+     &                                   qp, alphas, dx,
+     &                                   upoldx, upoldy, upoldz,
+     &                                   upbarx, upbary, upbarz,
+     &                                   inert_fact1, inert_fact2 )
+#endif
+        RETURN
+      else if(inert_type==4) then
+        call compute_mm_kernals_sph_car( fpx, fpy, fpz,
+     &                                   fpxx, fpxy, fpxz,
+     &                                   fpyx, fpyy, fpyz,
+     &                                   fpzx, fpzy, fpzz,
+     &                                   Bpx, Bpy, Bpz,
+     &                                   qp, alphas, dx,
+     &                                   upoldx, upoldy, upoldz,
+     &                                   upbarx, upbary, upbarz,
+     &                                   inert_fact1, inert_fact2,
+     &                                   inert_fact3, rpbar )
+        RETURN
+      endif
+
+#ifdef RELATIVISTIC_PARTICLES
 c     compute relativistic factors
       upnewx= 2.0*upbarx - upoldx
       upnewy= 2.0*upbary - upoldy
       upnewz= 2.0*upbarz - upoldz
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
       gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
       gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
-      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
       gammap_tilde = 0.5*(gammap_old + gammap_new)
 #else
       gammap_bar = 1.0
@@ -1944,59 +1997,26 @@ c         Bpy = Bp[1], which is actually Bpz for anticyclic
       endif
 
 c     compute components of mass matrix kernals to deposit
-      if(inert_type==2) then
-c       CYL geometry with CYL_CAR pusher
-        Bpsq = inert_fact1*(Bpx*Bpx + Bpy*Bpy) + Bpz*Bpz
-        arogp = alphas*rhop/(1.0 + Bpsq)
-        
-        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
-        fpxy = inert_fact1*arogp*(inert_fact1*Bpx*Bpy + anticyclic*Bpz)
-        fpxz = inert_fact1*arogp*(Bpx*Bpz - anticyclic*Bpy)
+      Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
+      arogp = alphas*rhop/(1.0 + Bpsq)
 
-        fpyx = inert_fact1*arogp*(inert_fact1*Bpy*Bpx - anticyclic*Bpz)
-        fpyy = inert_fact1*arogp*(inert_fact1*Bpy*Bpy + 1.0)
-        fpyz = inert_fact1*arogp*(Bpy*Bpz + anticyclic*Bpx)
+      fpxx = arogp*(Bpx*Bpx + 1.0)
+      fpxy = arogp*(Bpx*Bpy + anticyclic*Bpz)
+      fpxz = arogp*(Bpx*Bpz - anticyclic*Bpy)
 
-        fpzx = inert_fact1*arogp*(Bpz*Bpx + anticyclic*Bpy)
-        fpzy = inert_fact1*arogp*(Bpz*Bpy - anticyclic*Bpx)
-        fpzz = arogp*(Bpz*Bpz + 1.0)
-      else if(inert_type==4) then
-c       SPH geometry with SPH_CAR pusher
-        Bpsq = inert_fact1*(Bpx*Bpx + Bpz*Bpz) + Bpy*Bpy
-        arogp = alphas*rhop/(1.0 + Bpsq)
-        
-        fpxx = inert_fact1*arogp*(inert_fact1*Bpx*Bpx + 1.0)
-        fpxy = inert_fact1*arogp*(Bpx*Bpy + anticyclic*Bpz)
-        fpxz = inert_fact1*arogp*(inert_fact1*Bpx*Bpz - anticyclic*Bpy)
+      fpyx = arogp*(Bpy*Bpx - anticyclic*Bpz)
+      fpyy = arogp*(Bpy*Bpy + 1.0)
+      fpyz = arogp*(Bpy*Bpz + anticyclic*Bpx)
 
-        fpyx = inert_fact1*arogp*(Bpy*Bpx - anticyclic*Bpz)
-        fpyy = arogp*(Bpy*Bpy + 1.0)
-        fpyz = inert_fact1*arogp*(Bpy*Bpz + anticyclic*Bpx)
-
-        fpzx = inert_fact1*arogp*(inert_fact1*Bpz*Bpx + anticyclic*Bpy)
-        fpzy = inert_fact1*arogp*(Bpz*Bpy - anticyclic*Bpx)
-        fpzz = inert_fact1*arogp*(inert_fact1*Bpz*Bpz + 1.0)
-      else
-        Bpsq = Bpx*Bpx + Bpy*Bpy + Bpz*Bpz
-        arogp = alphas*rhop/(1.0 + Bpsq)
-
-        fpxx = arogp*(Bpx*Bpx + 1.0)
-        fpxy = arogp*(Bpx*Bpy + anticyclic*Bpz)
-        fpxz = arogp*(Bpx*Bpz - anticyclic*Bpy)
-
-        fpyx = arogp*(Bpy*Bpx - anticyclic*Bpz)
-        fpyy = arogp*(Bpy*Bpy + 1.0)
-        fpyz = arogp*(Bpy*Bpz + anticyclic*Bpx)
-
-        fpzx = arogp*(Bpz*Bpx + anticyclic*Bpy)
-        fpzy = arogp*(Bpz*Bpy - anticyclic*Bpx)
-        fpzz = arogp*(Bpz*Bpz + 1.0)
-      endif
+      fpzx = arogp*(Bpz*Bpx + anticyclic*Bpy)
+      fpzy = arogp*(Bpz*Bpy - anticyclic*Bpx)
+      fpzz = arogp*(Bpz*Bpz + 1.0)
 
 #ifdef RELATIVISTIC_PARTICLES
 
-      if( gammap_bar>1.01 ) then
-c     modify mass matrix kernals for relativistic effects in Lorentz force
+      if( gammap_bar > 1.01 ) then
+c       modify mass matrix kernals for relativistic effects in Lorentz force
+
         upBp = upbarx*Bpx + upbary*Bpy + upbarz*Bpz
         gp_denom = gammap_bar**2 + Bpsq + upBp**2
         gpx = (Bpsq*upbarx - upBp*Bpx - anticyclic*(upbary*Bpz - upbarz*Bpy))/gp_denom
@@ -2018,7 +2038,7 @@ c     modify mass matrix kernals for relativistic effects in Lorentz force
         fpzz = fpzz + gpz*upfpz
 
 c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
-        gp_denom = gammap_bar*gammap_new
+        gp_denom = gammap_tilde*gammap_new
         gpx = -upbarx/gp_denom
         gpy = -upbary/gp_denom
         gpz = -upbarz/gp_denom
@@ -2056,5 +2076,405 @@ c     compute components of J0 kernals to deposit
 
       end
 
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  compute the mass matrix kernals for CYL_CAR pusher in cylindrical geometry
+c
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
+      subroutine compute_mm_kernals_cyl_car(
+     &                               CHF_REAL[fpr],
+     &                               CHF_REAL[fpth],
+     &                               CHF_REAL[fpz],
+     &                               CHF_REAL[fprr],
+     &                               CHF_REAL[fprth],
+     &                               CHF_REAL[fprz],
+     &                               CHF_REAL[fpthr],
+     &                               CHF_REAL[fpthth],
+     &                               CHF_REAL[fpthz],
+     &                               CHF_REAL[fpzr],
+     &                               CHF_REAL[fpzth],
+     &                               CHF_REAL[fpzz],
+     &                               CHF_REAL[Bpr],
+     &                               CHF_REAL[Bpth],
+     &                               CHF_REAL[Bpz],
+     &                               CHF_CONST_REAL[qp],
+     &                               CHF_CONST_REAL[alphas],
+     &                               CHF_CONST_REALVECT[dx],
+     &                               CHF_CONST_REAL[upoldx],
+     &                               CHF_CONST_REAL[upoldy],
+     &                               CHF_CONST_REAL[upoldz],
+     &                               CHF_CONST_REAL[upbarx],
+     &                               CHF_CONST_REAL[upbary],
+     &                               CHF_CONST_REAL[upbarz],
+     &                               CHF_CONST_REAL[costh],
+     &                               CHF_CONST_REAL[sinth] )
+
+      REAL_T volume, rhop, arogp, Bpsq
+      REAL_T upbarr, upbarth, Cp0
+      REAL_T gammap_bar, gammap_tilde, inv_gammap_bar
+
+#ifdef RELATIVISTIC_PARTICLES
+      REAL_T upnewx, upnewy, upnewz
+      REAL_T gammap_old, gammap_new
+      REAL_T upnewr, upnewth
+
+      REAL_T vpr, vpth, vpz
+      REAL_T hpr, hpth, hpz
+      REAL_T gpr, gpth, gpz, gp_denom
+
+      REAL_T gprr, gprth, gprz
+      REAL_T gpthr, gpthth, gpthz
+      REAL_T gpzr, gpzth, gpzz
+
+      REAL_T ap, bp, cp
+      REAL_T dp, ep, fp
+      REAL_T gp, hp, ip
+      REAL_T inv_det
+      REAL_T upfpr, upfpth, upfpz
+#endif
+
+c     compute time-centered mapped velocity
+      upbarr  =  costh*upbarx + sinth*upbary
+      upbarth = -sinth*upbarx + costh*upbary
+
+      Cp0 = costh*costh + sinth*sinth
+c      if (Cp0==zero) then
+c        print*, "JRA: Cp0 = ", Cp0
+c      endif
+
+#ifdef RELATIVISTIC_PARTICLES
+c     compute relativistic factors using CAR velocity
+      upnewx = 2.0*upbarx - upoldx
+      upnewy = 2.0*upbary - upoldy
+      upnewz = 2.0*upbarz - upoldz
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
+      gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
+      gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
+      gammap_tilde = 0.5*(gammap_old + gammap_new)
+#else
+      gammap_bar = 1.0
+      gammap_tilde = 1.0
+#endif
+      inv_gammap_bar = 1.0/gammap_bar
+
+c     compute rhop
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+      rhop = qp / volume / gammap_tilde
+
+c     compute components of J0 kernals to deposit
+      fpr  = rhop*upbarr
+      fpth = rhop*upbarth
+      fpz  = rhop*upbarz
+
+c     scale Bp by alphas/gammap_bar
+      Bpr  = alphas*Bpr*inv_gammap_bar
+      Bpth = alphas*Bpth*inv_gammap_bar
+      Bpz  = alphas*Bpz*inv_gammap_bar
+
+c     compute components of mass matrix kernals to deposit
+
+#ifdef RELATIVISTIC_PARTICLES
+      if( gammap_bar < 1.01 ) then
+c       Use non-relativistic calculation
+#endif
+
+        Bpsq = Cp0*(Bpr*Bpr + Bpth*Bpth) + Bpz*Bpz
+        arogp = alphas*rhop/(1.0 + Bpsq)
+
+        fprr  = Cp0*arogp*(Cp0*Bpr*Bpr + 1.0)
+        fprth = Cp0*arogp*(Cp0*Bpr*Bpth + Bpz)
+        fprz  = Cp0*arogp*(Bpr*Bpz - Bpth)
+
+        fpthr  = Cp0*arogp*(Cp0*Bpth*Bpr - Bpz)
+        fpthth = Cp0*arogp*(Cp0*Bpth*Bpth + 1.0)
+        fpthz  = Cp0*arogp*(Bpth*Bpz + Bpr)
+
+        fpzr  = Cp0*arogp*(Bpz*Bpr  + Bpth)
+        fpzth = Cp0*arogp*(Bpz*Bpth - Bpr)
+        fpzz  = arogp*(Bpz*Bpz + 1.0)
+
+#ifdef RELATIVISTIC_PARTICLES
+      else
+
+c       compute vpbar from upbar
+        vpr  = upbarr*inv_gammap_bar
+        vpth = upbarth*inv_gammap_bar
+        vpz  = upbarz*inv_gammap_bar
+
+c       compute vp x bp modified by Cp0
+        hpr  = vpth*Bpz - vpz*Cp0*Bpth
+        hpth = vpz*Cp0*Bpr - vpr*Bpz
+        hpz  = vpr*Bpth - vpth*Bpr
+
+c       compute tensor G coefficients
+        gprr   = hpr*vpr/Cp0
+        gprth  = hpr*vpth/Cp0
+        gprz   = hpr*vpz
+        gpthr  = hpth*vpr/Cp0
+        gpthth = hpth*vpth/Cp0
+        gpthz  = hpth*vpz
+        gpzr   = hpz*vpr/Cp0
+        gpzth  = hpz*vpth/Cp0
+        gpzz   = hpz*vpz
+
+c       compute 3x3 matrix coefficients
+c       [dur]    [a b c] [dEr]
+c       |duth| = |d e f| [dEth]
+c       [duz]    [g h i] [dEz]
+
+        ap = 1.0 + gprr
+        bp = gprth - Bpz
+        cp = gprz  + Cp0*Bpth
+        dp = gpthr + Bpz
+        ep = 1.0 + gpthth
+        fp = gpthz - Cp0*Bpr
+        gp = gpzr  - Bpth
+        hp = gpthr + Bpr
+        ip = 1.0 + gpzz
+
+        inv_det = alphas*rhop/(ap*(ep*ip - fp*hp) + bp*(fp*gp - dp*ip) + cp*(dp*hp - ep*gp))
+
+        fprr   = (ep*ip - fp*hp)*inv_det*Cp0
+        fprth  = (cp*hp - bp*ip)*inv_det*Cp0
+        fprz   = (bp*fp - cp*ep)*inv_det
+        fpthr  = (fp*gp - dp*ip)*inv_det*Cp0
+        fpthth = (ap*ip - cp*gp)*inv_det*Cp0
+        fpthz  = (cp*dp - ap*fp)*inv_det
+        fpzr   = (dp*hp - ep*gp)*inv_det*Cp0
+        fpzth  = (bp*gp - ap*hp)*inv_det*Cp0
+        fpzz   = (ap*ep - bp*dp)*inv_det
+
+c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
+        gp_denom = gammap_tilde*gammap_new
+        gpr  = -upbarr/gp_denom
+        gpth = -upbarth/gp_denom
+        gpz  = -upbarz/gp_denom
+
+        upnewr  =  costh*upnewx + sinth*upnewy
+        upnewth = -sinth*upnewx - costh*upnewy
+        upfpr  = (upnewr*fprr  + upnewth*fpthr)/Cp0  + upnewz*fpzr
+        upfpth = (upnewr*fprth + upnewth*fpthth)/Cp0 + upnewz*fpzth
+        upfpz  = (upnewr*fprz  + upnewth*fpthz)/Cp0  + upnewz*fpzz
+
+        fprr   = fprr   + gpr*upfpr
+        fprth  = fprth  + gpr*upfpth
+        fprz   = fprz   + gpr*upfpz
+        fpthr  = fpthr  + gpth*upfpr
+        fpthth = fpthth + gpth*upfpth
+        fpthz  = fpthz  + gpth*upfpz
+        fpzr   = fpzr   + gpz*upfpr
+        fpzth  = fpzth  + gpz*upfpth
+        fpzz   = fpzz   + gpz*upfpz
+
+      endif
+#endif
+
+      end
+
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c  compute the mass matrix kernals for SPH_CAR pusher in spherical geometry
+c
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      subroutine compute_mm_kernals_sph_car(
+     &                               CHF_REAL[fpr],
+     &                               CHF_REAL[fpth],
+     &                               CHF_REAL[fpph],
+     &                               CHF_REAL[fprr],
+     &                               CHF_REAL[fprth],
+     &                               CHF_REAL[fprph],
+     &                               CHF_REAL[fpthr],
+     &                               CHF_REAL[fpthth],
+     &                               CHF_REAL[fpthph],
+     &                               CHF_REAL[fpphr],
+     &                               CHF_REAL[fpphth],
+     &                               CHF_REAL[fpphph],
+     &                               CHF_REAL[Bpr],
+     &                               CHF_REAL[Bpth],
+     &                               CHF_REAL[Bpph],
+     &                               CHF_CONST_REAL[qp],
+     &                               CHF_CONST_REAL[alphas],
+     &                               CHF_CONST_REALVECT[dx],
+     &                               CHF_CONST_REAL[upoldx],
+     &                               CHF_CONST_REAL[upoldy],
+     &                               CHF_CONST_REAL[upoldz],
+     &                               CHF_CONST_REAL[upbarx],
+     &                               CHF_CONST_REAL[upbary],
+     &                               CHF_CONST_REAL[upbarz],
+     &                               CHF_CONST_REAL[xpbar],
+     &                               CHF_CONST_REAL[ypbar],
+     &                               CHF_CONST_REAL[zpbar],
+     &                               CHF_CONST_REAL[rpbar] )
+
+      REAL_T volume, rhop, arogp, Bpsq
+      REAL_T upbarr, upbarth, upbarph, Cp0
+      REAL_T rppol, costh, sinth, cosph, sinph
+      REAL_T gammap_bar, gammap_tilde, inv_gammap_bar
+
+#ifdef RELATIVISTIC_PARTICLES
+      REAL_T upnewx, upnewy, upnewz
+      REAL_T gammap_old, gammap_new
+      REAL_T upnewr, upnewth, upnewph
+
+      REAL_T vpr, vpth, vpph
+      REAL_T hpr, hpth, hpph
+      REAL_T gpr, gpth, gpph, gp_denom
+
+      REAL_T gprr, gprth, gprph
+      REAL_T gpthr, gpthth, gpthph
+      REAL_T gpphr, gpphth, gpphph
+
+      REAL_T ap, bp, cp
+      REAL_T dp, ep, fp
+      REAL_T gp, hp, ip
+      REAL_T inv_det
+      REAL_T upfpr, upfpth, upfpph
+#endif
+
+c     compute time-centered mapped velocity
+      rppol = sqrt(xpbar*xpbar + ypbar*ypbar)
+      costh = xpbar/rppol
+      sinth = ypbar/rppol
+      cosph = rppol/rpbar
+      sinph = zpbar/rpbar
+      upbarr  =  cosph*(costh*upbarx + sinth*upbary) + sinph*upbarz
+      upbarth = -sinth*upbarx + costh*upbary
+      upbarph = -sinph*(costh*upbarx + sinth*upbary) + cosph*upbarz
+
+      Cp0 = cosph*cosph + sinph*sinph
+c      if (Cp0==zero) then
+c        print*, "JRA: Cp0 = ", Cp0
+c      endif
+
+#ifdef RELATIVISTIC_PARTICLES
+c     compute relativistic factors using CAR velocity
+      upnewx = 2.0*upbarx - upoldx
+      upnewy = 2.0*upbary - upoldy
+      upnewz = 2.0*upbarz - upoldz
+      gammap_bar = sqrt(1.0 + upbarx**2 + upbary**2 + upbarz**2)
+      gammap_old = sqrt(1.0 + upoldx**2 + upoldy**2 + upoldz**2)
+      gammap_new = sqrt(1.0 + upnewx**2 + upnewy**2 + upnewz**2)
+      gammap_tilde = 0.5*(gammap_old + gammap_new)
+#else
+      gammap_bar = 1.0
+      gammap_tilde = 1.0
+#endif
+      inv_gammap_bar = 1.0/gammap_bar
+
+c     compute rhop
+      volume = CHF_DTERM[dx(0);*dx(1);*dx(2)]
+      rhop = qp / volume / gammap_tilde
+
+c     compute components of J0 kernals to deposit
+      fpr  = rhop*upbarr
+      fpth = rhop*upbarth
+      fpph = rhop*upbarph
+
+c     scale Bp by alphas/gammap_bar
+      Bpr  = alphas*Bpr*inv_gammap_bar
+      Bpth = alphas*Bpth*inv_gammap_bar
+      Bpph = alphas*Bpph*inv_gammap_bar
+
+c     compute components of mass matrix kernals to deposit
+
+#ifdef RELATIVISTIC_PARTICLES
+      if( gammap_bar < 1.01 ) then
+c       Use non-relativistic calculation
+#endif
+        Bpsq = Cp0*(Bpr*Bpr + Bpph*Bpph) + Bpth*Bpth
+        arogp = alphas*rhop/(1.0 + Bpsq)
+
+        fprr  = Cp0*arogp*(Cp0*Bpr*Bpr + 1.0)
+        fprth = Cp0*arogp*(Bpr*Bpth + Bpph)
+        fprph = Cp0*arogp*(Cp0*Bpr*Bpph - Bpth)
+
+        fpthr  = Cp0*arogp*(Bpth*Bpr - Bpph)
+        fpthth = arogp*(Bpth*Bpth + 1.0)
+        fpthph = Cp0*arogp*(Bpth*Bpph + Bpr)
+
+        fpphr  = Cp0*arogp*(Cp0*Bpph*Bpr  + Bpth)
+        fpphth = Cp0*arogp*(Bpph*Bpth - Bpr)
+        fpphph = Cp0*arogp*(Cp0*Bpph*Bpph + 1.0)
+
+#ifdef RELATIVISTIC_PARTICLES
+      else
+
+c       compute vpbar from upbar
+        vpr  = upbarr*inv_gammap_bar
+        vpth = upbarth*inv_gammap_bar
+        vpph = upbarph*inv_gammap_bar
+
+c       compute vp x bp modified by Cp0
+        hpr  = vpth*Cp0*Bpph - vpph*Bpth
+        hpth = vpph*Bpr - vpr*Bpph
+        hpph = vpr*Bpth - vpth*Cp0*Bpr
+
+c       compute tensor G coefficients
+        gprr   = hpr*vpr/Cp0
+        gprth  = hpr*vpth
+        gprph  = hpr*vpph/Cp0
+        gpthr  = hpth*vpr/Cp0
+        gpthth = hpth*vpth
+        gpthph = hpth*vpph/Cp0
+        gpphr  = hpph*vpr/Cp0
+        gpphth = hpph*vpth
+        gpphph = hpph*vpph/Cp0
+
+c       compute 3x3 matrix coefficients
+c       [dur]    [a b c] [dEr]
+c       |duth| = |d e f| [dEth]
+c       [duph]   [g h i] [dEph]
+
+        ap = 1.0 + gprr
+        bp = gprth - Bpph
+        cp = gprph + Bpth
+        dp = gpthr + Cp0*Bpph
+        ep = 1.0 + gpthth
+        fp = gpthph - Bpr
+        gp = gpphr  - Bpth
+        hp = gpthr + Cp0*Bpr
+        ip = 1.0 + gpphph
+
+        inv_det = alphas*rhop/(ap*(ep*ip - fp*hp) + bp*(fp*gp - dp*ip) + cp*(dp*hp - ep*gp))
+
+        fprr   = (ep*ip - fp*hp)*inv_det*Cp0
+        fprth  = (cp*hp - bp*ip)*inv_det
+        fprph  = (bp*fp - cp*ep)*inv_det*Cp0
+        fpthr  = (fp*gp - dp*ip)*inv_det*Cp0
+        fpthth = (ap*ip - cp*gp)*inv_det
+        fpthph = (cp*dp - ap*fp)*inv_det*Cp0
+        fpphr  = (dp*hp - ep*gp)*inv_det*Cp0
+        fpphth = (bp*gp - ap*hp)*inv_det
+        fpphph = (ap*ep - bp*dp)*inv_det*Cp0
+
+c     modify mass matrix kernals for relativistic effects in vp = up/gammap_tilde
+        gp_denom = gammap_tilde*gammap_new
+        gpr  = -upbarr/gp_denom
+        gpth = -upbarth/gp_denom
+        gpph  = -upbarph/gp_denom
+
+        upnewr  =  cosph*(costh*upnewx + sinth*upnewy) + sinph*upnewz
+        upnewth = -sinth*upnewx + costh*upnewy
+        upnewph = -sinph*(costh*upnewx + sinth*upnewy) + cosph*upnewz
+        upfpr  = (upnewr*fprr  + upnewph*fpphr )/Cp0 + upnewth*fpthr
+        upfpth = (upnewr*fprth + upnewph*fpphth)/Cp0 + upnewth*fpthth
+        upfpph = (upnewr*fprph + upnewph*fpphph)/Cp0 + upnewth*fpthph
+
+        fprr   = fprr   + gpr*upfpr
+        fprth  = fprth  + gpr*upfpth
+        fprph  = fprph  + gpr*upfpph
+        fpthr  = fpthr  + gpth*upfpr
+        fpthth = fpthth + gpth*upfpth
+        fpthph = fpthph + gpth*upfpph
+        fpphr  = fpphr  + gpph*upfpr
+        fpphth = fpphth + gpph*upfpth
+        fpphph = fpphph + gpph*upfpph
+
+      endif
+#endif
+
+      end
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

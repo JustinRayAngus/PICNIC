@@ -15,7 +15,7 @@ simulation.fixed_random_seed = 1983
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_SEMI_IMPLICIT"
 
-pic_em_semi_implicit.solver_type = "picard"
+implicit_solver.solver_type = "picard"
 picard.maxits = 5
 
 #####################################################

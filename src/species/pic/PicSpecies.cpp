@@ -81,6 +81,9 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
       }
 
    }
+#ifdef RELATIVISTIC_PARTICLES
+   a_ppspc.query("higuera_cary",m_higuera_cary);
+#endif
 
    createMeshInterp();
   
@@ -148,6 +151,9 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
          cout << "  suborbit testing = true (fixed suborbit iter_max = 10)" << endl;
       }
       cout << "  push type = " << push_type_str << endl;
+#ifdef RELATIVISTIC_PARTICLES
+      if (m_higuera_cary) { cout << " using higuera_cary pusher" << endl; };
+#endif
       cout << "  motion = " << m_motion << endl;
       cout << "  forces = " << m_forces << endl;
       cout << "  scatter = " << m_scatter << endl << endl;
@@ -343,6 +349,9 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
    }
    else {
       PicSpeciesUtils::applyForces( a_pList, m_fnorm_const, a_cnormDt, 
+#ifdef RELATIVISTIC_PARTICLES
+                                    m_higuera_cary,
+#endif
                                     a_byHalfDt, m_mesh.anticyclic() ); 
    }
    

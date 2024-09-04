@@ -20,8 +20,8 @@ pic_species.iter_max_particles = 4
 #pic_species.quasi_freeze_particles_jacobian = true
 pic_species.freeze_particles_jacobian = false
 
-#pic_em_theta_implicit.solver_type = "picard"
-pic_em_theta_implicit.solver_type = "newton"
+#implicit_solver.solver_type = "picard"
+implicit_solver.solver_type = "newton"
 
 newton.verbose = true
 newton.rtol = 1.0e-8

@@ -29,7 +29,7 @@ void PICTimeIntegrator_EM_Explicit::preTimeStep(  const Real a_time,
     const int num_species = pic_species_ptr_vect.size();
 
     // initial advance of particles positions by 1/2 time step
-    if (a_time==0.0 && m_init_half_advance) {
+    if (a_time==0.0 && m_init_half_advanceX) {
         for (int sp=0; sp<num_species; sp++) {
             auto species(pic_species_ptr_vect[sp]);
             species->createInflowParticles( a_time, halfDt );
@@ -45,12 +45,12 @@ void PICTimeIntegrator_EM_Explicit::preTimeStep(  const Real a_time,
         species->createInflowParticles( a_time, a_dt );
     }
   
-    if (a_time == 0.0 && m_init_half_advance) {
+    if (a_time == 0.0 && m_init_half_advanceE) {
         m_fields->computeRHSElectricField( halfDt );
         m_fields->copyERHSToVec( m_FE );
         m_E = m_Eold + m_FE;
         m_fields->copyEFromVec( m_E );
-        if( m_fields->usePoisson() ) {
+        if ( m_fields->usePoisson() ) {
            m_pic_species->setChargeDensityOnNodes( m_fields->useFiltering() );
            const LevelData<NodeFArrayBox>& pic_rho = m_pic_species->getChargeDensityOnNodes();
            m_fields->enforceGaussLaw( pic_rho, a_time+0.5*a_dt );
@@ -91,7 +91,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
 
     // Step 2: compute Ep and Bp at t_{n+1/2} and xp_{n+1/2}
     //         advance vp from t_{n} to t_{n+1}
-    if(m_fields->useFiltering()) { m_fields->setFilteredFields(); }
+    if (m_fields->useFiltering()) { m_fields->setFilteredFields(); }
     for (int sp=0; sp<num_species; sp++) {
         auto species(pic_species_ptr_vect[sp]);
         species->interpolateFieldsToParticles( *m_fields );
@@ -103,8 +103,8 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
         else if (m_average_v_deposit) {
             species->advanceVelocities( a_dt, false );
             species->updateOldParticleVelocities();
-            // uncomment lines below to bring xp to t_{n+1/2}
-            // prior to scattering
+            // uncomment lines below to bring xp to t_{n+1}
+            // in sync with vp at t_{n+1} prior to scattering
             //species->advancePositionsExplicit( halfDt );
             //species->applyInertialForces( a_dt, false, true, true );
             //species->applyBCs( true, a_time );
@@ -114,7 +114,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
   
     if (m_post_push_scatter) { m_system->scatterParticles( a_dt ); }
 
-    // advance positions from t_{n+1/2} to t_{n+1} using vp_{n+1}
+    // advance positions from t_{n+1/2} to t_{n+1} using vp^{n+1}
     const Real time_np1 = a_time + a_dt;
     for (int sp=0; sp<num_species; sp++) {
         auto species(pic_species_ptr_vect[sp]);
@@ -152,7 +152,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
     const Real time_E = time_np1 + halfDt;
 
     m_fields->copyEFromVec( m_E );
-    if(m_fields->usePoisson()) {
+    if (m_fields->usePoisson()) {
         m_pic_species->setChargeDensityOnNodes( m_fields->useFiltering() );
         const LevelData<NodeFArrayBox>& pic_rho = m_pic_species->getChargeDensityOnNodes();
         m_fields->enforceGaussLaw( pic_rho, time_E );

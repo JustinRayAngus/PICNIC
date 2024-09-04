@@ -23,6 +23,8 @@ simulation.fixed_random_seed = 1983
 #system.advance_method = "PIC_EM_EXPLICIT"
 
 system.advance_method = "PIC_EM_SEMI_IMPLICIT"
+
+implicit_solver.solver_type = "picard"
 picard.atol = 1.0e-36
 picard.maxits = 5
 
@@ -33,7 +35,7 @@ picard.maxits = 5
 #pic_species.use_mass_matrices = true
 #pic_species.mod_init_advance = true
 
-#pic_em_theta_implicit.solver_type = "petsc"
+#implicit_solver.solver_type = "petsc"
 
 #newton.verbose = false
 #newton.atol = 1.0e-12

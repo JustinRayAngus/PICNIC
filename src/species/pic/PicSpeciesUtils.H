@@ -13,6 +13,9 @@ namespace PicSpeciesUtils {
    void applyForces( List<JustinsParticle>&  a_pList,
                const Real                    a_fnorm,
                const Real                    a_cnormDt, 
+#ifdef RELATIVISTIC_PARTICLES
+               const bool                    a_higuera_cary,
+#endif
                const bool                    a_byHalfDt,
                const bool                    a_anticyclic );
    

@@ -1,4 +1,4 @@
-#TEST np=5, timelimit=00:05:00
+#TEST np=10, timelimit=00:05:00
 #####################################################
 # Verbosity Definitions
 #####################################################
@@ -20,8 +20,8 @@ pic_species.iter_max_particles = 8
 pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
 
-pic_em_theta_implicit.solver_type = "petsc"
-pic_em_theta_implicit.pc_update_freq = 1
+implicit_solver.solver_type = "petsc"
+implicit_solver.pc_update_freq = 1
 jacobian.with_pc = true
 
 newton.verbose = true

@@ -253,8 +253,8 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
 {
 
    int anticyclic_fact = 1;
-   if(a_anticyclic) { anticyclic_fact = -1;}
-      
+   if( a_anticyclic) { anticyclic_fact = -1; }
+
    const int z_comp = a_Jz.nComp()-1; 
    for (ListIterator<P> lit(a_particleList); lit; ++lit) {
 
@@ -264,47 +264,26 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
       const std::array<Real,3>& upold = lit().velocity_old(); 
       const Real wp = lit().weight()*a_qovs;
 
-      std::array<Real,3> upbar0 = upbar;
       Real inert_fact1 = 0.0;
       Real inert_fact2 = 0.0;
-      if(a_inert_type==1) { // CYL_CYL pusher
+      Real inert_fact3 = 0.0;
+      if (a_inert_type==1) { // CYL_CYL pusher
          inert_fact1 = lit().position_virt(0); // dtheta
       }
-      if(a_inert_type==3) { // SPH_SPH pusher
+      if (a_inert_type==3) { // SPH_SPH pusher
          inert_fact1 = lit().position_virt(0); // dtheta
          inert_fact2 = lit().position_virt(1); // dphi
       }
-      else if(a_inert_type==2) { // CYL_CAR pusher
-         const Real costhp = lit().position_virt(0)/xpbar[0]; // xpbar/rpbar
-         const Real sinthp = lit().position_virt(1)/xpbar[0]; // ypbar/rpbar
-         inert_fact1 = costhp*costhp + sinthp*sinthp; // not equal to unity in general
-         int dirpr = 0;
-         int dirpth = 1;
-	 if(a_anticyclic) dirpth = 2;
+      else if (a_inert_type==2) { // CYL_CAR pusher
+         inert_fact1 = lit().position_virt(0)/xpbar[0]; // costh = xpbar/rpbar
+         inert_fact2 = lit().position_virt(1)/xpbar[0]; // sinth = ypbar/rpbar
+      }
+      else if (a_inert_type==4) { // SPH_CAR pusher
+         inert_fact1 = lit().position_virt(0); // xpbar
+         inert_fact2 = lit().position_virt(1); // ypbar
+         inert_fact3 = lit().position_virt(2); // zpbar
+      }
 
-         const Real upx = upbar[dirpr];
-         const Real upy = upbar[dirpth];
-         upbar0[dirpr]  =  costhp*upx + sinthp*upy;
-         upbar0[dirpth] = -sinthp*upx + costhp*upy;
-      }
-      else if(a_inert_type==4) { // SPH_CAR pusher
-         const Real xpbar0 = lit().position_virt(0);
-         const Real ypbar0 = lit().position_virt(1);
-         const Real zpbar0 = lit().position_virt(2);
-	 const Real rppol0 = std::sqrt(xpbar0*xpbar0 + ypbar0*ypbar0);
-         const Real costhp = xpbar0/rppol0;
-         const Real sinthp = ypbar0/rppol0;
-         const Real cosphp = rppol0/xpbar[0];
-         const Real sinphp = zpbar0/xpbar[0];
-         inert_fact1 = cosphp*cosphp + sinphp*sinphp; // not equal to unity in general
-         const Real upx = upbar[0];
-         const Real upy = upbar[1];
-         const Real upz = upbar[2];
-         upbar0[0] =  cosphp*(costhp*upx + sinthp*upy) + sinphp*upz; 
-         upbar0[1] = -sinthp*upx + costhp*upy;
-         upbar0[2] = -sinphp*(costhp*upx + sinthp*upy) + cosphp*upz; 
-      }
-      
       switch (a_interpType) {
          case CIC:
          FORT_CIC_DEPOSIT_MASS_MATRIX( CHF_FRA1(a_Jx, 0),
@@ -325,13 +304,14 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                        CHF_CONST_REAL(upold[0]),
                                        CHF_CONST_REAL(upold[1]),
                                        CHF_CONST_REAL(upold[2]),
-                                       CHF_CONST_REAL(upbar0[0]),
-                                       CHF_CONST_REAL(upbar0[1]),
-                                       CHF_CONST_REAL(upbar0[2]),
+                                       CHF_CONST_REAL(upbar[0]),
+                                       CHF_CONST_REAL(upbar[1]),
+                                       CHF_CONST_REAL(upbar[2]),
                                        CHF_CONST_REAL(a_alphas),
                                        CHF_CONST_INT(a_inert_type),
                                        CHF_CONST_REAL(inert_fact1),
                                        CHF_CONST_REAL(inert_fact2),
+                                       CHF_CONST_REAL(inert_fact3),
                                        CHF_CONST_INT(anticyclic_fact),
                                        CHF_CONST_REAL(wp),
                                        CHF_CONST_REALVECT(m_domainLeftEdge),
@@ -357,13 +337,14 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                        CHF_CONST_REAL(upold[0]),
                                        CHF_CONST_REAL(upold[1]),
                                        CHF_CONST_REAL(upold[2]),
-                                       CHF_CONST_REAL(upbar0[0]),
-                                       CHF_CONST_REAL(upbar0[1]),
-                                       CHF_CONST_REAL(upbar0[2]),
+                                       CHF_CONST_REAL(upbar[0]),
+                                       CHF_CONST_REAL(upbar[1]),
+                                       CHF_CONST_REAL(upbar[2]),
                                        CHF_CONST_REAL(a_alphas),
                                        CHF_CONST_INT(a_inert_type),
                                        CHF_CONST_REAL(inert_fact1),
                                        CHF_CONST_REAL(inert_fact2),
+                                       CHF_CONST_REAL(inert_fact3),
                                        CHF_CONST_INT(anticyclic_fact),
                                        CHF_CONST_REAL(wp),
                                        CHF_CONST_REALVECT(m_domainLeftEdge),
@@ -390,13 +371,14 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                           CHF_CONST_REAL(upold[0]),
                                           CHF_CONST_REAL(upold[1]),
                                           CHF_CONST_REAL(upold[2]),
-                                          CHF_CONST_REAL(upbar0[0]),
-                                          CHF_CONST_REAL(upbar0[1]),
-                                          CHF_CONST_REAL(upbar0[2]),
+                                          CHF_CONST_REAL(upbar[0]),
+                                          CHF_CONST_REAL(upbar[1]),
+                                          CHF_CONST_REAL(upbar[2]),
                                           CHF_CONST_REAL(a_alphas),
                                           CHF_CONST_INT(a_inert_type),
                                           CHF_CONST_REAL(inert_fact1),
                                           CHF_CONST_REAL(inert_fact2),
+                                          CHF_CONST_REAL(inert_fact3),
                                           CHF_CONST_INT(anticyclic_fact),
                                           CHF_CONST_REAL(wp),
                                           CHF_CONST_INTVECT(m_bc_check_lo),
@@ -428,14 +410,15 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                           CHF_CONST_REAL(upold[0]),
                                           CHF_CONST_REAL(upold[1]),
                                           CHF_CONST_REAL(upold[2]),
-                                          CHF_CONST_REAL(upbar0[0]),
-                                          CHF_CONST_REAL(upbar0[1]),
-                                          CHF_CONST_REAL(upbar0[2]),
+                                          CHF_CONST_REAL(upbar[0]),
+                                          CHF_CONST_REAL(upbar[1]),
+                                          CHF_CONST_REAL(upbar[2]),
                                           CHF_CONST_REAL(a_alphas),
                                           CHF_CONST_REAL(a_cnormDt),
                                           CHF_CONST_INT(a_inert_type),
                                           CHF_CONST_REAL(inert_fact1),
                                           CHF_CONST_REAL(inert_fact2),
+                                          CHF_CONST_REAL(inert_fact3),
                                           CHF_CONST_INT(anticyclic_fact),
                                           CHF_CONST_REAL(wp),
                                           CHF_CONST_INTVECT(m_bc_check_lo),
@@ -465,20 +448,21 @@ void MeshInterp::depositMassMatrices( FArrayBox&   a_sigma_xx,
                                           CHF_CONST_REAL(upold[0]),
                                           CHF_CONST_REAL(upold[1]),
                                           CHF_CONST_REAL(upold[2]),
-                                          CHF_CONST_REAL(upbar0[0]),
-                                          CHF_CONST_REAL(upbar0[1]),
-                                          CHF_CONST_REAL(upbar0[2]),
+                                          CHF_CONST_REAL(upbar[0]),
+                                          CHF_CONST_REAL(upbar[1]),
+                                          CHF_CONST_REAL(upbar[2]),
                                           CHF_CONST_REAL(a_alphas),
                                           CHF_CONST_REAL(a_cnormDt),
                                           CHF_CONST_INT(a_inert_type),
                                           CHF_CONST_REAL(inert_fact1),
                                           CHF_CONST_REAL(inert_fact2),
+                                          CHF_CONST_REAL(inert_fact3),
                                           CHF_CONST_INT(anticyclic_fact),
                                           CHF_CONST_REAL(wp),
-                                     CHF_CONST_INTVECT(m_bc_check_lo),
-                                     CHF_CONST_INTVECT(m_bc_check_hi),
-                                     CHF_CONST_REALVECT(m_domainLeftEdge),
-                                     CHF_CONST_REALVECT(m_domainRightEdge),
+                                          CHF_CONST_INTVECT(m_bc_check_lo),
+                                          CHF_CONST_INTVECT(m_bc_check_hi),
+                                          CHF_CONST_REALVECT(m_domainLeftEdge),
+                                          CHF_CONST_REALVECT(m_domainRightEdge),
                                           CHF_CONST_REALVECT(m_dx),
                                           CHF_CONST_REALVECT(xpold),
                                           CHF_CONST_REALVECT(xpbar) );

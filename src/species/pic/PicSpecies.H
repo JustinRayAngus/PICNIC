@@ -117,6 +117,10 @@ public:
 
   virtual bool isSpecies( const string& name ) const;  
 
+#ifdef RELATIVISTIC_PARTICLES
+  void setHigueraCary( bool  a_use_hc ) { m_higuera_cary = a_use_hc; }
+#endif
+
   void inspectParticles( List<JustinsParticle>&  a_pList ) const;
 
   void inspectParticles( List<JustinsParticle>&  a_pList,
@@ -459,6 +463,9 @@ private:
   };
   
   PushType m_push_type;
+#ifdef RELATIVISTIC_PARTICLES
+  bool m_higuera_cary = false;
+#endif
 
   PicSpeciesBC* m_species_bc;
   std::string m_BC_type_lower, m_BC_type_upper;

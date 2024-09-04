@@ -336,7 +336,6 @@ class Coulomb : public Scattering
          // a_deltaE > 0 ==> need to take energy away
          // a_deltaE < 0 ==> need to add energy
 
-         const long double muR = a_wpmp1*a_wpmp2/(a_wpmp1 + a_wpmp2);
          int sign = 1;
          if (a_deltaE<0.0) { sign = -1; }
 
@@ -360,6 +359,7 @@ class Coulomb : public Scattering
          const long double Ecm = std::sqrt(Etot*Etot - pxtot*pxtot - pytot*pytot - pztot*pztot);
          const long double Erel = Ecm - a_wpmp1 - a_wpmp2;
 #else
+         const long double muR = a_wpmp1*a_wpmp2/(a_wpmp1 + a_wpmp2);
          const long double Erel = muR/2.0*usq;
 #endif
          if (Erel<=0.0) { return; }

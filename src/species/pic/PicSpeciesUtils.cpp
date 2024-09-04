@@ -9,6 +9,9 @@ void
 PicSpeciesUtils::applyForces( List<JustinsParticle>&  a_pList,
                         const Real                    a_fnorm,
                         const Real                    a_cnormDt, 
+#ifdef RELATIVISTIC_PARTICLES
+                        const bool                    a_higuera_cary,
+#endif
                         const bool                    a_byHalfDt,
                         const bool                    a_anticyclic )
 {
@@ -48,12 +51,31 @@ PicSpeciesUtils::applyForces( List<JustinsParticle>&  a_pList,
       bp0 = alpha*Bp[dirp[0]];
       bp1 = alpha*Bp[dirp[1]];
       bp2 = alpha*Bp[dirp[2]];
-      
+
 #ifdef RELATIVISTIC_PARTICLES
-      Real gammap = sqrt(1.0 + vm0*vm0 + vm1*vm1 + vm2*vm2);
+
+      // Compute time-centered relativistic factor
+      Real root, gammap;
+
+      // Higuera-Cary calculation of gammap_bar
+      // gammap_bar^2 = 1.0 + upbar^2
+      if (a_higuera_cary) { // 3*5 + 2*2 + 6 = 25 flops
+         const Real vmsq  = vm0*vm0 + vm1*vm1 + vm2*vm2;
+         const Real vmdbp = vm0*bp0 + vm1*bp1 + vm2*bp2;
+         const Real bpsq  = bp0*bp0 + bp1*bp1 + bp2*bp2;
+         const Real c1 = 1.0 + vmsq - bpsq;
+         const Real c2 = bpsq + vmdbp*vmdbp;
+         root = 0.5*( c1 + std::sqrt( c1*c1 + 4.0*c2 ) );
+      }
+      else { // Boris expression is default ( 6 flops )
+         root = 1.0 + vm0*vm0 + vm1*vm1 + vm2*vm2;
+      }
+
+      gammap = std::sqrt( root );
       bp0 /= gammap;
       bp1 /= gammap;
       bp2 /= gammap;
+
 #endif
    
       denom = 1.0 + bp0*bp0 + bp1*bp1 + bp2*bp2;
@@ -68,34 +90,6 @@ PicSpeciesUtils::applyForces( List<JustinsParticle>&  a_pList,
       up[dirp[1]] = vm1 + (vpr2*bp0 - vpr0*bp2)/denom;
       up[dirp[2]] = vm2 + (vpr0*bp1 - vpr1*bp0)/denom;
 
-      // compute upbar with 2nd formulation (kinda works)
-      //up[dirp[0]] = (vm0*denom + vpr1*bp2 - vpr2*bp1)/denom;
-      //up[dirp[1]] = (vm1*denom + vpr2*bp0 - vpr0*bp2)/denom;
-      //up[dirp[2]] = (vm2*denom + vpr0*bp1 - vpr1*bp0)/denom;
-
-      // compute upbar with 3rd formulation (not energy conserving to machine precision)
-      //Real vmbp = vm0*bp0 + vm1*bp1 + vm2*bp2;
-      //up[dirp[0]] = (vm0 + vm1*bp2 - vm2*bp1 + vmbp*bp0)/denom;
-      //up[dirp[1]] = (vm1 + vm2*bp0 - vm0*bp2 + vmbp*bp1)/denom;
-      //up[dirp[2]] = (vm2 + vm0*bp1 - vm1*bp0 + vmbp*bp2)/denom;
-      
-      // compute upbar with 4th formulation (not energy conserving to machine precision)
-      //Real vmbp = vm0*bp0 + vm1*bp1 + vm2*bp2;
-      //up[dirp[0]] = vm0 + (vm0*(1.0-denom) + vm1*bp2 - vm2*bp1 + vmbp*bp0)/denom;
-      //up[dirp[1]] = vm1 + (vm1*(1.0-denom) + vm2*bp0 - vm0*bp2 + vmbp*bp1)/denom;
-      //up[dirp[2]] = vm2 + (vm2*(1.0-denom) + vm0*bp1 - vm1*bp0 + vmbp*bp2)/denom;
-      
-      // compute upbar with 5th formulation (works)
-      //Real vmbp = vm0*bp0 + vm1*bp1 + vm2*bp2;
-      //up[dirp[0]] = vm0 + (-vm0*(bp0*bp0 + bp1*bp1 + bp2*bp2) + vm1*bp2 - vm2*bp1 + vmbp*bp0)/denom;
-      //up[dirp[1]] = vm1 + (-vm1*(bp0*bp0 + bp1*bp1 + bp2*bp2) + vm2*bp0 - vm0*bp2 + vmbp*bp1)/denom;
-      //up[dirp[2]] = vm2 + (-vm2*(bp0*bp0 + bp1*bp1 + bp2*bp2) + vm0*bp1 - vm1*bp0 + vmbp*bp2)/denom;
-      
-      // compute upbar with 6th formulation (works)
-      //up[dirp[0]] = vm0 + (-vm0*(bp1*bp1 + bp2*bp2) + vm1*bp2 - vm2*bp1 + (vm1*bp1 + vm2*bp2)*bp0)/denom;
-      //up[dirp[1]] = vm1 + (-vm1*(bp0*bp0 + bp2*bp2) + vm2*bp0 - vm0*bp2 + (vm0*bp0 + vm2*bp2)*bp1)/denom;
-      //up[dirp[2]] = vm2 + (-vm2*(bp0*bp0 + bp1*bp1) + vm0*bp1 - vm1*bp0 + (vm0*bp0 + vm1*bp1)*bp2)/denom;
-      
       if(!a_byHalfDt) {
          up[dirp[0]] = 2.0*up[dirp[0]] - upold[dirp[0]];
          up[dirp[1]] = 2.0*up[dirp[1]] - upold[dirp[1]];

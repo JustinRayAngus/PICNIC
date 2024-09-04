@@ -10,7 +10,7 @@ pic_species.iter_max_particles = 101
 pic_species.rtol_particles = 1.0e-15
 pic_species.mod_init_advance = false
 
-pic_em_theta_implicit.solver_type = "newton"
+implicit_solver.solver_type = "newton"
 
 newton.rtol = 1.0e-6
 newton.atol = 1.0e-12

@@ -18,7 +18,7 @@ pic_species.mod_init_advance = false
 pic_species.part_order_swap = true
 pic_species.iter_max_particles = 0
 
-pic_em_theta_implicit.solver_type = "picard"
+implicit_solver.solver_type = "picard"
 picard.maxits = 5
 picard.atol = 1.0e-12
 picard.rtol = 1.0e-8

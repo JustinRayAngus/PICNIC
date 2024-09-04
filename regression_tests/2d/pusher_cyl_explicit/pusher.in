@@ -5,7 +5,7 @@
 simulation.verbosity = 10
 
 system.advance_method = "PIC_EM_EXPLICIT"
-pic_em_explicit.old_ordering = false
+pic_em_explicit.init_half_advanceX = true
 
 #####################################################
 # Time Stepping Definitions

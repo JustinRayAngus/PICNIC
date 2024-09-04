@@ -13,8 +13,8 @@ pic_species.quasi_freeze_particles_jacobian = true
 pic_species.use_mass_matrices = true
 pic_species.mod_init_advance = true
 
-pic_em_theta_implicit.solver_type = "petsc"
-pic_em_theta_implicit.pc_update_freq = 1
+implicit_solver.solver_type = "petsc"
+implicit_solver.pc_update_freq = 1
 jacobian.with_pc = true
 
 newton.verbose = false

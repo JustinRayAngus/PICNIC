@@ -7,6 +7,7 @@
 #include "ParticleData.H"
 #include "BinFab.H"
 #include "ScatteringUtils.H"
+#include <limits>
 
 #include "NamespaceHeader.H"
 
@@ -1578,10 +1579,17 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
 {
    CH_TIME("Coulomb::GalileanScatter()");
    
+   // compute relative velocity (actually beta)
    Real ux = a_vp1[0]-a_vp2[0];
    Real uy = a_vp1[1]-a_vp2[1];
    Real uz = a_vp1[2]-a_vp2[2];
    Real u = sqrt(ux*ux + uy*uy + uz*uz);
+
+   // don't proceed if vrel = 0 or if vrel is relatively close to machine round-off
+   if (u<=std::numeric_limits<Real>::min()) { return; } // avoid divide by zero
+   const Real vsum = std::sqrt(a_vp1[0]*a_vp1[0] + a_vp1[1]*a_vp1[1] + a_vp1[2]*a_vp1[2])
+                   + std::sqrt(a_vp2[0]*a_vp2[0] + a_vp2[1]*a_vp2[1] + a_vp2[2]*a_vp2[2]);
+   if (u<=1.0e-14*vsum) { return; }
 
    // compute s12 = 2.0*deltasq_var
    Real b90 = m_b90_fact/(m_mu*u*u); // b90 = q1*q2/(4*pi*ep0*WR) = q1*q2/(2*pi*ep0*mu*u^2)
@@ -1654,8 +1662,10 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
    std::array<Real,3> ptot, vcm, upst;
 
    // compute the lab frame total energy and momentum
-   g1 = sqrt(1.0 + a_up1[0]*a_up1[0] + a_up1[1]*a_up1[1] + a_up1[2]*a_up1[2]);
-   g2 = sqrt(1.0 + a_up2[0]*a_up2[0] + a_up2[1]*a_up2[1] + a_up2[2]*a_up2[2]);
+   Real gb1sq = a_up1[0]*a_up1[0] + a_up1[1]*a_up1[1] + a_up1[2]*a_up1[2];
+   Real gb2sq = a_up2[0]*a_up2[0] + a_up2[1]*a_up2[1] + a_up2[2]*a_up2[2];
+   g1 = sqrt(1.0 + gb1sq);
+   g2 = sqrt(1.0 + gb2sq);
    Etot = g1*a_mass1 + g2*a_mass2;
    for (int n=0; n<3; n++) { ptot[n] = a_mass1*a_up1[n] + a_mass2*a_up2[n]; }
  
@@ -1679,6 +1689,11 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
    muRst = g1st*a_mass1*g2st*a_mass2/(g1st*a_mass1 + g2st*a_mass2);
    upstsq = upst[0]*upst[0] + upst[1]*upst[1] + upst[2]*upst[2];
    vrelst = std::sqrt(upstsq)*a_mass1/muRst;
+
+   // don't proceed if vrel = 0 or if vrel is relatively close to machine round-off
+   if (vrelst<=std::numeric_limits<Real>::min()) { return; } // avoid divide by zero
+   const Real vsum = std::sqrt(gb1sq)/g1 + std::sqrt(gb2sq)/g2;
+   if (vrelst<=1.0e-14*vsum) { return; }
 
    // compute invariant relative velocity in CM frame |v1* - v2*|/(1 - v1*cdotv2*)
    denom = 1.0 + upstsq*a_mass1/a_mass2/g1st/g2st;

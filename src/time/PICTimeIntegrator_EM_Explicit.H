@@ -42,7 +42,14 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
       if(!m_strang_splitting) { pp.query("average_v_deposit", m_average_v_deposit); }
       if(m_strang_splitting || m_average_v_deposit) { m_post_push_scatter = true; }
       else { pp.query("post_push_scatter", m_post_push_scatter); }
-      pp.query("init_half_advance", m_init_half_advance);
+      pp.query("init_half_advanceX", m_init_half_advanceX);
+      pp.query("init_half_advanceE", m_init_half_advanceE);
+
+      if (m_init_half_advanceX && procID()==0) {
+         cout << "Warning!!! explicit em pic with init_half_advanceX = true can cause " << endl;
+         cout << "           violation in charge conservation when using charge-conserving " << endl;
+         cout << "           current deposition schemes." << endl;
+      }
 
       m_is_defined = true;
       printParams();
@@ -55,10 +62,11 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
       if(procID()>0) return;
       cout << "================== Time Solver ==================" << endl;
       cout << "advance method = PIC_EM_EXPLICIT" << endl;
-      cout << "init_half_advance = " << (m_init_half_advance?"true":"false") << endl;
-      cout << "strang_splitting  = " << (m_strang_splitting?"true":"false") << endl;
-      cout << "average_v_deposit = " << (m_average_v_deposit?"true":"false") << endl;
-      cout << "post_push_scatter = " << (m_post_push_scatter?"true":"false") << endl;
+      cout << "init_half_advanceX = " << (m_init_half_advanceX?"true":"false") << endl;
+      cout << "init_half_advanceE = " << (m_init_half_advanceE?"true":"false") << endl;
+      cout << "strang_splitting   = " << (m_strang_splitting?"true":"false") << endl;
+      cout << "average_v_deposit  = " << (m_average_v_deposit?"true":"false") << endl;
+      cout << "post_push_scatter  = " << (m_post_push_scatter?"true":"false") << endl;
       cout << "=================================================" << endl;
       cout << endl;
     }
@@ -80,7 +88,8 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
   protected:
 
     bool m_is_defined = false;
-    bool m_init_half_advance = true;
+    bool m_init_half_advanceX = false;
+    bool m_init_half_advanceE = false;
     bool m_strang_splitting = false;
     bool m_average_v_deposit = false;
     bool m_post_push_scatter = false;

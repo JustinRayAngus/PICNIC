@@ -20,15 +20,13 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
       m_pic_species = nullptr;
       m_fields = nullptr;
 
-      m_nlsolver_type = _NLSOLVER_PICARD_;
       m_nlsolver = nullptr;
       m_func = nullptr;
 
       m_theta = 0.5;
-      m_pc_update_freq = INT_MAX;
-      m_pc_update_newton = true;
-      m_is_defined = false;
       m_ec_semi_implicit = false;
+
+      m_is_defined = false;
     }
 
     virtual ~PICTimeIntegrator_EM_ThetaImplicit() 
@@ -143,8 +141,6 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     bool m_is_defined;
     bool m_ec_semi_implicit;
     mutable bool m_restart_pc_update_flag = true; // kluge to update pc on restart...
-    std::string m_nlsolver_type;
-
 
     PicSpeciesInterface*    m_pic_species;
     EMFields*  m_fields;
@@ -155,9 +151,6 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
     NonlinearFunction<ODEVector<EMFields>, PICTimeIntegrator>* m_func;
     NonlinearSolver<ODEVector<EMFields>, PICTimeIntegrator>* m_nlsolver;
 
-    int m_pc_update_freq;
-    bool m_pc_update_newton;
-      
     int m_nl_iter = 0;
 
   private:

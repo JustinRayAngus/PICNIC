@@ -90,6 +90,30 @@ class PICTimeIntegrator
 
   protected:
 
+    std::string m_nlsolver_type;
+    int m_pc_update_freq = INT_MAX;
+    bool m_pc_update_newton = true;
+
+    // The parameters parsed here are common for the different implicit time solvers
+    void parseCommonImplicitSolverParams( const ParmParse& a_pp)
+    {
+
+        if (a_pp.contains("solver_type")) {
+            a_pp.get("solver_type", m_nlsolver_type);
+        }
+        else {
+            if (!procID()) {
+                std::cout << "EXIT FAILURE!!!" << std::endl;
+                std::cout << "implicit_solver.solver_type must be specified." << std::endl;
+                std::cout << "Options are picard, newton, and petsc." << std::endl << std::endl;
+            }
+            exit(EXIT_FAILURE);
+        }
+        a_pp.query("pc_update_freq", m_pc_update_freq);
+        a_pp.query("pc_update_newton", m_pc_update_newton);
+
+    }
+
   private:
 
 };
