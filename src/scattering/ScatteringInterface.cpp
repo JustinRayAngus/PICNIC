@@ -350,7 +350,7 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
     const PicSpeciesPtr this_picSpecies(a_pic_species_ptr_vect[sp1]);
     const bool use_scattering = this_picSpecies->scatter();
     const int charge = this_picSpecies->charge();
-    if(!use_scattering || charge==0.0) continue;
+    if (!use_scattering || charge==0) { continue; }
             
     // Create scattering object and add it to the scattering vector
     ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, a_pp_scatterC, 1 );
@@ -364,14 +364,14 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
     const PicSpeciesPtr this_picSpecies1(a_pic_species_ptr_vect[sp1]);
     const bool use_scattering1 = this_picSpecies1->scatter();
     const int charge1 = this_picSpecies1->charge();
-    if(!use_scattering1 || charge1==0.0) continue;
+    if (!use_scattering1 || charge1==0) { continue; }
     
     for (int sp2=sp1+1; sp2<a_pic_species_ptr_vect.size(); sp2++) {
     
       PicSpeciesPtr this_picSpecies2(a_pic_species_ptr_vect[sp2]);
       bool use_scattering2 = this_picSpecies2->scatter();
       int charge2 = this_picSpecies2->charge();
-      if(!use_scattering2 || charge2==0.0) continue;
+      if (!use_scattering2 || charge2==0) { continue; }
                
       // Create scattering object and add it to the scattering vector
       ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, a_pp_scatterC, 1 );

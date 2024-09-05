@@ -34,7 +34,6 @@ class Coulomb : public Scattering
            m_energy_fraction_max(0.5)
       {
          m_scatter_dt = DBL_MAX;
-         m_Clog = 0.0;
          parseSpecies( a_pp );
          parseParameters( a_pp );
       }
@@ -260,7 +259,7 @@ class Coulomb : public Scattering
       std::string m_species1_name;
       std::string m_species2_name;
       mutable Real m_scatter_dt; // (mean free time)
-      Real m_Clog;       // Coulomb Logarithm
+      Real m_Clog = 0.0;       // Coulomb Logarithm
       int m_sp1;     // species 1 identifier
       int m_sp2;     // species 2 identifier
       signed int m_charge1; // species 1 charge / |electron charge|
