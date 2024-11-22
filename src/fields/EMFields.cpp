@@ -12,8 +12,7 @@
 EMFields::EMFields( ParmParse&   a_ppflds,
               const DomainGrid&  a_mesh,
               const CodeUnits&   a_units,
-              const bool&        a_verbosity,
-              const EMVecType&   a_vec_type )
+              const bool&        a_verbosity )
     : m_verbosity(a_verbosity),
       m_use_filtering(false),
       m_use_poisson(false),
@@ -36,7 +35,8 @@ EMFields::EMFields( ParmParse&   a_ppflds,
       m_vec_offset_efield_virtual(-1),
       m_pc_mass_matrix_width(1),
       m_pc_mass_matrix_include_ij(false),
-      m_pc_diag_only(false)
+      m_pc_diag_only(false),
+      m_vec_type(e_and_b)
 {
 
    // parse input file
@@ -149,30 +149,6 @@ EMFields::EMFields( ParmParse&   a_ppflds,
    const int ghosts(m_mesh.ghosts());
    const IntVect ghostVect = ghosts*IntVect::Unit;
 
-   // define and initialize BC masking containers
-   m_PC_mask_B.define(grids,4,ghostVect);
-   SpaceUtils::setVal(m_PC_mask_B, 0, 1.0);
-   SpaceUtils::setVal(m_PC_mask_B, 1, 1.0);
-   SpaceUtils::setVal(m_PC_mask_B, 2, 0.0);
-   SpaceUtils::setVal(m_PC_mask_B, 3, 0.0);
-   m_PC_mask_E.define(grids,4,ghostVect);
-   SpaceUtils::setVal(m_PC_mask_E, 0, 1.0);
-   SpaceUtils::setVal(m_PC_mask_E, 1, 1.0);
-   SpaceUtils::setVal(m_PC_mask_E, 2, 0.0);
-   SpaceUtils::setVal(m_PC_mask_E, 3, 0.0);
-   if(SpaceDim<3) {
-     m_PC_mask_Bv.define(grids,3*SpaceDim,ghostVect);
-     m_PC_mask_Ev.define(grids,3*SpaceDim,ghostVect);
-     for (int d=0; d < 2*SpaceDim; d++) {
-       SpaceUtils::setVal(m_PC_mask_Bv, d, 1.0);
-       SpaceUtils::setVal(m_PC_mask_Ev, d, 1.0);
-     }
-     for (int d=2*SpaceDim; d < 3*SpaceDim; d++) {
-       SpaceUtils::setVal(m_PC_mask_Bv, d, 0.0);
-       SpaceUtils::setVal(m_PC_mask_Ev, d, 0.0);
-     }
-   }
-
    // define the magnetic field containers
    m_magneticField.define(grids,1,ghostVect); // FluxBox with 1 comp
    m_magneticField_old.define(grids,1);
@@ -200,7 +176,7 @@ EMFields::EMFields( ParmParse&   a_ppflds,
    // define the filtered field containers
    m_electricField_filtered.define(grids,1,ghostVect); // EdgeDataBox with 1 comp
    m_electricField_virtual_filtered.define(grids,3-SpaceDim,ghostVect);
-   
+
    // define the current density containers
    m_currentDensity.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
    if(SpaceDim<3) {m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);} // NodeFArrayBox
@@ -298,6 +274,13 @@ EMFields::EMFields( ParmParse&   a_ppflds,
       cout << " stable dt = " << m_stable_dt << endl << endl;
    }
 
+   return;
+}
+
+void EMFields::defineVectorsAndDOFs( const EMVecType& a_vec_type)
+{
+   m_vec_type = a_vec_type;
+
    m_vec_size_bfield = SpaceUtils::nDOF( m_magneticField );
    m_vec_size_efield = SpaceUtils::nDOF( m_electricField );
    if (SpaceDim < 3) {
@@ -319,7 +302,7 @@ EMFields::EMFields( ParmParse&   a_ppflds,
 
    }
 
-   if ((a_vec_type == e_and_b) || (a_vec_type == e_only)) {
+   if ((a_vec_type == e_and_b) || (a_vec_type == e_only) || (a_vec_type == curl2)) {
      m_vec_offset_efield = vec_size_total;
      vec_size_total += m_vec_size_efield;
 
@@ -336,10 +319,57 @@ EMFields::EMFields( ParmParse&   a_ppflds,
                        m_magneticField_virtual,
                        m_electricField,
                        m_electricField_virtual );
-   } else if (a_vec_type == e_only) {
+   } else if ((a_vec_type == e_only) || (a_vec_type == curl2)) {
       m_gdofs.define(  vec_size_total,
                        m_electricField,
                        m_electricField_virtual );
+   }
+
+   // define and initialize BC masking containers
+
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const int ghosts(m_mesh.ghosts());
+   const IntVect ghostVect = ghosts*IntVect::Unit;
+
+   if (a_vec_type == curl2) {
+
+     m_PC_mask_E.define(grids,2+2*SpaceDim,ghostVect);
+     for (int d=0; d < m_PC_mask_E.nComp(); d++) {
+       SpaceUtils::setVal(m_PC_mask_E, d, 1.0);
+     }
+     if(SpaceDim<3) {
+       m_PC_mask_Ev.define(grids,2+2*SpaceDim,ghostVect);
+       for (int d=0; d < m_PC_mask_Ev.nComp(); d++) {
+         SpaceUtils::setVal(m_PC_mask_Ev, d, 1.0);
+       }
+     }
+
+   } else {
+
+     m_PC_mask_B.define(grids,4,ghostVect);
+     SpaceUtils::setVal(m_PC_mask_B, 0, 1.0);
+     SpaceUtils::setVal(m_PC_mask_B, 1, 1.0);
+     SpaceUtils::setVal(m_PC_mask_B, 2, 0.0);
+     SpaceUtils::setVal(m_PC_mask_B, 3, 0.0);
+     m_PC_mask_E.define(grids,4,ghostVect);
+     SpaceUtils::setVal(m_PC_mask_E, 0, 1.0);
+     SpaceUtils::setVal(m_PC_mask_E, 1, 1.0);
+     SpaceUtils::setVal(m_PC_mask_E, 2, 0.0);
+     SpaceUtils::setVal(m_PC_mask_E, 3, 0.0);
+     if(SpaceDim<3) {
+       m_PC_mask_Bv.define(grids,3*SpaceDim,ghostVect);
+       m_PC_mask_Ev.define(grids,3*SpaceDim,ghostVect);
+       for (int d=0; d < 2*SpaceDim; d++) {
+         SpaceUtils::setVal(m_PC_mask_Bv, d, 1.0);
+         SpaceUtils::setVal(m_PC_mask_Ev, d, 1.0);
+       }
+       for (int d=2*SpaceDim; d < 3*SpaceDim; d++) {
+         SpaceUtils::setVal(m_PC_mask_Bv, d, 0.0);
+         SpaceUtils::setVal(m_PC_mask_Ev, d, 0.0);
+       }
+     }
+
+
    }
 
    return;
@@ -511,18 +541,19 @@ void EMFields::initialize( const Real          a_cur_time,
       //  read cummulative boundary diagnostic data
       //
       HDF5HeaderData header;
+      handle.setGroup("field_bdry_data");
       header.readFromFile( handle );
 
       m_intSdAdt_lo[0] = header.m_real["intSdAdt_lo0"];
       m_intSdAdt_hi[0] = header.m_real["intSdAdt_hi0"];
-      if(SpaceDim>1) {
-         m_intSdAdt_lo[1] = header.m_real["intSdAdt_lo1"];
-         m_intSdAdt_hi[1] = header.m_real["intSdAdt_hi1"];
-      }
-      if(SpaceDim==3) {
-         m_intSdAdt_lo[2] = header.m_real["intSdAdt_lo2"];
-         m_intSdAdt_hi[2] = header.m_real["intSdAdt_hi2"];
-      }
+#if CH_SPACEDIM>1
+      m_intSdAdt_lo[1] = header.m_real["intSdAdt_lo1"];
+      m_intSdAdt_hi[1] = header.m_real["intSdAdt_hi1"];
+#endif
+#if CH_SPACEDIM==3
+      m_intSdAdt_lo[2] = header.m_real["intSdAdt_lo2"];
+      m_intSdAdt_hi[2] = header.m_real["intSdAdt_hi2"];
+#endif
 
       // read in the magnetic field data
       handle.setGroup("magnetic_field");
@@ -664,7 +695,7 @@ void EMFields::initializeMassMatricesForPC( const IntVect&  a_ncomp_xx,
    //
    //////////////////////////////////////////////////////////////////
 
-   if(!procID()) cout << "Initializing mass matrices for PC..." << endl;
+   if (!procID()) { cout << "Initializing mass matrices for PC..." << endl; }
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    const int ghosts(m_mesh.ghosts());
@@ -825,6 +856,13 @@ void EMFields::initializeMassMatricesForPC( const IntVect&  a_ncomp_xx,
       cout << " ncomp_zy_pc = " << m_ncomp_zy_pc << endl;
       cout << " ncomp_zz_pc = " << m_ncomp_zz_pc << endl;
       cout << "Finished initializing mass matrices for PC " << endl << endl;
+#if CH_SPACEDIM==1
+      if (m_use_filtering && m_pc_mass_matrix_width<3) {
+         cout << "Warning: filtering being used and pc_mass_matrix_width = " << m_pc_mass_matrix_width << endl;
+         cout << "         Consider setting pc_mass_matrix_width = 3 and " << endl;
+         cout << "         num_ghosts = 3 if GMRES is converging slow or not at all. " << endl << endl;
+      }
+#endif
    }
 
 }
@@ -977,12 +1015,16 @@ void EMFields::applyBCs_electricField( const Real  a_time )
    CH_TIME("EMFields::applyBCs_electricField()");
 
    m_field_bc->applyEdgeBC( m_electricField, a_time );
-   m_field_bc->applyEdgePCMask( m_PC_mask_E, a_time );
-   SpaceUtils::exchangeEdgeDataBox( m_PC_mask_E );
+   if (m_PC_mask_E.isDefined()) {
+      m_field_bc->applyEdgePCMask( m_PC_mask_E, a_time, m_vec_type );
+      SpaceUtils::exchangeEdgeDataBox( m_PC_mask_E );
+   }
 #if CH_SPACEDIM<3
    m_field_bc->applyNodeBC( m_electricField_virtual, a_time );
-   m_field_bc->applyNodePCMask( m_PC_mask_Ev, a_time );
-   SpaceUtils::exchangeNodeFArrayBox( m_PC_mask_Ev );
+   if (m_PC_mask_Ev.isDefined()) {
+     m_field_bc->applyNodePCMask( m_PC_mask_Ev, a_time, m_vec_type );
+     SpaceUtils::exchangeNodeFArrayBox( m_PC_mask_Ev );
+   }
 #endif
 
 }
@@ -992,12 +1034,16 @@ void EMFields::applyBCs_magneticField( const Real  a_time )
    CH_TIME("EMFields::applyBCs_magneticField()");
 
    m_field_bc->applyFluxBC( m_magneticField, a_time );
-   m_field_bc->applyFluxPCMask( m_PC_mask_B, a_time );
-   SpaceUtils::exchangeFluxBox( m_PC_mask_B );
+   if (m_PC_mask_B.isDefined()) {
+     m_field_bc->applyFluxPCMask( m_PC_mask_B, a_time );
+     SpaceUtils::exchangeFluxBox( m_PC_mask_B );
+   }
 #if CH_SPACEDIM<3
    m_field_bc->applyCellBC( m_magneticField_virtual, a_time );
-   m_field_bc->applyCellPCMask( m_PC_mask_Bv, a_time );
-   m_PC_mask_Bv.exchange();
+   if (m_PC_mask_B.isDefined()) {
+     m_field_bc->applyCellPCMask( m_PC_mask_Bv, a_time );
+     m_PC_mask_Bv.exchange();
+   }
 #endif
 
 }
@@ -1213,9 +1259,9 @@ Real EMFields::fieldEnergyMod( const Real  a_dt ) const
     }
   }
 #endif
-  
+
   energyE_local = energyE_local*factor*m_energyE_factor; // [Joules]
-  
+
   Real energyE_global = 0.0;
 #ifdef CH_MPI
   MPI_Allreduce(  &energyE_local,
@@ -1235,7 +1281,7 @@ Real EMFields::electricFieldEnergy( const bool  a_is_stag ) const
 {
   CH_TIME("EMFields::electricFieldEnergy()");
   const DisjointBoxLayout& grids(m_mesh.getDBL());
- 
+
   Real energyE_local = 0.0;
 
   const LevelData<EdgeDataBox>& masked_Ja_ec(m_mesh.getMaskedJec());
@@ -1244,7 +1290,7 @@ Real EMFields::electricFieldEnergy( const bool  a_is_stag ) const
       Box edge_box = grids[dit];
       edge_box.surroundingNodes();
       edge_box.enclosedCells(dir);
-      
+
       const FArrayBox& this_Ja = masked_Ja_ec[dit][dir];
       const FArrayBox& this_E  = m_electricField[dit][dir];
       const FArrayBox& this_Eold  = m_electricField_old[dit][dir];
@@ -1258,7 +1304,7 @@ Real EMFields::electricFieldEnergy( const bool  a_is_stag ) const
       }
     }
   }
-  
+
 #if CH_SPACEDIM<3
   const LevelData<NodeFArrayBox>& masked_Ja_nc(m_mesh.getMaskedJnc());
   for(DataIterator dit(grids); dit.ok(); ++dit) {

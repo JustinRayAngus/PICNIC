@@ -113,7 +113,7 @@ public:
 		       const bool  a_from_scatterDt );
   void setDebyeLength();
   
-  void postTimeStep() {
+  void postTimeStep( const int a_step_number ) {
      for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
         PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
         species->removeOutflowParticles();
@@ -123,6 +123,7 @@ public:
 	// such as in scatterParticles();
         species->rebaseVirtualPositions();
 #endif
+        species->splitParticles(a_step_number);
      }
   }
   

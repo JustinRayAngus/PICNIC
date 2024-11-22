@@ -114,13 +114,13 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    m_suborbit_inflowJ = false;
    m_use_suborbit_model = false;
    m_suborbit_fast_particles = false;
-   if(m_charge_conserving_deposit) m_interp_bc_check = true;
+   if (m_charge_conserving_deposit) { m_interp_bc_check = true; }
    a_ppspc.query( "interp_bc_check", m_interp_bc_check );
    a_ppspc.query( "suborbit_inflow_J", m_suborbit_inflowJ );
    a_ppspc.query( "use_suborbit_model", m_use_suborbit_model );
-   if(m_use_suborbit_model) a_ppspc.query("suborbit_testing",m_suborbit_testing);
+   if (m_use_suborbit_model) { a_ppspc.query("suborbit_testing",m_suborbit_testing); }
    a_ppspc.query( "suborbit_fast_particles", m_suborbit_fast_particles );
-   if(m_suborbit_fast_particles) {  m_use_suborbit_model = true; }
+   if (m_suborbit_fast_particles) {  m_use_suborbit_model = true; }
 
    a_ppspc.get( "mass", m_mass );
    a_ppspc.get( "charge", m_charge ); 
@@ -129,6 +129,16 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    a_ppspc.query( "forces", m_forces );
    a_ppspc.query( "scatter", m_scatter );
    a_ppspc.query( "write_all_comps", m_write_all_part_comps );
+
+   // query for particle splitting parameters
+   a_ppspc.query( "split_step_freq", m_split_step_freq );
+   if ( m_split_step_freq < INT_MAX ) {
+      CH_assert(m_scatter); // scattering must be on to use splitting for two reasons
+                            // 1) it ensures particles are binned up
+                            // 2) give means for split particles to disperse
+      a_ppspc.query( "split_avg_wp_factor", m_split_avg_wp_factor);
+      a_ppspc.query( "split_Np_min", m_split_Np_min );
+   }
 
    if (!m_mesh.axisymmetric()) {
       if (m_charge==0) { m_forces = false; }
@@ -156,7 +166,13 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
 #endif
       cout << "  motion = " << m_motion << endl;
       cout << "  forces = " << m_forces << endl;
-      cout << "  scatter = " << m_scatter << endl << endl;
+      cout << "  scatter = " << m_scatter << endl;
+      cout << "  split_step_freq  = " << m_split_step_freq << endl;
+      if ( m_split_step_freq < INT_MAX ) {
+         cout << "  split_avg_wp_factor  = " << m_split_avg_wp_factor << endl;
+         cout << "  split_Np_min  = " << m_split_Np_min << endl;
+      }
+      cout << endl;
    }
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -1782,6 +1798,36 @@ void PicSpecies::injectInflowParticles()
    else { m_species_bc->injectInflowParticles( m_data, m_surfaceCharge_nodes ); }
 }
 
+void PicSpecies::resetParticles()
+{
+   CH_TIME("PicSpecies::resetParticles()");
+
+   // put the suborbit particles back in main list
+   mergeSubOrbitParticles();
+
+   // reset particle position and velocity to that at step start
+   const BoxLayout& BL = m_data.getBoxes();
+   DataIterator dit(BL);
+   for(dit.begin(); dit.ok(); ++dit) {
+
+      ListBox<JustinsParticle>& box_list = m_data[dit];
+      List<JustinsParticle>& pList = box_list.listItems();
+
+      ListIterator<JustinsParticle> lit(pList);
+      for(lit.begin(); lit.ok(); ++lit) {
+         const RealVect& xpold = lit().position_old();
+         const std::array<Real,3>& upold = lit().velocity_old();
+         lit().setPosition(xpold);
+         lit().setVelocity(upold);
+      }
+
+   }
+
+   // rebase virtual positions
+   rebaseVirtualPositions();
+
+}
+
 void PicSpecies::updateOldParticlePositions()
 {
    CH_TIME("PicSpecies::updateOldParticlePositions()");
@@ -2185,9 +2231,9 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
       Real Ja0 = 0.0;
       Real nppc_jacobian_scaling_power = 1.0;
       if(nppc_jacobian_scaling) { 
-         Ja0 = minimumJacobian();
+         Ja0 = minimumJacobian(sXmin,sXmax);
          ppspcIC.query("nppc_jacobian_scaling.power",nppc_jacobian_scaling_power);
-         if(!procID()) {
+         if (!procID()) {
             cout << "nppc_jacobian_scaling = true" << endl;
             cout << "Ja0   = " << Ja0 << endl;
             cout << "power = " << nppc_jacobian_scaling_power << endl;
@@ -2199,8 +2245,8 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
       // create sub-box and dX for particles
       Box partSubBox(IntVect::Zero, partsPerCell-IntVect::Unit);
       RealVect dXpart = dX;
-      if(totalPartsPerCell>1) {
-         for(int dir=0; dir<SpaceDim; dir++) dXpart[dir] /= partsPerCell[dir];
+      if (totalPartsPerCell>1) {
+         for (int dir=0; dir<SpaceDim; dir++) { dXpart[dir] /= partsPerCell[dir]; }
       }
 
       // loop over boxes and set the initial particle values (pos., vel., weight)
@@ -2210,41 +2256,41 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
       uint64_t ID;
       bool set_ID_from_IC_count = false;
       ppspcIC.query("set_ID_from_IC_count",set_ID_from_IC_count);
-      if(set_ID_from_IC_count) ID = IC_count;
-      else ID = procID()*512 + 1; // hack for testing purposes
-   
-      const LevelData<FArrayBox>& Jacobian = m_mesh.getJcc();  
+      if (set_ID_from_IC_count) { ID = IC_count; }
+      else { ID = procID()*512 + 1; } // hack for testing purposes
+
+      const LevelData<FArrayBox>& Jacobian = m_mesh.getJcc();
 
       for (dit.begin(); dit.ok(); ++dit) {
 
          CH_XD::List<JustinsParticle> thisList;
-            
+
          // loop over grid indices
          const Box gridBox = BL.get(dit);
          BoxIterator gbit(gridBox);
-         for(gbit.begin(); gbit.ok(); ++gbit) {
+         for (gbit.begin(); gbit.ok(); ++gbit) {
 
             const IntVect ig = gbit(); // grid index
                
             Real local_density = m_density[dit].get(ig,0);
-            if(local_density<=0.0) continue;
+            if (local_density<=0.0) { continue; }
             
             Real local_Jacobian = Jacobian[dit].get(ig,0);
             std::array<Real,3> local_temperature;
             std::array<Real,3> local_velocity;
-            for(int dir=0; dir<3; dir++) {
+            for (int dir=0; dir<3; dir++) {
                local_temperature[dir] = m_temperature[dit].get(ig,dir);
                local_velocity[dir] = m_velocity[dit].get(ig,dir);
             }
 
-            if(uniform_particle_weights) {
+            if (uniform_particle_weights) {
                pWeight = pWeight_fixed;
                totalPartsPerCell = round(numDen_scale*local_density*local_Jacobian*cellVolume/pWeight_fixed); 
-               if(totalPartsPerCell>0) {
+               if (totalPartsPerCell>0) {
 #if CH_SPACEDIM==1
                   partsPerCell[0] = totalPartsPerCell;
 #elif CH_SPACEDIM==2
-                  if(dX[0]<=dX[1]) {
+                  if (dX[0]<=dX[1]) {
                      partsPerCell[0] = ceil(sqrt((Real)totalPartsPerCell*dX[0]/dX[1]));
                      partsPerCell[1] = ceil((Real)totalPartsPerCell/(Real)partsPerCell[0]);
                   }
@@ -2254,23 +2300,23 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
                   }
                   CH_assert(partsPerCell.product()>=totalPartsPerCell);
 #else
-                  cout << "JRA: uniform_particle_weights not implemented for 3D" << endl;
+                  cout << "Error: uniform_particle_weights not implemented for 3D" << endl;
                   exit(EXIT_FAILURE);
 #endif
-                  for(int dir=0; dir<SpaceDim; dir++) dXpart[dir] = dX[dir]/partsPerCell[dir];
+                  for (int dir=0; dir<SpaceDim; dir++) { dXpart[dir] = dX[dir]/partsPerCell[dir]; }
                   Box partSubBox_new(IntVect::Zero, partsPerCell-IntVect::Unit);
                   partSubBox = partSubBox_new;
                }
             }
-            else if(nppc_jacobian_scaling) {
-               totalPartsPerCell = round(std::pow(local_Jacobian/Ja0,nppc_jacobian_scaling_power))*Nppc0;
+            else if (nppc_jacobian_scaling) {
+               totalPartsPerCell = std::round(std::pow(local_Jacobian/Ja0,nppc_jacobian_scaling_power)*Nppc0);
                pWeight = numDen_scale*local_density*local_Jacobian*cellVolume/(Real)totalPartsPerCell;
-               if(float_weight) pWeight = (float)pWeight;
-               if(totalPartsPerCell>0) {
+               if (float_weight) { pWeight = (float)pWeight; }
+               if (totalPartsPerCell>0) {
 #if CH_SPACEDIM==1
                   partsPerCell[0] = totalPartsPerCell;
 #elif CH_SPACEDIM==2
-                  if(dX[0]<=dX[1]) {
+                  if (dX[0]<=dX[1]) {
                      partsPerCell[0] = ceil(sqrt((Real)totalPartsPerCell*dX[0]/dX[1]));
                      partsPerCell[1] = ceil((Real)totalPartsPerCell/(Real)partsPerCell[0]);
                   }
@@ -2280,62 +2326,61 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
                   }
                   CH_assert(partsPerCell.product()>=totalPartsPerCell);
 #else
-                  cout << "VG: nppc_jacobian_scaling not implemented for 3D" << endl;
+                  cout << "Error: nppc_jacobian_scaling not implemented for 3D" << endl;
                   exit(EXIT_FAILURE);
 #endif                  
-                  for(int dir=0; dir<SpaceDim; dir++) dXpart[dir] = dX[dir]/partsPerCell[dir];
+                  for (int dir=0; dir<SpaceDim; dir++) { dXpart[dir] = dX[dir]/partsPerCell[dir]; }
                   Box partSubBox_new(IntVect::Zero, partsPerCell-IntVect::Unit);
                   partSubBox = partSubBox_new;
                }
             }
             else {
                pWeight = numDen_scale*local_density*local_Jacobian*cellVolume/(Real)totalPartsPerCell;
-               if(float_weight) pWeight = (float)pWeight;
+               if (float_weight) { pWeight = (float)pWeight; }
             }
-            if(totalPartsPerCell<=0) continue;        
+            if (totalPartsPerCell<=0) { continue; }
 
             RealVect local_Xcc; 
-            for(int dir=0; dir<SpaceDim; dir++) local_Xcc[dir] = Xcc[dit].get(ig,dir);
+            for (int dir=0; dir<SpaceDim; dir++) { local_Xcc[dir] = Xcc[dit].get(ig,dir); }
 
             // loop over subgrid corresponding to where particles are placed in each grid cell    
             Real V0 = sqrt(Constants::QE/Constants::ME); // ele thermal speed at 1eV [m/s]
             BoxIterator pbit(partSubBox);
             int pCount = 0;
-            for(pbit.begin(); pbit.ok(); ++pbit) {
+            for (pbit.begin(); pbit.ok(); ++pbit) {
 
                pCount += 1; // needed for uniform_particle_weights = true
-               if(pCount>totalPartsPerCell) break;
+               if (pCount>totalPartsPerCell) { break; }
 
                // set particle position uniformly on grid
                RealVect Xpart = local_Xcc - 0.5*dX;
                bool part_outside = false;
                IntVect ipg = pbit();
               
-               if(cylindrical_profile) {
-                  for(int dir=0; dir<SpaceDim; dir++) {
+               if (cylindrical_profile) {
+                  for (int dir=0; dir<SpaceDim; dir++) {
                      Xpart[dir] += (ipg[dir] + 0.5)*dXpart[dir];
                   }
                   Real Rpart = std::pow(Xpart[0]-cyl_base[0],2) + std::pow(Xpart[1]-cyl_base[1],2);
                   Rpart = std::sqrt(Rpart);
-                  if(Rpart>1.0) { part_outside = true; }
+                  if (Rpart>1.0) { part_outside = true; }
                }
                else{
-                  for(int dir=0; dir<SpaceDim; dir++) {
+                  for (int dir=0; dir<SpaceDim; dir++) {
                      Xpart[dir] += (ipg[dir] + 0.5)*dXpart[dir];
-                     if(Xpart[dir]<sXmin[dir] || Xpart[dir]>sXmax[dir]) { 
+                     if (Xpart[dir]<sXmin[dir] || Xpart[dir]>sXmax[dir]) {
                         part_outside=true;
                         break;
                      }
                   }
                }
 
-
-               if(part_outside) continue;
+               if (part_outside) { continue; }
 
                // initialize particle velocities by randomly sampling a maxwellian
                std::array<Real,3> BetaPart = {0,0,0};
                Real thisVT;
-               for(int dir=0; dir<3; dir++) { 
+               for (int dir=0; dir<3; dir++) {
                   thisVT = V0*sqrt(local_temperature[dir]/m_mass); // [m/s]
                   BetaPart[dir] = (thisVT*MathUtils::randn() + local_velocity[dir])/Constants::CVAC;
                }
@@ -2343,7 +2388,7 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
                // create this particle
                JustinsParticle particle(pWeight, Xpart, BetaPart);
                particle.setID(ID);
-               if(!set_ID_from_IC_count) ID = ID + 1;
+               if (!set_ID_from_IC_count) { ID = ID + 1; }
 
                // append particle to the list
                thisList.append(particle);
@@ -2738,6 +2783,109 @@ void PicSpecies::setEnergyDensityFlux() const
    }
    m_energyFlux.exchange(); 
      
+}
+
+void PicSpecies::splitParticlesFromBinFab()
+{
+   CH_TIME("PicSpecies::splitParticlesFromBinFab()");
+
+   // apply particle splitting algorithm. Requires scattering to be used.
+
+   JustinsParticle* this_part_ptr = NULL;
+
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
+
+      BinFab<JustinsParticlePtr>& thisBinFab = m_data_binfab_ptr[dit];
+
+      // create list to hold new particles
+      List<JustinsParticle> new_pList;
+
+      const Box gridBox = grids.get(dit);
+      BoxIterator gbit(gridBox);
+      for (gbit.begin(); gbit.ok(); ++gbit) { // loop over grid indices
+
+         const IntVect ig = gbit();
+         List<JustinsParticlePtr>& cell_pList = thisBinFab(ig,0);
+         const int Np = cell_pList.length();
+         if (Np==0) { continue; }
+
+         // compute the average particle weight in this grid cell
+         ListIterator<JustinsParticlePtr> lit(cell_pList);
+         Real wp_avg = 0.0;
+         Real wp_min = DBL_MAX;
+         for (lit.begin(); lit.ok(); ++lit) {
+            JustinsParticlePtr& this_particle = lit();
+            this_part_ptr = this_particle.getPointer();
+            const Real& wp = this_part_ptr->weight();
+            wp_avg += wp;
+            wp_min = std::min(wp_min,wp);
+         }
+         wp_avg /= Np;
+
+         // loop over particles again and check for splitting
+         for (lit.begin(); lit.ok(); ++lit) {
+
+            JustinsParticlePtr& this_particle = lit();
+            this_part_ptr = this_particle.getPointer();
+            Real& wp = this_part_ptr->weight();
+
+            // look for particles with weight larger than average by user-specified amount
+            if (wp >= wp_avg*m_split_avg_wp_factor) {
+
+               const RealVect& xp = this_part_ptr->position();
+               const std::array<Real,3>& vp = this_part_ptr->velocity();
+
+               const int Np_new = std::floor(wp/wp_avg);
+               const Real wp_new = wp/Np_new;
+               Real wp_new_tot = 0.0;
+               for (int n=0; n<Np_new-1; n++) {
+                  JustinsParticle particle(wp_new, xp, vp);
+                  uint64_t ID = 0;
+                  wp_new_tot += wp_new;
+                  particle.setID(ID);
+                  new_pList.append(particle);
+               }
+
+               // adjust weight of original particle
+               wp -= wp_new_tot;
+
+            }
+            else if (Np < m_split_Np_min && wp >= wp_min*2) {
+
+               const RealVect& xp = this_part_ptr->position();
+               const std::array<Real,3>& vp = this_part_ptr->velocity();
+
+               const int Np_new = std::floor(wp/wp_min);
+               const Real wp_new = wp/Np_new;
+               Real wp_new_tot = 0.0;
+               for (int n=0; n<Np_new-1; n++) {
+                  JustinsParticle particle(wp_new, xp, vp);
+                  uint64_t ID = 0;
+                  wp_new_tot += wp_new;
+                  particle.setID(ID);
+                  new_pList.append(particle);
+               }
+
+               // adjust weight of original particle
+               wp -= wp_new_tot;
+
+            }
+         }
+
+      } // end loop over grid indices
+
+      // create the new particles
+      if (new_pList.length()>0) {
+         m_data[dit].addItemsDestructive(new_pList);
+      }
+      CH_assert(new_pList.length()==0);
+
+   }
+
+   this_part_ptr = NULL;
+   delete this_part_ptr;
+
 }
 
 void PicSpecies::setNumberDensityFromBinFab() const
@@ -4209,36 +4357,36 @@ Real PicSpecies::minimumParticleWeight( const LevelData<FArrayBox>&  a_density,
 
    const DisjointBoxLayout& grids(a_density.getBoxes());
    const LevelData<FArrayBox>& Jacobian = m_mesh.getJcc();  
-   const LevelData<FluxBox>& Xfc = m_mesh.getXfc();  
+   const LevelData<FluxBox>& Xfc = m_mesh.getXfc();
 
    for(DataIterator dit(grids); dit.ok(); ++dit) {
 
       Box grid_box( grids[dit] );
       BoxIterator gbit(grid_box);
-      for(gbit.begin(); gbit.ok(); ++gbit) {
+      for (gbit.begin(); gbit.ok(); ++gbit) {
 
          const IntVect ig = gbit(); // grid index
           
          // only consider cells that completely contain the species profile  
-         RealVect local_Xfc_lo, local_Xfc_hi; 
-         for(int dir=0; dir<SpaceDim; dir++) {
-            local_Xfc_lo[dir] = Xfc[dit][dir].get(ig,dir);
+         RealVect Xfc_lo, Xfc_hi;
+         for (int dir=0; dir<SpaceDim; dir++) {
+            Xfc_lo[dir] = Xfc[dit][dir].get(ig,dir);
             IntVect ig_hi = ig;
             ig_hi[dir] += 1;
-            local_Xfc_hi[dir] = Xfc[dit][dir].get(ig_hi,dir);
+            Xfc_hi[dir] = Xfc[dit][dir].get(ig_hi,dir);
          }
          bool cell_contains_profile = true;
          for (int dir=0; dir<SpaceDim; dir++) {
-            if(local_Xfc_lo[dir]<a_sXmin[dir] || local_Xfc_hi[dir]>a_sXmax[dir]) {
+            if (Xfc_lo[dir]<a_sXmin[dir] || Xfc_hi[dir]>a_sXmax[dir]) {
                cell_contains_profile = false;
                break;
             }
          }
-         if(!cell_contains_profile) continue;
+         if (!cell_contains_profile) { continue; }
 
          // compute the local mass for this cell         
          Real local_density = a_density[dit].get(ig,0);
-         if(local_density<=0.0) continue;
+         if (local_density<=0.0) { continue; }
          Real local_Jacobian = Jacobian[dit].get(ig,0);
          Real local_pWeight  = a_numDen_scale*local_density*local_Jacobian*a_cell_volume/(Real)a_partsPerCell; 
          min_pWeight_local = Min(min_pWeight_local,local_pWeight);
@@ -4260,19 +4408,39 @@ Real PicSpecies::minimumParticleWeight( const LevelData<FArrayBox>&  a_density,
 
 }
 
-Real PicSpecies::minimumJacobian( ) const
+Real PicSpecies::minimumJacobian( const RealVect&  a_sXmin,
+                                  const RealVect&  a_sXmax ) const
 {
    Real min_Jacobian_local = DBL_MAX;
 
    const LevelData<FArrayBox>& Jacobian = m_mesh.getJcc();  
+   const LevelData<FluxBox>& Xfc = m_mesh.getXfc();
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    for(DataIterator dit(grids); dit.ok(); ++dit) {
 
       Box grid_box( grids[dit] );
       BoxIterator gbit(grid_box);
-      for(gbit.begin(); gbit.ok(); ++gbit) {
+      for (gbit.begin(); gbit.ok(); ++gbit) {
          const IntVect ig = gbit(); // grid index
+
+         // only consider cells that completely contain the species profile
+         RealVect Xfc_lo, Xfc_hi;
+         for (int dir=0; dir<SpaceDim; dir++) {
+            Xfc_lo[dir] = Xfc[dit][dir].get(ig,dir);
+            IntVect ig_hi = ig;
+            ig_hi[dir] += 1;
+            Xfc_hi[dir] = Xfc[dit][dir].get(ig_hi,dir);
+         }
+         bool cell_contains_profile = true;
+         for (int dir=0; dir<SpaceDim; dir++) {
+            if (Xfc_lo[dir]<a_sXmin[dir] || Xfc_hi[dir]>a_sXmax[dir]) {
+               cell_contains_profile = false;
+               break;
+            }
+         }
+         if (!cell_contains_profile) { continue; }
+
          Real local_Jacobian = Jacobian[dit].get(ig,0);
          min_Jacobian_local = std::min(min_Jacobian_local,local_Jacobian);
       }

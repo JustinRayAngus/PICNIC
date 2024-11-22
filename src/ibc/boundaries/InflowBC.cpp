@@ -131,6 +131,7 @@ void InflowBC::apply( List<JustinsParticle>&  a_inflow_pList,
             particle.setOldPosition(Xpart_old);
             uint64_t ID = 0; // need to declare ID to make smoke tests not fail
             particle.setID(ID);
+            particle.setNumSubOrbits( 1 );
             a_inflow_pList.append(particle);
 
          }

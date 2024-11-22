@@ -11,6 +11,7 @@
 #include "Bennett.H"
 #include "Exponential.H"
 #include "Constant.H"
+#include "OneDimInterp.H"
 
 #include "NamespaceHeader.H"
 
@@ -76,6 +77,9 @@ RefCountedPtr<GridFunction> GridFunctionFactory::create(
    }
    else if (model == "constant") {
       result = RefCountedPtr<GridFunction>( new Constant( a_pp, a_verbosity ) );
+   }
+   else if (model == "onediminterp") {
+      result = RefCountedPtr<GridFunction>( new OneDimInterp( a_pp, a_verbosity ) );
    }
    else if (model == "zero") {
       result = RefCountedPtr<GridFunction>( new Constant( 0.0, a_verbosity ) );

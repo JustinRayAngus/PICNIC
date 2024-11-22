@@ -18,6 +18,7 @@ simulation.fixed_random_seed = 1983
 
 #system.advance_method = "PIC_EM_EXPLICIT"
 system.advance_method = "PIC_EM_THETA_IMPLICIT"
+pic_em_theta_implicit.ec_semi_implicit = true
 
 pic_species.iter_max_particles = 11
 pic_species.rtol_particles = 1.0e-10
@@ -27,7 +28,6 @@ pic_species.mod_init_advance = true
 
 implicit_solver.solver_type = "newton"
 #implicit_solver.solver_type = "petsc_snes"
-implicit_solver.ec_semi_implicit = true
 implicit_solver.pc_update_freq = 1
 jacobian.with_pc = true
 implicit_solver.pc_update_newton = true

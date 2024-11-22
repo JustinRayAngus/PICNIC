@@ -36,8 +36,6 @@
 
 #include "NamespaceHeader.H"
 
-typedef enum{b_only, e_only, e_and_b} EMVecType;
-
 class EMFields
 {
 
@@ -46,10 +44,11 @@ public:
   EMFields( ParmParse&,
                    const DomainGrid&,
                    const CodeUnits&,
-                   const bool&,
-                   const EMVecType& a = e_and_b);
+                   const bool& );
 
   virtual ~EMFields();
+
+  void defineVectorsAndDOFs( const EMVecType& );
 
   void initialize( const Real          a_cur_time,
                    const std::string&  a_restart_file_name );
@@ -227,9 +226,45 @@ public:
   void computeRHSElectricField( const Real  a_dt );
   void computeRHSMagneticField( const Real  a_dt );
 
+  inline void extrapolateB( const Real a_theta, const Real a_time )
+  {
+    CH_TIME("EMFields::extrapolateB()");
+    if (a_theta == 1.0) return;
+    auto c1 = 1.0/a_theta;
+    auto c2 = (a_theta-1.0)/a_theta;
+    SpaceUtils::scale(m_magneticField, c1);
+    SpaceUtils::scale(m_magneticField_old, c2);
+    SpaceUtils::addToLevelData(m_magneticField_old, m_magneticField);
+    SpaceUtils::scale(m_magneticField_old, 1.0/c2);
+    SpaceUtils::exchangeFluxBox( m_magneticField );
+#if CH_SPACEDIM<3
+    SpaceUtils::scale(m_magneticField_virtual, c1);
+    SpaceUtils::scale(m_magneticField_virtual_old, c2);
+    SpaceUtils::addToLevelData(m_magneticField_virtual_old, m_magneticField_virtual);
+    SpaceUtils::scale(m_magneticField_virtual_old, 1.0/c2);
+    m_magneticField_virtual.exchange();
+#endif
+    applyBCs_magneticField( a_time );
+  }
+
+  inline void updateB( const Real a_dt, const Real a_time )
+  {
+    CH_TIME("EMFields::updateB()");
+    computeRHSMagneticField(a_dt);
+    SpaceUtils::copyLevelData(m_magneticField_old, m_magneticField);
+    SpaceUtils::addToLevelData(m_magneticField_rhs, m_magneticField);
+    SpaceUtils::exchangeFluxBox( m_magneticField );
+#if CH_SPACEDIM<3
+    SpaceUtils::copyLevelData(m_magneticField_virtual_old, m_magneticField_virtual);
+    SpaceUtils::addToLevelData(m_magneticField_virtual_rhs, m_magneticField_virtual);
+    m_magneticField_virtual.exchange();
+#endif
+    applyBCs_magneticField( a_time );
+  }
+
   // compute the poynting flux
   void setPoyntingFlux();
-  
+
   void setEoldFromE() {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
     for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -239,7 +274,7 @@ public:
       m_electricField_virtual_old[dit].getFab().copy(m_electricField_virtual[dit].getFab());
     }
   }
-  
+
   void setBoldFromB() {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
     for(DataIterator dit(grids); dit.ok(); ++dit) {
@@ -249,7 +284,7 @@ public:
       m_magneticField_virtual_old[dit].copy(m_magneticField_virtual[dit]);
     }
   }
-  
+
   // set the filtered fields
   void setFilteredFields() const {
     const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -367,7 +402,7 @@ public:
     if (a_type == b_only) {
       retval += m_vec_size_bfield;
       if (SpaceDim < 3) retval += m_vec_size_bfield_virtual;
-    } else if (a_type == e_only) {
+    } else if ((a_type == e_only) || (a_type == curl2)) {
       retval += m_vec_size_efield;
       if (SpaceDim < 3) retval += m_vec_size_efield_virtual;
     } else {
@@ -571,7 +606,7 @@ public:
       copyEFromVec( a_U );
       applyBCs_electricField( a_time );
       copyEToVec( a_U );
-    } else {
+    } else if (a_vec_type == e_and_b ) {
       int offset(0);
       copyBFromVec( a_U, offset );
       copyEFromVec( a_U, offset );
@@ -580,6 +615,8 @@ public:
       offset = 0;
       copyBToVec( a_U, offset );
       copyEToVec( a_U, offset );
+    } else {
+      MayDay::Error("Unknown vec type in EMFields::updatePhysicalState()");
     }
   }
 
@@ -611,14 +648,14 @@ public:
 private:
 
   const bool m_verbosity;
-  bool m_use_filtering; 
-  bool m_filterE_inPlane, m_filterE_virtual; 
-  bool m_use_poisson; 
-  bool m_enforce_gauss_startup; 
-  bool m_external_fields; 
-  bool m_advance; 
-  bool m_advanceE, m_advanceE_inPlane, m_advanceE_virtual; 
-  bool m_advanceB, m_advanceB_inPlane, m_advanceB_virtual; 
+  bool m_use_filtering;
+  bool m_filterE_inPlane, m_filterE_virtual;
+  bool m_use_poisson;
+  bool m_enforce_gauss_startup;
+  bool m_external_fields;
+  bool m_advance;
+  bool m_advanceE, m_advanceE_inPlane, m_advanceE_virtual;
+  bool m_advanceB, m_advanceB_inPlane, m_advanceB_virtual;
   std::array<bool,3> m_advanceE_comp;
   std::array<bool,3> m_advanceB_comp;
   bool m_writeDivs, m_writeCurls, m_writeRho, m_writeSigma, m_writeExB;
@@ -671,7 +708,7 @@ private:
   // containers for filtered fields
   mutable LevelData<EdgeDataBox> m_electricField_filtered;
   mutable LevelData<NodeFArrayBox> m_electricField_virtual_filtered;
-  
+
   // containers for charge/current density
   LevelData<EdgeDataBox> m_currentDensity;
   LevelData<NodeFArrayBox> m_currentDensity_virtual;  // needed for 1D/2D simulations
@@ -731,6 +768,8 @@ private:
   bool m_pc_mass_matrix_include_ij;
   // set only the diagonal of the preconditioner matrix
   bool m_pc_diag_only;
+  // e&b or curl-curl
+  EMVecType m_vec_type;
 
   LevelData<EdgeDataBox> m_sigma_xx_pc;
   LevelData<EdgeDataBox> m_sigma_xy_pc;
@@ -761,6 +800,11 @@ private:
                                 const bool,
                                 const bool,
                                 const Real );
+
+  void assemblePrecondMatrixCurl2(  BandedMatrix&,
+                                    const bool,
+                                    const bool,
+                                    const Real );
 
 };
 

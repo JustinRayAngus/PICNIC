@@ -48,9 +48,11 @@ class PICTimeIntegrator_EM_SemiImplicit : public PICTimeIntegrator
     inline virtual 
     PICTIType type() const { return PIC_EM_SEMI_IMPLICIT; }
 
+    virtual void resetVariables( const Real, const Real, const int );
+
     virtual void preTimeStep( const Real, const Real, const int );
     
-    virtual void timeStep( const Real, const Real, const int );
+    virtual int timeStep( const Real, const Real, const int );
     
     virtual void preRHSOp( const ODEVector<EMFields>&  a_U,
                            const Real                  a_time, 

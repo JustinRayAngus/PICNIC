@@ -48,8 +48,27 @@ void Coulomb::initialize( const PicSpeciesInterface&  a_pic_species_intf,
    Real b90_codeToPhys = qocSq/(Constants::TWOPI*Constants::EP0*Constants::ME); 
    m_b90_fact = abs(m_charge1*m_charge2)*b90_codeToPhys;
    m_bqm_fact = Constants::HBAR/(2.0*Constants::ME*Constants::CVAC);
-   
-   if (m_verbosity)  printParameters();
+
+   const Real pi = Constants::PI;
+   const Real me = Constants::ME;
+   const Real hbar = Constants::HBAR;
+   const Real cvac = Constants::CVAC;
+
+   if (m_mass1==1.0 || m_mass2==1.0) { // only for electrons
+
+      // set coefficient for Fermi energy calc
+      // EF [Joules] = hbar^2/(2*mass)*(3*pi^2*n)^2/3
+      m_EF_fact = hbar*hbar/(2.0*me*m_mu)*std::pow(3.0*pi*pi,2.0/3.0)/(me*cvac*cvac);
+
+      // don't include large-angle scattering for electrons
+      if (m_exclude_electron_fas &&
+         (m_angular_scattering==NANBU_FAS || m_angular_scattering==NANBU_FAS_v2)) {
+         m_angular_scattering = NANBU;
+      }
+
+   }
+
+   if (m_verbosity) { printParameters(); }
 
 }
 
@@ -129,6 +148,10 @@ void Coulomb::setIntraMFT( const LevelData<FArrayBox>&  a_debyeLength,
          // set max sigma based on mfp = atomic spacing
          sigma_max = 1.0/(numDen*atomic_spacing);
 
+         // set the Fermi energy for this cell
+         // EF_norm = hbar^2/(2*mass)*(3*pi^2*n)^(2/3)/(me*cvac^2)
+         m_EF_norm = m_EF_fact*std::pow(numDen,2.0/3.0);
+
          // compute Temperature and g12sq
          Real rhoUx = this_momDensity.get(ig,0); // mass1*<betax*numDen>
          Real rhoUy = this_momDensity.get(ig,1); // mass1*<betay*numDen>
@@ -143,7 +166,7 @@ void Coulomb::setIntraMFT( const LevelData<FArrayBox>&  a_debyeLength,
          // compute g12^2 = 3*T1/m1 + 3*T2/m2 + |U1 - U2|^2 and b90
          g12sq = 6.0*Constants::QE/Constants::ME*T_eV/m_mass1; // [m^2/s^2]
          g12sq_norm = g12sq/cvacSq; // normalized
-         b90 = m_b90_fact/(m_mu*g12sq_norm); // [m]
+         b90 = m_b90_fact/(m_mu*g12sq_norm + 2.0*m_EF_norm); // [m]
 
          // set the Coulomb logarithm
          Real Clog = m_Clog;
@@ -247,6 +270,11 @@ void Coulomb::setInterMFT( const LevelData<FArrayBox>&  a_debyeLength,
          // set max sigma based on mfp = atomic spacing
          sigma_max = 1.0/(minn*atomic_spacing);
 
+         // set the Fermi energy for this cell
+         // EF_norm = hbar^2/(2*mass)*(3*pi^2*n)^(2/3)/(me*cvac^2)
+         Real maxn = std::max(numDen1,numDen2);
+         m_EF_norm = m_EF_fact*std::pow(maxn,2.0/3.0);
+
          // compute mean energy, temperature, and g12sq
          Real rhoUx1 = this_momDensity1.get(ig,0); // mass1*<betax1*numDen1>
          Real rhoUy1 = this_momDensity1.get(ig,1); // mass1*<betay1*numDen1>
@@ -275,7 +303,7 @@ void Coulomb::setInterMFT( const LevelData<FArrayBox>&  a_debyeLength,
          g12sq += std::pow((rhoUy1/rho1 - rhoUy2/rho2),2)*cvacSq;
          g12sq += std::pow((rhoUz1/rho1 - rhoUz2/rho2),2)*cvacSq;
          g12sq_norm = g12sq/cvacSq;
-         b90 = m_b90_fact/(m_mu*g12sq_norm); // [m]
+         b90 = m_b90_fact/(m_mu*g12sq_norm + 2.0*m_EF_norm); // [m]
          
          // set the Coulomb logarithm
          Real Clog = m_Clog;
@@ -289,7 +317,6 @@ void Coulomb::setInterMFT( const LevelData<FArrayBox>&  a_debyeLength,
          // define intra-species collision time
          sigma90 = 8.0/Constants::PI*b90*b90*Clog; // [m^2]
          sigma90 = std::min(sigma90,sigma_max);    // [m^2]
-         Real maxn = std::max(numDen1,numDen2);
          nu90 = sqrt(g12sq)*maxn*sigma90;        // [Hz]
          box_nuMax = Max(box_nuMax,nu90);
 
@@ -420,6 +447,10 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
 
          // set max sigma based on mfp = atomic spacing
          sigma_max = 1.0/(numDen*atomic_spacing);
+
+         // set the Fermi energy for this cell
+         // EF_norm = hbar^2/(2*mass)*(3*pi^2*n)^(2/3)/(me*cvac^2)
+         m_EF_norm = m_EF_fact*std::pow(numDen,2.0/3.0);
 
          // get the number of particles in this cell
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
@@ -636,16 +667,18 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
 
                   // compute energy frac to correct energy with one more loop
                   const Real energy_frac_eff = std::abs(deltaE)/Erel_cumm;
-                  if (energy_frac_eff>m_energy_fraction_max) {
-                     cout << "Notice: energy_frac_eff = " << energy_frac_eff << endl;
-                     cout << "        on loop_count = " << loop_count << endl;
-                     cout << "        is larger than energy_frac_max = " << m_energy_fraction_max << endl;
-                     cout << "        for species1 = " << m_species1_name << endl;
-                     cout << "        and species2 = " << m_species2_name << endl;
-                     cout << "        num_parts    = " << vector_part_ptrs.size() << endl;
-                     cout << "        ig           = " << ig << endl;
-                     cout << "        Etot0        = " << Etot0 << endl;
-                     cout << "        deltaE       = " << deltaE << endl;
+                  if (energy_frac_eff>m_energy_fraction_max || loop_count>10) {
+                     if (numCell>50) {
+                        cout << "Notice: energy_frac_eff = " << energy_frac_eff << endl;
+                        cout << "        on loop_count = " << loop_count << endl;
+                        cout << "        is larger than energy_frac_max = " << m_energy_fraction_max << endl;
+                        cout << "        for species1 = " << m_species1_name << endl;
+                        cout << "        and species2 = " << m_species2_name << endl;
+                        cout << "        num_parts    = " << vector_part_ptrs.size() << endl;
+                        cout << "        ig           = " << ig << endl;
+                        cout << "        Etot0        = " << Etot0 << endl;
+                        cout << "        deltaE       = " << deltaE << endl;
+                     }
                      if (numCell <= m_conservation_Nmin_save) {
                         for (lit.begin(); lit.ok(); ++lit) {
                            part1_ptr = lit().getPointer();
@@ -744,6 +777,10 @@ void Coulomb::applyIntraScattering_SK08( PicSpecies&            a_picSpecies,
 
          // set max sigma based on mfp = atomic spacing
          sigma_max = 1.0/(numDen*atomic_spacing);
+
+         // set the Fermi energy for this cell
+         // EF_norm = hbar^2/(2*mass)*(3*pi^2*n)^(2/3)/(me*cvac^2)
+         m_EF_norm = m_EF_fact*std::pow(numDen,2.0/3.0);
 
          // get the number of particles in this cell
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
@@ -944,6 +981,11 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
          // set max sigma based on mfp = atomic spacing
          sigma_max = 1.0/(minn*atomic_spacing);
 
+         // set the Fermi energy for this cell
+         // EF_norm = hbar^2/(2*mass)*(3*pi^2*n)^(2/3)/(me*cvac^2)
+         Real maxn = std::max(numDen1,numDen2);
+         m_EF_norm = m_EF_fact*std::pow(maxn,2.0/3.0);
+
          // get the number of particles in this cell
          List<JustinsParticlePtr>& cell_pList1 = thisBinFab1_ptr(ig,0);
          List<JustinsParticlePtr>& cell_pList2 = thisBinFab2_ptr(ig,0);
@@ -994,7 +1036,8 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                Efact = 1.0/(gamma1 + 1.0);
 #endif
                Etot01 += wp1*Efact*gbsq1;
-               if (numCell1 <= m_conservation_Nmin_save) { // save beta's in case correction fails
+               if (numCell1 <= m_conservation_Nmin_save || // save beta's in case correction fails
+                   numCell2 <= m_conservation_Nmin_save) {
                   std::array<Real,3>& betap1_old = part1_ptr->velocity_old();
                   for (int n=0; n<3; n++) { betap1_old[n] = betap1[n]; }
                }
@@ -1019,7 +1062,8 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                Efact = 1.0/(gamma2 + 1.0);
 #endif
                Etot02 += wp2*Efact*gbsq2;
-               if (numCell2 <= m_conservation_Nmin_save) { // save beta's in case correction fails
+               if (numCell1 <= m_conservation_Nmin_save ||
+                   numCell2 <= m_conservation_Nmin_save) {
                   std::array<Real,3>& betap2_old = part2_ptr->velocity_old();
                   for (int n=0; n<3; n++) { betap2_old[n] = betap2[n]; }
                }
@@ -1231,6 +1275,7 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
             int loop1_count = 0;
             Real Erel1_cumm = 0.0;
             Real fmult1_fact = 1.0;
+            bool correction_failed = false;
             for (int p=0; p<vector_part1_ptrs.size(); p++) {
 
                if (deltaEp1==0.0) { break; }
@@ -1263,26 +1308,21 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                   p = -1;
                   // compute energy frac to correct energy with one more loop
                   const Real energy_frac_eff = std::abs(deltaEp1)/Erel1_cumm;
-                  if (energy_frac_eff>m_energy_fraction_max) {
-                     cout << "Notice: energy_frac_eff = " << energy_frac_eff << endl;
-                     cout << "        on loop_count = " << loop1_count << endl;
-                     cout << "        is larger than energy_frac_max = " << m_energy_fraction_max << endl;
-                     cout << "        for species1 = " << m_species1_name << endl;
-                     cout << "        and species2 = " << m_species2_name << endl;
-                     cout << "        num_parts    = " << vector_part1_ptrs.size() << endl;
-                     cout << "        ig           = " << ig << endl;
-                     cout << "        Etot0        = " << Etot0 << endl;
-                     cout << "        Etot1        = " << Etot1 << endl;
-                     cout << "        Etot11       = " << Etot11 << endl;
-                     cout << "        deltaEp1     = " << deltaEp1 << endl;
-                     if (numCell1 <= m_conservation_Nmin_save) {
-                        for (lit1.begin(); lit1.ok(); ++lit1) {
-                           part1_ptr = lit1().getPointer();
-                           const std::array<Real,3>& betap_old = part1_ptr->velocity_old();
-                           std::array<Real,3>& betap = part1_ptr->velocity();
-                           for (int n=0; n<3; n++) { betap[n] = betap_old[n]; }
-                        }
+                  if (energy_frac_eff>m_energy_fraction_max || loop1_count>10) {
+                     if (vector_part1_ptrs.size()>50) {
+                        cout << "Notice: energy_frac_eff = " << energy_frac_eff << endl;
+                        cout << "        on loop_count = " << loop1_count << endl;
+                        cout << "        is larger than energy_frac_max = " << m_energy_fraction_max << endl;
+                        cout << "        for species1 = " << m_species1_name << endl;
+                        cout << "        and species2 = " << m_species2_name << endl;
+                        cout << "        num_parts    = " << vector_part1_ptrs.size() << endl;
+                        cout << "        ig           = " << ig << endl;
+                        cout << "        Etot0        = " << Etot0 << endl;
+                        cout << "        Etot1        = " << Etot1 << endl;
+                        cout << "        Etot11       = " << Etot11 << endl;
+                        cout << "        deltaEp1     = " << deltaEp1 << endl;
                      }
+                     correction_failed = true;
                      break;
                   }
                   else if (energy_frac_eff>m_energy_fraction) {
@@ -1299,6 +1339,7 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
             for (int p=0; p<vector_part2_ptrs.size(); p++) {
 
                if (deltaEp2==0.0) { break; }
+               if (correction_failed) { break; }
                int p1 = p;
                p++;
                if (p==vector_part2_ptrs.size()) {
@@ -1328,26 +1369,21 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                   p = -1;
                   // compute energy frac to correct energy with one more loop
                   const Real energy_frac_eff = std::abs(deltaEp2)/Erel2_cumm;
-                  if (energy_frac_eff>m_energy_fraction_max) {
-                     cout << "Notice: energy_frac_eff = " << energy_frac_eff << endl;
-                     cout << "        on loop_count = " << loop2_count << endl;
-                     cout << "        is larger than energy_frac_max = " << m_energy_fraction_max << endl;
-                     cout << "        for species1 = " << m_species1_name << endl;
-                     cout << "        and species2 = " << m_species2_name << endl;
-                     cout << "        num_parts    = " << vector_part2_ptrs.size() << endl;
-                     cout << "        ig           = " << ig << endl;
-                     cout << "        Etot0        = " << Etot0 << endl;
-                     cout << "        Etot1        = " << Etot1 << endl;
-                     cout << "        Etot12       = " << Etot12 << endl;
-                     cout << "        deltaEp2     = " << deltaEp2 << endl;
-                     if (numCell2 <= m_conservation_Nmin_save) {
-                        for (lit2.begin(); lit2.ok(); ++lit2) {
-                           part2_ptr = lit2().getPointer();
-                           const std::array<Real,3>& betap_old = part2_ptr->velocity_old();
-                           std::array<Real,3>& betap = part2_ptr->velocity();
-                           for (int n=0; n<3; n++) { betap[n] = betap_old[n]; }
-                        }
+                  if (energy_frac_eff>m_energy_fraction_max || loop2_count>10) {
+                     if (vector_part2_ptrs.size()>50) {
+                        cout << "Notice: energy_frac_eff = " << energy_frac_eff << endl;
+                        cout << "        on loop_count = " << loop2_count << endl;
+                        cout << "        is larger than energy_frac_max = " << m_energy_fraction_max << endl;
+                        cout << "        for species1 = " << m_species1_name << endl;
+                        cout << "        and species2 = " << m_species2_name << endl;
+                        cout << "        num_parts    = " << vector_part2_ptrs.size() << endl;
+                        cout << "        ig           = " << ig << endl;
+                        cout << "        Etot0        = " << Etot0 << endl;
+                        cout << "        Etot1        = " << Etot1 << endl;
+                        cout << "        Etot12       = " << Etot12 << endl;
+                        cout << "        deltaEp2     = " << deltaEp2 << endl;
                      }
+                     correction_failed = true;
                      break;
                   }
                   else if (energy_frac_eff>m_energy_fraction) {
@@ -1355,6 +1391,25 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                   }
                }
 
+            }
+
+            // Reset betas if energy-correction failed
+            if (correction_failed) {
+               if (numCell1 <= m_conservation_Nmin_save ||
+                   numCell2 <= m_conservation_Nmin_save) {
+                  for (lit1.begin(); lit1.ok(); ++lit1) {
+                     part1_ptr = lit1().getPointer();
+                     const std::array<Real,3>& betap_old = part1_ptr->velocity_old();
+                     std::array<Real,3>& betap = part1_ptr->velocity();
+                     for (int n=0; n<3; n++) { betap[n] = betap_old[n]; }
+                  }
+                  for (lit2.begin(); lit2.ok(); ++lit2) {
+                      part2_ptr = lit2().getPointer();
+                      const std::array<Real,3>& betap_old = part2_ptr->velocity_old();
+                      std::array<Real,3>& betap = part2_ptr->velocity();
+                      for (int n=0; n<3; n++) { betap[n] = betap_old[n]; }
+                   }
+               }
             }
 
          }
@@ -1444,6 +1499,11 @@ void Coulomb::applyInterScattering_SK08( PicSpecies&            a_picSpecies1,
 
          // set max sigma based on mfp = atomic spacing
          sigma_max = 1.0/(minn*atomic_spacing);
+
+         // set the Fermi energy for this cell
+         // EF_norm = hbar^2/(2*mass)*(3*pi^2*n)^(2/3)/(me*cvac^2)
+         Real maxn = std::max(numDen1,numDen2);
+         m_EF_norm = m_EF_fact*std::pow(maxn,2.0/3.0);
 
          // get the number of particles in this cell
          List<JustinsParticlePtr>& cell_pList1 = thisBinFab1_ptr(ig,0);
@@ -1592,26 +1652,25 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
    if (u<=1.0e-14*vsum) { return; }
 
    // compute s12 = 2.0*deltasq_var
-   Real b90 = m_b90_fact/(m_mu*u*u); // b90 = q1*q2/(4*pi*ep0*WR) = q1*q2/(2*pi*ep0*mu*u^2)
-
+   Real b0 = m_b90_fact/(m_mu*u*u + 2.0*m_EF_norm); // b0 = q1*q2/(4*pi*ep0*WR) = q1*q2/(2*pi*ep0*mu*u^2)
+   const Real bmin_qm = m_bqm_fact/(m_mu*u + std::sqrt(2.0*m_EF_norm*m_mu));
+   const Real bmin = std::max(b0/2.0,bmin_qm);
    Real Clog = m_Clog;
    if (Clog==0.0 && u>0.0) {
-      Real bmin_qm = m_bqm_fact/(m_mu*u);
-      Real bmin = std::max(b90/2.0,bmin_qm);
       Clog = 0.5*std::log(1.0 + a_bmax*a_bmax/bmin/bmin);
       Clog = std::max(2.0,Clog);
    }
 
    // compute s12 = 2*<delta^2> with sigma_eff limited by sigma_max where mfp = atomic spacing
-   Real sigma_eff = Constants::PI*b90*b90*Clog;
+   b0 = m_b90_fact/(m_mu*u*u); // don't use Fermi energy in b0 here
+   Real sigma_eff = Constants::PI*b0*b0*Clog;
    sigma_eff = std::min(sigma_eff,a_sigma_max);
    m_s12 = sigma_eff * a_den12 * u*Constants::CVAC * a_dt_sec;
 
    switch (m_angular_scattering) {
       case TAKIZUKA:
-
          if (m_s12<2.0) { // sample from gaussian distribution  
-            const Real delta = sqrt(m_s12/2.0)*MathUtils::randn();
+            const Real delta = sqrt(m_s12/2.0)*std::abs(MathUtils::randn());
             const Real deltasq = delta*delta;
             m_sinth = 2.0*delta/(1.0+deltasq); 
             m_costh = 1.0 - 2.0*deltasq/(1.0+deltasq);
@@ -1621,16 +1680,21 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
             m_costh = cos(theta);
             m_sinth = sin(theta);
          }
-      break;
+         break;
       case NANBU:
-
          setNANBUcosthsinth(m_s12);
-      break;
+         break;
+      case NANBU_FAS:
+         setNANBUFAScosthsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
+         break;
+      case NANBU_FAS_v2:
+         setNANBUFAS_v2_costhsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
+         break;
       case ISOTROPIC:
          const Real theta = Constants::PI*MathUtils::rand();
          m_costh = cos(theta);
          m_sinth = sin(theta);
-      break;
+         break;
    }
 
    // set random azimuthal angle
@@ -1699,17 +1763,18 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
    denom = 1.0 + upstsq*a_mass1/a_mass2/g1st/g2st;
    vrelst_invar = vrelst/denom;
    
+   Real b0 = m_b90_fact/(muRst*vrelst*vrelst_invar + 2.0*m_EF_norm);
+   const Real bmin_qm = m_bqm_fact/(muRst*vrelst + std::sqrt(2.0*m_EF_norm*muRst));
+   const Real bmin = std::max(b0/2.0,bmin_qm);
    Real Clog = m_Clog;
-   const Real b90 = m_b90_fact/(muRst*vrelst*vrelst_invar);
    if (Clog==0.0 && upstsq>0.0) {
-      Real bmin_qm = m_bqm_fact/(muRst*vrelst);
-      Real bmin = std::max(b90/2.0,bmin_qm);
       Clog = 0.5*std::log(1.0 + a_bmax*a_bmax/bmin/bmin);
       Clog = std::max(2.0,Clog);
    }
 
    // compute s12 = 2*<delta^2> with sigma_eff limited by sigma_max where mfp = atomic spacing
-   Real sigma_eff = Constants::PI*b90*b90*Clog;
+   b0 = m_b90_fact/(muRst*vrelst*vrelst_invar); // dont use Fermi energy for b0 here
+   Real sigma_eff = Constants::PI*b0*b0*Clog;
    sigma_eff = std::min(sigma_eff,a_sigma_max);
    m_s12 = sigma_eff * a_den12 * vrelst*Constants::CVAC * a_dt_sec;
    m_s12 *= g1st*g2st/g1/g2;
@@ -1717,7 +1782,7 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
    switch (m_angular_scattering) {
       case TAKIZUKA:
          if (m_s12<2.0) { // sample from gaussian distribution  
-            const Real delta = sqrt(m_s12/2.0)*MathUtils::randn();
+            const Real delta = sqrt(m_s12/2.0)*std::abs(MathUtils::randn());
             const Real deltasq = delta*delta;
             m_sinth = 2.0*delta/(1.0+deltasq); 
             m_costh = 1.0 - 2.0*deltasq/(1.0+deltasq);
@@ -1727,17 +1792,23 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
             m_costh = cos(theta);
             m_sinth = sin(theta);
          }
-      break;
+         break;
       case NANBU:
          setNANBUcosthsinth(m_s12);
-      break;
+         break;
+      case NANBU_FAS:
+         setNANBUFAScosthsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
+         break;
+      case NANBU_FAS_v2:
+         setNANBUFAS_v2_costhsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
+         break;
       case ISOTROPIC:
          const Real theta = Constants::PI*MathUtils::rand();
          m_costh = cos(theta);
          m_sinth = sin(theta);
-      break;
+         break;
    }
- 
+
    // set random azimuthal angle
    m_phi = Constants::TWOPI*MathUtils::rand();
    m_cosphi = cos(m_phi);

@@ -7,47 +7,51 @@
 
 #include "NamespaceHeader.H"
 
+typedef enum{b_only, e_only, e_and_b, curl2} EMVecType;
+
 class FieldBC
 {
    public:
-   
+
       FieldBC( const DomainGrid&   a_mesh,
                const int           a_verbosity );
 
       ~FieldBC();
-   
+
       void applyCellBC( LevelData<FArrayBox>&  a_dst,
                   const Real                   a_time );
-       
+
       void applyFluxBC( LevelData<FluxBox>&  a_dst,
                   const Real                 a_time );
-      
+
       void applyEdgeBC( LevelData<EdgeDataBox>&  a_dst,
                   const Real                     a_time ) const;
-      
+
       void applyNodeBC( LevelData<NodeFArrayBox>&  a_dst,
                   const Real                       a_time ) const;
 
       void setFluxBC( LevelData<FluxBox>&  a_dst,
                 const LevelData<FluxBox>&  a_src,
                 const Real                 a_time );
-      
+
       void setEdgeBC( LevelData<EdgeDataBox>&  a_dst,
                 const LevelData<EdgeDataBox>&  a_src,
                 const Real                     a_time );
-      
+
       void applyCellPCMask( LevelData<FArrayBox>&  a_dst,
                       const Real                   a_time );
-       
+
       void applyFluxPCMask( LevelData<FluxBox>&  a_dst,
                       const Real                 a_time );
-      
+
       void applyEdgePCMask( LevelData<EdgeDataBox>&  a_dst,
-                      const Real                     a_time ) const;
-      
+                      const Real                     a_time,
+                      const EMVecType&               a_vec_type ) const;
+
       void applyNodePCMask( LevelData<NodeFArrayBox>&  a_dst,
-                      const Real                       a_time ) const;
-      
+                      const Real                       a_time,
+                      const EMVecType&                 a_vec_type  ) const;
+
 #if CH_SPACEDIM==1
       void applyPhiBC( LevelData<NodeFArrayBox>&  a_phi,
                  const LevelData<NodeFArrayBox>&  a_rho,
@@ -56,7 +60,7 @@ class FieldBC
 
       void applyOnAxisCurlBC( LevelData<EdgeDataBox>&  a_curlB,
                         const LevelData<FArrayBox>&    a_B );
-      
+
       void applyOnAxisCurlBC( LevelData<NodeFArrayBox>&  a_curlB,
                         const LevelData<FArrayBox>&      a_B );
 
@@ -70,36 +74,36 @@ class FieldBC
                         const Real                       a_time,
                         const Real                       a_cvacDt );
 
-      void computeIntSdA( RealVect&                  a_intSdA_lo, 
+      void computeIntSdA( RealVect&                  a_intSdA_lo,
                           RealVect&                  a_intSdA_hi,
-                    const LevelData<EdgeDataBox>&    a_E, 
+                    const LevelData<EdgeDataBox>&    a_E,
                     const LevelData<FluxBox>&        a_B,
                     const LevelData<NodeFArrayBox>&  a_Ev,
                     const LevelData<FArrayBox>&      a_Bv );
-    
+
       void applyToJ( LevelData<EdgeDataBox>&    a_J_inPlane,
                      LevelData<NodeFArrayBox>&  a_J_virtual ) const;
 
       void applyToEforDiv( LevelData<EdgeDataBox>&  a_dst ) const;
-  
+
    protected:
-   
+
       Vector<std::string> m_bdry_name;
       Vector<std::string> m_bc_type, m_phi_bc_type;
       bool m_conservative_wall; // if true, E for insulator/conductor BCs will be set
-                                // such that energy is conserved  
+                                // such that energy is conserved
       bool m_absorbing_bc = false; // will set true if there are any absorbing bcs
 
       Vector<RefCountedPtr<InsulatorBC>> m_InsulatorBC;
-   
+
    private:
-  
+
    const DomainGrid& m_mesh;
-   
+
    int m_verbosity;
 
    void parseParameters( ParmParse&  a_pp );
-   
+
    void printParameters() const;
 
 /*

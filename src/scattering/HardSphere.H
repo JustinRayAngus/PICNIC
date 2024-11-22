@@ -51,6 +51,7 @@ class HardSphere : public Scattering
       virtual void printParameters()  const {
          if (procID()==0) {
             std::cout << "HardSphere scattering parameters:" << std::endl;
+            std::cout << "  ignore_warnings:         " << (m_ignore_warnings?"true":"false") << std::endl;
             std::cout << "  species A name:          " << m_species1_name << std::endl;
             std::cout << "  species B name:          " << m_species2_name << std::endl;
             std::cout << "  species 1 radius [m]:    " << m_r1 << std::endl;
@@ -97,6 +98,8 @@ class HardSphere : public Scattering
          a_pp.get( "speciesB", m_sp2 );
          a_pp.query( "radius1", m_r1 );
          a_pp.query( "radius2", m_r2 );
+
+         a_pp.query("ignore_warnings",m_ignore_warnings);
         
          // look for specified method for A and B having different weights
          std::string weight_method;
@@ -128,6 +131,7 @@ class HardSphere : public Scattering
       Real m_r1=-1;  // species 1 radius [m]
       Real m_r2=-1;  // species 2 radius [m]
       Real m_sigmaT; // total cross section [m^2] = pi*(r1+r2)^2
+      bool m_ignore_warnings = false;
 
 };
 

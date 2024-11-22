@@ -1,0 +1,243 @@
+#TEST np=25, timelimit=00:05:00
+#####################################################
+# Verbosity Definitions
+#####################################################
+simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
+
+###   relaxation of 3.5 MeV alpha beam
+###   in 50/50 DT plasma with density 5.0e31/m^3
+###   at T = 3 keV. The alpha beam density is 1% of the DT.
+###   Large-angle scattering is included.
+###   This problem was shown by Iwata at DPP 2024. 
+
+system.advance_method = "PIC_DSMC"
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+simulation.max_step            = 200 # 1000000
+simulation.max_time            = 6.0
+simulation.fixed_dt            = 1.0e-4
+simulation.plot_time_interval  = 0.5
+simulation.plot_on_final_step  = true
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 10
+
+history.precision = 16
+history.species0_probes = true
+history.species1_probes = true
+history.species2_probes = true
+history.species3_probes = true
+
+simulation.checkpoint_time_interval = 1.0
+#simulation.restart_file = "checkpoint_data/chk020000.2d.hdf5"
+simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 20 20 
+grid.is_periodic   = 1  1
+grid.config_decomp = 5  5
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 3
+
+grid.X_min = 0.0
+grid.X_max = 20.0
+grid.Z_min = 0.0
+grid.Z_max = 20.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 1.0e-6  # m
+units.time           = 1.0e-12 # s
+
+#####################################################
+# Fields Definitions
+#####################################################
+em_fields.use = false
+
+#####################################################
+# Species Definitions
+#####################################################
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = false
+pic_species.0.scatter = true
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "CC1"
+pic_species.0.interp_type_E = "CC1"
+
+IC.electron.parts_per_cell = 40 25
+IC.electron.density.type = "constant"
+IC.electron.density.value = 2.5e31 # [number/m^3]
+IC.electron.use_float_for_weights = true
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 3.0e3 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 3.0e3 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 3.0e3 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 0.0
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+IC_1.electron.parts_per_cell = 40 25
+IC_1.electron.density.type = "constant"
+IC_1.electron.density.value = 2.5e31 # [number/m^3]
+IC_1.electron.use_float_for_weights = true
+IC_1.electron.temperature_0.type = "constant"
+IC_1.electron.temperature_0.value = 3.0e3 # [eV]
+IC_1.electron.temperature_1.type = "constant"
+IC_1.electron.temperature_1.value = 3.0e3 # [eV]
+IC_1.electron.temperature_2.type = "constant"
+IC_1.electron.temperature_2.value = 3.0e3 # [eV]
+IC_1.electron.velocity_0.type = "constant"
+IC_1.electron.velocity_0.value = 0.0
+IC_1.electron.velocity_1.type = "constant"
+IC_1.electron.velocity_1.value = 0.0
+IC_1.electron.velocity_2.type = "constant"
+IC_1.electron.velocity_2.value = 0.0
+
+IC_2.electron.parts_per_cell = 5 4
+IC_2.electron.density.type = "constant"
+IC_2.electron.density.value = 5.0e29 # [number/m^3]
+IC_2.electron.use_float_for_weights = true
+IC_2.electron.temperature_0.type = "constant"
+IC_2.electron.temperature_0.value = 3.0e3 # [eV]
+IC_2.electron.temperature_1.type = "constant"
+IC_2.electron.temperature_1.value = 3.0e3 # [eV]
+IC_2.electron.temperature_2.type = "constant"
+IC_2.electron.temperature_2.value = 3.0e3 # [eV]
+IC_2.electron.velocity_0.type = "constant"
+IC_2.electron.velocity_0.value = 0.0
+IC_2.electron.velocity_1.type = "constant"
+IC_2.electron.velocity_1.value = 0.0
+IC_2.electron.velocity_2.type = "constant"
+IC_2.electron.velocity_2.value = 0.0
+
+IC_3.electron.parts_per_cell = 5 4
+IC_3.electron.density.type = "constant"
+IC_3.electron.density.value = 5.0e29 # [number/m^3]
+IC_3.electron.use_float_for_weights = true
+IC_3.electron.temperature_0.type = "constant"
+IC_3.electron.temperature_0.value = 3.0e3 # [eV]
+IC_3.electron.temperature_1.type = "constant"
+IC_3.electron.temperature_1.value = 3.0e3 # [eV]
+IC_3.electron.temperature_2.type = "constant"
+IC_3.electron.temperature_2.value = 3.0e3 # [eV]
+IC_3.electron.velocity_0.type = "constant"
+IC_3.electron.velocity_0.value = 0.0
+IC_3.electron.velocity_1.type = "constant"
+IC_3.electron.velocity_1.value = 0.0
+IC_3.electron.velocity_2.type = "constant"
+IC_3.electron.velocity_2.value = 0.0
+
+pic_species.1.name   = "deuterium"
+pic_species.1.mass   = 3670.48
+pic_species.1.charge = 1
+pic_species.1.motion = true
+pic_species.1.forces = false
+pic_species.1.scatter = true
+pic_species.1.interp_type_N = "TSC"
+pic_species.1.interp_type_J = "CC1"
+pic_species.1.interp_type_E = "CC1"
+
+IC.deuterium.parts_per_cell = 40 25
+IC.deuterium.density.type = "constant"
+IC.deuterium.density.value = 2.5e31 # [number/m^3]
+IC.deuterium.use_float_for_weights = true
+IC.deuterium.temperature_0.type = "constant"
+IC.deuterium.temperature_0.value = 3.0e3 # [eV]
+IC.deuterium.temperature_1.type = "constant"
+IC.deuterium.temperature_1.value = 3.0e3 # [eV]
+IC.deuterium.temperature_2.type = "constant"
+IC.deuterium.temperature_2.value = 3.0e3 # [eV]
+IC.deuterium.velocity_0.type = "constant"
+IC.deuterium.velocity_0.value = 0.0
+IC.deuterium.velocity_1.type = "constant"
+IC.deuterium.velocity_1.value = 0.0
+IC.deuterium.velocity_2.type = "constant"
+IC.deuterium.velocity_2.value = 0.0
+
+pic_species.2.name   = "tritium"
+pic_species.2.mass   = 5496.92
+pic_species.2.charge = 1
+pic_species.2.motion = true
+pic_species.2.forces = false
+pic_species.2.scatter = true
+pic_species.2.interp_type_N = "TSC"
+pic_species.2.interp_type_J = "CC1"
+pic_species.2.interp_type_E = "CC1"
+
+IC.tritium.parts_per_cell = 40 25
+IC.tritium.density.type = "constant"
+IC.tritium.density.value = 2.5e31 # [number/m^3]
+IC.tritium.use_float_for_weights = true
+IC.tritium.temperature_0.type = "constant"
+IC.tritium.temperature_0.value = 3.0e3 # [eV]
+IC.tritium.temperature_1.type = "constant"
+IC.tritium.temperature_1.value = 3.0e3 # [eV]
+IC.tritium.temperature_2.type = "constant"
+IC.tritium.temperature_2.value = 3.0e3 # [eV]
+IC.tritium.velocity_0.type = "constant"
+IC.tritium.velocity_0.value = 0.0
+IC.tritium.velocity_1.type = "constant"
+IC.tritium.velocity_1.value = 0.0
+IC.tritium.velocity_2.type = "constant"
+IC.tritium.velocity_2.value = 0.0
+
+pic_species.3.name   = "helium4"
+pic_species.3.mass   = 7294.3
+pic_species.3.charge = 2
+pic_species.3.motion = true
+pic_species.3.forces = false
+pic_species.3.scatter = true
+pic_species.3.interp_type_N = "TSC"
+pic_species.3.interp_type_J = "CC1"
+pic_species.3.interp_type_E = "CC1"
+
+IC.helium4.parts_per_cell = 5 4
+IC.helium4.density.type = "constant"
+IC.helium4.density.value = 5.0e29 # [number/m^3]
+IC.helium4.use_float_for_weights = true
+IC.helium4.temperature_0.type = "constant"
+IC.helium4.temperature_0.value = 0.0 # [eV]
+IC.helium4.temperature_1.type = "constant"
+IC.helium4.temperature_1.value = 0.0 # [eV]
+IC.helium4.temperature_2.type = "constant"
+IC.helium4.temperature_2.value = 0.0 # [eV]
+IC.helium4.velocity_0.type = "constant"
+IC.helium4.velocity_0.value = 1.2995e7 # proper velocity at 3.5 MeV
+IC.helium4.velocity_1.type = "constant"
+IC.helium4.velocity_1.value = 0.0
+IC.helium4.velocity_2.type = "constant"
+IC.helium4.velocity_2.value = 0.0
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.coulomb.all = true 
+scattering.coulomb.model = "COULOMB"
+scattering.coulomb.angular_scattering = "NANBU_FAS_v2"
+scattering.coulomb.limit_fas_theta_max = false
+scattering.coulomb.exclude_electron_fas = true
+#scattering.coulomb.enforce_conservations = true
+#scattering.coulomb.sort_weighted_particles = true
+#scattering.coulomb.coulomb_logarithm = 3.0
+
+#####################################################
+
+

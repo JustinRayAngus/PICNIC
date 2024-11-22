@@ -53,7 +53,7 @@ class EMJacobianFunction: public LinearFunction<T,Ops>
     inline void updatePreCondMat( const T&  a_X )
     {
       CH_TIME("EMJacobianFunction::updatePreCondMat()");
-      if (m_usePreCond) m_preCond->update( a_X );
+      if (m_usePreCond) { m_preCond->update( a_X ); }
       return;
     }
 

@@ -43,7 +43,7 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    pp.query("write_species_nppc", m_writeSpeciesNppc);
    pp.query("write_species_energy_off_diagonal", m_writeSpeciesEnergyOffDiag);
    pp.query("write_species_energy_flux", m_writeSpeciesEnergyFlux);
-   if(m_writeSpeciesEnergyFlux) m_writeSpeciesEnergyOffDiag = true;
+   if (m_writeSpeciesEnergyFlux) { m_writeSpeciesEnergyOffDiag = true; }
    //
    pp.query("part_order_swap",m_part_order_swap);
    pp.query("iter_max_particles",m_iter_max_particles);
@@ -56,15 +56,15 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    pp.query("quasi_freeze_particles_jacobian",m_quasi_freeze_particles_jacobian);
    pp.query("use_mass_matrices",m_use_mass_matrices);
    pp.query("mod_init_advance",m_mod_init_advance);
-      
-   if(m_use_mass_matrices) m_quasi_freeze_particles_jacobian = true;
-   if(m_quasi_freeze_particles_jacobian) m_freeze_particles_jacobian=false;
+
+   if (m_use_mass_matrices) { m_quasi_freeze_particles_jacobian = true; }
+   if (m_quasi_freeze_particles_jacobian) { m_freeze_particles_jacobian=false; }
    
    createAllPicSpecies( a_mesh );
   
 #ifdef PRINT_COMPS
    m_print_comps = false;
-   if(!procID()) m_print_comps = true;
+   if (!procID()) { m_print_comps = true; }
 #endif
       
    m_num_species = m_pic_species_ptr_vect.size();
@@ -89,29 +89,29 @@ void
 PicSpeciesInterface::createAllPicSpecies( const DomainGrid&  a_mesh )
 {
 
-   if(!procID()) cout << "Creating PIC species..." << endl << endl;
+   if (!procID()) { cout << "Creating PIC species..." << endl << endl; }
 
    bool more_vars(true);
    int species;
-   while(more_vars) { // look for pic species...
- 
+   while (more_vars) { // look for pic species...
+
       species = m_pic_species_ptr_vect.size();
       stringstream s;
       s << "pic_species." << species; 
       ParmParse pp_spc( s.str().c_str() );
-     
+
       string name;
-      if(pp_spc.contains("name")) pp_spc.get("name",name);
+      if (pp_spc.contains("name")) { pp_spc.get("name",name); }
       else more_vars = false;
-   
-      if(more_vars) {
+
+      if (more_vars) {
          PicSpecies* picSpecies = new PicSpecies( pp_spc, species, name, a_mesh );
          m_pic_species_ptr_vect.push_back(PicSpeciesPtr(picSpecies));
       }
 
    }
 
-   if(!procID()) {
+   if (!procID()) {
       cout << "Finished creating " << m_pic_species_ptr_vect.size() << " PIC species" << endl << endl;
    }
 
@@ -123,26 +123,26 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
                                  const Real          a_cur_time,
                                  const std::string&  a_restart_file_name )
 {
-   if(!procID()) cout << "Initializing pic species..." << endl << endl;
-      
+   if (!procID()) { cout << "Initializing pic species..." << endl << endl; }
+
    // initialize the pic species
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-      
+
       PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       species->initialize( a_units, a_cur_time, a_restart_file_name );
-      
-      if(!a_implicit_advance) {
+
+      if (!a_implicit_advance) {
          bool planar_push = species->planarPush();
          bool boris_inertia = species->borisInertia();
-         if(!planar_push && !boris_inertia) {
-            if(!procID()) cout << "EXIT_FAILURE: Using non-planar and non-boris push for sp = " << sp << endl;
-            if(!procID()) cout << "not setup to work with EXPLICIT advance" << endl;
+         if (!planar_push && !boris_inertia) {
+            if (!procID()) cout << "EXIT_FAILURE: Using non-planar and non-boris push for sp = " << sp << endl;
+            if (!procID()) cout << "not setup to work with EXPLICIT advance" << endl;
             exit(EXIT_FAILURE);
          }
       }
 
-      if(a_implicit_advance) {
-      
+      if (a_implicit_advance) {
+
          species->setParticleSolverParams( m_verbose_particles,
 			                   m_part_order_swap,
                                            m_iter_max_particles,
@@ -151,15 +151,15 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
                                            m_newton_num_guess );
 
       }
-  
+
    }
-    
+
    // additional species-pair initialization
    speciesPairingInit();
 
-   if(!a_implicit_advance) { m_use_mass_matrices = false; }
+   if (!a_implicit_advance) { m_use_mass_matrices = false; }
 
-   if(!procID()) {
+   if (!procID()) {
       cout << "Finished initializing " << m_pic_species_ptr_vect.size();
       cout << " pic species" << endl << endl;
       cout << " write species charge density  = " << (m_writeSpeciesChargeDensity?"true":"false") << endl;
@@ -192,7 +192,7 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
    CH_TIME("PicSpeciesInterface::initializeMassMatrices()");
 
    bool init_mass_matrices = false;
-   if(m_use_mass_matrices) init_mass_matrices = true;
+   if (m_use_mass_matrices) { init_mass_matrices = true; }
 #ifdef MASS_MATRIX_TEST
    CH_assert(!m_use_mass_matrices);
    init_mass_matrices = true;
@@ -209,9 +209,9 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
          if (species->charge()==0) { continue; }
          species->setHigueraCary(true);
       }
-   }
-   if (!procID()) {
-      cout << "  using higuera-Cary for relativistic particles..." << endl;
+      if (!procID()) {
+         cout << "  using higuera-Cary for relativistic particles..." << endl;
+      }
    }
 #endif
 
@@ -223,12 +223,12 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
 
    // initialize number of components for CIC/TSC
    int tsc = 0; 
-   if(interp_type==TSC) { 
+   if (interp_type==TSC) {
       tsc = 2;
       CH_assert(ghosts>=3);
    }
    for (int dir=0; dir<SpaceDim; ++dir) {
-      if(dir==0) {
+      if (dir==0) {
          m_ncomp_xx[dir] = 3 + tsc;
          m_ncomp_xy[dir] = 4 + tsc;
          m_ncomp_xz[dir] = 4 + tsc;
@@ -241,7 +241,7 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
          m_ncomp_zy[dir] = 3 + tsc;
          m_ncomp_zz[dir] = 3 + tsc;
       }
-      if(dir==1) {
+      if (dir==1) {
          m_ncomp_xx[dir] = 3 + tsc;
          m_ncomp_xy[dir] = 4 + tsc;
          m_ncomp_xz[dir] = 3 + tsc;
@@ -254,7 +254,7 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
          m_ncomp_zy[dir] = 4 + tsc;
          m_ncomp_zz[dir] = 3 + tsc;
       }
-      if(dir==2) {
+      if (dir==2) {
          m_ncomp_xx[dir] = 3 + tsc;
          m_ncomp_xy[dir] = 3 + tsc;
          m_ncomp_xz[dir] = 4 + tsc;
@@ -268,16 +268,16 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
          m_ncomp_zz[dir] = 3 + tsc;
       }
    }
-   
-   if(interp_type==CIC) {
+
+   if (interp_type==CIC) {
       CH_assert(ghosts>=2);
    }
-   if(interp_type==CC0) {
+   if (interp_type==CC0) {
       m_ncomp_xx[0] = 5; // 2 cell crossings permitted
       CH_assert(ghosts>=2);
       CH_assert(SpaceDim==1);
    }
-   if(interp_type==CC1 && SpaceDim==1) {
+   if (interp_type==CC1 && SpaceDim==1) {
       CH_assert(ghosts>=2);
       int maxXings = ghosts - 1;
       m_ncomp_xx[0] = 3 + 2*maxXings;
@@ -286,11 +286,11 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
       m_ncomp_yx[0] = 2 + 2*maxXings;
       m_ncomp_zx[0] = 2 + 2*maxXings;
    }
-   if(interp_type==CC1 && SpaceDim==2) {
+   if (interp_type==CC1 && SpaceDim==2) {
       CH_assert(ghosts>=3);
       int maxXings = ghosts - 2;
       for (int dir=0; dir<SpaceDim; ++dir) {
-         if(dir==0) {
+         if (dir==0) {
             m_ncomp_xx[dir] = 3 + 2*maxXings; 
             m_ncomp_xy[dir] = 4 + 2*maxXings; 
             m_ncomp_xz[dir] = 2 + 2*maxXings;
@@ -303,7 +303,7 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
             m_ncomp_zy[dir] = 3 + 2*maxXings; 
             m_ncomp_zz[dir] = 3;
          } 
-         if(dir==1) {
+         if (dir==1) {
             m_ncomp_xx[dir] = 5 + 2*maxXings; 
             m_ncomp_xy[dir] = 4 + 2*maxXings; 
             m_ncomp_xz[dir] = 3 + 2*maxXings;
@@ -318,13 +318,13 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
          } 
       }
    }
-   
+
    m_J0.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
    m_J0_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
-   
+
    m_E0.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
    m_E0_virtual.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
-   
+
    // poor naming convention. m_sigma_x* containers are EdgeBox types.
    // In 2D, m_sigma_xj[0] is sigma_xj for j = x,y,z, but
    //        m_sigma_xx[1] is sigma_yy 
@@ -363,12 +363,12 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
 
 #ifdef MASS_MATRIX_TEST
    m_currentDensity_TEST.define(grids,1,ghostVect);    // EdgeDataBox with 1 comp
-   if(SpaceDim<3) m_currentDensity_virtual_TEST.define(grids,3-SpaceDim,ghostVect); // NodeFArrayBox
+   if (SpaceDim<3) { m_currentDensity_virtual_TEST.define(grids,3-SpaceDim,ghostVect); }
    SpaceUtils::zero( m_currentDensity_TEST );
    SpaceUtils::zero( m_currentDensity_virtual_TEST );
 #endif
 
-   if(!procID()) {
+   if (!procID()) {
       cout << " ncomp_xx = " << m_ncomp_xx << endl;
       cout << " ncomp_xy = " << m_ncomp_xy << endl;
       cout << " ncomp_xz = " << m_ncomp_xz << endl;
@@ -380,11 +380,11 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
       cout << " ncomp_zz = " << m_ncomp_zz << endl;
       cout << "Finished initializing mass matrices" << endl << endl;
    }
-	 
+
    a_emfields.initializeMassMatricesForPC( m_ncomp_xx, m_ncomp_xy, m_ncomp_xz,
 	 		                   m_ncomp_yx, m_ncomp_yy, m_ncomp_yz,
          			           m_ncomp_zx, m_ncomp_zy, m_ncomp_zz );
-   
+
 }
 
 void
@@ -394,20 +394,20 @@ PicSpeciesInterface::speciesPairingInit()
 
    bool more_pairings(true);
    int pairing_number = -1;
-   while(more_pairings) { // look for pic species...
- 
+   while (more_pairings) { // look for pic species...
+
       pairing_number += 1;
       stringstream s;
       s << "pic_species.pairing_init." << pairing_number; 
       ParmParse pp_spi( s.str().c_str() );
-     
+
       string name;
-      if(pp_spi.contains("name")) pp_spi.get("name",name);
+      if (pp_spi.contains("name")) { pp_spi.get("name",name); }
       else more_pairings = false;
 
-      if(more_pairings) {
+      if (more_pairings) {
 
-         if(!procID()) cout << "found pairing_init with name = " << name << endl;
+         if (!procID()) { cout << "found pairing_init with name = " << name << endl; }
 
          int speciesA, speciesB;
          pp_spi.get("speciesA",speciesA);
@@ -416,12 +416,14 @@ PicSpeciesInterface::speciesPairingInit()
          CH_assert(speciesB<m_num_species);
          const PicSpeciesPtr spA(m_pic_species_ptr_vect[speciesA]);
          const PicSpeciesPtr spB(m_pic_species_ptr_vect[speciesB]);
-         if(!procID()) cout << "species A = " << spA->name() << endl;
+         if (!procID()) { cout << "species A = " << spA->name() << endl; }
          int numP_A = spA->numParticles();
          int numP_B = spB->numParticles();
-         if(!procID()) cout << "num A parts = " << numP_A << endl;
-         if(!procID()) cout << "species B = " << spB->name() << endl;
-         if(!procID()) cout << "num B parts = " << numP_B << endl;
+         if (!procID()) {
+            cout << "num A parts = " << numP_A << endl;
+            cout << "species B = " << spB->name() << endl;
+            cout << "num B parts = " << numP_B << endl;
+         }
          CH_assert(numP_A==numP_B);
         
          // get the mode amplitude and number 
@@ -430,8 +432,10 @@ PicSpeciesInterface::speciesPairingInit()
          std::vector<int> temp(SpaceDim,0);
          pp_spi.getarr( "mode", temp, 0, SpaceDim );
          IntVect mode = IntVect( temp );
-         if(!procID()) cout << "amplitude = " << amplitude << endl;
-         if(!procID()) cout << "mode = " << mode << endl;
+         if (!procID()) {
+            cout << "amplitude = " << amplitude << endl;
+            cout << "mode = " << mode << endl;
+         }
    
          const RealVect Xmin = m_mesh.getXmin();
          const RealVect Xmax = m_mesh.getXmax();
@@ -522,7 +526,7 @@ PicSpeciesInterface::speciesPairingInit()
          delete partA_ptr;
          delete partB_ptr;
 
-         if(!procID()) cout << endl;
+         if (!procID()) { cout << endl; }
       }
 
    }
@@ -553,7 +557,7 @@ void PicSpeciesInterface::computeJfromMassMatrices( const EMFields&  a_emfields 
 
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
       
       Box node_box = surroundingNodes(grids[dit]);
       
@@ -589,7 +593,6 @@ void PicSpeciesInterface::computeJfromMassMatrices( const EMFields&  a_emfields 
       const FArrayBox& sigxz = m_sigma_xz[dit][0];
 
       Box edge_box0 = Jx.box();
-      //if(!procID()) cout << "Jx.box() = " << edge_box0 << endl;
       FORT_COMPUTE_JX_FROM_MASS_MATRIX( CHF_BOX(edge_box0),
                                         CHF_CONST_INTVECT(m_ncomp_xx),
                                         CHF_CONST_INTVECT(m_ncomp_xy),
@@ -637,7 +640,6 @@ void PicSpeciesInterface::computeJfromMassMatrices( const EMFields&  a_emfields 
 #else
       Box edge_box1 = Jy.box();
 #endif
-      //if(!procID()) cout << "Jy.box() = " << edge_box1 << endl;
       FORT_COMPUTE_JY_FROM_MASS_MATRIX( CHF_BOX(edge_box1),
                                         CHF_CONST_INTVECT(m_ncomp_yx),
                                         CHF_CONST_INTVECT(m_ncomp_yy),
@@ -683,7 +685,6 @@ void PicSpeciesInterface::computeJfromMassMatrices( const EMFields&  a_emfields 
 #else
       Box edge_box2 = Jz.box();
 #endif
-      //if(!procID()) cout << "Jz.box() = " << edge_box2 << endl;
       FORT_COMPUTE_JZ_FROM_MASS_MATRIX( CHF_BOX(edge_box2),
                                         CHF_CONST_INTVECT(m_ncomp_zx),
                                         CHF_CONST_INTVECT(m_ncomp_zy),
@@ -740,11 +741,12 @@ void PicSpeciesInterface::finalizeSettingJ( LevelData<EdgeDataBox>&    a_current
 #endif
   
    // Here is where we will apply filtering
+   if (a_emfields.useFiltering()) { filterJ( a_emfields, 0.0 ); }
 
    // divide by corrected Jacobian
    const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();  
    const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();  
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
       for (int dir=0; dir<SpaceDim; ++dir) {
          a_currentDensity[dit][dir].divide(Jec[dit][dir],0,0,1);
       }
@@ -761,9 +763,9 @@ void PicSpeciesInterface::setChargeDensityOnNodes( const bool  a_use_filtering )
 {
    CH_TIME("PicSpeciesInterface::setChargeDensityOnNodes()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
-   
+
    // set the charge density to zero
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
       FArrayBox& this_rho = m_chargeDensity_nodes[dit].getFab();
       this_rho.setVal(0.0);
    }
@@ -772,11 +774,11 @@ void PicSpeciesInterface::setChargeDensityOnNodes( const bool  a_use_filtering )
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->charge() == 0) continue;
+      if (species->charge()==0) { continue; }
 
       species->setChargeDensityOnNodes( a_use_filtering );
       const LevelData<NodeFArrayBox>& species_rho = species->getChargeDensityOnNodes();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          const FArrayBox& this_species_rho = species_rho[dit].getFab();
          FArrayBox& this_rho = m_chargeDensity_nodes[dit].getFab();
          this_rho.plus(this_species_rho,0,0,m_chargeDensity_nodes.nComp());
@@ -803,10 +805,10 @@ void PicSpeciesInterface::setCurrentDensity( const EMFields&  a_emfields,
    // loop over all pic species and add the current density 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->charge()==0) continue;
+      if (species->charge()==0) { continue; }
       species->setCurrentDensity( a_dt, a_from_explicit_solver );
       const LevelData<EdgeDataBox>& species_J = species->getCurrentDensity();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          for (int dir=0; dir<SpaceDim; dir++) {
             const FArrayBox& this_species_Jdir = species_J[dit][dir];
             m_currentDensity[dit][dir].plus(this_species_Jdir,0,0,1);
@@ -814,7 +816,7 @@ void PicSpeciesInterface::setCurrentDensity( const EMFields&  a_emfields,
       }
 #if CH_SPACEDIM<3
       const LevelData<NodeFArrayBox>& species_Jv = species->getCurrentDensity_virtual();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          const FArrayBox& this_species_Jv = species_Jv[dit].getFab();
          FArrayBox& this_Jv = m_currentDensity_virtual[dit].getFab();
          this_Jv.plus(this_species_Jv,0,0,m_currentDensity_virtual.nComp());
@@ -822,7 +824,7 @@ void PicSpeciesInterface::setCurrentDensity( const EMFields&  a_emfields,
 #endif
    }
    
-   if(a_finalizeJ) { // apply BCs, do addOp exchange, then divide by corrected Jacobian
+   if (a_finalizeJ) { // apply BCs, do addOp exchange, then divide by corrected Jacobian
       finalizeSettingJ( m_currentDensity, m_currentDensity_virtual, a_emfields );
    }
 
@@ -834,7 +836,7 @@ void PicSpeciesInterface::setSurfaceChargeOnNodes( const bool  a_use_filtering )
    const DisjointBoxLayout& grids(m_mesh.getDBL());
    
    // set the surface charge to zero
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
       FArrayBox& this_sigma = m_surfaceCharge_nodes[dit].getFab();
       this_sigma.setVal(0.0);
    }
@@ -843,10 +845,10 @@ void PicSpeciesInterface::setSurfaceChargeOnNodes( const bool  a_use_filtering )
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->charge() == 0) continue;
+      if (species->charge()==0) { continue; }
 
       const LevelData<NodeFArrayBox>& species_sigma = species->getSurfaceChargeOnNodes();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          const FArrayBox& this_species_sigma = species_sigma[dit].getFab();
          FArrayBox& this_sigma = m_surfaceCharge_nodes[dit].getFab();
          this_sigma.plus(this_species_sigma,0,0,m_surfaceCharge_nodes.nComp());
@@ -870,8 +872,8 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
 {
    CH_TIME("PicSpeciesInterface::preRHSOp()");
   
-   if(a_from_emjacobian && m_freeze_particles_jacobian) return;
-  
+   if (a_from_emjacobian && m_freeze_particles_jacobian) { return; }
+
    // half dt advance of particle positions and velocities
    // and then compute current density at half time step
    //
@@ -879,9 +881,9 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
    // upbar = upn + dt/2*q/m*(E(xbar) + upbar/gammapbar x B(xbar))
    // Jbar = Sum_sSum_p(qp*S(xbar-xg)*upbar/gammap)/dV
 
-   if(a_emfields.useFiltering()) a_emfields.setFilteredFields();
+   if (a_emfields.useFiltering()) { a_emfields.setFilteredFields(); }
 
-   if(a_from_emjacobian) { // called from linear stage of jfnk
+   if (a_from_emjacobian) { // called from linear stage of jfnk
 
       if (m_use_mass_matrices) {
 
@@ -914,7 +916,7 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
   
       for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
          auto species(m_pic_species_ptr_vect[sp]);
-         if(a_nonlinear_iter==0 && m_mod_init_advance) {
+         if (a_nonlinear_iter==0 && m_mod_init_advance) {
             species->advancePositionsImplicit( a_dt );
             species->interpolateFieldsToParticles( a_emfields );
             species->addExternalFieldsToParticles( a_emfields ); 
@@ -926,7 +928,7 @@ void PicSpeciesInterface::preRHSOp( const bool       a_from_emjacobian,
          else { species->advanceParticlesIteratively( a_emfields, a_dt ); }
       }
      
-      if(m_use_mass_matrices) {
+      if (m_use_mass_matrices) {
 #ifdef MASS_MATRIX_COST_TEST
          for (int iter=0; iter<2; iter++) {
             for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
@@ -1051,7 +1053,7 @@ void PicSpeciesInterface::setMassMatrices( const EMFields&  a_emfields,
    SpaceUtils::zero( m_E0_virtual );
 #else
    const DisjointBoxLayout& grids(m_mesh.getDBL());
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
       for (int dir=0; dir<SpaceDim; dir++) {
          m_E0[dit][dir].copy(electricField[dit][dir]);
       }
@@ -1064,7 +1066,7 @@ void PicSpeciesInterface::setMassMatrices( const EMFields&  a_emfields,
 void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
 {
    CH_TIME("PicSpeciesInterface::setMassMatricesForPC()");
-   if(!m_use_mass_matrices) return; 
+   if (!m_use_mass_matrices) { return; }
 
    LevelData<EdgeDataBox>& sigma_xx_pc = a_emfields.getSigmaxxPC();
    LevelData<EdgeDataBox>& sigma_xy_pc = a_emfields.getSigmaxyPC();
@@ -1081,7 +1083,7 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
    const int pc_mass_matrix_width = a_emfields.getMassMatrixPCwidth();
    const bool include_ij = a_emfields.includeMassMatrixij();
 #if CH_SPACEDIM==1
-   const bool use_filtering = a_emfields.useFiltering();      
+   const bool use_filtering = a_emfields.useFiltering();
 #endif
 
    const IntVect& ncomp_xx_pc = a_emfields.getNcompxxPC();
@@ -1095,20 +1097,20 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
    const IntVect& ncomp_zz_pc = a_emfields.getNcompzzPC();
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
-   for(DataIterator dit(grids); dit.ok(); ++dit) {
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
 
 #if CH_SPACEDIM==1
       // copy sigma_xx
       const FArrayBox& this_sigma_xx = m_sigma_xx[dit][0];
       FArrayBox& this_sigma_xx_pc = sigma_xx_pc[dit][0];
       int src_xx_offset = (m_sigma_xx.nComp()-1)/2 - pc_mass_matrix_width;
-      if(use_filtering) src_xx_offset -= 2;
-      if(src_xx_offset<0) { src_xx_offset = 0; }
+      if (use_filtering) { src_xx_offset -= 2; }
+      if (src_xx_offset<0) { src_xx_offset = 0; }
       for (int n=0; n<ncomp_xx_pc[0]; n++) {
          int src_comp = src_xx_offset + n;
          int dst_comp = n;
 #ifdef PRINT_COMPS   
-	 if(m_print_comps) {
+	 if (m_print_comps) {
             cout << "copying MM to PC for sigma_xx: src_comp = " << src_comp << ", dst_comp = " << dst_comp << endl;
 	 }
 #endif
@@ -1119,12 +1121,12 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
       const FArrayBox& this_sigma_yy = m_sigma_yy[dit].getFab();
       FArrayBox& this_sigma_yy_pc = sigma_yy_pc[dit].getFab();
       int src_yy_offset = (m_sigma_yy.nComp()-1)/2 - pc_mass_matrix_width;
-      if(src_yy_offset<0) { src_yy_offset = 0; }
+      if (src_yy_offset<0) { src_yy_offset = 0; }
       for (int n=0; n<ncomp_yy_pc[0]; n++) {
          int src_comp = src_yy_offset + n;
          int dst_comp = n;
 #ifdef PRINT_COMPS   
-	 if(m_print_comps) {
+	 if (m_print_comps) {
             cout << "copying MM to PC for sigma_yy: src_comp = " << src_comp 
 		                              << ", dst_comp = " << dst_comp << endl;
 	 }
@@ -1136,12 +1138,12 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
       const FArrayBox& this_sigma_zz = m_sigma_zz[dit].getFab();
       FArrayBox& this_sigma_zz_pc = sigma_zz_pc[dit].getFab();
       int src_zz_offset = (m_sigma_zz.nComp()-1)/2 - pc_mass_matrix_width;
-      if(src_zz_offset<0) { src_zz_offset = 0; }
+      if (src_zz_offset<0) { src_zz_offset = 0; }
       for (int n=0; n<ncomp_zz_pc[0]; n++) {
          int src_comp = src_zz_offset + n;
          int dst_comp = n;
 #ifdef PRINT_COMPS   
-	 if(m_print_comps) {
+	 if (m_print_comps) {
             cout << "copying MM to PC for sigma_zz: src_comp = " << src_comp 
 		                              << ", dst_comp = " << dst_comp << endl;
 	 }
@@ -1153,13 +1155,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
       const FArrayBox& this_sigma_xx = m_sigma_xx[dit][0];
       FArrayBox& this_sigma_xx_pc = sigma_xx_pc[dit][0];
       int src_xx_offset = (m_sigma_xx.nComp()-1)/2 - (m_ncomp_xx[0]+1)*pc_mass_matrix_width;
-      if(src_xx_offset<0) { src_xx_offset = 0; }
+      if (src_xx_offset<0) { src_xx_offset = 0; }
       for (int m=0; m<ncomp_xx_pc[1]; m++) {
          for (int n=0; n<ncomp_xx_pc[0]; n++) {
             int src_comp = src_xx_offset + m*m_ncomp_xx[0] + n;
             int dst_comp = m*ncomp_xx_pc[0] + n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_xx: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1172,13 +1174,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
       const FArrayBox& this_sigma_yy = m_sigma_xx[dit][1];
       FArrayBox& this_sigma_yy_pc = sigma_xx_pc[dit][1];
       int src_yy_offset = (m_sigma_xx.nComp()-1)/2 - (m_ncomp_yy[0]+1)*pc_mass_matrix_width;
-      if(src_yy_offset<0) { src_yy_offset = 0; }
+      if (src_yy_offset<0) { src_yy_offset = 0; }
       for (int m=0; m<ncomp_yy_pc[1]; m++) {
 	 for (int n=0; n<ncomp_yy_pc[0]; n++) {
 	    int src_comp = src_yy_offset + m*m_ncomp_yy[0] + n;
 	    int dst_comp = m*ncomp_yy_pc[0] + n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_yy: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1191,13 +1193,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
       const FArrayBox& this_sigma_zz = m_sigma_zz[dit].getFab();
       FArrayBox& this_sigma_zz_pc = sigma_zz_pc[dit].getFab();
       int src_zz_offset = (m_sigma_zz.nComp()-1)/2 - (m_ncomp_zz[0]+1)*pc_mass_matrix_width;
-      if(src_zz_offset<0) { src_zz_offset = 0; }
+      if (src_zz_offset<0) { src_zz_offset = 0; }
       for (int m=0; m<ncomp_zz_pc[1]; m++) {
          for (int n=0; n<ncomp_zz_pc[0]; n++) {
             int src_comp = src_zz_offset + m*m_ncomp_zz[0] + n;
             int dst_comp = m*ncomp_zz_pc[0] + n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_zz: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1207,19 +1209,19 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
       }
 #endif
 
-      if(include_ij) {
+      if (include_ij) {
 #if CH_SPACEDIM==1
          // copy sigma_xy
          const FArrayBox& this_sigma_xy = m_sigma_xy[dit][0];
          FArrayBox& this_sigma_xy_pc = sigma_xy_pc[dit][0];
          int src_xy_offset = m_sigma_xy.nComp()/2 - pc_mass_matrix_width;
-         if(use_filtering) src_xy_offset -= 2;
-         if(src_xy_offset<0) { src_xy_offset = 0; }
+         if (use_filtering) src_xy_offset -= 2;
+         if (src_xy_offset<0) { src_xy_offset = 0; }
          for (int n=0; n<ncomp_xy_pc[0]; n++) {
             int src_comp = src_xy_offset + n;
             int dst_comp = n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_xy: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1231,13 +1233,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_xz = m_sigma_xz[dit][0];
          FArrayBox& this_sigma_xz_pc = sigma_xz_pc[dit][0];
          int src_xz_offset = m_sigma_xz.nComp()/2 - pc_mass_matrix_width;
-         if(use_filtering) src_xz_offset -= 2;
-         if(src_xz_offset<0) { src_xz_offset = 0; }
+         if (use_filtering) src_xz_offset -= 2;
+         if (src_xz_offset<0) { src_xz_offset = 0; }
 	 for (int n=0; n<ncomp_xz_pc[0]; n++) {
 	    int src_comp = src_xz_offset + n;
 	    int dst_comp = n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_xz: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1249,12 +1251,12 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_yx = m_sigma_yx[dit].getFab();
          FArrayBox& this_sigma_yx_pc = sigma_yx_pc[dit].getFab();
          int src_yx_offset = m_sigma_yx.nComp()/2 - pc_mass_matrix_width;
-	 if(src_yx_offset<0) { src_yx_offset = 0; }
+	 if (src_yx_offset<0) { src_yx_offset = 0; }
          for (int n=0; n<ncomp_yx_pc[0]; n++) {
             int src_comp = src_yx_offset + n;
             int dst_comp = n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_yx: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1266,12 +1268,12 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_yz = m_sigma_yz[dit].getFab();
          FArrayBox& this_sigma_yz_pc = sigma_yz_pc[dit].getFab();
          int src_yz_offset = (m_sigma_yz.nComp()-1)/2 - pc_mass_matrix_width;
-	 if(src_yz_offset<0) { src_yz_offset = 0; }
+	 if (src_yz_offset<0) { src_yz_offset = 0; }
          for (int n=0; n<ncomp_yz_pc[0]; n++) {
             int src_comp = src_yz_offset + n;
             int dst_comp = n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_yz: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1281,14 +1283,14 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
 
          // copy sigma_zx  
          int src_zx_offset = m_sigma_zx.nComp()/2 - pc_mass_matrix_width;
-         if(src_zx_offset<0) { src_zx_offset = 0; }
+         if (src_zx_offset<0) { src_zx_offset = 0; }
          const FArrayBox& this_sigma_zx = m_sigma_zx[dit].getFab();
          FArrayBox& this_sigma_zx_pc = sigma_zx_pc[dit].getFab();
          for (int n=0; n<ncomp_zx_pc[0]; n++) {
             int src_comp = src_zx_offset + n;
             int dst_comp = n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_zx: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1298,14 +1300,14 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
       
          // copy sigma_zy  
          int src_zy_offset = (m_sigma_zy.nComp()-1)/2 - pc_mass_matrix_width;
-         if(src_zy_offset<0) { src_zy_offset = 0; }
+         if (src_zy_offset<0) { src_zy_offset = 0; }
          const FArrayBox& this_sigma_zy = m_sigma_zy[dit].getFab();
          FArrayBox& this_sigma_zy_pc = sigma_zy_pc[dit].getFab();
          for (int n=0; n<ncomp_zy_pc[0]; n++) {
             int src_comp = src_zy_offset + n;
             int dst_comp = n;
 #ifdef PRINT_COMPS   
-	    if(m_print_comps) {
+	    if (m_print_comps) {
                cout << "copying MM to PC for sigma_zy: src_comp = " << src_comp 
 		                                 << ", dst_comp = " << dst_comp << endl;
 	    }
@@ -1317,13 +1319,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_xy = m_sigma_xy[dit][0];
          FArrayBox& this_sigma_xy_pc = sigma_xy_pc[dit][0];
          int src_xy_offset = (m_sigma_xy.nComp()+m_ncomp_xy[0])/2 - (m_ncomp_xy[0]+1)*pc_mass_matrix_width;
-         if(src_xy_offset<0) { src_xy_offset = 0; }
+         if (src_xy_offset<0) { src_xy_offset = 0; }
 	 for (int m=0; m<ncomp_xy_pc[1]; m++) {
 	    for (int n=0; n<ncomp_xy_pc[0]; n++) {
 	       int src_comp = src_xy_offset + m*m_ncomp_xy[0] + n;
 	       int dst_comp = m*ncomp_xy_pc[0] + n;
 #ifdef PRINT_COMPS   
-	       if(m_print_comps) {
+	       if (m_print_comps) {
                   cout << "copying MM to PC for sigma_xy: src_comp = " << src_comp 
 			                            << ", dst_comp = " << dst_comp << endl;
 	       }
@@ -1336,13 +1338,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_xz = m_sigma_xz[dit][0];
          FArrayBox& this_sigma_xz_pc = sigma_xz_pc[dit][0];
          int src_xz_offset = m_sigma_xz.nComp()/2 - (m_ncomp_xz[0]+1)*pc_mass_matrix_width;
-         if(src_xz_offset<0) { src_xz_offset = 0; }
+         if (src_xz_offset<0) { src_xz_offset = 0; }
 	 for (int m=0; m<ncomp_xz_pc[1]; m++) {
 	    for (int n=0; n<ncomp_xz_pc[0]; n++) {
 	       int src_comp = src_xz_offset + m*m_ncomp_xz[0] + n;
 	       int dst_comp = m*ncomp_xz_pc[0] + n;
 #ifdef PRINT_COMPS   
-	       if(m_print_comps) {
+	       if (m_print_comps) {
                   cout << "copying MM to PC for sigma_xz: src_comp = " << src_comp 
 			                            << ", dst_comp = " << dst_comp << endl;
 	       }
@@ -1355,13 +1357,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_yx = m_sigma_xy[dit][1];
          FArrayBox& this_sigma_yx_pc = sigma_xy_pc[dit][1];
          int src_yx_offset = (m_sigma_xy.nComp()+m_ncomp_yx[0])/2 - (m_ncomp_yx[0]+1)*pc_mass_matrix_width;
-         if(src_yx_offset<0) { src_yx_offset = 0; }
+         if (src_yx_offset<0) { src_yx_offset = 0; }
 	 for (int m=0; m<ncomp_yx_pc[1]; m++) {
 	    for (int n=0; n<ncomp_yx_pc[0]; n++) {
 	       int src_comp = src_yx_offset + m*m_ncomp_yx[0] + n;
 	       int dst_comp = m*ncomp_yx_pc[0] + n;
 #ifdef PRINT_COMPS   
-	       if(m_print_comps) {
+	       if (m_print_comps) {
                   cout << "copying MM to PC for sigma_yx: src_comp = " << src_comp 
 			                            << ", dst_comp = " << dst_comp << endl;
 	       }
@@ -1374,13 +1376,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_yz = m_sigma_xz[dit][1];
          FArrayBox& this_sigma_yz_pc = sigma_xz_pc[dit][1];
          int src_yz_offset = (m_sigma_xz.nComp()+m_ncomp_yz[0]-1)/2 - (m_ncomp_yz[0]+1)*pc_mass_matrix_width;
-         if(src_yz_offset<0) { src_yz_offset = 0; }
+         if (src_yz_offset<0) { src_yz_offset = 0; }
 	 for (int m=0; m<ncomp_yz_pc[1]; m++) {
 	    for (int n=0; n<ncomp_yz_pc[0]; n++) {
 	       int src_comp = src_yz_offset + m*m_ncomp_yz[0] + n;
 	       int dst_comp = m*ncomp_yz_pc[0] + n;
 #ifdef PRINT_COMPS   
-	       if(m_print_comps) {
+	       if (m_print_comps) {
                   cout << "copying MM to PC for sigma_yz: src_comp = " << src_comp 
 			                            << ", dst_comp = " << dst_comp << endl;
 	       }
@@ -1393,13 +1395,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_zx = m_sigma_zx[dit].getFab();
          FArrayBox& this_sigma_zx_pc = sigma_zx_pc[dit].getFab();
          int src_zx_offset = m_sigma_zx.nComp()/2 - (m_ncomp_zx[0]+1)*pc_mass_matrix_width;
-         if(src_zx_offset<0) { src_zx_offset = 0; }
+         if (src_zx_offset<0) { src_zx_offset = 0; }
          for (int m=0; m<ncomp_zx_pc[1]; m++) {
             for (int n=0; n<ncomp_zx_pc[0]; n++) {
                int src_comp = src_zx_offset + m*m_ncomp_zx[0] + n;
                int dst_comp = m*ncomp_zx_pc[0] + n;
 #ifdef PRINT_COMPS   
-	       if(m_print_comps) {
+	       if (m_print_comps) {
                   cout << "copying MM to PC for sigma_zx: src_comp = " << src_comp 
 			                            << ", dst_comp = " << dst_comp << endl;
 	       }
@@ -1412,13 +1414,13 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
          const FArrayBox& this_sigma_zy = m_sigma_zy[dit].getFab();
          FArrayBox& this_sigma_zy_pc = sigma_zy_pc[dit].getFab();
          int src_zy_offset = (m_sigma_zy.nComp()+m_ncomp_zy[0]-1)/2 - (m_ncomp_zy[0]+1)*pc_mass_matrix_width;
-         if(src_zy_offset<0) { src_zy_offset = 0; }
+         if (src_zy_offset<0) { src_zy_offset = 0; }
          for (int m=0; m<ncomp_zy_pc[1]; m++) {
             for (int n=0; n<ncomp_zy_pc[0]; n++) {
                int src_comp = src_zy_offset + m*m_ncomp_zy[0] + n;
                int dst_comp = m*ncomp_zy_pc[0] + n;
 #ifdef PRINT_COMPS   
-	       if(m_print_comps) {
+	       if (m_print_comps) {
                   cout << "copying MM to PC for sigma_zy: src_comp = " << src_comp 
 			                            << ", dst_comp = " << dst_comp << endl;
 	       }
@@ -1437,20 +1439,20 @@ void PicSpeciesInterface::setMassMatricesForPC( EMFields&  a_emfields )
 
    LDaddEdgeOp<EdgeDataBox> addEdgeOp;
    sigma_xx_pc.exchange( sigma_xx_pc.interval(), m_mesh.reverseCopier(), addEdgeOp );
-   if(include_ij) {
+   if (include_ij) {
       sigma_xy_pc.exchange( sigma_xy_pc.interval(), m_mesh.reverseCopier(), addEdgeOp );
       sigma_xz_pc.exchange( sigma_xz_pc.interval(), m_mesh.reverseCopier(), addEdgeOp );
    }
 
    LDaddNodeOp<NodeFArrayBox> addNodeOp;
 #if CH_SPACEDIM==1
-   if(include_ij) {
+   if (include_ij) {
       sigma_yx_pc.exchange( sigma_yx_pc.interval(), m_mesh.reverseCopier(), addNodeOp );
       sigma_yz_pc.exchange( sigma_yz_pc.interval(), m_mesh.reverseCopier(), addNodeOp );
    }
    sigma_yy_pc.exchange( sigma_yy_pc.interval(), m_mesh.reverseCopier(), addNodeOp );
 #endif
-   if(include_ij) {
+   if (include_ij) {
       sigma_zx_pc.exchange( sigma_zx_pc.interval(), m_mesh.reverseCopier(), addNodeOp );
       sigma_zy_pc.exchange( sigma_zy_pc.interval(), m_mesh.reverseCopier(), addNodeOp );
    }
@@ -1479,15 +1481,15 @@ void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if( species->charge()==0 ) { continue; }
-      if( !species->suborbit_inflowJ() ) { continue; }
+      if (species->charge()==0) { continue; }
+      if (!species->suborbit_inflowJ()) { continue; }
 
       // update the inflow particle quantities     
       species->advanceInflowParticlesAndSetJ( a_emfields, a_dt, a_from_emjacobian );
       
       // compute inflow J and add it to the total J     
       const LevelData<EdgeDataBox>& this_inflowJ = species->getInflowJ();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          for (int dir=0; dir<SpaceDim; dir++) {
             const FArrayBox& inflowJ_dir = this_inflowJ[dit][dir];
             a_J[dit][dir].plus(inflowJ_dir,0,0,1);
@@ -1495,7 +1497,7 @@ void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
       }
 #if CH_SPACEDIM<3
       const LevelData<NodeFArrayBox>& this_inflowJv = species->getInflowJ_virtual();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          const FArrayBox& inflowJv = this_inflowJv[dit].getFab();
          a_Jv[dit].getFab().plus(inflowJv,0,0,a_Jv.nComp());
       }
@@ -1525,15 +1527,15 @@ void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
       const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if( species->charge()==0 ) { continue; }
-      if( !species->use_suborbit_model() ) { continue; }
+      if (species->charge()==0) { continue; }
+      if (!species->use_suborbit_model()) { continue; }
 
       // advance of suborbit particles and setting of J are done in same routine  
       species->advanceSubOrbitParticlesAndSetJ( a_emfields, a_dt, a_from_emjacobian );
 
       // add suborbit J to the total J 
       const LevelData<EdgeDataBox>& this_suborbitJ = species->getSubOrbitJ();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          for (int dir=0; dir<SpaceDim; dir++) {
             const FArrayBox& suborbitJ_dir = this_suborbitJ[dit][dir];
             a_J[dit][dir].plus(suborbitJ_dir,0,0,1);
@@ -1544,7 +1546,7 @@ void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
       }
 #if CH_SPACEDIM<3
       const LevelData<NodeFArrayBox>& this_suborbitJv = species->getSubOrbitJ_virtual();
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          const FArrayBox& suborbitJv = this_suborbitJv[dit].getFab();
          a_Jv[dit].getFab().plus(suborbitJv,0,0,a_Jv.nComp());
 #ifdef MASS_MATRIX_TEST
@@ -1586,7 +1588,12 @@ void PicSpeciesInterface::setDebyeLength()
    CH_TIME("PicSpeciesInterface::setDebyeLength()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
 
-   Real mcSq_eV = Constants::ME*Constants::CVAC*Constants::CVAC*Constants::EV_PER_JOULE;
+   static const Real pi = Constants::PI;
+   static const Real me = Constants::ME;
+   static const Real cvac = Constants::CVAC;
+   static const Real hbar = Constants::HBAR;
+   static const Real mcSq_eV = me*cvac*cvac*Constants::EV_PER_JOULE;
+
    SpaceUtils::zero( m_DebyeLength );
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
 
@@ -1614,7 +1621,7 @@ void PicSpeciesInterface::setDebyeLength()
 
             Real N = this_numDen.get(ig,0); // number density [1/m^3]
             if (N==0.0) { continue; }
-            Real R = 1.0/std::cbrt(4.0/3.0*Constants::PI*N); // atomic spacing [m]
+            Real R = 1.0/std::cbrt(4.0/3.0*pi*N); // atomic spacing [m]
             Real rho = N*species->mass();
 
             Real rhoUx = this_momDen.get(ig,0); // [m/s*1/m^3]
@@ -1622,18 +1629,28 @@ void PicSpeciesInterface::setDebyeLength()
             Real rhoUz = this_momDen.get(ig,2); // [m/s*1/m^3]
             const Real meanE = (rhoUx*rhoUx + rhoUy*rhoUy + rhoUz*rhoUz)/rho/2.0;
 
+            // compute the fermi energy. Should only be used for fermions such as
+            // electrons and ions with an odd number of nucleons, but its easiest just
+            // to include it for all charged species and it is insignificant for ions.
+            // EF_Joules = hbar^2/(2*mass)*(3*pi^2*n)^(2/3)
+            const Real EF_eV = hbar*hbar/(2.0*me*species->mass())*std::pow(3.0*pi*pi*N,2.0/3.0)*Constants::EV_PER_JOULE;
+
             // compute the species temperature
             Real rhoE = 0.0;
             for (int dir=0; dir<3; dir++) { rhoE += this_eneDen.get(ig,dir); }
             Real T_eV = 2.0/3.0*(rhoE - meanE)/N*mcSq_eV;
             T_eV = std::max(T_eV, 0.01);
 
-            //if(!procID()) cout << "JRA: numDen = " << N << endl;
-            //if(!procID()) cout << "JRA: meanE[ig="<<ig<<"] = " << meanE << endl;
-            //if(!procID()) cout << "JRA: T_eV[ig="<<ig<<"]  = " << T_eV << endl;
+            //if (!procID()) {
+            //   cout << "JRA: mass = " << species->mass() << endl;
+            //   cout << "JRA: numDen = " << N << endl;
+            //   cout << "JRA: meanE[ig="<<ig<<"] = " << meanE << endl;
+            //   cout << "JRA: T_eV[ig="<<ig<<"]  = " << T_eV << endl;
+            //   cout << "JRA: EF_eV[ig="<<ig<<"] = " << EF_eV << endl;
+            //}
 
             // compute square of screening length for this species
-            const Real LDe_sq = std::max(Aconst*T_eV/N,R*R); // [m^2]
+            const Real LDe_sq = std::max(Aconst*(T_eV + 2.0/3.0*EF_eV)/N,R*R); // [m^2]
 
             // store sum of 1/LDe^2 in LDe container
             Real sumLDe_sq_inv = this_LDe.get(ig,0);
@@ -1656,7 +1673,7 @@ void PicSpeciesInterface::setDebyeLength()
          Real LDe_sq_inv = this_LDe.get(ig,0);
          Real LDe = 1.0/std::sqrt(LDe_sq_inv); // net screening length [m]
          this_LDe.set(ig,0,LDe);
-         //if(!procID()) cout << "JRA: LDe[ig="<<ig<<"] = " << LDe << " m" << endl;
+         //if (!procID()) cout << "JRA: LDe[ig="<<ig<<"] = " << LDe << " m" << endl;
       }
    }
 
@@ -1692,14 +1709,14 @@ PicSpeciesInterface::cyclotronDt( const Real  a_wc0 )
    Real max_qom = 0.0;
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
       PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
-      if(species->charge()==0) continue;
-      if(species->numParticles()==0) continue;
+      if (species->charge()==0) { continue; }
+      if (species->numParticles()==0) { continue; }
       Real this_qom = std::abs(species->charge()/species->mass());
       max_qom = std::max(this_qom,max_qom);
    }
 
-   if(max_qom>0.0) { cyclotron_dt = 1.0/a_wc0/max_qom; }
-   
+   if (max_qom>0.0) { cyclotron_dt = 1.0/a_wc0/max_qom; }
+
    return cyclotron_dt;
 
 }

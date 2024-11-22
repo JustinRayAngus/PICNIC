@@ -27,6 +27,8 @@ class NonlinearSolver
     virtual bool isDefined() const = 0;
     virtual void printParams() const = 0;
     virtual void getParams(double&, double&, int&) = 0;
+    
+    int getExitStatus() const { return m_exit_status; }
 
     virtual void verbose( const bool ) { }
     virtual void setOutputIndent( const std::string& ) { }
@@ -46,8 +48,11 @@ class NonlinearSolver
     }
 
   protected:
+  
+  mutable int m_exit_status = 0;
 
   private:
+
 };
 
 #include "NamespaceFooter.H"

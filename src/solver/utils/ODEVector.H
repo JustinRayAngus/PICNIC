@@ -10,8 +10,8 @@ class ODEVector
 {
   public:
 
-    ODEVector<PhysData>() 
-    { 
+    ODEVector<PhysData>()
+    {
       m_is_defined = false;
       m_owner = false;
       m_size = 0;
@@ -53,14 +53,14 @@ class ODEVector
       define(a_size);
     }
 
-    ODEVector<PhysData>(  const int             a_size, 
+    ODEVector<PhysData>(  const int             a_size,
                           const Real* const     a_data,
                           const PhysData* const a_state = NULL)
     {
       define(a_size, a_data, a_state);
     }
 
-    ODEVector<PhysData>(  const int             a_size, 
+    ODEVector<PhysData>(  const int             a_size,
                           Real* const           a_data,
                           const PhysData* const a_state = NULL)
     {
@@ -101,36 +101,36 @@ class ODEVector
     const Real* dataAt(const int a) const { return (m_data+a); }
 
 //    inline
-//    GlobalDOF* getGlobalDOF() const 
-//    { 
+//    GlobalDOF* getGlobalDOF() const
+//    {
 //      CH_assert(m_states.size() == 1);
-//      return m_states[0]->getGlobalDOF(); 
+//      return m_states[0]->getGlobalDOF();
 //    }
 
     inline
-    const PhysData* getState() const 
-    { 
+    const PhysData* getState() const
+    {
       if (m_states.size() == 1) {
-        return m_states[0]; 
+        return m_states[0];
       } else {
         return NULL;
       }
     }
 
     inline
-    const PhysData* getState(const int a_i) const 
-    { 
+    const PhysData* getState(const int a_i) const
+    {
       if (m_states.size() > 0) {
-        return m_states[a_i]; 
+        return m_states[a_i];
       } else {
         return NULL;
       }
     }
 
     inline
-    const std::vector<const PhysData*> getStates() const 
-    { 
-      return m_states; 
+    const std::vector<const PhysData*> getStates() const
+    {
+      return m_states;
     }
 
     inline
@@ -162,7 +162,7 @@ class ODEVector
       return;
     }
 
-    inline 
+    inline
     void define(int a_size)
     {
       CH_assert(m_is_defined == false);
@@ -173,7 +173,7 @@ class ODEVector
     }
 
     inline
-    void define(const int             a_size, 
+    void define(const int             a_size,
                 const Real* const     a_data,
                 const PhysData* const a_state = NULL)
     {
@@ -218,7 +218,7 @@ class ODEVector
       for (int i=0; i<m_size; i++) m_data[i] = a_arr[i];
     }
 
-    inline 
+    inline
     void copy(const ODEVector<PhysData>& a_vec)
     {
       CH_assert(a_vec.isDefined());
@@ -246,14 +246,14 @@ class ODEVector
       }
     }
 
-    inline 
+    inline
     void operator= (const Real a_a)
     {
       CH_assert(isDefined());
       for (int i=0; i<m_size; i++) m_data[i] = a_a;
     }
 
-    inline 
+    inline
     void operator= (const ODEVector<PhysData>& a_vec)
     {
       copy(a_vec);
@@ -371,11 +371,11 @@ class ODEVector
 
       Real global_dot_product = 0.0;
 #ifdef CH_MPI
-      MPI_Allreduce(  &local_product, 
-                      &global_dot_product, 
-                      1, 
-                      MPI_DOUBLE, 
-                      MPI_SUM, 
+      MPI_Allreduce(  &local_product,
+                      &global_dot_product,
+                      1,
+                      MPI_DOUBLE,
+                      MPI_SUM,
                       MPI_COMM_WORLD  );
 #else
       global_dot_product = local_dot_product;
@@ -404,7 +404,7 @@ class ODEVector
                       global_sizes.data(),
                       num_procs,
                       MPI_INT,
-                      MPI_MAX, 
+                      MPI_MAX,
                       MPI_COMM_WORLD );
 #else
       CH_assert(num_procs == 1);
@@ -433,7 +433,7 @@ class ODEVector
                       global_sizes.data(),
                       num_procs,
                       MPI_INT,
-                      MPI_MAX, 
+                      MPI_MAX,
                       MPI_COMM_WORLD );
 #else
       CH_assert(my_rank == 0);
@@ -446,6 +446,106 @@ class ODEVector
       return retval;
     }
 
+    inline
+    void writeToFile( const std::string& a_fname_prefix,
+                      const bool a_flag_ascii = false ) const
+    {
+      int my_rank = (int) procID();
+      int num_procs = (int) numProc();
+
+      std::string filename;
+      if (a_flag_ascii) {
+        filename = a_fname_prefix + ".dat";
+      } else {
+        filename = a_fname_prefix + ".bin";
+      }
+
+      FILE* out;
+
+#ifdef CH_MPI
+
+      std::vector<int> local_sizes(num_procs, -1);
+      local_sizes[my_rank] = m_size;
+      MPI_Allreduce(  MPI_IN_PLACE,
+                      local_sizes.data(),
+                      num_procs,
+                      MPI_INT,
+                      MPI_MAX,
+                      MPI_COMM_WORLD );
+      int total_size = 0;
+      for (int i = 0; i < num_procs; i++) {
+        total_size += local_sizes[i];
+      }
+
+      if (!my_rank) {
+
+        if (a_flag_ascii) {
+
+          out = fopen( filename.c_str(), "w");
+          fprintf(out, "%d\n", total_size);
+          for (int i=0; i<m_size; i++) {
+            fprintf(out, "%1.16e\n", m_data[i]);
+          }
+
+        } else {
+
+          out = fopen( filename.c_str(), "wb");
+          fwrite(&total_size,sizeof(int),1,out);
+          fwrite(m_data,sizeof(double),m_size,out);
+
+        }
+
+        for (int proc=1; proc<num_procs; proc++) {
+
+          Real* buffer = (Real*) calloc(local_sizes[proc], sizeof(Real));
+          MPI_Request req = MPI_REQUEST_NULL;
+          MPI_Irecv(buffer, local_sizes[proc], MPI_DOUBLE, proc, 1639, MPI_COMM_WORLD, &req);
+          MPI_Wait(&req,MPI_STATUS_IGNORE);
+          if (a_flag_ascii) {
+            for (int i=0; i<local_sizes[proc]; i++) {
+              fprintf(out, "%1.16e\n", buffer[i]);
+            }
+          } else {
+            fwrite(buffer,sizeof(double),local_sizes[proc],out);
+          }
+          free(buffer);
+
+        }
+
+        fclose(out);
+
+      } else {
+
+        MPI_Request req = MPI_REQUEST_NULL;
+        MPI_Isend(m_data, m_size, MPI_DOUBLE, 0, 1639, MPI_COMM_WORLD, &req);
+        MPI_Wait(&req,MPI_STATUS_IGNORE);
+
+      }
+
+#else
+
+      if (a_flag_ascii) {
+
+        out = fopen( filename.c_str(), "w");
+        fprintf(out, "%d\n", m_size);
+        for (int i=0; i<m_size; i++) {
+          fprintf(out, "%1.16e\n", m_data[i]);
+        }
+        fclose(out);
+
+      } else {
+
+        out = fopen( filename.c_str(), "wb");
+        fwrite(&m_size,sizeof(int),1,out);
+        fwrite(m_data,sizeof(double),m_size,out);
+        fclose(out);
+
+      }
+
+#endif
+
+    }
+
   private:
 
     bool  m_is_defined;
@@ -453,7 +553,7 @@ class ODEVector
     int   m_size;
     Real  m_epsilon;
     Real* m_data;
-    
+
     std::vector<const PhysData*> m_states;
 };
 

@@ -1,6 +1,22 @@
+#include <map>
 #include "EMFields.H"
 
 #include "NamespaceHeader.H"
+
+template<typename kt, typename dt>
+static void insertOrAdd( std::map<kt,dt>& a_map,
+                         const kt& a_key,
+                         const dt& a_value )
+{
+    auto it = a_map.find(a_key);
+    if (it != a_map.end()) {
+        a_map[a_key] += a_value;
+    } else {
+        a_map[a_key] = a_value;
+    }
+
+    return;
+}
 
 void EMFields::computePrecondMatrixNNZ( const EMVecType& a_vec_type)
 {
@@ -9,7 +25,6 @@ void EMFields::computePrecondMatrixNNZ( const EMVecType& a_vec_type)
    if (m_pc_diag_only) {
      m_pcmat_nnz = 1;
    } else {
-     static int nbands_EMfields = 1 + 2*SpaceDim;
 #if CH_SPACEDIM==1
      static int nbands_J_mass_matrix = 1 + 2*3*(m_pc_mass_matrix_width+1);
 #elif CH_SPACEDIM==2
@@ -18,9 +33,14 @@ void EMFields::computePrecondMatrixNNZ( const EMVecType& a_vec_type)
                                         * (1+2*m_pc_mass_matrix_width);
 #endif
      if (a_vec_type == e_and_b) {
+        static int nbands_EMfields = 1 + 2*SpaceDim;
         m_pcmat_nnz = nbands_EMfields + nbands_J_mass_matrix;
      } else if (a_vec_type == e_only) {
         m_pcmat_nnz = nbands_J_mass_matrix;
+     } else if (a_vec_type == curl2) {
+        // the following overallocates
+        static int nbands_EMfields = 1 + 2*SpaceDim + 2*(SpaceDim-1)*(SpaceDim-1); // too many for 3D
+        m_pcmat_nnz = nbands_EMfields + nbands_J_mass_matrix;
      }
    }
 }
@@ -44,6 +64,14 @@ void EMFields::assemblePrecondMatrix( BandedMatrix&  a_P,
     } else {
       assemblePrecondMatrixB( a_P, true, a_dt );
       assemblePrecondMatrixE( a_P, true, a_use_mass_matrices, a_dt );
+    }
+  } else if (a_vec_type == curl2) {
+    if (m_pc_diag_only) {
+      //TODO
+      MayDay::Error("Not yet implemented");
+      //assemblePrecondMatrixCurl2DiagOnly( a_P, a_use_mass_matrices, a_dt );
+    } else {
+      assemblePrecondMatrixCurl2( a_P, true, a_use_mass_matrices, a_dt );
     }
   } else {
       MayDay::Error("EMFields::assemblePrecondMatrix(): not yet implemented");
@@ -1280,6 +1308,605 @@ void EMFields::assemblePrecondMatrixE(  BandedMatrix&  a_P,
           CH_assert(ix <= a_P.getNBands());
 
           a_P.setRowValues( pc, ix, icols.data(), vals.data() );
+        }
+      }
+    }
+#endif
+
+  }
+
+  return;
+}
+
+void EMFields::assemblePrecondMatrixCurl2(  BandedMatrix&  a_P,
+                                      const bool           a_include_EM,
+                                      const bool           a_use_mass_matrices,
+                                      const Real           a_dt )
+{
+  CH_TIME("EMFields::assemblePrecondMatrixE()");
+
+  auto grids(m_mesh.getDBL());
+
+  // copy over the mass matrix elements used in the PC and do addOp exchange()
+  const Real cnormDt = (a_dt*m_cvacNorm) * (a_dt*m_cvacNorm); //TODO ask JRA
+  const Real sig_normC = (a_dt*m_cvacNorm)*m_Jnorm_factor;
+  int diag_comp_inPlane=0, diag_comp_virtual=0;
+  if(a_use_mass_matrices) {
+    diag_comp_inPlane = (m_sigma_xx_pc.nComp()-1)/2;
+#if CH_SPACEDIM<3
+    diag_comp_virtual = (m_sigma_zz_pc.nComp()-1)/2;
+#endif
+  }
+
+  const LevelData<EdgeDataBox>& pmap_E_lhs = m_gdofs.dofDataLHSE();
+  const LevelData<NodeFArrayBox>& pmap_Ev_lhs = m_gdofs.dofDataLHSEv();
+  const LevelData<EdgeDataBox>& pmap_E_rhs = m_gdofs.dofDataRHSE();
+  const LevelData<NodeFArrayBox>& pmap_Ev_rhs = m_gdofs.dofDataRHSEv();
+
+#if CH_SPACEDIM<3
+  const LevelData<NodeFArrayBox>& Jnc = m_mesh.getCorrectedJnc();
+#endif
+  const LevelData<EdgeDataBox>& Jec = m_mesh.getCorrectedJec();
+
+  auto phys_domain( grids.physDomain() );
+  const int ghosts(m_mesh.ghosts());
+  const RealVect& dX(m_mesh.getdX());
+
+
+#if CH_SPACEDIM==1
+  const string& geom_type = m_mesh.geomType();
+#endif
+
+  for (auto dit( grids.dataIterator() ); dit.ok(); ++dit) {
+
+    /* electric field */
+    for (int dir = 0; dir < SpaceDim; dir++) {
+
+      const FArrayBox& pmap( pmap_E_lhs[dit][dir] );
+
+      auto box( grow(pmap.box(), -ghosts) );
+      for (int adir=0; adir<SpaceDim; ++adir) {
+         if (adir != dir) {
+            int idir_bdry = phys_domain.domainBox().bigEnd(adir);
+            if (box.bigEnd(adir) < idir_bdry) box.growHi(adir, -1);
+         }
+      }
+
+      for (BoxIterator bit(box); bit.ok(); ++bit) {
+
+        auto ic = bit();
+        CH_assert( pmap.nComp() == 1);
+        int pc = (int) pmap(ic, 0);
+
+	    const Real sig_norm_ec = sig_normC/Jec[dit][dir](ic,0);
+        std::map<int,Real> this_row;
+
+        {
+          Real val = 1.0;
+          if (a_use_mass_matrices) { // dJ_{ic}/dE_{ic}
+             val += sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane);
+          }
+          insertOrAdd<int,Real>(this_row, pc, val);
+        }
+
+        /* curl-curl terms */
+        if (a_include_EM) {
+#if CH_SPACEDIM==2
+          {
+            IntVect ij(ic);
+            Real aj = 0.0;
+            if (dir == 0) {
+              aj = 2*cnormDt/(dX[1]*dX[1])*m_advanceE_comp[dir]*m_PC_mask_E[dit][dir](ij,0);
+            } else if (dir == 1) {
+              aj = 2*cnormDt/(dX[0]*dX[0])*m_advanceE_comp[dir]*m_PC_mask_E[dit][dir](ij,0);
+            }
+            aj *= m_PC_mask_E[dit][dir](ij,0);
+            int pj = (int) pmap_E_rhs[dit][dir](ij, 0);
+            if (pj >= 0) {
+              insertOrAdd<int,Real>(this_row, pj, aj);
+            }
+          }
+          if (dir < 2) {
+            int tdir = (dir == 0 ? 1 : 0);
+            {
+              IntVect ij(ic); ij[tdir]--;
+              Real aj = -cnormDt/(dX[tdir]*dX[tdir]) * (m_advanceE_comp[dir]);
+              aj *= m_PC_mask_E[dit][dir](ij,2*tdir);
+              aj *= m_PC_mask_E[dit][dir](ic,1);
+              int pj = (int) pmap_E_rhs[dit][dir](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+            {
+              IntVect ij(ic); ij[tdir]++;
+              Real aj = -cnormDt/(dX[tdir]*dX[tdir]) * (m_advanceE_comp[dir]);
+              aj *= m_PC_mask_E[dit][dir](ij,2*tdir+1);
+              aj *= m_PC_mask_E[dit][dir](ic,1);
+              int pj = (int) pmap_E_rhs[dit][dir](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+            {
+              IntVect ij(ic); ij[tdir]--;
+              Real aj = cnormDt/(dX[dir]*dX[tdir]) * (m_advanceE_comp[dir]);
+              aj *= m_PC_mask_E[dit][tdir](ij,2*tdir);
+              aj *= m_PC_mask_E[dit][dir](ic,1);
+              int pj = (int) pmap_E_rhs[dit][tdir](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+            {
+              IntVect ij(ic);
+              Real aj = -cnormDt/(dX[dir]*dX[tdir]) * (m_advanceE_comp[dir]);
+              aj *= m_PC_mask_E[dit][tdir](ij,2*tdir);
+              aj *= m_PC_mask_E[dit][dir](ic,1);
+              int pj = (int) pmap_E_rhs[dit][tdir](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+            {
+              IntVect ij(ic); ij[dir]++; ij[tdir]--;
+              Real aj = -cnormDt/(dX[dir]*dX[tdir]) * (m_advanceE_comp[dir]);
+              aj *= m_PC_mask_E[dit][tdir](ij,2*tdir+1);
+              aj *= m_PC_mask_E[dit][dir](ic,1);
+              int pj = (int) pmap_E_rhs[dit][tdir](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+            {
+              IntVect ij(ic); ij[dir]++;;
+              Real aj = cnormDt/(dX[dir]*dX[tdir]) * (m_advanceE_comp[dir]);
+              aj *= m_PC_mask_E[dit][tdir](ij,2*tdir+1);
+              aj *= m_PC_mask_E[dit][dir](ic,1);
+              int pj = (int) pmap_E_rhs[dit][tdir](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+          }
+#endif
+        }
+
+#if CH_SPACEDIM==1
+        if (a_use_mass_matrices && m_advanceE_comp[0]) {
+
+          /* sigma_xx contributions */
+          for (int n = 1; n < m_pc_mass_matrix_width+1; n++) {
+
+            if (n > (m_sigma_xx_pc.nComp()-1)/2) break;
+
+            IntVect iL(ic); iL[0] -= n;
+            int pL = (int) pmap_E_rhs[dit][dir](iL, 0);
+            if (pL >= 0) {
+              auto val = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane-n);
+              insertOrAdd<int,Real>(this_row, pL, val);
+            }
+
+            IntVect iR(ic); iR[0] += n;
+            int pR = (int) pmap_E_rhs[dit][dir](iR, 0);
+            if (pR >= 0) {
+              auto val = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,diag_comp_inPlane+n);
+              insertOrAdd<int,Real>(this_row, pR, val);
+            }
+          }
+
+          if (m_pc_mass_matrix_include_ij) {
+
+            /* sigma_xy contributions */
+            for (int n = 0; n < m_pc_mass_matrix_width; n++) {
+
+              if (n > m_sigma_xy_pc.nComp()/2-1) break;
+
+              IntVect iL(ic); iL[0] -= n;
+              int pL = (int) pmap_Ev_rhs[dit](iL,0);
+              if (pL >= 0) {
+                auto val = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,m_sigma_xy_pc.nComp()/2-1-n);
+                insertOrAdd<int,Real>(this_row, pL, val);
+              }
+
+              IntVect iR(ic); iR[0] += (n+1);
+              int pR = (int) pmap_Ev_rhs[dit](iR,0);
+              if (pR >= 0) {
+                auto val = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,m_sigma_xy_pc.nComp()/2+n);
+                insertOrAdd<int,Real>(this_row, pR, val);
+              }
+
+            }
+
+            /* sigma_xz contributions */
+            for (int n = 0; n < m_pc_mass_matrix_width; n++) {
+
+              if (n > m_sigma_xz_pc.nComp()/2-1) break;
+
+              IntVect iL(ic); iL[0] -= n;
+              int pL = (int) pmap_Ev_rhs[dit](iL,1);
+              if (pL >= 0) {
+                auto val = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,m_sigma_xz_pc.nComp()/2-1-n);
+                insertOrAdd<int,Real>(this_row, pL, val);
+              }
+
+              IntVect iR(ic); iR[0] += (n+1);
+              int pR = (int) pmap_Ev_rhs[dit](iR,1);
+              if (pR >= 0) {
+                auto val = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,m_sigma_xz_pc.nComp()/2+n);
+                insertOrAdd<int,Real>(this_row, pR, val);
+              }
+
+            }
+          }
+        }
+#elif CH_SPACEDIM==2
+        if (    a_use_mass_matrices
+             && (    (m_advanceE_comp[0] && (dir==0))
+                  || (m_advanceE_comp[1] && (dir==1)) ) ) {
+
+          /* sigma_xx/yy contributions */
+          int idx(0);
+          int pc_mass_matrix_width_x = 0;
+          int pc_mass_matrix_width_y = 0;
+          if (dir == 0) {
+            pc_mass_matrix_width_x = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:2);
+            pc_mass_matrix_width_y = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:3);
+          } else {
+            pc_mass_matrix_width_x = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:3);
+            pc_mass_matrix_width_y = (m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:2);
+          }
+          for (int j = 0; j < (1+2*pc_mass_matrix_width_y); j++) {
+            for (int i = 0; i < (1+2*pc_mass_matrix_width_x); i++) {
+              if (!((i==pc_mass_matrix_width_x) && (j==pc_mass_matrix_width_y))) {
+                IntVect iL(ic);
+                iL[0] += (i-pc_mass_matrix_width_x);
+                iL[1] += (j-pc_mass_matrix_width_y);
+                int pL = (int) pmap_E_rhs[dit][dir](iL, 0);
+                if (pL >= 0) {
+                  auto val = sig_norm_ec*m_sigma_xx_pc[dit][dir](ic,idx);
+                  insertOrAdd<int,Real>(this_row, pL, val);
+                }
+              }
+              idx++;
+            }
+          }
+
+          if (m_pc_mass_matrix_include_ij) {
+
+            if (dir == 0) {
+
+              /* sigma_xy contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>3?3:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<2*pc_mass_matrix_width; j++) {
+                  for (int i(0); i<2*pc_mass_matrix_width; i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i+1-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_E_rhs[dit][dir+1](iL,0);
+                    if (pL >= 0) {
+                      auto val = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,idx);
+                      insertOrAdd<int,Real>(this_row, pL, val);
+                    }
+                    idx++;
+                  }
+                }
+              }
+              /* sigma_xz contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>2?2:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<(1+2*pc_mass_matrix_width); j++) {
+                  for (int i(0); i<2*pc_mass_matrix_width; i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i+1-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_Ev_rhs[dit](iL,0);
+                    if (pL >= 0) {
+                      auto val = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,idx);
+                      insertOrAdd<int,Real>(this_row, pL, val);
+                    }
+                    idx++;
+                  }
+                }
+              }
+
+            } else {
+
+              /* sigma_yx contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>3?3:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<2*pc_mass_matrix_width; j++) {
+                  for (int i(0); i<2*pc_mass_matrix_width; i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j+1-pc_mass_matrix_width);
+                    int pL = (int) pmap_E_rhs[dit][dir-1](iL,0);
+                    if (pL >= 0) {
+                      auto val = sig_norm_ec*m_sigma_xy_pc[dit][dir](ic,idx);
+                      insertOrAdd<int,Real>(this_row, pL, val);
+                    }
+                    idx++;
+                  }
+                }
+              }
+              /* sigma_yz contributions */
+              {
+                int pc_mass_matrix_width(m_pc_mass_matrix_width>2?2:m_pc_mass_matrix_width);
+                int idx(0);
+                for (int j(0); j<2*pc_mass_matrix_width; j++) {
+                  for (int i(0); i<(1+2*pc_mass_matrix_width); i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j+1-pc_mass_matrix_width);
+                    int pL = (int) pmap_Ev_rhs[dit](iL,0);
+                    if (pL >= 0) {
+                      auto val = sig_norm_ec*m_sigma_xz_pc[dit][dir](ic,idx);
+                      insertOrAdd<int,Real>(this_row, pL, val);
+                    }
+                    idx++;
+                  }
+                }
+              }
+
+            }
+          }
+        }
+#endif
+
+        CH_assert(this_row.size() <= m_pcmat_nnz);
+        CH_assert(this_row.size() <= a_P.getNBands());
+
+        std::vector<int> icols(0);
+        std::vector<Real> vals(0);
+        for (auto it = this_row.cbegin(); it != this_row.cend(); ++it) {
+            icols.push_back( it->first );
+            vals.push_back( it->second );
+        }
+
+        a_P.setRowValues( pc, this_row.size(), icols.data(), vals.data() );
+      }
+    }
+
+#if CH_SPACEDIM<3
+    /* virtual electric field */
+    {
+      const NodeFArrayBox& pmap( pmap_Ev_lhs[dit] );
+
+      auto box( surroundingNodes( grow(pmap.box(), -ghosts) ) );
+      for (int dir=0; dir<SpaceDim; ++dir) {
+         int idir_bdry = phys_domain.domainBox().bigEnd(dir);
+         if (box.bigEnd(dir) < idir_bdry) box.growHi(dir, -1);
+      }
+
+      for (BoxIterator bit(box); bit.ok(); ++bit) {
+
+        auto ic = bit();
+        const Real sig_norm_nc = sig_normC/Jnc[dit](ic,0);
+
+        for (int n(0); n < pmap.nComp(); n++) {
+
+          std::map<int,Real> this_row;
+          int pc = (int) pmap(ic, n);
+
+          {
+            Real val = 1.0;
+#if CH_SPACEDIM==1
+            if(a_use_mass_matrices && m_advanceE_comp[1+n]) {
+                val += sig_norm_nc * ( n==0 ? m_sigma_yy_pc[dit](ic,diag_comp_virtual)
+                                            : m_sigma_zz_pc[dit](ic,diag_comp_virtual) );
+            }
+#elif CH_SPACEDIM==2
+            if(a_use_mass_matrices && m_advanceE_comp[2]) {
+              val += sig_norm_nc*m_sigma_zz_pc[dit](ic,diag_comp_virtual);
+            }
+#endif
+            insertOrAdd<int,Real>(this_row, pc, val);
+          }
+
+        /* curl-curl terms */
+        if (a_include_EM) {
+#if CH_SPACEDIM==1
+          {
+            IntVect ij(ic);
+            Real aj = 2*cnormDt/(dX[0]*dX[0])*m_advanceE_comp[1+n];
+            int pj = (int) pmap_Ev_rhs[dit](ij, n);
+            if (pj >= 0) {
+              insertOrAdd<int,Real>(this_row, pj, aj);
+            }
+          }
+          int dir = n+1;
+          {
+            IntVect ij(ic); ij[0]--;
+            Real aj = -cnormDt/(dX[0]*dX[0]) * (m_advanceE_comp[dir]);
+            int pj = (int) pmap_Ev_rhs[dit](ij, n);
+            if (pj >= 0) {
+              insertOrAdd<int,Real>(this_row, pj, aj);
+            }
+          }
+          {
+            IntVect ij(ic); ij[0]++;
+            Real aj = -cnormDt/(dX[0]*dX[0]) * (m_advanceE_comp[dir]);
+            int pj = (int) pmap_Ev_rhs[dit](ij, n);
+            if (pj >= 0) {
+              insertOrAdd<int,Real>(this_row, pj, aj);
+            }
+          }
+#elif CH_SPACEDIM==2
+          {
+            IntVect ij(ic);
+            Real aj = 2*cnormDt*(1/(dX[0]*dX[0])+1/(dX[1]*dX[1]))*m_advanceE_comp[2];
+            aj *= m_PC_mask_Ev[dit](ij,0);
+            int pj = (int) pmap_Ev_rhs[dit](ij, 0);
+            if (pj >= 0) {
+              insertOrAdd<int,Real>(this_row, pj, aj);
+            }
+          }
+          for (int dir=0; dir<SpaceDim; dir++) {
+            {
+              IntVect ij(ic); ij[dir]--;
+              Real aj = -cnormDt/(dX[dir]*dX[dir]) * (m_advanceE_comp[2]);
+              aj *= m_PC_mask_Ev[dit](ij,2+2*dir) * m_PC_mask_Ev[dit](ic,1);
+              int pj = (int) pmap_Ev_rhs[dit](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+            {
+              IntVect ij(ic); ij[dir]++;
+              Real aj = -cnormDt/(dX[dir]*dX[dir]) * (m_advanceE_comp[2]);
+              aj *= m_PC_mask_Ev[dit](ij,2+2*dir+1) * m_PC_mask_Ev[dit](ic,1);
+              int pj = (int) pmap_Ev_rhs[dit](ij, 0);
+              if (pj >= 0) {
+                insertOrAdd<int,Real>(this_row, pj, aj);
+              }
+            }
+          }
+#endif
+        }
+
+          if(a_use_mass_matrices && m_advanceE_comp[SpaceDim+n]) {
+#if CH_SPACEDIM==1
+            /* sigma_yy/zz contributions */
+            for (int s = 1; s < m_pc_mass_matrix_width+1; s++) {
+
+              if (s > (m_sigma_yy_pc.nComp()-1)/2) break;
+              if (s > (m_sigma_zz_pc.nComp()-1)/2) break;
+
+              IntVect iL(ic); iL[0] -= s;
+              int pL = (int) pmap_Ev_rhs[dit](iL, n);
+              if (pL >= 0) {
+                auto val = sig_norm_nc * ( n==0 ? m_sigma_yy_pc[dit](ic,diag_comp_virtual-s)
+                                                : m_sigma_zz_pc[dit](ic,diag_comp_virtual-s) );
+                insertOrAdd<int,Real>(this_row, pL, val);
+              }
+
+              IntVect iR(ic); iR[0] += s;
+              int pR = (int) pmap_Ev_rhs[dit](iR, n);
+              if (pR >= 0) {
+                auto val = sig_norm_nc * ( n==0 ? m_sigma_yy_pc[dit](ic,diag_comp_virtual+s)
+                                                : m_sigma_zz_pc[dit](ic,diag_comp_virtual+s) );
+                insertOrAdd<int,Real>(this_row, pR, val);
+              }
+            }
+            if (m_pc_mass_matrix_include_ij) {
+
+              // sigma_yx/zx contributions
+              for (int s = 0; s < m_pc_mass_matrix_width; s++) {
+
+                if (s > m_sigma_yx_pc.nComp()/2-1) break;
+
+                IntVect iL(ic); iL[0] -= (s+1);
+                int pL = (int) pmap_E_rhs[dit][0](iL,0);
+                if (pL >= 0) {
+                  auto val = sig_norm_nc * ( n==0 ? m_sigma_yx_pc[dit](ic,m_sigma_yx_pc.nComp()/2-1-s)
+                                                  : m_sigma_zx_pc[dit](ic,m_sigma_zx_pc.nComp()/2-1-s) );
+                  insertOrAdd<int,Real>(this_row, pL, val);
+                }
+
+                IntVect iR(ic); iR[0] += s;
+                int pR = (int) pmap_E_rhs[dit][0](iR,0);
+                if (pR >= 0) {
+                  auto val = sig_norm_nc * ( n==0 ? m_sigma_yx_pc[dit](ic,m_sigma_yx_pc.nComp()/2+s)
+                                                  : m_sigma_zx_pc[dit](ic,m_sigma_zx_pc.nComp()/2+s) );
+                  insertOrAdd<int,Real>(this_row, pR, val);
+                }
+
+              }
+
+              // sigma_yz/zy contributions
+              {
+                IntVect ii(ic);
+                int pI = (int) pmap_Ev_rhs[dit](ii, !n);
+                if (pI >= 0) {
+                  auto val = sig_norm_nc * ( n==0 ? m_sigma_yz_pc[dit](ic,(m_sigma_yz_pc.nComp()-1)/2)
+                                                  : m_sigma_zy_pc[dit](ic,(m_sigma_zy_pc.nComp()-1)/2) );
+                  insertOrAdd<int,Real>(this_row, pI, val);
+                }
+              }
+              for (int s = 1; s < m_pc_mass_matrix_width+1; s++) {
+
+                if (s > (m_sigma_yz_pc.nComp()-1)/2) break;
+
+                IntVect iL(ic); iL[0] -= s;
+                int pL = (int) pmap_Ev_rhs[dit](iL, !n);
+                if (pL >= 0) {
+                  auto val = sig_norm_nc * ( n==0 ? m_sigma_yz_pc[dit](ic,(m_sigma_yz_pc.nComp()-1)/2-s)
+                                                  : m_sigma_zy_pc[dit](ic,(m_sigma_zy_pc.nComp()-1)/2-s) );
+                  insertOrAdd<int,Real>(this_row, pL, val);
+                }
+
+                IntVect iR(ic); iR[0] += s;
+                int pR = (int) pmap_Ev_rhs[dit](iR, !n);
+                if (pR >= 0) {
+                  auto val = sig_norm_nc * ( n==0 ? m_sigma_yz_pc[dit](ic,(m_sigma_yz_pc.nComp()-1)/2+s)
+                                                  : m_sigma_zy_pc[dit](ic,(m_sigma_zy_pc.nComp()-1)/2+s) );
+                  insertOrAdd<int,Real>(this_row, pR, val);
+                }
+              }
+
+            }
+#elif CH_SPACEDIM==2
+
+            /* sigma_zz contributions */
+            {
+              int idx(0);
+              int pc_mass_matrix_width(m_pc_mass_matrix_width<2?m_pc_mass_matrix_width:1);
+              for (int j = 0; j < (1+2*pc_mass_matrix_width); j++) {
+                for (int i = 0; i < (1+2*pc_mass_matrix_width); i++) {
+                  if (!((i==pc_mass_matrix_width) && (j==pc_mass_matrix_width))) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_Ev_rhs[dit](iL,n);
+                    if (pL >= 0) {
+                      auto val = sig_norm_nc *  m_sigma_zz_pc[dit](ic,idx);
+                      insertOrAdd<int,Real>(this_row, pL, val);
+                    }
+                  }
+                  idx++;
+                }
+              }
+            }
+
+            if (m_pc_mass_matrix_include_ij) {
+              /* sigma_zx/zy contribution */
+              for (int dir = 0; dir < SpaceDim; dir++) {
+                int idx(0);
+                int pc_mass_matrix_width(m_pc_mass_matrix_width<3?m_pc_mass_matrix_width:2);
+                for (int j(0); j<(dir+2*pc_mass_matrix_width); j++) {
+                  for (int i(0); i<((1-dir)+2*pc_mass_matrix_width); i++) {
+                    IntVect iL(ic);
+                    iL[0] += (i-pc_mass_matrix_width);
+                    iL[1] += (j-pc_mass_matrix_width);
+                    int pL = (int) pmap_E_rhs[dit][dir](iL,0);
+                    if (pL >= 0) {
+                      auto val = sig_norm_nc * (dir == 0 ? m_sigma_zx_pc[dit](ic,idx)
+                                                         : m_sigma_zy_pc[dit](ic,idx) );
+                      insertOrAdd<int,Real>(this_row, pL, val);
+                    }
+                    idx++;
+                  }
+                }
+              }
+            }
+#endif
+          }
+
+
+          CH_assert(this_row.size() <= m_pcmat_nnz);
+          CH_assert(this_row.size() <= a_P.getNBands());
+
+          std::vector<int> icols(0);
+          std::vector<Real> vals(0);
+          for (auto it = this_row.cbegin(); it != this_row.cend(); ++it) {
+              icols.push_back( it->first );
+              vals.push_back( it->second );
+          }
+          a_P.setRowValues( pc, this_row.size(), icols.data(), vals.data() );
         }
       }
     }

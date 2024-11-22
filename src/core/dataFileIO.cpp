@@ -418,10 +418,7 @@ void dataFileIO::writeMeshDataFile()
 
    }
 
-   //
    // close the handle
-   //
-
    handle.close();
    
 #else
@@ -442,23 +439,22 @@ void dataFileIO::writeEMFields( HDF5Handle&  a_handle,
    //  write cummulative boundary diagnostic data
    //
 
-   //cout << "JRA: header.getGroup() = " << a_handle.getGroup() << endl;
+   a_handle.setGroup("field_bdry_data");
+   //cout << "JRA: a_handle.getGroup() = " << a_handle.getGroup() << endl;
 
    const RealVect& intSdAdt_lo = a_emfield.getIntSdAdt_lo();
    const RealVect& intSdAdt_hi = a_emfield.getIntSdAdt_hi();
 
    header.m_real["intSdAdt_lo0"] = intSdAdt_lo[0];
    header.m_real["intSdAdt_hi0"] = intSdAdt_hi[0];
-   
-   if (SpaceDim>1) {
-      header.m_real["intSdAdt_lo1"] = intSdAdt_lo[1];
-      header.m_real["intSdAdt_hi1"] = intSdAdt_hi[1];
-   }
-   
-   if (SpaceDim==3) {
-      header.m_real["intSdAdt_lo2"] = intSdAdt_lo[2];
-      header.m_real["intSdAdt_hi2"] = intSdAdt_hi[2];
-   }
+#if CH_SPACEDIM>1
+   header.m_real["intSdAdt_lo1"] = intSdAdt_lo[1];
+   header.m_real["intSdAdt_hi1"] = intSdAdt_hi[1];
+#endif
+#if CH_SPACEDIM==3
+   header.m_real["intSdAdt_lo2"] = intSdAdt_lo[2];
+   header.m_real["intSdAdt_hi2"] = intSdAdt_hi[2];
+#endif
    header.writeToFile( a_handle );
 
    //
@@ -540,6 +536,9 @@ void dataFileIO::writeEMFields( HDF5Handle&  a_handle,
       write(a_handle, Efield_virt, "data", Efield_virt.ghostVect());
 
    }
+
+   // set group back to default group
+   a_handle.setGroup("/");
 
 }
 
@@ -769,10 +768,7 @@ void dataFileIO::writeEMFieldsDataFile( const EMFields&             a_emfield,
    if (a_emfield.writeCurls()) { writeEMFieldCurls( a_emfield, handle, header ); }
    if (a_emfield.usePoisson()) { writeEMFieldPotential( a_emfield, handle, header ); }
 
-   //
    // close the handle
-   //
-
    handle.close();
 
 }
@@ -1546,10 +1542,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
 
    }
 
-   //
    // close the handle
-   //
-
    handleParts.close();
 
 }
@@ -1637,6 +1630,9 @@ void dataFileIO::writeFusionProducts( HDF5Handle&         a_handle,
 
         }
     }
+
+    // set group back to default group
+    a_handle.setGroup("/");
 
 }
 
@@ -1798,6 +1794,9 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
    write(a_handle, grids);
    const bool writeAll = true;
    writeParticlesToHDF(a_handle, a_Pdata, "particles", writeAll );
+
+   // set group back to default group
+   a_handle.setGroup("/");
 
 }
 

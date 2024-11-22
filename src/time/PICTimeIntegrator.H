@@ -29,9 +29,11 @@ class PICTimeIntegrator
     
     virtual int prepForCheckpoint() const { return 0; }
 
+    virtual void resetVariables( const Real, const Real, const int ) { }
+
     virtual void preTimeStep( const Real, const Real, const int ) { }
 
-    virtual void timeStep( const Real, const Real, const int ) = 0;
+    virtual int timeStep( const Real, const Real, const int ) = 0;
 
     virtual void postTimeStep( const Real, const Real ) { }
 
@@ -93,6 +95,7 @@ class PICTimeIntegrator
     std::string m_nlsolver_type;
     int m_pc_update_freq = INT_MAX;
     bool m_pc_update_newton = true;
+    bool m_require_convergence = true;
 
     // The parameters parsed here are common for the different implicit time solvers
     void parseCommonImplicitSolverParams( const ParmParse& a_pp)
@@ -109,8 +112,13 @@ class PICTimeIntegrator
             }
             exit(EXIT_FAILURE);
         }
-        a_pp.query("pc_update_freq", m_pc_update_freq);
+        a_pp.query("require_convergence", m_require_convergence);
         a_pp.query("pc_update_newton", m_pc_update_newton);
+        if (!m_pc_update_newton) {
+            // if pc_update_newton is true, then pc_update_freq is not needed
+            // If it is used, then pc will be updated twice at the specified pc_update_freq
+            a_pp.query("pc_update_freq", m_pc_update_freq);
+        }
 
     }
 

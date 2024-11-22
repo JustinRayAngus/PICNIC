@@ -269,9 +269,9 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
           
          // get local density and temperature and compute local gmax
          local_numberDensity = this_numberDensity.get(ig,0);
-         if(local_numberDensity == 0.0) continue;
+         if (local_numberDensity == 0.0) { continue; }
          local_energyDensity = 0.0;
-         for( int dir=0; dir<3; dir++) {
+         for (int dir=0; dir<3; dir++) {
             local_energyDensity = local_energyDensity + this_energyDensity.get(ig,dir);  
          }
          local_Teff = 2.0/3.0*local_energyDensity/local_numberDensity*cvacSq; // M/me*(V[m/s])^2
@@ -279,20 +279,21 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
 
          // compute local nuMax*dt
          local_nuMaxDt = local_numberDensity*m_sigmaT*local_gmax*a_dt_sec;         
-         if(local_nuMaxDt>10.0) 
+         if (local_nuMaxDt>10.0 && !m_ignore_warnings) {
             cout << "WARNING: local_nuMaxDt = " << local_nuMaxDt << endl;
+         }
 
          // compute local maximum number of collsions: Nmax = 1/2*(N-1)*n*sigmaTmax*gmax*dt
          List<JustinsParticlePtr>& cell_pList = thisBinFab_ptr(ig,0);
          local_numCell = cell_pList.length();
-         if(local_numCell < 2) continue;
-         local_Nmax = 0.5*(local_numCell-1)*local_nuMaxDt;
+         if (local_numCell < 2) { continue; }
+         local_Nmax = 0.5*(local_numCell-1)*std::min(local_nuMaxDt,1.0);
     
          // separate Nmax into whole integer and remainder and set integer Nmax
          local_Nmax_remainder = modf(local_Nmax, &local_Nmax_whole);
          Real rand_num = MathUtils::rand();
          int local_Nmax_integer = static_cast<int>(local_Nmax_whole);
-         if(rand_num<=local_Nmax_remainder) {
+         if (rand_num<=local_Nmax_remainder) {
             local_Nmax_integer = local_Nmax_integer + 1;
          }
          
@@ -309,11 +310,11 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
          //
          int random_index1, random_index2;
          int numCollisions = 0;
-         for (auto n=0; n<local_Nmax_integer; n++) { // loop over collision for this cell
+         for (int n=0; n<local_Nmax_integer; n++) { // loop over collision for this cell
          
             random_index1 = MathUtils::randInt(0, local_numCell-1);  
             random_index2 = MathUtils::randInt(0, local_numCell-1);  
-            while(random_index2==random_index1) random_index2 = MathUtils::randInt(0, local_numCell-1);  
+            while (random_index2==random_index1) { random_index2 = MathUtils::randInt(0, local_numCell-1); }
 
             // get particle data for first particle    
             JustinsParticlePtr& this_part1 = vector_part_ptrs[random_index1];
@@ -329,13 +330,13 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
 
             // compute relative velocity magnitude
             g12 = 0.0;
-            for (int dir=0; dir<3; dir++) g12 += pow(betap1[dir]-betap2[dir],2);
+            for (int dir=0; dir<3; dir++) { g12 += pow(betap1[dir]-betap2[dir],2); }
             g12 = sqrt(g12)*Constants::CVAC; // relative velocity [m/s]
          
             // determine if the pair collide and then do the collision
             q12 = g12*m_sigmaT/(local_gmax*m_sigmaT);
             Real rand_num2 = MathUtils::rand();
-            if(rand_num2>q12) continue;
+            if (rand_num2>q12) { continue; }
 
             numCollisions = numCollisions + 1;
                
@@ -348,13 +349,13 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
             //deltaU = {0,0,0};
 
             // update particle velocities
-            if(m_weight_method==CONSERVATIVE && wp1!=wp2) {
+            if (m_weight_method==CONSERVATIVE && wp1!=wp2) {
 
-               if(local_numCell<3) continue;
+               if (local_numCell<3) { continue; }
                
                // get third particle from larger weight particle list
                int random_index3 = MathUtils::randInt(0, local_numCell-1);
-               while(random_index3==random_index2 || random_index3==random_index1) {
+               while (random_index3==random_index2 || random_index3==random_index1) {
                   random_index3 = MathUtils::randInt(0,local_numCell-1);
                }
                JustinsParticlePtr& this_part3 = vector_part_ptrs[random_index3];
@@ -362,11 +363,11 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
                std::array<Real,3>& betap3 = this_part3_ptr->velocity();
                Real& wp3 = this_part3_ptr->weight();
 
-               if(wp1<wp2) {
+               if (wp1<wp2) {
                   // scatter the lower weight particle
-                  for (int dir=0; dir<3; dir++) betap1[dir] += 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) { betap1[dir] += 0.5*deltaU[dir]; }
                   std::array<Real,3> betap2p = betap2;
-                  for (int dir=0; dir<3; dir++) betap2p[dir] -= 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) { betap2p[dir] -= 0.5*deltaU[dir]; }
                    
                   // transform particles 2, 2p, and 3 into two equally-weighted particles such
                   // that momentum, and direction-dependent energy are conserved
@@ -375,8 +376,8 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
                else {
                   // scatter the lower weight particle
                   std::array<Real,3> betap1p = betap1;
-                  for (int dir=0; dir<3; dir++) betap1p[dir] += 0.5*deltaU[dir];
-                  for (int dir=0; dir<3; dir++) betap2[dir] -= 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) { betap1p[dir] += 0.5*deltaU[dir]; }
+                  for (int dir=0; dir<3; dir++) { betap2[dir] -= 0.5*deltaU[dir]; }
                   
                   // transform particles 1, 1p, and 3 into two equally-weighted particles such
                   // that momentum, and direction-dependent energy are conserved
@@ -386,16 +387,16 @@ void HardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
             }
             else {
                Real rand_num3 = MathUtils::rand();
-               if(rand_num3<=wp2/wp1) {
-                  for (int dir=0; dir<3; dir++) betap1[dir] += 0.5*deltaU[dir];
+               if (rand_num3<=wp2/wp1) {
+                  for (int dir=0; dir<3; dir++) { betap1[dir] += 0.5*deltaU[dir]; }
                }
-               if(rand_num3<=wp1/wp2) {
-                  for (int dir=0; dir<3; dir++) betap2[dir] -= 0.5*deltaU[dir];
+               if (rand_num3<=wp1/wp2) {
+                  for (int dir=0; dir<3; dir++) { betap2[dir] -= 0.5*deltaU[dir]; }
                }
             }
 
          } // end loop over collisions for this cell
-         if(procID()==0 && verbosity) cout << "numCollisions = " << numCollisions << endl;
+         if (procID()==0 && verbosity) { cout << "numCollisions = " << numCollisions << endl; }
          verbosity=0;
 
       } // end loop over cells
@@ -485,10 +486,10 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
          // get local density and temperature and compute local gmax
          local_numberDensity1 = this_numberDensity1.get(ig,0);
          local_numberDensity2 = this_numberDensity2.get(ig,0);
-         if(local_numberDensity1*local_numberDensity2 == 0.0) continue;
+         if (local_numberDensity1*local_numberDensity2 == 0.0) { continue; }
          local_energyDensity1 = 0.0;
          local_energyDensity2 = 0.0;
-         for( int dir=0; dir<3; dir++) {
+         for (int dir=0; dir<3; dir++) {
             local_energyDensity1 = local_energyDensity1 + this_energyDensity1.get(ig,dir);  
             local_energyDensity2 = local_energyDensity2 + this_energyDensity2.get(ig,dir);  
          }
@@ -498,15 +499,16 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
 
          // compute local nuMax*dt
          local_nuMaxDt = Max(local_numberDensity1,local_numberDensity2)*m_sigmaT*local_gmax*a_dt_sec;         
-         if(local_nuMaxDt>10.0) 
+         if (local_nuMaxDt>10.0) {
             cout << "WARNING: local_nuMaxDt = " << local_nuMaxDt << endl;
+         }
 
          // compute local maximum number of collsions: Nmax = N1*n2*sigmaTmax*gmax*dt
          List<JustinsParticlePtr>& cell_pList1 = thisBinFab1_ptr(ig,0);
          List<JustinsParticlePtr>& cell_pList2 = thisBinFab2_ptr(ig,0);
          local_numCell1 = cell_pList1.length();
          local_numCell2 = cell_pList2.length();
-         if(local_numCell1 < 2 && local_numCell2 < 2) continue;
+         if (local_numCell1 < 2 && local_numCell2 < 2) { continue; }
     
          // compute the particle weights for each species assuming all particles
          // for a given species have the same weight
@@ -521,7 +523,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
          local_Nmax_remainder = modf(local_Nmax, &local_Nmax_whole);
          Real rand_num = MathUtils::rand();
          int local_Nmax_integer = static_cast<int>(local_Nmax_whole);
-         if(rand_num<local_Nmax_remainder) {
+         if (rand_num<local_Nmax_remainder) {
             local_Nmax_integer = local_Nmax_integer + 1;
          }
          
@@ -532,8 +534,8 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
          vector_part2_ptrs.reserve(local_numCell2);
          ListIterator<JustinsParticlePtr> lit1(cell_pList1);
          ListIterator<JustinsParticlePtr> lit2(cell_pList2);
-         for (lit1.begin(); lit1.ok(); ++lit1) vector_part1_ptrs.push_back(lit1());
-         for (lit2.begin(); lit2.ok(); ++lit2) vector_part2_ptrs.push_back(lit2());
+         for (lit1.begin(); lit1.ok(); ++lit1) { vector_part1_ptrs.push_back(lit1()); }
+         for (lit2.begin(); lit2.ok(); ++lit2) { vector_part2_ptrs.push_back(lit2()); }
         
          ////////////////////////////////////////////////////////////////////////
          //
@@ -541,7 +543,7 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
          //
          int random_index1, random_index2;
          int numCollisions = 0;
-         for (auto n=0; n<local_Nmax_integer; n++) { // loop over collision for this cell
+         for (int n=0; n<local_Nmax_integer; n++) { // loop over collision for this cell
          
             random_index1 = MathUtils::randInt(0, local_numCell1-1);  
             random_index2 = MathUtils::randInt(0, local_numCell2-1);  
@@ -560,13 +562,13 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
 
             // compute relative velocity magnitude
             g12 = 0.0;
-            for (int dir=0; dir<3; dir++) g12 = g12 + pow(betap1[dir]-betap2[dir],2);
+            for (int dir=0; dir<3; dir++) { g12 = g12 + pow(betap1[dir]-betap2[dir],2); }
             g12 = sqrt(g12)*Constants::CVAC; // relative velocity [m/s]
          
             // determine if the pair collide and then do the collision
             q12 = g12*m_sigmaT/(local_gmax*m_sigmaT);
             Real rand_num2 = MathUtils::rand();
-            if(rand_num2>q12) continue;
+            if (rand_num2>q12) { continue; }
 
             numCollisions = numCollisions + 1;
                
@@ -579,20 +581,20 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
             //deltaU = {0,0,0};
             
             // update particle velocities
-            if(m_weight_method==CONSERVATIVE && wp1!=wp2) {
+            if (m_weight_method==CONSERVATIVE && wp1!=wp2) {
 
-               if(wp1<wp2) {
+               if (wp1<wp2) {
 
-                  if(local_numCell2<2) continue;
+                  if (local_numCell2<2) { continue; }
 
                   // scatter the lower weight particle
-                  for (int dir=0; dir<3; dir++) betap1[dir] += 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) { betap1[dir] += 0.5*deltaU[dir]; }
                   std::array<Real,3> betap2p = betap2;
-                  for (int dir=0; dir<3; dir++) betap2p[dir] -= 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) { betap2p[dir] -= 0.5*deltaU[dir]; }
                
                   // get third particle from larger weight particle list
                   int random_index3 = MathUtils::randInt(0, local_numCell2-1);
-                  while(random_index3==random_index2) {
+                  while (random_index3==random_index2) {
                      random_index3 = MathUtils::randInt(0,local_numCell2-1);
                   }
                   JustinsParticlePtr& this_part3 = vector_part2_ptrs[random_index3];
@@ -607,16 +609,16 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
                }
                else {
 
-                  if(local_numCell1<2) continue;
+                  if (local_numCell1<2) { continue; }
 
                   // scatter the lower weight particle
                   std::array<Real,3> betap1p = betap1;
-                  for (int dir=0; dir<3; dir++) betap1p[dir] += 0.5*deltaU[dir];
-                  for (int dir=0; dir<3; dir++) betap2[dir] -= 0.5*deltaU[dir];
+                  for (int dir=0; dir<3; dir++) { betap1p[dir] += 0.5*deltaU[dir]; }
+                  for (int dir=0; dir<3; dir++) { betap2[dir] -= 0.5*deltaU[dir]; }
                
                   // get third particle from larger weight particle list
                   int random_index3 = MathUtils::randInt(0, local_numCell1-1);
-                  while(random_index3==random_index1) {
+                  while (random_index3==random_index1) {
                      random_index3 = MathUtils::randInt(0,local_numCell1-1);
                   }
                   JustinsParticlePtr& this_part3 = vector_part1_ptrs[random_index3];
@@ -633,16 +635,16 @@ void HardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
             }
             else {
                Real rand_num3 = MathUtils::rand();
-               if(rand_num3<=wp2/wp1) {
-                  for (int dir=0; dir<3; dir++) betap1[dir] +=  m_mu/m_mass1*deltaU[dir];
+               if (rand_num3<=wp2/wp1) {
+                  for (int dir=0; dir<3; dir++) { betap1[dir] +=  m_mu/m_mass1*deltaU[dir]; }
                }
-               if(rand_num3<=wp1/wp2) {
-                  for (int dir=0; dir<3; dir++) betap2[dir] -= m_mu/m_mass2*deltaU[dir];
+               if (rand_num3<=wp1/wp2) {
+                  for (int dir=0; dir<3; dir++) { betap2[dir] -= m_mu/m_mass2*deltaU[dir]; }
                }
             }
 
          } // end loop over collisions for this cell
-         if(procID()==0 && verbosity) cout << "numCollisions = " << numCollisions << endl;
+         if (procID()==0 && verbosity) { cout << "numCollisions = " << numCollisions << endl; }
          verbosity=0;
 
       } // end loop over cells

@@ -111,7 +111,7 @@ void EMResidualFunction<Vec,Ops>::evalFunction( Vec&        a_F,
   m_jac.setBaseSolution(a_U);
   m_jac.setBaseRHS(m_F);
   /* update preconditioner */
-  if (m_update_pc || m_update_pc_init) m_jac.updatePreCondMat(a_U);
+  if (m_update_pc || m_update_pc_init) { m_jac.updatePreCondMat(a_U); }
   m_update_pc_init = false;
 
   /* Compute ([Y - G(Y)] - b) */

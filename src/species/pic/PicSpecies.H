@@ -171,6 +171,12 @@ public:
   void setNumberDensity() const;
   void setNumberDensityFromBinFab() const;
   
+  void splitParticles( const int a_step_number ) {
+     if ( (a_step_number % m_split_step_freq)==0 ) {
+        splitParticlesFromBinFab();
+     }
+  }
+
   const LevelData<FArrayBox>& getNppc() const {return m_Nppc;}
   
   // ways to get/set momentum density member
@@ -417,6 +423,7 @@ public:
                               const Real  a_dt );
   void injectInflowParticles();
 
+  void resetParticles();
   void updateOldParticlePositions();
   void updateOldParticleVelocities();
   
@@ -482,6 +489,11 @@ private:
   int m_newton_num_guess = 1; 
   uint64_t m_num_parts_its = 0;
   uint64_t m_num_apply_its = 0;
+
+  // paricle splitting parameters
+  int m_split_step_freq = INT_MAX;      // step frequency to apply splitting
+  int m_split_Np_min = INT_MAX;         // one threshold for trying to split
+  int m_split_avg_wp_factor = INT_MAX;  // will split particles if wp > wp_avg*m_split_avg_sp_factor
 
   // boundary probes used for diagnostics
   RealVect m_MassOut_lo;         // total mass of outflow particles at lo side 
@@ -603,6 +615,8 @@ private:
 
   void inspectBinFab(const LevelData<BinFab<JustinsParticlePtr>>&  a_binfab_ptr);
   
+  void splitParticlesFromBinFab();
+
   Real minimumParticleWeight( const LevelData<FArrayBox>&  a_density,
                               const RealVect&              a_sXmin,
                               const RealVect&              a_sXmax,
@@ -610,7 +624,8 @@ private:
                               const Real                   a_cell_volume,
                               const int                    a_partsPerCell ) const;
   
-  Real minimumJacobian( ) const;
+  Real minimumJacobian( const RealVect&  a_sXmin,
+                        const RealVect&  a_sXmax ) const;
 
   void zeroFields() {
     CH_TIME("PicSpecies::zeroFields()");

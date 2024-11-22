@@ -2380,8 +2380,12 @@ c     scale Bp by alphas/gammap_bar
 c     compute components of mass matrix kernals to deposit
 
 #ifdef RELATIVISTIC_PARTICLES
-      if( gammap_bar < 1.01 ) then
+      if( gammap_bar > 0.0 ) then
 c       Use non-relativistic calculation
+c       there seems to be issues with the corrections associated with
+c       perturbations to 1/gamma_tilde in the current density that I
+c       dont understand that cause solver divergence errors. Turning off
+c       full relativistic version for 1D sphere for now.
 #endif
         Bpsq = Cp0*(Bpr*Bpr + Bpph*Bpph) + Bpth*Bpth
         arogp = alphas*rhop/(1.0 + Bpsq)

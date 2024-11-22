@@ -67,9 +67,9 @@ void PICTimeIntegrator_EM_Explicit::preTimeStep(  const Real a_time,
 
 }
 
-void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
-                                              const Real a_dt,
-                                              const int )
+int PICTimeIntegrator_EM_Explicit::timeStep( const Real  a_time,
+                                             const Real  a_dt,
+                                             const int )
 {  
     CH_TIME("PICTimeIntegrator_EM_Explicit::timeStep()");
   
@@ -172,6 +172,7 @@ void PICTimeIntegrator_EM_Explicit::timeStep( const Real a_time,
         }
     }
 
+    return 0;
 }
 
 #include "NamespaceFooter.H"

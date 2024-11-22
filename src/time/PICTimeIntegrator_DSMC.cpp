@@ -21,9 +21,9 @@ void PICTimeIntegrator_DSMC::preTimeStep( const Real a_time,
   return;
 }
 
-void PICTimeIntegrator_DSMC::timeStep( const Real a_time,
-                                       const Real a_dt,
-                                       const int )
+int PICTimeIntegrator_DSMC::timeStep( const Real  a_time,
+                                      const Real  a_dt,
+                                      const int )
 {  
   CH_TIME("PICTimeIntegrator_DSMC::timeStep()");
   
@@ -40,7 +40,7 @@ void PICTimeIntegrator_DSMC::timeStep( const Real a_time,
       species->applyBCs( false, a_time );
   }
   
-  return;
+  return 0;
 }
 
 #include "NamespaceFooter.H"

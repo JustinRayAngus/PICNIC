@@ -49,7 +49,7 @@ class PICTimeIntegrator_DSMC : public PICTimeIntegrator
     PICTIType type() const { return PIC_DSMC; }
 
     virtual void preTimeStep( const Real, const Real, const int );
-    virtual void timeStep( const Real, const Real, const int );
+    virtual int timeStep( const Real, const Real, const int );
 
   protected:
 

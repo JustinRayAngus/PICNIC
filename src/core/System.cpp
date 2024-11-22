@@ -32,21 +32,21 @@ System::System( ParmParse&  a_pp )
    parseParameters(ppsys);
 
    createProblemDomain();
-  
+
    DisjointBoxLayout grids;
    getDisjointBoxLayout( grids );
-   
+
    m_units = new CodeUnits();
    m_units->printParameters();
 
    const Real length_scale = m_units->getScale(m_units->LENGTH);
-   m_mesh = new DomainGrid( m_domain, grids, m_num_ghosts, length_scale ); 
+   m_mesh = new DomainGrid( m_domain, grids, m_num_ghosts, length_scale );
 
    m_dataFile = new dataFileIO( ppsys, *m_mesh, *m_units );
-     
+
    createState();
-   
-   m_scattering = new ScatteringInterface( *m_pic_species ); 
+
+   m_scattering = new ScatteringInterface( *m_pic_species );
 
    createSpecialOperators();
 
@@ -67,7 +67,7 @@ System::System( ParmParse&  a_pp )
       em_advance = true;
    }
    else {
-      if (!procID()) { 
+      if (!procID()) {
          cout << "EXIT FAILURE!!!" << endl;
          cout << "m_advance_method = " << m_advance_method;
          cout << " is not a valid option" << endl;
@@ -79,14 +79,14 @@ System::System( ParmParse&  a_pp )
       exit(EXIT_FAILURE);
    }
    if (em_advance && m_emfields.isNull()) {
-      if (!procID()) { 
+      if (!procID()) {
          cout << "EXIT FAILURE!!!" << endl;
          cout << "m_advance_method = " << m_advance_method;
          cout << " requires em_fields.use = true" << endl << endl;
       }
       exit(EXIT_FAILURE);
    }
-   m_time_integrator->define( this, m_pic_species, 
+   m_time_integrator->define( this, m_pic_species,
                               m_emfields ); // m_emfields can't be NULL for implicit solvers
 }
 
@@ -151,7 +151,7 @@ void System::createProblemDomain()
 
    if (!procID()) cout << "Constructing ProblemDomain" << endl;
 
-   IntVect hiEnd; 
+   IntVect hiEnd;
    for (int dir=0; dir<SpaceDim; ++dir) hiEnd[dir] = m_num_cells[dir]-1;
    Box level0Domain(IntVect::Zero, hiEnd);
 
@@ -163,7 +163,7 @@ void System::createProblemDomain()
                     isPeriodic_array );
 
    if (!procID()) cout << "Done constructing ProblemDomain" << endl << endl;
-  
+
 }
 
 void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
@@ -174,7 +174,7 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
 
    Vector<Box> boxes;
    const Box& domain_box = m_domain.domainBox();
-   
+
    // some AMR stuff and the mpi stuff for one of the particle handling methods
    // requires using boxes of a fixed length in each direction. Ensure that is the case
    IntVect boxSize;
@@ -183,9 +183,9 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
       boxSize[dir] = domain_box.size(dir)/m_config_decomp[dir];
       CH_assert(boxSize[dir]==boxSize[0]);
    }
-   
+
    // Chop up the configuration space domain box over the number of processors specified
-   // for this block (single block here).  At this point, we insist that the box 
+   // for this block (single block here).  At this point, we insist that the box
    // decomposes uniformly, or an error is thrown.
    IntVect n_loc = IntVect::Zero;
    for (int dir=0; dir<SpaceDim; ++dir) {
@@ -204,7 +204,7 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
    for (int dir=0; dir<SpaceDim; ++dir) {
       box_cell_num *= n_loc[dir];
    }
-    
+
    if (box_cell_num > 0) {
       IntVect box_size(n_loc);
       Box patch(domain_box.smallEnd(), domain_box.smallEnd() + box_size-1);
@@ -224,14 +224,14 @@ void System::getDisjointBoxLayout( DisjointBoxLayout&  a_grids )
    else {
       MayDay::Error( "Configuration domain box cannot be load balanced" );
    }
-  
+
    // Make the layout.  This is where boxes are assigned to processes.
    Vector<int> procMap;
    LoadBalance( procMap, boxes );
 
    a_grids.define( boxes, procMap, m_domain );
    a_grids.close();
-   
+
    if (!procID()) cout << "Done constructing DisjointBoxLayout" << endl << endl;
 
    if (!procID() && m_verbosity) {
@@ -255,20 +255,13 @@ void System::createState()
 
 void System::createEMfields()
 {
-   
+
    if (!procID()) {
       cout << "Creating Electromagnetic fields object..." << endl << endl;
    }
-   
+
    ParmParse ppflds( "em_fields" );
 
-   EMVecType em_vec_type;
-   if (m_advance_method == PIC_EM_SEMI_IMPLICIT) {
-     em_vec_type = e_only;
-   } else {
-     em_vec_type = e_and_b;
-   }
-   
    bool use_fields = false;
    ppflds.query("use",use_fields);
    if (use_fields) {
@@ -277,13 +270,12 @@ void System::createEMfields()
       m_emfields = RefCountedPtr<EMFields> (new EMFields( ppflds,
                                                           *m_mesh,
                                                           *m_units,
-                                                          verbose,
-                                                          em_vec_type )); 
-      
+                                                          verbose ));
+
       if (!procID()) cout << "Finished creating Electromagnetic fields object" << endl << endl;
    }
    else {
-      m_emfields = RefCountedPtr<EMFields>(NULL); // don't have to do this, but for clarity 
+      m_emfields = RefCountedPtr<EMFields>(NULL); // don't have to do this, but for clarity
       if (!procID()) cout << "Electromagnetic fields are not being used" << endl << endl;
    }
 
@@ -292,31 +284,31 @@ void System::createEMfields()
 void System::createSpecialOperators()
 {
    // Create the vector of special operator (pointers)
-   
+
    SpecialOperatorFactory  specialOpFactory;
-   
+
    if (!procID()) cout << "Adding special operators..." << endl;
 
    bool more_ops(true);
    string name0;
    int special_op_num = -1;
    while(more_ops) { // look for special operator...
- 
+
       special_op_num = special_op_num + 1;
 
       stringstream s;
-      s << "special_operator." << special_op_num; 
+      s << "special_operator." << special_op_num;
       ParmParse ppspop( s.str().c_str() );
-     
+
       if (ppspop.contains("model")) {
          m_use_specialOps = true;
          m_specialOps = specialOpFactory.create( ppspop, *m_mesh, *m_units, 1 );
          m_specialOps->updateOp(0.0); // should make an initializeOp() function
-      } 
+      }
       else {
          more_ops = false;
       }
-   
+
    }
 
    if (!procID()) cout << "Done adding special operators" << endl << endl;
@@ -330,20 +322,20 @@ void System::initialize( const int           a_cur_step,
                          const std::string&  a_restart_file_name )
 {
    CH_TIME("System::initialize()");
-   
+
    // read restart file
    if (!a_restart_file_name.empty()) {
       readCheckpointFile( a_restart_file_name );
    }
 
    // initialize the pic species
-   m_pic_species->initialize( *m_units, m_implicit_advance, 
+   m_pic_species->initialize( *m_units, m_implicit_advance,
                               a_cur_time, a_restart_file_name );
-   
+
    // initialize the scattering operators
    //m_pic_species->prepForScatter(m_scattering->numCoulomb(),true);
    m_scattering->initialize( *m_pic_species, *m_mesh, a_restart_file_name );
-      
+
    // initialize the electromagnetic fields
    if (m_emfields.isNull()) {CH_assert(!m_pic_species->forces());}
    else {
@@ -357,9 +349,9 @@ void System::initialize( const int           a_cur_step,
       const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
       m_emfields->setCurrentDensity( pic_J, pic_Jv );
    }
-     
+
    m_time_integrator->initialize(a_restart_file_name);
-   
+
 }
 
 void System::writePlotFile( const int     a_cur_step,
@@ -368,7 +360,7 @@ void System::writePlotFile( const int     a_cur_step,
                             const bool    a_plot_parts )
 {
    CH_TIME("System::writePlotFile()");
-   
+
    //
    // write the emfields data file
    //
@@ -391,7 +383,7 @@ void System::writePlotFile( const int     a_cur_step,
 #ifdef MASS_MATRIX_TEST
                                          *m_pic_species,
 #endif
-                                         a_cur_step, a_cur_time ); 
+                                         a_cur_step, a_cur_time );
    }
 
    //
@@ -414,15 +406,15 @@ void System::writePlotFile( const int     a_cur_step,
       species->setNumberDensity();
       species->setMomentumDensity();
       species->setEnergyDensity();
-      
+
       if (writeNppc) { species->setNppc(); }
       if (writeEnergyOffDiag) { species->setEnergyOffDiag(); }
       if (writeEnergyFlux) { species->setEnergyDensityFlux(); }
 
       // write the species mesh data file
       if (species->charge() == 0) {
-         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time, 
-                                              false, false, false, writeNppc, 
+         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time,
+                                              false, false, false, writeNppc,
                                               writeEnergyOffDiag, writeEnergyFlux );
       }
       else {
@@ -437,12 +429,12 @@ void System::writePlotFile( const int     a_cur_step,
             LevelData<NodeFArrayBox>& species_Jv = species->getCurrentDensity_virtual();
             m_pic_species->finalizeSettingJ( species_J, species_Jv, *m_emfields );
          }
-      
-         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time, 
-                                              writeRho, writeSigma, writeJ, writeNppc, 
+
+         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time,
+                                              writeRho, writeSigma, writeJ, writeNppc,
                                               writeEnergyOffDiag, writeEnergyFlux );
       }
-      
+
       // write the species particle data file
       if (a_plot_parts) {
          m_dataFile->writeSpeciesParticleFile( *species, sp, a_cur_step, a_cur_time );
@@ -461,7 +453,7 @@ void System::writePlotFile( const int     a_cur_step,
 
 void System::writeHistFile( const int   a_cur_step,
                             const Real  a_cur_time,
-                            const Real  a_cur_dt, 
+                            const Real  a_cur_dt,
                             const bool  a_startup )
 {
    CH_TIME("System::writeHistFile()");
@@ -491,7 +483,7 @@ void System::writeHistFile( const int   a_cur_step,
       energyE_joules = m_emfields->electricFieldEnergy( E_is_stag );
       energyB_joules = m_emfields->magneticFieldEnergy( B_is_stag );
       if (m_advance_method==PIC_EM_EXPLICIT) {
-         // adjust field energy to be of form that is exactly conserved 
+         // adjust field energy to be of form that is exactly conserved
          // in the asymptotic limit of vp*dt/dx -> 0
          //m_pic_species->setCurrentDensity( *m_emfields, a_cur_dt, true, true );
          //const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
@@ -538,7 +530,7 @@ void System::writeHistFile( const int   a_cur_step,
    }
 
    //
-   // write probe data to the history file 
+   // write probe data to the history file
    //
 
    //FILE *histFile;
@@ -613,7 +605,7 @@ void System::writeHistFile( const int   a_cur_step,
          histFile << "\n";
          histFile.close();
       }
-   }  
+   }
 
 }
 
@@ -671,13 +663,13 @@ void System::setupHistFile(const int a_cur_step)
    if (!procID()) { cout << "fusion_probes = " << m_fusion_probes << endl; }
 
    const int numSpecies = m_pic_species->numSpecies();
-   if (numSpecies>0) { 
+   if (numSpecies>0) {
       m_species_probes.resize(numSpecies,false);
       for (int species=0; species<numSpecies; species++) {
          stringstream ss;
          ss << "species" << species << "_probes";
          if (pphist.contains(ss.str().c_str())) {
-            bool this_boolean; 
+            bool this_boolean;
             pphist.get(ss.str().c_str(), this_boolean);
             m_species_probes[species] = this_boolean;
          }
@@ -694,32 +686,32 @@ void System::setupHistFile(const int a_cur_step)
    if (m_solver_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " nonlinear solver exit status";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " nonlinear solver iterations";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " nonlinear solver total iterations";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " nonlinear solver abs residual";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " nonlinear solver rel residual";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " linear solver exit status";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " linear solver last iteration";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " linear solver total iterations";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       if (m_write_wall_time) {
         ss << "#" << probe_names.size() << " step wall time (seconds)";
-        probe_names.push_back(ss.str()); 
+        probe_names.push_back(ss.str());
         ss.str(std::string());
       }
    }
@@ -727,10 +719,10 @@ void System::setupHistFile(const int a_cur_step)
    if (m_field_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " electric field energy [Joules]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " magnetic field energy [Joules]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
    }
 
@@ -739,16 +731,16 @@ void System::setupHistFile(const int a_cur_step)
          if (m_is_periodic[dir]) { continue; }
          stringstream ss;
          ss << "#" << probe_names.size() << " int S=ExB/mu0 dA from lo-side, dir = " << dir << " [Joules/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " int S=ExB/mu0 dA from hi-side, dir = " << dir << " [Joules/s]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " int int S dA dt from lo-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " int int S dA dt from hi-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
       }
    }
@@ -756,17 +748,17 @@ void System::setupHistFile(const int a_cur_step)
    if (m_scattering_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " ionization energy [Joules]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " excitation energy [Joules]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
    }
 
    if (m_fusion_probes) {
       stringstream ss;
       ss << "#" << probe_names.size() << " fusion energy [Joules]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
    }
 
@@ -774,28 +766,28 @@ void System::setupHistFile(const int a_cur_step)
       if (!m_species_probes[species]) { continue; }
       stringstream ss;
       ss << "#" << probe_names.size() << " species " << species << ": macro particles";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " species " << species << ": mass [kg]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " species " << species << ": X-momentum [kg-m/s]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " species " << species << ": Y-momentum [kg-m/s]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " species " << species << ": Z-momentum [kg-m/s]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " species " << species << ": energy [Joules]";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " species " << species << ": max wp*dt";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       ss << "#" << probe_names.size() << " species " << species << ": max wc*dt";
-      probe_names.push_back(ss.str()); 
+      probe_names.push_back(ss.str());
       ss.str(std::string());
       if (m_species_bdry_probes) {
       for (int dir=0; dir<SpaceDim; dir++) {
@@ -864,10 +856,10 @@ void System::setupHistFile(const int a_cur_step)
       }
       if (m_species_solver_probes) {
          ss << "#" << probe_names.size() << " species " << species << ": avg picard its";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
          ss << "#" << probe_names.size() << " species " << species << ": max avg picard its";
-         probe_names.push_back(ss.str()); 
+         probe_names.push_back(ss.str());
          ss.str(std::string());
       }
    }
@@ -945,11 +937,11 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
    header.m_int["cur_step"]  = a_cur_step;
    header.m_real["cur_time"] = a_cur_time;
    header.m_real["cur_dt"]   = a_cur_dt;
-   
+
    header.writeToFile( a_handle );
-   
+
    if (m_scattering->numScatter()>0) { m_scattering->writeCheckpoint( a_handle ); }
-   
+
    // write the cummulative fusion products data
    if (m_scattering->numFusion()>0) {
       const ScatteringPtrVect& scatter_ptr_vect = m_scattering->getScatterPtrVect();
@@ -957,7 +949,7 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
    }
 
    const int write_old_data = m_time_integrator->prepForCheckpoint();
-   
+
    // write the field data
    if (!m_emfields.isNull()) {
       m_dataFile->writeCheckpointEMFields( a_handle, write_old_data, *m_emfields );
@@ -965,7 +957,7 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
 
    // write the particle data
    m_dataFile->writeCheckpointPicSpecies( a_handle,  *m_pic_species);
-   
+
    // write solver probes
    int l_exit_status=0, nl_exit_status=0;
    int l_total_iter=0, nl_total_iter=0;
@@ -1012,7 +1004,7 @@ void System::readCheckpointFile( const std::string&  a_chkpt_fname )
 #else
    MayDay::Error("restart only defined with hdf5");
 #endif
-   
+
 }
 
 void System::parseParameters( ParmParse&  a_ppsys )
@@ -1024,13 +1016,13 @@ void System::parseParameters( ParmParse&  a_ppsys )
    if (m_advance_method == PICMC_FULLY_IMPLICIT) { m_advance_method = PIC_EM_THETA_IMPLICIT; }
 
    if (!procID()) { cout << "advance method  = " << m_advance_method << endl << endl; }
- 
+
 }
 
 void System::preTimeStep( const Real  a_time,
                           const Real  a_dt,
                           const int   a_step_number )
-{  
+{
    CH_TIME("System::preTimeStep()");
    struct timeval start, end;
    gettimeofday(&start, NULL);
@@ -1040,7 +1032,7 @@ void System::preTimeStep( const Real  a_time,
    gettimeofday(&end, NULL);
    {
      long long walltime;
-     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  ) 
+     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  )
                  - (start.tv_sec * 1000000 + start.tv_usec));
      double wt_local = (double) walltime / 1000000.0;
 #ifdef CH_MPI
@@ -1054,20 +1046,46 @@ void System::preTimeStep( const Real  a_time,
 void System::timeStep( const Real  a_cur_time,
                        const Real  a_dt,
                        const int   a_step_number )
-{  
+{
    CH_TIME("System::timeStep()");
    struct timeval start, end;
    gettimeofday(&start, NULL);
 
-   m_time_integrator->timeStep( a_cur_time, a_dt, a_step_number );
-   if (m_advance_method!=PIC_EM_EXPLICIT) {
-      scatterParticles( a_dt );
+   int ti_status;
+   ti_status = m_time_integrator->timeStep( a_cur_time, a_dt, a_step_number );
+
+   if (ti_status < 0) {
+      if (!procID()) {
+         cout << "Notice: solver diverged at step = " << a_step_number << endl;
+         cout << "        subcycling m_time_integrator->timeStep()" << endl;
+      }
+      m_time_integrator->resetVariables( a_cur_time, a_dt, a_step_number );
+      ti_status = m_time_integrator->timeStep( a_cur_time, a_dt/2.0, a_step_number );
+      if (ti_status < 0) {
+         if (!procID()) {
+            cout << "EXIT_FAILURE: solver diverged on first timeStep subcycle" << endl;
+         }
+         exit(EXIT_FAILURE);
+      }
+      m_time_integrator->postTimeStep( a_cur_time, a_dt/2.0 );
+      m_pic_species->postTimeStep( a_step_number );
+      m_time_integrator->preTimeStep( a_cur_time, a_dt/2.0, a_step_number );
+      ti_status = m_time_integrator->timeStep( a_cur_time + a_dt/2.0, a_dt/2.0, a_step_number );
+      if (ti_status < 0) {
+         if (!procID()) {
+            cout << "EXIT_FAILURE: solver diverged on second timeStep subcycle" << endl;
+         }
+         exit(EXIT_FAILURE);
+      }
    }
+
+   // advance particles in time by a_dt via collisions
+   if (m_advance_method!=PIC_EM_EXPLICIT) {  scatterParticles( a_dt ); }
 
    gettimeofday(&end, NULL);
    {
      long long walltime;
-     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  ) 
+     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  )
                  - (start.tv_sec * 1000000 + start.tv_usec));
      double wt_local = (double) walltime / 1000000.0;
 #ifdef CH_MPI
@@ -1081,7 +1099,7 @@ void System::timeStep( const Real  a_cur_time,
 void System::postTimeStep( Real&        a_cur_time,
                            const Real&  a_dt,
                            int&         a_step_number )
-{  
+{
    CH_TIME("System::postTimeStep()");
    struct timeval start, end;
    gettimeofday(&start, NULL);
@@ -1091,17 +1109,17 @@ void System::postTimeStep( Real&        a_cur_time,
       m_specialOps->applyOp(m_pic_species->getPtrVect(),a_dt);
       m_specialOps->updateOp(a_dt);
    }
-   
+
    m_time_integrator->postTimeStep( a_cur_time, a_dt );
-   m_pic_species->postTimeStep();
-   
+   m_pic_species->postTimeStep( a_step_number );
+
    a_cur_time = a_cur_time + a_dt;
    a_step_number = a_step_number + 1;
 
    gettimeofday(&end, NULL);
    {
      long long walltime;
-     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  ) 
+     walltime = (  (end.tv_sec * 1000000   + end.tv_usec  )
                  - (start.tv_sec * 1000000 + start.tv_usec));
      double wt_local = (double) walltime / 1000000.0;
 #ifdef CH_MPI
@@ -1129,18 +1147,18 @@ void System::setSurfaceCharge()
 }
 
 void System::scatterParticles( const Real&  a_dt )
-{  
-   if (m_scattering->numScatter()==0) return;
+{
+   if (m_scattering->numScatter()==0) { return; }
 
    CH_TIME("System::scatterParticles()");
 
    const Real tscale = m_units->getScale(m_units->TIME);
-   const Real dt_sec = a_dt*tscale;      
+   const Real dt_sec = a_dt*tscale;
 
    m_pic_species->prepForScatter(m_scattering->numCoulomb(),false);
    m_scattering->applyScattering( *m_pic_species, *m_mesh, dt_sec );
-   
-}   
+
+}
 
 Real System::fieldsDt( const int a_step_number )
 {

@@ -15,7 +15,7 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
 {
   public:
 
-    PICTimeIntegrator_EM_ThetaImplicit() 
+    PICTimeIntegrator_EM_ThetaImplicit()
     {
       m_pic_species = nullptr;
       m_fields = nullptr;
@@ -26,102 +26,73 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
       m_theta = 0.5;
       m_ec_semi_implicit = false;
 
-      m_is_defined = false;
+      m_vec_type = e_and_b;
     }
 
-    virtual ~PICTimeIntegrator_EM_ThetaImplicit() 
+    virtual ~PICTimeIntegrator_EM_ThetaImplicit()
     {
       delete m_nlsolver;
       if (m_func) delete m_func;
     }
 
-    virtual 
+    virtual
     void define( System* const,
                  PicSpeciesInterface* const,
                  EMFields* const );
-    
+
     virtual void printParams() const;
 
     virtual void initialize( const std::string&  a_restart_file_name );
-    
-    inline virtual 
+
+    inline virtual
     bool isDefined() const { return m_is_defined; }
 
-    inline virtual 
+    inline virtual
     PICTIType type() const { return PIC_EM_THETA_IMPLICIT; }
 
-    inline void preTimeStep( const Real  a_time, 
-                             const Real  a_dt, 
-                             const int   a_step )
-    {
-      m_Uold = m_U;
-      m_fields->setEoldFromE(); // needed for absorbing BC
-      m_nl_iter = 0;
+    virtual void resetVariables( const Real, const Real, const int );
 
-      // update solver verbosity 
-      bool this_verbosity = false;
-      int cout_step_interval = 1;
-      if(a_step<10) cout_step_interval = 1;
-      else if(a_step<100) cout_step_interval = 10;
-      else cout_step_interval = 100;
-      
-      if( ((a_step+1) % cout_step_interval)==0 ) {
-         this_verbosity = true;
-      }
-      m_nlsolver->verbose(this_verbosity);
-  
-      // update old particle values and create inflow particles  
-      const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
-      const int num_species = pic_species_ptr_vect.size();
-      for (int sp=0; sp<num_species; sp++) {
-        auto species(pic_species_ptr_vect[sp]);
-        species->updateOldParticlePositions();
-        species->updateOldParticleVelocities();
-        species->createInflowParticles( a_time, a_dt );
-        species->injectInflowParticles();
-      }
+    inline void preTimeStep( const Real, const Real, const int );
 
-    }
+    virtual int timeStep( const Real, const Real, const int );
 
-    virtual void timeStep( const Real, const Real, const int );
-    
     virtual void preRHSOp( const ODEVector<EMFields>&  a_U,
-                           const Real                  a_time, 
+                           const Real                  a_time,
                            const Real                  a_dt,
                            const int                   a_nl_iter,
                            const bool                  a_from_emjacobian );
-    
+
     virtual void computeRHS( ODEVector<EMFields>&  a_F,
-		       const ODEVector<EMFields>&,
-		       const Real                  a_time,
-		       const Real                  a_dt,
-		       const int                   a_block = -1 );
-    
+		               const ODEVector<EMFields>&,
+		               const Real                  a_time,
+		               const Real                  a_dt,
+		               const int                   a_block = -1 );
+
     virtual void updatePhysicalState( ODEVector<EMFields>&  a_U,
                                 const int                   a_block,
                                 const Real                  a_time );
-    
+
     virtual void updatePrecondMat( BandedMatrix&  a_Pmat,
                              const Real           a_time,
                              const Real           a_dt );
-      
+
     virtual int numPCMatBands() const
     {
       return m_fields->numPCMatBands();
     }
 
     virtual void getConvergenceParams( int&   a_l_exit_status,
-                                       int&   a_l_last_iter, 
-                                       int&   a_l_total_iter, 
-                                       int&   a_nl_exit_status, 
-                                       int&   a_nl_iter, 
-                                       int&   a_nl_total_iter, 
-                                       Real&  a_nl_abs_res, 
+                                       int&   a_l_last_iter,
+                                       int&   a_l_total_iter,
+                                       int&   a_nl_exit_status,
+                                       int&   a_nl_iter,
+                                       int&   a_nl_total_iter,
+                                       Real&  a_nl_abs_res,
                                        Real&  a_nl_rel_res,
-                                       Real&  a_step_wall_time ) const 
+                                       Real&  a_step_wall_time ) const
     {
-       m_nlsolver->getConvergenceParams( a_l_exit_status, a_l_last_iter, a_l_total_iter, 
-                                         a_nl_exit_status, a_nl_iter, a_nl_total_iter, 
+       m_nlsolver->getConvergenceParams( a_l_exit_status, a_l_last_iter, a_l_total_iter,
+                                         a_nl_exit_status, a_nl_iter, a_nl_total_iter,
                                          a_nl_abs_res, a_nl_rel_res );
        a_l_total_iter += m_last_l_total_iter;
        a_nl_total_iter += m_last_nl_total_iter;
@@ -130,15 +101,15 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
          a_l_last_iter = m_last_l_last_iter;
          a_nl_exit_status = m_last_nl_exit_status;
          a_nl_iter = m_last_nl_iter;
-         a_nl_abs_res = m_last_nl_abs_res; 
+         a_nl_abs_res = m_last_nl_abs_res;
          a_nl_rel_res = m_last_nl_rel_res;
-       } 
+       }
        a_step_wall_time = m_step_wall_time;
     }
 
   protected:
 
-    bool m_is_defined;
+    bool m_is_defined = false;
     bool m_ec_semi_implicit;
     mutable bool m_restart_pc_update_flag = true; // kluge to update pc on restart...
 
@@ -153,19 +124,24 @@ class PICTimeIntegrator_EM_ThetaImplicit : public PICTimeIntegrator
 
     int m_nl_iter = 0;
 
+    bool m_curl2 = false;
+    EMVecType m_vec_type;
+
   private:
 
     // below are needed for solver probes on restart
-    int m_last_l_exit_status=0; 
+    int m_last_l_exit_status=0;
     int m_last_nl_exit_status=0;
-    int m_last_l_total_iter=0; 
+    int m_last_l_total_iter=0;
     int m_last_nl_total_iter=0;
-    int m_last_l_last_iter=0; 
+    int m_last_l_last_iter=0;
     int m_last_nl_iter=0;
-    Real m_last_nl_abs_res=0.0; 
+    Real m_last_nl_abs_res=0.0;
     Real m_last_nl_rel_res=0.0;
     double m_step_wall_time=0.0;
     double m_pcassembly_walltime=0.0;
+
+    bool m_prerhsop_call = false;
 
 };
 

@@ -17,12 +17,15 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
 
     virtual ~PICTimeIntegrator_EM_Explicit() {}
 
-    virtual 
+    virtual
     void define( System* const  a_system,
                  PicSpeciesInterface* const  a_pic_species,
                  EMFields* const             a_fields )
     {
       CH_assert(!isDefined());
+
+      m_fields = a_fields;
+      m_fields->defineVectorsAndDOFs(e_and_b);
 
       m_system = a_system;
       m_pic_species = a_pic_species;
@@ -35,7 +38,7 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
       m_B.define(m_fields->getVectorSize(b_only));
       m_Bold.define(m_B);
       m_FB.define(m_B);
-    
+
       // parse options for this integrator
       ParmParse pp("pic_em_explicit");
       pp.query("strang_splitting", m_strang_splitting);
@@ -53,7 +56,7 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
 
       m_is_defined = true;
       printParams();
-      
+
     }
 
     inline
@@ -72,19 +75,19 @@ class PICTimeIntegrator_EM_Explicit : public PICTimeIntegrator
     }
 
     virtual void initialize( const std::string&  a_restart_file_name );
-    
+
     virtual int prepForCheckpoint() const;
 
-    inline virtual 
+    inline virtual
     bool isDefined() const { return m_is_defined; }
-    
-    inline virtual 
+
+    inline virtual
     PICTIType type() const { return PIC_EM_EXPLICIT; }
 
     virtual void preTimeStep( const Real, const Real, const int );
-    virtual void timeStep( const Real, const Real, const int );
+    virtual int timeStep( const Real, const Real, const int );
    // virtual void postTimeStep( const Real, const Real );
-    
+
   protected:
 
     bool m_is_defined = false;

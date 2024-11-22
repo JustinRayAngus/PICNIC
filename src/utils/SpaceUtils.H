@@ -22,37 +22,37 @@
 namespace SpaceUtils {
 
   void applyBinomialFilter( LevelData<EdgeDataBox>&  a_var );
-  
+
   void applyBinomialFilter( LevelData<NodeFArrayBox>&  a_var );
-  
+
   void applyBinomialFilter( FArrayBox&  a_Q,
                       const Box&        a_grid_box );
-      
+
   void computeLaxSplitting( LevelData<FArrayBox>&,
                             LevelData<FArrayBox>&,
                       const LevelData<FArrayBox>&,
                       const LevelData<FArrayBox>&,
                       const LevelData<FArrayBox>& );
-  
+
   void computeLaxSplitting( LevelData<FArrayBox>&,
                             LevelData<FArrayBox>&,
                       const LevelData<FArrayBox>&,
                       const LevelData<FArrayBox>&,
                       const LevelData<FArrayBox>&,
                       const int );
-  
+
   void computeLaxSplitting( FArrayBox&,
                             FArrayBox&,
                       const FArrayBox&,
                       const FArrayBox&,
                       const FArrayBox& );
-  
+
   void interpToFaces( LevelData<FluxBox>&,
                 const LevelData<FArrayBox>&,
                 const LevelData<FArrayBox>&,
                 const LevelData<FluxBox>&,
                 const std::string& );
-  
+
   void interpToFaces( FluxBox&,
                 const FArrayBox&,
                 const FArrayBox&,
@@ -64,23 +64,23 @@ namespace SpaceUtils {
                 const LevelData<FArrayBox>&,
                 const LevelData<FluxBox>&,
                 const std::string& );
-  
+
   void upWindToFaces( FluxBox&,
                 const FArrayBox&,
                 const FluxBox&,
                 const Box&,
                 const std::string& );
-  
-  
+
+
   void interpCellToEdges( LevelData<EdgeDataBox>&,
                     const LevelData<FArrayBox>&,
                     const LevelData<EdgeDataBox>&,
                     const std::string& );
-  
+
   void interpEdgesToCell( LevelData<FArrayBox>&,
                     const LevelData<EdgeDataBox>&,
                     const std::string& );
-  
+
   void interpEdgesToEdges( LevelData<EdgeDataBox>&,
                      const LevelData<EdgeDataBox>&,
                      const std::string& );
@@ -106,13 +106,13 @@ namespace SpaceUtils {
   void interpFacesToCell( LevelData<FArrayBox>&,
                     const LevelData<FluxBox>&,
                     const std::string& );
-  
+
   void interpToFacesWENO( LevelData<FluxBox>&,
                     const LevelData<FArrayBox>&,
                     const LevelData<FluxBox>&,
                     const LevelData<FArrayBox>&,
                     const std::string& );
-  
+
   void interpToFacesWENO( FluxBox&,
                     const FArrayBox&,
                     const FluxBox&,
@@ -133,13 +133,13 @@ namespace SpaceUtils {
                         const FArrayBox&,
                         FArrayBox& );
 
-  void interpolateStag( FArrayBox&  a_dst, 
+  void interpolateStag( FArrayBox&  a_dst,
                   const Box&        a_dst_box,
                   const int         a_dst_comp,
                   const FArrayBox&  a_src,
                   const int         a_src_comp,
                   const int         a_dir );
-  
+
   void simpleStagGradComp( FArrayBox&  a_dst,
                      const Box&        a_grid_box,
                      const int         a_dst_comp,
@@ -147,7 +147,7 @@ namespace SpaceUtils {
                      const int         a_src_comp,
                      const Real        a_dX,
                      const int         a_dir_dX,
-                     const int         a_additive ); 
+                     const int         a_additive );
 
   void cellCenteredGradientComponent( const Box&,
                                       const int,
@@ -163,18 +163,18 @@ namespace SpaceUtils {
                                       const int,
                                       FArrayBox& );
 
-  void extrapBoundaryGhostsForCC(  FArrayBox&, 
-                                   const Box&, 
-                                   const Box&, 
-                                   const int, 
-                                   const int, 
+  void extrapBoundaryGhostsForCC(  FArrayBox&,
+                                   const Box&,
+                                   const Box&,
+                                   const int,
+                                   const int,
                                    const int);
-  
-  void extrapBoundaryGhostsForFC(  FArrayBox&, 
-                                   const Box&, 
-                                   const Box&, 
-                                   const int, 
-                                   const int, 
+
+  void extrapBoundaryGhostsForFC(  FArrayBox&,
+                                   const Box&,
+                                   const Box&,
+                                   const int,
+                                   const int,
                                    const int);
 
   void secondOrderTransExtrapAtDomainBdry(  FArrayBox&,
@@ -184,10 +184,10 @@ namespace SpaceUtils {
                                             const int );
 
   void fillGhostCellsSimple(  FArrayBox&, const Box&, const int);
-  
-  void copyAndFillGhostCellsSimple( LevelData<FArrayBox>&, 
+
+  void copyAndFillGhostCellsSimple( LevelData<FArrayBox>&,
                                     const LevelData<FArrayBox>& );
-  
+
   void inspectFArrayBox( const FArrayBox&  a_F0,
                          const Box&        a_box,
                          const int         a_comp );
@@ -195,31 +195,31 @@ namespace SpaceUtils {
   void inspectFArrayBox( const LevelData<FArrayBox>&,
                          const int,
                          const int                   );
-  
+
   void inspectFluxBox( const LevelData<FluxBox>&,
                        const int                 );
-  
+
   void inspectEdgeDataBox( const LevelData<EdgeDataBox>&,
                            const int                     );
-  
+
   void inspectNodeFArrayBox( const LevelData<NodeFArrayBox>&,
                              const int                     );
 
   void exchangeFluxBox( LevelData<FluxBox>& );
-  
+
   void exchangeEdgeDataBox( LevelData<EdgeDataBox>& );
-  
+
   void exchangeNodeFArrayBox( LevelData<NodeFArrayBox>& );
 
   void checkForNAN( const LevelData<FArrayBox>&  a_var,
    	            const std::string&           a_string );
-  
+
   void checkForNAN( const LevelData<FluxBox>&  a_var,
    	            const std::string&         a_string );
 
   void checkForNAN( const LevelData<EdgeDataBox>&  a_var,
    	            const std::string&             a_string );
-  
+
   void checkForNAN( const LevelData<NodeFArrayBox>&  a_var,
    	            const std::string&               a_string );
 
@@ -240,7 +240,7 @@ namespace SpaceUtils {
                  const FArrayBox&,
                  const Box&,
                  const int );
-  
+
   void setVal( FArrayBox&  a_dst,
 	 const Real        a_val,
 	 const int         a_comp );
@@ -249,14 +249,14 @@ namespace SpaceUtils {
   void localVectorNorm( FArrayBox&,
                   const FArrayBox& );
 
-  inline void zero(  LevelData<FArrayBox>& a_u ) 
+  inline void zero(  LevelData<FArrayBox>& a_u )
   {
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
       a_u[dit].setVal(0.0);
     }
   }
 
-  inline void zero(  LevelData<FArrayBox>& a_u, const int a_comp ) 
+  inline void zero(  LevelData<FArrayBox>& a_u, const int a_comp )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
@@ -264,7 +264,7 @@ namespace SpaceUtils {
     }
   }
 
-  inline void setVal(  LevelData<FArrayBox>& a_u, const int a_comp, const Real a_val ) 
+  inline void setVal(  LevelData<FArrayBox>& a_u, const int a_comp, const Real a_val )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
@@ -272,7 +272,14 @@ namespace SpaceUtils {
     }
   }
 
-  inline void zero(  LevelData<FluxBox>& a_u ) 
+  inline void scale(  LevelData<FArrayBox>& a_u, const Real a_a )
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].mult(a_a);
+    }
+  }
+
+  inline void zero(  LevelData<FluxBox>& a_u )
   {
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
       for (auto dir(0); dir<SpaceDim; dir++) {
@@ -281,7 +288,7 @@ namespace SpaceUtils {
     }
   }
 
-  inline void zero(  LevelData<FluxBox>& a_u, const int a_comp ) 
+  inline void zero(  LevelData<FluxBox>& a_u, const int a_comp )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
@@ -291,7 +298,7 @@ namespace SpaceUtils {
     }
   }
 
-  inline void setVal(  LevelData<FluxBox>& a_u, const int a_comp, const Real a_val ) 
+  inline void setVal(  LevelData<FluxBox>& a_u, const int a_comp, const Real a_val )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
@@ -301,7 +308,16 @@ namespace SpaceUtils {
     }
   }
 
-  inline void zero(  LevelData<EdgeDataBox>& a_u ) 
+  inline void scale(  LevelData<FluxBox>& a_u, const Real a_a )
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].mult(a_a);
+      }
+    }
+  }
+
+  inline void zero(  LevelData<EdgeDataBox>& a_u )
   {
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
       for (auto dir(0); dir<SpaceDim; dir++) {
@@ -310,7 +326,7 @@ namespace SpaceUtils {
     }
   }
 
-  inline void zero(  LevelData<EdgeDataBox>& a_u, const int a_comp ) 
+  inline void zero(  LevelData<EdgeDataBox>& a_u, const int a_comp )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
@@ -320,7 +336,7 @@ namespace SpaceUtils {
     }
   }
 
-  inline void setVal(  LevelData<EdgeDataBox>& a_u, const int a_comp, const Real a_val ) 
+  inline void setVal(  LevelData<EdgeDataBox>& a_u, const int a_comp, const Real a_val )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
@@ -330,14 +346,23 @@ namespace SpaceUtils {
     }
   }
 
-  inline void zero(  LevelData<NodeFArrayBox>& a_u ) 
+  inline void scale(  LevelData<EdgeDataBox>& a_u, const Real a_a )
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      for (auto dir(0); dir<SpaceDim; dir++) {
+        a_u[dit][dir].mult(a_a);
+      }
+    }
+  }
+
+  inline void zero(  LevelData<NodeFArrayBox>& a_u )
   {
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
       a_u[dit].setVal(0.0);
     }
   }
 
-  inline void zero(  LevelData<NodeFArrayBox>& a_u, const int a_comp ) 
+  inline void zero(  LevelData<NodeFArrayBox>& a_u, const int a_comp )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
@@ -345,11 +370,18 @@ namespace SpaceUtils {
     }
   }
 
-  inline void setVal(  LevelData<NodeFArrayBox>& a_u, const int a_comp, const Real a_val ) 
+  inline void setVal(  LevelData<NodeFArrayBox>& a_u, const int a_comp, const Real a_val )
   {
     CH_assert((a_comp >= 0) && (a_comp < a_u.nComp()));
     for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
       a_u[dit].setVal(a_val, surroundingNodes(a_u[dit].box()), a_comp, 1);
+    }
+  }
+
+  inline void scale(  LevelData<NodeFArrayBox>& a_u, const Real a_a )
+  {
+    for (auto dit(a_u.dataIterator()); dit.ok(); ++dit) {
+      a_u[dit].mult(a_a);
     }
   }
 
@@ -441,7 +473,7 @@ namespace SpaceUtils {
   Real sumOfSquares(  const FArrayBox&  a_fab )
   {
     Real retval = 0;
-    for (int comp = 0; comp < a_fab.nComp(); comp++) {    
+    for (int comp = 0; comp < a_fab.nComp(); comp++) {
       retval += a_fab.sumPow( a_fab.box(), 2, comp );
     }
     return retval;
@@ -451,7 +483,7 @@ namespace SpaceUtils {
   Real sumOfSquares(  const NodeFArrayBox&  a_fab )
   {
     Real retval = 0;
-    for (int comp = 0; comp < a_fab.nComp(); comp++) {    
+    for (int comp = 0; comp < a_fab.nComp(); comp++) {
       retval += a_fab.sumPow( surroundingNodes(a_fab.box()), 2, comp );
     }
     return retval;
@@ -462,7 +494,7 @@ namespace SpaceUtils {
                       std::vector<Real>&  a_vec )
   {
     a_vec.resize( a_fab.nComp() );
-    for (int comp = 0; comp < a_fab.nComp(); comp++) {    
+    for (int comp = 0; comp < a_fab.nComp(); comp++) {
       a_vec[comp] = a_fab.sumPow( a_fab.box(), 2, comp );
     }
     return;
@@ -473,7 +505,7 @@ namespace SpaceUtils {
                       std::vector<Real>&    a_vec )
   {
     a_vec.resize( a_fab.nComp() );
-    for (int comp = 0; comp < a_fab.nComp(); comp++) {    
+    for (int comp = 0; comp < a_fab.nComp(); comp++) {
       a_vec[comp] = a_fab.sumPow( surroundingNodes(a_fab.box()), 2, comp );
     }
     return;
@@ -706,7 +738,7 @@ namespace SpaceUtils {
                     std::vector<Real>&  a_vec )
   {
     sumOfSquares( a_fab, a_vec );
-    for (int comp = 0; comp < a_fab.nComp(); comp++) {    
+    for (int comp = 0; comp < a_fab.nComp(); comp++) {
       a_vec[comp] = sqrt( a_vec[comp] );
     }
     return;
@@ -723,7 +755,7 @@ namespace SpaceUtils {
                     std::vector<Real>&          a_vec )
   {
     sumOfSquares( a_var, a_vec );
-    for (int comp = 0; comp < a_var.nComp(); comp++) {    
+    for (int comp = 0; comp < a_var.nComp(); comp++) {
       a_vec[comp] = sqrt( a_vec[comp] );
     }
     return;
@@ -740,7 +772,7 @@ namespace SpaceUtils {
                     std::vector<Real>&        a_vec )
   {
     sumOfSquares( a_var, a_vec );
-    for (int comp = 0; comp < a_var.nComp(); comp++) {    
+    for (int comp = 0; comp < a_var.nComp(); comp++) {
       a_vec[comp] = sqrt( a_vec[comp] );
     }
     return;
@@ -757,7 +789,7 @@ namespace SpaceUtils {
                     std::vector<Real>&            a_vec )
   {
     sumOfSquares( a_var, a_vec );
-    for (int comp = 0; comp < a_var.nComp(); comp++) {    
+    for (int comp = 0; comp < a_var.nComp(); comp++) {
       a_vec[comp] = sqrt( a_vec[comp] );
     }
     return;
@@ -774,7 +806,7 @@ namespace SpaceUtils {
                     std::vector<Real>&              a_vec )
   {
     sumOfSquares( a_var, a_vec );
-    for (int comp = 0; comp < a_var.nComp(); comp++) {    
+    for (int comp = 0; comp < a_var.nComp(); comp++) {
       a_vec[comp] = sqrt( a_vec[comp] );
     }
     return;
@@ -792,7 +824,7 @@ namespace SpaceUtils {
      }
      return offset;
   }
-  
+
   inline
   int copyFromLevelData( Real* a_dst, const LevelData<FluxBox>& a_src )
   {
@@ -802,7 +834,7 @@ namespace SpaceUtils {
 
      for (auto dit( a_src.dataIterator() ); dit.ok(); ++dit) {
         for (int dir=0; dir<SpaceDim; ++dir) {
-           
+
            Box box = surroundingNodes(dbl[dit],dir);
 
            int idir_bdry = phys_domain.domainBox().bigEnd(dir);
@@ -819,10 +851,10 @@ namespace SpaceUtils {
      }
      return offset;
   }
-  
+
   inline
   int copyFromLevelData( Real* a_dst, const LevelData<EdgeDataBox>& a_src )
-  {  
+  {
      int offset(0);
      auto dbl( a_src.disjointBoxLayout() );
      auto phys_domain( dbl.physDomain() );
@@ -849,7 +881,7 @@ namespace SpaceUtils {
      }
      return offset;
   }
-  
+
   inline
   int copyFromLevelData( Real* a_dst, const LevelData<NodeFArrayBox>& a_src )
   {
@@ -875,7 +907,7 @@ namespace SpaceUtils {
      }
      return offset;
   }
-  
+
   inline
   int copyToLevelData( LevelData<FArrayBox>& a_dst, const Real* const a_src )
   {
@@ -889,7 +921,7 @@ namespace SpaceUtils {
      a_dst.exchange();
      return offset;
   }
-  
+
   inline
   int copyToLevelData( LevelData<FluxBox>& a_dst, const Real* const a_src )
   {
@@ -901,7 +933,7 @@ namespace SpaceUtils {
         for (int dir=0; dir<SpaceDim; ++dir) {
 
            Box box = surroundingNodes(dbl[dit],dir);
-           
+
            int idir_bdry = phys_domain.domainBox().bigEnd(dir);
            //bool is_periodic( phys_domain.isPeriodic(dir) );
            //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
@@ -917,7 +949,7 @@ namespace SpaceUtils {
      exchangeFluxBox( a_dst );
      return offset;
   }
-  
+
   inline
   int copyToLevelData( LevelData<EdgeDataBox>& a_dst, const Real* const a_src )
   {
@@ -949,7 +981,7 @@ namespace SpaceUtils {
      exchangeEdgeDataBox(a_dst);
      return offset;
   }
-   
+
   inline
   int copyToLevelData( LevelData<NodeFArrayBox>& a_dst, const Real* const a_src )
   {
@@ -989,7 +1021,7 @@ namespace SpaceUtils {
     }
     return retval;
   }
-  
+
   inline
   int nDOF( const LevelData<FluxBox>& a_u )
   {
@@ -1001,7 +1033,7 @@ namespace SpaceUtils {
       for (int dir(0); dir < SpaceDim; dir++) {
 
         Box box = surroundingNodes(dbl[dit],dir);
-        
+
         int idir_bdry = phys_domain.domainBox().bigEnd(dir);
         //bool is_periodic( phys_domain.isPeriodic(dir) );
         //if ((is_periodic) || (box.bigEnd(dir) < idir_bdry)) box.growHi(dir, -1);
@@ -1012,7 +1044,7 @@ namespace SpaceUtils {
     }
     return retval;
   }
-  
+
   inline
   int nDOF( const LevelData<EdgeDataBox>& a_u )
   {
@@ -1039,7 +1071,7 @@ namespace SpaceUtils {
 
     return retval;
   }
-  
+
   inline
   int nDOF( const LevelData<NodeFArrayBox>& a_u )
   {
@@ -1061,7 +1093,7 @@ namespace SpaceUtils {
     }
     return retval;
   }
-  
+
 }
 
 #include "NamespaceFooter.H"
