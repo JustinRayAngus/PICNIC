@@ -1,6 +1,4 @@
-
 #include "MonteCarloNull.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -18,16 +16,18 @@ void MonteCarloNull::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("MonteCarloNull::initialize()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();   
+
    // get pointer to species 1
-   CH_assert(m_sp1<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   CH_assert(m_sp1<num_species);
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
 
    // get pointer to species 2
-   CH_assert(m_sp2<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   
+   CH_assert(m_sp2<num_species);
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+
    // set the species names
    m_species1_name = this_species1->name();
    m_species2_name = this_species2->name();
@@ -99,8 +99,8 @@ void MonteCarloNull::initialize( const PicSpeciesInterface&  a_pic_species_intf,
    // check mass and charge conservation for inelastic reactions
    for (int n=0; n<m_num_exc; n++) {
       int spc = m_exc_species[n];
-      if (spc<0) continue;
-      PicSpeciesPtr exc_species(pic_species_ptr_vect[spc]);
+      if (spc<0) { continue; }
+      const PicChargedSpeciesPtr exc_species = pic_species_ptr_vect[species_map[spc]];
       Real this_mass = exc_species->mass();
       int this_q = exc_species->charge();
       CH_assert(this_mass==m_mass2);
@@ -110,9 +110,9 @@ void MonteCarloNull::initialize( const PicSpeciesInterface&  a_pic_species_intf,
    for (int n=0; n<m_num_dis; n++) {
       int spc1 = m_dis_species1[n];
       int spc2 = m_dis_species2[n];
-      if (spc1<0 || spc2<0) continue;
-      PicSpeciesPtr dis_species1(pic_species_ptr_vect[spc1]);
-      PicSpeciesPtr dis_species2(pic_species_ptr_vect[spc2]);
+      if (spc1<0 || spc2<0) { continue; }
+      const PicChargedSpeciesPtr dis_species1 = pic_species_ptr_vect[species_map[spc1]];
+      const PicChargedSpeciesPtr dis_species2 = pic_species_ptr_vect[species_map[spc2]];
       Real this_mass1 = dis_species1->mass();
       Real this_mass2 = dis_species2->mass();
       Real mass_tot = this_mass1 + this_mass2;
@@ -120,8 +120,8 @@ void MonteCarloNull::initialize( const PicSpeciesInterface&  a_pic_species_intf,
       int this_q2 = dis_species2->charge();
       int q_tot = this_q1 + this_q2;
       int spc3 = m_dis_species3[n];
-      if(spc3>=0) {
-         PicSpeciesPtr dis_species3(pic_species_ptr_vect[spc3]);
+      if (spc3>=0) {
+         const PicChargedSpeciesPtr dis_species3 = pic_species_ptr_vect[species_map[spc3]];
          Real this_mass3 = dis_species3->mass();
          int this_q3 = dis_species3->charge();
          q_tot += this_q3;
@@ -154,9 +154,9 @@ void MonteCarloNull::initialize( const PicSpeciesInterface&  a_pic_species_intf,
    for (int n=0; n<m_num_izn; n++) {
       int spcE = m_izn_speciesE[n];
       int spcI = m_izn_speciesI[n];
-      if (spcE<0 || spcI<0) continue;
-      PicSpeciesPtr izn_speciesE(pic_species_ptr_vect[spcE]);
-      PicSpeciesPtr izn_speciesI(pic_species_ptr_vect[spcI]);
+      if (spcE<0 || spcI<0) { continue; }
+      const PicChargedSpeciesPtr izn_speciesE = pic_species_ptr_vect[species_map[spcE]];
+      const PicChargedSpeciesPtr izn_speciesI = pic_species_ptr_vect[species_map[spcI]];
       Real this_massE = izn_speciesE->mass();
       Real this_massI = izn_speciesI->mass();
       int this_qE = izn_speciesE->charge();
@@ -387,19 +387,20 @@ void MonteCarloNull::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_
 {
    CH_TIME("MonteCarloNull::setMeanFreeTime()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   
-   if(!this_species1->scatter() || !this_species2->scatter()) return;
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+
+   if (!this_species1->scatter() || !this_species2->scatter()) { return; }
+
    const bool setMoments = false;
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
+
    const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
- 
+
    setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
 
 }
@@ -469,42 +470,44 @@ void MonteCarloNull::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("MonteCarloNull::applyScattering()");
    
-   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-      
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   if(!this_species1->scatter()) return;
-   if(!this_species2->scatter()) return;
-   
+   PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();   
+
+   PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+   if (!this_species1->scatter()) { return; }
+   if (!this_species2->scatter()) { return; }
+
    // set vector of pointers to species created by excitation
-   std::vector<PicSpeciesPtr> exc_species(m_num_exc);
+   std::vector<PicChargedSpeciesPtr> exc_species(m_num_exc);
    for (int n=0; n<m_num_exc; n++) {
-      if(m_exc_species.at(n)<pic_species_ptr_vect.size() && m_exc_species.at(n)>=0) {
-         exc_species.at(n) = pic_species_ptr_vect[m_exc_species.at(n)];
+      if (m_exc_species.at(n)<num_species && m_exc_species.at(n)>=0) {
+         exc_species.at(n) = pic_species_ptr_vect[species_map[m_exc_species.at(n)]];
       }
    }   
    
    // set vector of pointers to species created by dissociation
-   std::vector<PicSpeciesPtr> dis_species1(m_num_dis);
-   std::vector<PicSpeciesPtr> dis_species2(m_num_dis);
-   std::vector<PicSpeciesPtr> dis_species3(m_num_dis);
+   std::vector<PicChargedSpeciesPtr> dis_species1(m_num_dis);
+   std::vector<PicChargedSpeciesPtr> dis_species2(m_num_dis);
+   std::vector<PicChargedSpeciesPtr> dis_species3(m_num_dis);
    for (int n=0; n<m_num_dis; n++) {
-      if(m_dis_species1.at(n)<pic_species_ptr_vect.size() && m_dis_species1.at(n)>=0) {
-         dis_species1.at(n) = pic_species_ptr_vect[m_dis_species1.at(n)];
-         dis_species2.at(n) = pic_species_ptr_vect[m_dis_species2.at(n)];
+      if (m_dis_species1.at(n)<num_species && m_dis_species1.at(n)>=0) {
+         dis_species1.at(n) = pic_species_ptr_vect[species_map[m_dis_species1.at(n)]];
+         dis_species2.at(n) = pic_species_ptr_vect[species_map[m_dis_species2.at(n)]];
       }
-      if(m_dis_species3.at(n)<pic_species_ptr_vect.size() && m_dis_species3.at(n)>=0) {
-         dis_species3.at(n) = pic_species_ptr_vect[m_dis_species3.at(n)];
+      if (m_dis_species3.at(n)<num_species && m_dis_species3.at(n)>=0) {
+         dis_species3.at(n) = pic_species_ptr_vect[species_map[m_dis_species3.at(n)]];
       }
    }
 
    // set vector of pointers to species created by ionization
-   std::vector<PicSpeciesPtr> izn_speciesE(m_num_izn);
-   std::vector<PicSpeciesPtr> izn_speciesI(m_num_izn);
+   std::vector<PicChargedSpeciesPtr> izn_speciesE(m_num_izn);
+   std::vector<PicChargedSpeciesPtr> izn_speciesI(m_num_izn);
    for (int n=0; n<m_num_izn; n++) {
-      if(m_izn_speciesI.at(n)<pic_species_ptr_vect.size() && m_izn_speciesI.at(n)>=0) {
-         izn_speciesE.at(n) = pic_species_ptr_vect[m_izn_speciesE.at(n)];
-         izn_speciesI.at(n) = pic_species_ptr_vect[m_izn_speciesI.at(n)];
+      if (m_izn_speciesI.at(n)<num_species && m_izn_speciesI.at(n)>=0) {
+         izn_speciesE.at(n) = pic_species_ptr_vect[species_map[m_izn_speciesE.at(n)]];
+         izn_speciesI.at(n) = pic_species_ptr_vect[species_map[m_izn_speciesI.at(n)]];
       }
    }   
    
@@ -515,14 +518,14 @@ void MonteCarloNull::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 
 }
       
-void MonteCarloNull::electronImpact( PicSpecies&  a_picSpecies1,
-                                     PicSpecies&  a_picSpecies2, 
-                                     std::vector<PicSpeciesPtr>&  a_exc_species, 
-                                     std::vector<PicSpeciesPtr>&  a_dis_species1, 
-                                     std::vector<PicSpeciesPtr>&  a_dis_species2, 
-                                     std::vector<PicSpeciesPtr>&  a_dis_species3, 
-                                     std::vector<PicSpeciesPtr>&  a_izn_speciesE, 
-                                     std::vector<PicSpeciesPtr>&  a_izn_speciesI, 
+void MonteCarloNull::electronImpact( PicChargedSpecies&  a_picSpecies1,
+                                     PicChargedSpecies&  a_picSpecies2, 
+                                     std::vector<PicChargedSpeciesPtr>&  a_exc_species, 
+                                     std::vector<PicChargedSpeciesPtr>&  a_dis_species1, 
+                                     std::vector<PicChargedSpeciesPtr>&  a_dis_species2, 
+                                     std::vector<PicChargedSpeciesPtr>&  a_dis_species3, 
+                                     std::vector<PicChargedSpeciesPtr>&  a_izn_speciesE, 
+                                     std::vector<PicChargedSpeciesPtr>&  a_izn_speciesI, 
                                const DomainGrid&  a_mesh,
                                const Real         a_dt_sec ) const
 {

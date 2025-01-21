@@ -66,13 +66,13 @@ class System
       void readCheckpointFile( const std::string&  a_chkpt_fname );
       
       bool useParts() {
-         if (m_pic_species->numSpecies()>0) return true;
-         else return false;
+         if (m_pic_species->numSpecies()>0) { return true; }
+         else { return false; }
       }
 
       bool useScattering() {
-         if (m_scattering->numScatter()>0) return true;
-         else return false;
+         if (m_scattering->numScatter()>0) { return true; }
+         else { return false; }
       }
       
       bool useSpecialOps() { return m_use_specialOps; }
@@ -147,6 +147,7 @@ class System
       bool m_field_probes;
       bool m_scattering_probes;
       bool m_fusion_probes;
+      bool m_bremsstrahlung_probes;
       std::vector<bool> m_species_probes;
       bool m_field_bdry_probes;
       bool m_species_bdry_probes;

@@ -67,7 +67,9 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    if (!procID()) { m_print_comps = true; }
 #endif
       
-   m_num_species = m_pic_species_ptr_vect.size();
+   m_num_pic_species = m_pic_species_ptr_vect.size();
+   m_num_photon_species = m_photon_species_ptr_vect.size();
+   m_num_species = m_num_pic_species + m_num_photon_species;
    
    // define the LevelData members for moments
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -82,6 +84,9 @@ PicSpeciesInterface::PicSpeciesInterface( const CodeUnits&   a_units,
    m_currentDensity_virtual.define(grids,3-SpaceDim,ghostVect);
    
    m_DebyeLength.define(grids,1,ghostVect);
+   m_Ne.define(grids,1,ghostVect);
+   m_Te.define(grids,1,ghostVect);
+   m_nuei.define(grids,1,ghostVect);
    
 }
 
@@ -92,27 +97,40 @@ PicSpeciesInterface::createAllPicSpecies( const DomainGrid&  a_mesh )
    if (!procID()) { cout << "Creating PIC species..." << endl << endl; }
 
    bool more_vars(true);
-   int species;
-   while (more_vars) { // look for pic species...
+   int species_num;
+   while (more_vars) { // look for more species...
 
-      species = m_pic_species_ptr_vect.size();
+      species_num = m_pic_species_ptr_vect.size() + m_photon_species_ptr_vect.size();
       stringstream s;
-      s << "pic_species." << species; 
+      s << "pic_species." << species_num;
       ParmParse pp_spc( s.str().c_str() );
 
       string name;
       if (pp_spc.contains("name")) { pp_spc.get("name",name); }
-      else more_vars = false;
+      else { more_vars = false; }
 
       if (more_vars) {
-         PicSpecies* picSpecies = new PicSpecies( pp_spc, species, name, a_mesh );
-         m_pic_species_ptr_vect.push_back(PicSpeciesPtr(picSpecies));
+         std::string species_type_str = "pic";
+         pp_spc.query("type",species_type_str);
+         if (species_type_str=="pic") {
+            m_species_map.push_back(m_pic_species_ptr_vect.size());
+            m_species_type.push_back(PIC_CHARGED);
+            PicChargedSpecies* species_ptr = new PicChargedSpecies( pp_spc, species_num, name, a_mesh );
+            m_pic_species_ptr_vect.push_back(PicChargedSpeciesPtr(species_ptr));
+         }
+         else if (species_type_str=="photon") {
+            m_species_map.push_back(m_photon_species_ptr_vect.size());
+            m_species_type.push_back(PIC_PHOTON);
+            PicPhotonSpecies* species_ptr = new PicPhotonSpecies( pp_spc, species_num, name, a_mesh );
+            m_photon_species_ptr_vect.push_back(PicPhotonSpeciesPtr(species_ptr));
+         }
       }
 
    }
 
    if (!procID()) {
-      cout << "Finished creating " << m_pic_species_ptr_vect.size() << " PIC species" << endl << endl;
+      cout << "Finished creating " << m_pic_species_ptr_vect.size() << " PIC species" << endl;
+      cout << "Finished creating " << m_photon_species_ptr_vect.size() << " PHOTON species" << endl << endl;
    }
 
 }
@@ -128,7 +146,7 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
    // initialize the pic species
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
 
-      PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       species->initialize( a_units, a_cur_time, a_restart_file_name );
 
       if (!a_implicit_advance) {
@@ -167,7 +185,7 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
       cout << " write species current density = " << (m_writeSpeciesCurrentDensity?"true":"false") << endl;
       cout << " write species nppc = " << (m_writeSpeciesNppc?"true":"false") << endl;
       cout << " write species energy off diagonal = " << (m_writeSpeciesEnergyOffDiag?"true":"false") << endl;
-      cout << " write species energy flux = " << (m_writeSpeciesEnergyFlux?"true":"false") << endl;
+      cout << " write species energy flux = " << (m_writeSpeciesEnergyFlux?"true":"false") << endl << endl;
       if (a_implicit_advance) {
          cout << " implicit advance parameters:" << endl;
          cout << "  verbose_particles = " << m_verbose_particles << endl;
@@ -182,6 +200,19 @@ PicSpeciesInterface::initialize( const CodeUnits&    a_units,
          cout << "  mod_init_advance = " << (m_mod_init_advance?"true":"false") << endl << endl;
       }
    }
+
+   // initialize the photon species
+   for (int sp=0; sp<m_photon_species_ptr_vect.size(); sp++) {
+      PicPhotonSpeciesPtr species(m_photon_species_ptr_vect[sp]);
+      species->initialize( a_units, a_cur_time, a_restart_file_name );
+   }
+
+   if (!procID()) {
+      cout << "Finished initializing " << m_photon_species_ptr_vect.size();
+      cout << " photon species" << endl << endl;
+   }
+
+
 
 }
 
@@ -205,7 +236,7 @@ void PicSpeciesInterface::initializeMassMatrices( EMFields&     a_emfields,
    if (m_use_mass_matrices && a_emfields.advanceB()) {
       // relativistic MM assumes Higuera-Cary pusher
       for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-         PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+         PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
          if (species->charge()==0) { continue; }
          species->setHigueraCary(true);
       }
@@ -414,8 +445,8 @@ PicSpeciesInterface::speciesPairingInit()
          pp_spi.get("speciesB",speciesB);
          CH_assert(speciesA<m_num_species);
          CH_assert(speciesB<m_num_species);
-         const PicSpeciesPtr spA(m_pic_species_ptr_vect[speciesA]);
-         const PicSpeciesPtr spB(m_pic_species_ptr_vect[speciesB]);
+         const PicChargedSpeciesPtr spA(m_pic_species_ptr_vect[speciesA]);
+         const PicChargedSpeciesPtr spB(m_pic_species_ptr_vect[speciesB]);
          if (!procID()) { cout << "species A = " << spA->name() << endl; }
          int numP_A = spA->numParticles();
          int numP_B = spB->numParticles();
@@ -773,7 +804,7 @@ void PicSpeciesInterface::setChargeDensityOnNodes( const bool  a_use_filtering )
    // loop over all pic species and add the charge density 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
-      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      const PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if (species->charge()==0) { continue; }
 
       species->setChargeDensityOnNodes( a_use_filtering );
@@ -804,7 +835,7 @@ void PicSpeciesInterface::setCurrentDensity( const EMFields&  a_emfields,
 
    // loop over all pic species and add the current density 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
-      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      const PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if (species->charge()==0) { continue; }
       species->setCurrentDensity( a_dt, a_from_explicit_solver );
       const LevelData<EdgeDataBox>& species_J = species->getCurrentDensity();
@@ -844,7 +875,7 @@ void PicSpeciesInterface::setSurfaceChargeOnNodes( const bool  a_use_filtering )
    // loop over all pic species and add the surface charge
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
-      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      const PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if (species->charge()==0) { continue; }
 
       const LevelData<NodeFArrayBox>& species_sigma = species->getSurfaceChargeOnNodes();
@@ -1027,7 +1058,7 @@ void PicSpeciesInterface::setMassMatrices( const EMFields&  a_emfields,
 
    // loop over all pic species and add their contribution 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
-      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      const PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       species->transferFastParticles();
       species->accumulateMassMatrices( m_sigma_xx, m_sigma_xy, m_sigma_xz,
 #if CH_SPACEDIM==1
@@ -1480,7 +1511,7 @@ void PicSpeciesInterface::addInflowJ( LevelData<EdgeDataBox>&    a_J,
    // loop over all pic species and add the current density from inflow particles 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
-      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      const PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if (species->charge()==0) { continue; }
       if (!species->suborbit_inflowJ()) { continue; }
 
@@ -1526,7 +1557,7 @@ void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
 
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); ++sp) {
 
-      const PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      const PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if (species->charge()==0) { continue; }
       if (!species->use_suborbit_model()) { continue; }
 
@@ -1560,13 +1591,14 @@ void PicSpeciesInterface::addSubOrbitJ( LevelData<EdgeDataBox>&    a_J,
 }
 
 void PicSpeciesInterface::prepForScatter( const int   a_num_coulomb,
+                                          const int   a_num_IB,
                                           const bool  a_from_scatterDt )
 {
    CH_TIME("PicSpeciesInterface::prepForScatter()");
    
    // prepare all species to be scattered for scattering
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-      PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      PicChargedSpeciesPtr species = m_pic_species_ptr_vect[sp];
       species->binTheParticles();
       species->setNumberDensityFromBinFab();
       if (a_from_scatterDt) {
@@ -1578,12 +1610,21 @@ void PicSpeciesInterface::prepForScatter( const int   a_num_coulomb,
          species->setEnergyDensityFromBinFab();
       }
    }
+   for (int sp=0; sp<m_photon_species_ptr_vect.size(); sp++) {
+      auto species = m_photon_species_ptr_vect[sp];
+      species->binTheParticles();
+      species->setNumberDensityFromBinFab();
+   }
    
-   if (a_num_coulomb>0) { setDebyeLength(); }
+   if (a_num_coulomb>0 || a_num_IB>0) { setDebyeLength(); }
+   if (a_num_IB>0) {
+      setTe();
+      setnuei();
+   }
 
 }
 
-void PicSpeciesInterface::setDebyeLength() 
+void PicSpeciesInterface::setDebyeLength()
 {
    CH_TIME("PicSpeciesInterface::setDebyeLength()");
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -1597,10 +1638,10 @@ void PicSpeciesInterface::setDebyeLength()
    SpaceUtils::zero( m_DebyeLength );
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
 
-      PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if (species->charge()==0) { continue; }
 
-      // job of caller to make sure the momentus are precomputed
+      // job of caller to make sure the moments are precomputed
       const LevelData<FArrayBox>& numDen = species->getNumberDensityFromBinFab();
       const LevelData<FArrayBox>& momDen = species->getMomentumDensityFromBinFab();
       const LevelData<FArrayBox>& eneDen = species->getEnergyDensityFromBinFab();
@@ -1677,7 +1718,237 @@ void PicSpeciesInterface::setDebyeLength()
       }
    }
 
-} 
+}
+
+void PicSpeciesInterface::setnuei()
+{
+   CH_TIME("PicSpeciesInterface::setnuei()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+
+   const Real pi = Constants::PI;
+   const Real me = Constants::ME;
+   const Real qe = Constants::QE;
+   const Real cvac = Constants::CVAC;
+   const Real cvacSq = cvac*cvac;
+   const Real hbar = Constants::HBAR;
+   const Real mcSq_eV = me*cvacSq*Constants::EV_PER_JOULE;
+
+   const Real qocSq = qe*qe/cvacSq;
+   const Real b0_factor = qocSq/(2.0*pi*Constants::EP0*me); // [m]
+   const Real bqm_factor = hbar/(2.0*me*cvac); // [m]
+
+   // nuei = sqrt(2)*qe^2*qi^2*ni*Clog/(12*pi^1.5*ep0^2*me^2*Ve^1.5) = nuei_factor*ni*Zi^2*Clog/Ve^1.5
+   const Real nuei_denom = 12.0*std::pow(pi,1.5)*std::pow(Constants::EP0*me,2);
+   const Real nuei_factor = std::sqrt(2.0)*std::pow(qe,4)/nuei_denom;
+
+   //
+   // get electron density and compute the temperature
+   //
+   int spE = -1; // need to assert electrons species
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
+      const auto species = m_pic_species_ptr_vect[sp];
+      if (species->charge()==-1 && species->mass()==1.0) {
+         spE = sp;
+         break;
+      }
+   }
+   CH_assert(spE>=0);
+   const auto speciesE = m_pic_species_ptr_vect[spE];
+   const LevelData<FArrayBox>& numDenE = speciesE->getNumberDensityFromBinFab();
+   const LevelData<FArrayBox>& momDenE = speciesE->getMomentumDensityFromBinFab();
+
+   SpaceUtils::zero( m_nuei );
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
+
+      const auto species = m_pic_species_ptr_vect[sp];
+      const int Zi = species->charge();
+      const Real Minorm = species->mass();
+      if (Zi<=0) { continue; }
+
+      // job of caller to make sure the moments are precomputed
+      const LevelData<FArrayBox>& numDenI = species->getNumberDensityFromBinFab();
+      const LevelData<FArrayBox>& momDenI = species->getMomentumDensityFromBinFab();
+      const LevelData<FArrayBox>& eneDenI = species->getEnergyDensityFromBinFab();
+
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
+
+         FArrayBox& this_nuei = m_nuei[dit];
+
+         const Box gridBox = grids.get(dit);
+         BoxIterator gbit(gridBox);
+         for (gbit.begin(); gbit.ok(); ++gbit) {
+
+            const IntVect ig = gbit();
+
+            const Real Ni = numDenI[dit].get(ig,0); // number density [1/m^3]
+            if (Ni==0.0) { continue; }
+
+            // get electron quantities in this cell
+            const Real Ne = numDenE[dit].get(ig,0);
+            if (Ne==0.0) { continue; }
+            const Real LDe = m_DebyeLength[dit].get(ig,0);
+            const Real Te_eV = std::max(m_Te[dit].get(ig,0), 0.01);
+            const Real VTe = std::sqrt(qe*Te_eV/me); // [m/s]
+
+            const Real EF_eV = hbar*hbar/(2.0*me)*std::pow(3.0*pi*pi*Ne,2.0/3.0)*Constants::EV_PER_JOULE;
+
+            //
+            // compute Coulomb logarithm
+            //
+
+            const Real rhoe = Ne*speciesE->mass();
+            const Real rhoUxe = momDenE[dit].get(ig,0); // [m/s*1/m^3]
+            const Real rhoUye = momDenE[dit].get(ig,1); // [m/s*1/m^3]
+            const Real rhoUze = momDenE[dit].get(ig,2); // [m/s*1/m^3]
+
+            const Real rhoi = Ni*Minorm;
+            const Real rhoUxi = momDenI[dit].get(ig,0); // [m/s*1/m^3]
+            const Real rhoUyi = momDenI[dit].get(ig,1); // [m/s*1/m^3]
+            const Real rhoUzi = momDenI[dit].get(ig,2); // [m/s*1/m^3]
+
+            // compute ion temperature and thermal speed
+            Real rhoEne = 0.0;
+            for (int dir=0; dir<3; dir++) { rhoEne += eneDenI[dit].get(ig,dir); }
+            const Real meanEnergy = (rhoUxi*rhoUxi + rhoUyi*rhoUyi + rhoUzi*rhoUzi)/rhoi/2.0;
+            Real Ti_eV = 2.0/3.0*(rhoEne - meanEnergy)/Ni*mcSq_eV;
+            Ti_eV = std::max(Ti_eV,0.01);
+            const Real VTi = std::sqrt(qe*Ti_eV/(me*Minorm)); // [m/s]
+
+            // Nanbu 1998: gab^2 = 3*Ta/ma + 3*Tb/mb + |Ua - Ub|^2
+            Real g12sq = (3.0*VTe*VTe + 3.0*VTi*VTi);
+            g12sq += std::pow((rhoUxe/rhoe - rhoUxi/rhoi),2)*cvacSq;
+            g12sq += std::pow((rhoUye/rhoe - rhoUyi/rhoi),2)*cvacSq;
+            g12sq += std::pow((rhoUze/rhoe - rhoUzi/rhoi),2)*cvacSq;
+            const Real g12sq_norm = g12sq/cvacSq;
+            const Real mu = speciesE->mass()*Minorm/(speciesE->mass() + Minorm);
+            const Real b0 = b0_factor*Zi/(mu*g12sq_norm + 2.0*EF_eV/mcSq_eV); // [m]
+
+            // set the Coulomb logarithm
+            const Real bmin_qm = bqm_factor/(mu*std::sqrt(g12sq_norm));
+            const Real bmin = std::max(b0/2.0,bmin_qm); // b90 = b0/2.0
+            Real Clog = 0.5*std::log(1.0 + LDe*LDe/bmin/bmin);
+            Clog = std::max(2.0,Clog);
+
+            // compute nuei in this cell for this ion species and add to the total
+            const Real nuei_local = nuei_factor*Ni*Zi*Zi*Clog/std::pow(VTe,3); // [Hz]
+            const Real nuei_sum = this_nuei.get(ig,0);
+            this_nuei.set(ig,0,nuei_sum + nuei_local);
+
+            bool print_test = false;
+            if (!procID() && print_test) {
+               cout << "Mi = " << Minorm << endl;
+               cout << "Zi = " << Zi << endl;
+               cout << "Ne = " << Ne << endl;
+               cout << "Ni = " << Ni << endl;
+               cout << "g12sq_norm = " << g12sq_norm << endl;
+               cout << "EF_eV = " << EF_eV << endl;
+               cout << "b0 = " << b0 << endl;
+               cout << "Clog = " << Clog << endl;
+               cout << "Te_eV[ig="<<ig<<"]  = " << Te_eV << endl;
+               cout << "Ti_eV[ig="<<ig<<"]  = " << Ti_eV << endl;
+               cout << "VTe[ig="<<ig<<"]  = " << VTe << endl;
+               cout << "VTi[ig="<<ig<<"]  = " << VTi << endl;
+               cout << "nuei_local[ig="<<ig<<"]  = " << nuei_local << endl;
+               cout << "nuei_sum[ig="<<ig<<"]  = " << nuei_sum << endl;
+            }
+
+         }
+
+      }
+
+   }
+
+}
+
+void PicSpeciesInterface::setNe()
+{
+   CH_TIME("PicSpeciesInterface::setNe()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+
+   //
+   // compute the electron density [1/m^3] on the mesh
+   //
+
+   // find the electron species index
+   int spE = -1; // need to assert electrons species
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
+      const auto species = m_pic_species_ptr_vect[sp];
+      if (species->charge()==-1 && species->mass()==1.0) {
+         spE = sp;
+         break;
+      }
+   }
+   CH_assert(spE>=0);
+
+   const auto speciesE = m_pic_species_ptr_vect[spE];
+   const LevelData<FArrayBox>& numDenE = speciesE->getNumberDensity(true);
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
+      m_Ne[dit].copy(numDenE[dit],0,0,1);
+   }
+
+}
+
+void PicSpeciesInterface::setTe()
+{
+   CH_TIME("PicSpeciesInterface::setTe()");
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+
+   //
+   // compute the electron temperatuire [eV] on the mesh
+   //
+
+   const Real me = Constants::ME;
+   const Real cvac = Constants::CVAC;
+   const Real mcSq_eV = me*cvac*cvac*Constants::EV_PER_JOULE;
+
+   // find the electron species index
+   int spE = -1; // need to assert electrons species
+   for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
+      const auto species = m_pic_species_ptr_vect[sp];
+      if (species->charge()==-1 && species->mass()==1.0) {
+         spE = sp;
+         break;
+      }
+   }
+   CH_assert(spE>=0);
+
+   // moments should be computed prior to calling setTe();
+   const auto speciesE = m_pic_species_ptr_vect[spE];
+   const LevelData<FArrayBox>& numDenE = speciesE->getNumberDensityFromBinFab();
+   const LevelData<FArrayBox>& momDenE = speciesE->getMomentumDensityFromBinFab();
+   const LevelData<FArrayBox>& eneDenE = speciesE->getEnergyDensityFromBinFab();
+
+   SpaceUtils::zero( m_Te );
+   for (DataIterator dit(grids); dit.ok(); ++dit) {
+
+      FArrayBox& this_Te = m_Te[dit];
+
+      const Box gridBox = grids.get(dit);
+      BoxIterator gbit(gridBox);
+      for (gbit.begin(); gbit.ok(); ++gbit) {
+
+         const IntVect ig = gbit();
+         const Real Ne = numDenE[dit].get(ig,0); // number density [1/m^3]
+         if (Ne==0.0) { continue; }
+
+         // compute electron energy density
+         const Real rho = Ne*speciesE->mass();
+         const Real rhoUx = momDenE[dit].get(ig,0); // [m/s*1/m^3]
+         const Real rhoUy = momDenE[dit].get(ig,1); // [m/s*1/m^3]
+         const Real rhoUz = momDenE[dit].get(ig,2); // [m/s*1/m^3]
+
+         // set the electron temperature in this cell
+         Real rhoE = 0.0;
+         for (int dir=0; dir<3; dir++) { rhoE += eneDenE[dit].get(ig,dir); }
+         const Real meanEnergy = (rhoUx*rhoUx + rhoUy*rhoUy + rhoUz*rhoUz)/rho/2.0;
+         const Real Te_eV = 2.0/3.0*(rhoE - meanEnergy)/Ne*mcSq_eV;
+         this_Te.set(ig,0,Te_eV);
+
+      }
+
+   }
+
+}
 
 Real 
 PicSpeciesInterface::courantDt()
@@ -1685,7 +1956,7 @@ PicSpeciesInterface::courantDt()
 
    m_courant_dt = DBL_MAX;
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-      PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       species->setStableDt();
       m_courant_dt = std::min(m_courant_dt,species->stableDt());
    }
@@ -1708,7 +1979,7 @@ PicSpeciesInterface::cyclotronDt( const Real  a_wc0 )
    Real cyclotron_dt = DBL_MAX;
    Real max_qom = 0.0;
    for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-      PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+      PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
       if (species->charge()==0) { continue; }
       if (species->numParticles()==0) { continue; }
       Real this_qom = std::abs(species->charge()/species->mass());

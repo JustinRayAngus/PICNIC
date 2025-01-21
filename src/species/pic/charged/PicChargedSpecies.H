@@ -1,11 +1,11 @@
 /***
  *
- * base particle-in-cell species class header file
+ * particle-in-cell charged species class
  *
 ***/
 
-#ifndef PicSpecies_h
-#define PicSpecies_h
+#ifndef PIC_CHARGED_SPECIES_H
+#define PIC_CHARGED_SPECIES_H
 
 #include "ParmParse.H"
 #include "FArrayBox.H"
@@ -31,34 +31,35 @@
 #include "MeshInterp.H"
 #include "CodeUnits.H"
 
+#include "Species.H"
 #include "EMFields.H"
-#include "PicSpeciesBC.H"
+#include "PicChargedSpeciesBC.H"
 
 #include "NamespaceHeader.H"
 
-class PicSpecies
+class PicChargedSpecies : public Species
 {
 
 public:
 
-  PicSpecies( ParmParse&   a_ppspc,
-        const int          a_species,
-        const string&      a_name,
-        const DomainGrid&  a_mesh );
+  PicChargedSpecies( ParmParse&   a_ppspc,
+               const int          a_species,
+               const string&      a_name,
+               const DomainGrid&  a_mesh );
   
-  virtual ~PicSpecies();
+  virtual ~PicChargedSpecies();
 
-  void initialize( const CodeUnits&    a_units,
+  virtual void initialize( const CodeUnits&    a_units,
                    const Real          a_time,
                    const std::string&  a_restart_file_name );
+
+  virtual SpeciesType getSpeciesType() const { return PIC_CHARGED; }
 
   void initializeFromInputFile( const CodeUnits&    a_units );
   void perturbPositions();
   void initializeFromRestartFile( const Real          a_time,
                                   const std::string&  a_restart_file_name );
 
-  virtual Real mass() const { return m_mass; }
-  virtual int charge() const { return m_charge; }
   virtual Real Uint() const { return m_Uint; }
   virtual Real stableDt() const { return m_stable_dt; }
    
@@ -88,13 +89,8 @@ public:
   const RealVect& getEnergyIn_lo() const { return m_EnergyIn_lo; }
   const RealVect& getEnergyIn_hi() const { return m_EnergyIn_hi; }
 
-  virtual const std::string& name() const { return m_name; }
-  
   virtual int numParticles() const { return m_data.numParticles(); }
 
-  bool motion() const { return m_motion; }
-  bool forces() const { return m_forces; }
-  bool scatter() const { return m_scatter; }
   bool writeAll() const { return m_write_all_part_comps; }
   bool chargeConservingDeposit() const { return m_charge_conserving_deposit; }
   
@@ -114,8 +110,6 @@ public:
      if(m_push_type==CYL_HYB) return true;
      else return false; 
   }
-
-  virtual bool isSpecies( const string& name ) const;  
 
 #ifdef RELATIVISTIC_PARTICLES
   void setHigueraCary( bool  a_use_hc ) { m_higuera_cary = a_use_hc; }
@@ -157,13 +151,13 @@ public:
   // ways to get/set number density member
   const LevelData<FArrayBox>& getNumberDensity( const bool  setData = false ) const
   { 
-    if(setData) setNumberDensity();
+    if (setData) { setNumberDensity(); }
     return m_density;
   }
   
   const LevelData<FArrayBox>& getNumberDensityFromBinFab( const bool  setData = false ) const
   { 
-    if(setData) setNumberDensityFromBinFab();
+    if (setData) { setNumberDensityFromBinFab(); }
     return m_density;
   }
 
@@ -172,7 +166,8 @@ public:
   void setNumberDensityFromBinFab() const;
   
   void splitParticles( const int a_step_number ) {
-     if ( (a_step_number % m_split_step_freq)==0 ) {
+     if (a_step_number==0) { return; }
+     else if ( (a_step_number % m_split_step_freq)==0 ) {
         splitParticlesFromBinFab();
      }
   }
@@ -433,7 +428,7 @@ public:
   // bin the particle up for scattering
   void binTheParticles();
   
-  //const PicSpecies& operator=( const PicSpecies& a_species );
+  //const PicChargedSpecies& operator=( const PicSpecies& a_species );
   
   void inspectBinFab()
   {
@@ -453,9 +448,6 @@ public:
   
 private:
 
-  int  m_species;  // species number identifier 
-  Real m_mass;     // species mass / electron mass
-  int  m_charge;   // species charge / electron charge
   Real m_Uint;     // species internal energy [eV]
   
   enum PushType {
@@ -474,7 +466,7 @@ private:
   bool m_higuera_cary = false;
 #endif
 
-  PicSpeciesBC* m_species_bc;
+  PicChargedSpeciesBC* m_species_bc;
   std::string m_BC_type_lower, m_BC_type_upper;
 
   Real m_cvac_norm; 
@@ -518,7 +510,6 @@ private:
   RealVect m_EnergyIn_lo;       // total energy of inflow particles at lo side 
   RealVect m_EnergyIn_hi;       // total energy of inflow particles at hi side
 
-  std::string m_name;          // species name
   InterpType m_interpRhoToGrid;  // method to interpolate charge density to grid
   InterpType m_interpJToGrid;    // method to interpolate current density to grid
   InterpType m_interpEToParts;   // method to interpolate electric field to particle
@@ -528,13 +519,9 @@ private:
   bool m_suborbit_fast_particles;
   bool m_suborbit_testing = false; 
 
-  bool m_motion;
-  bool m_forces;
-  bool m_scatter;
   bool m_write_all_part_comps;
   bool m_charge_conserving_deposit;
   
-  const DomainGrid& m_mesh;
   MeshInterp* m_meshInterp;
   
   ParticleData<JustinsParticle> m_data; // container for storing list of particles for each box
@@ -628,7 +615,7 @@ private:
                         const RealVect&  a_sXmax ) const;
 
   void zeroFields() {
-    CH_TIME("PicSpecies::zeroFields()");
+    CH_TIME("PicChargedSpecies::zeroFields()");
     const BoxLayout& BL = m_data.getBoxes();
     DataIterator dit(BL);
     for(dit.begin(); dit.ok(); ++dit) {
@@ -645,8 +632,8 @@ private:
 
 };
 
-typedef RefCountedPtr<PicSpecies> PicSpeciesPtr;
-typedef Vector<PicSpeciesPtr> PicSpeciesPtrVect;
+typedef RefCountedPtr<PicChargedSpecies> PicChargedSpeciesPtr;
+typedef Vector<PicChargedSpeciesPtr> PicChargedSpeciesPtrVect;
 
 #include "NamespaceFooter.H"
 

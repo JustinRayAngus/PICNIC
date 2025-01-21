@@ -3,7 +3,6 @@
 
 #include "Scattering.H"
 #include "PicnicConstants.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
 
@@ -17,6 +16,7 @@
  * D + D   ==> He3(0.82 MeV) + n(2.45 MeV)
  * D + T   ==> He4(3.5 MeV)  + n(14.1 MeV)
  * D + He3 ==> He4(3.6 MeV)  + p(14.7 MeV)
+ * T + T   ==> He4(3.79 MeV) + n(3.77 MeV) + n(3.77 MeV)
 */
 
 class Fusion : public Scattering
@@ -42,6 +42,7 @@ class Fusion : public Scattering
           else if (m_fusion_type==DDab) { return "DDab"; }
           else if (m_fusion_type==DT)   { return "DT"; }
           else if (m_fusion_type==DHe3) { return "DHe3"; }
+          else if (m_fusion_type==TT)   { return "TT"; }
           else { return "invalid"; }
       }
 
@@ -68,6 +69,7 @@ class Fusion : public Scattering
             std::cout << "  species 2 name:   " << m_species2_name << std::endl;
             std::cout << "  species 3 name:   " << m_species3_name << std::endl;
             std::cout << "  species 4 name:   " << m_species4_name << std::endl;
+            if (m_sp5>=0) { std::cout << "  species 5 name:   " << m_species5_name << std::endl; }
             if (m_fusion_type==DDab) {
                 std::cout << "  species 3b name:  " << m_species3b_name << std::endl;
                 std::cout << "  species 4b name:  " << m_species4b_name << std::endl;
@@ -85,6 +87,9 @@ class Fusion : public Scattering
             }
             else if (m_fusion_type==DHe3) {
                 std::cout << "  fusion type:  D + He3 ==> He4(3.6 MeV) + p(14.7 MeV)" << std::endl;
+            }
+            else if (m_fusion_type==TT) {
+                std::cout << "  fusion type:  T + T ==> He4(3.79 MeV) + 2n(3.77 MeV)" << std::endl;
             }
             if (m_fusion_type==DDab) { 
                 std::cout << "  fusion Qa = " << m_Q  << " eV" << std::endl;
@@ -109,18 +114,19 @@ class Fusion : public Scattering
 
       void readCrossSectionFile();
 
-      void interSpeciesFusion( PicSpecies&  a_picSpecies1,
-                               PicSpecies&  a_picSpecies2,
-                               PicSpecies&  a_picSpecies3,
-                               PicSpecies&  a_picSpecies4,
+      void interSpeciesFusion( PicChargedSpecies&  a_picSpecies1,
+                               PicChargedSpecies&  a_picSpecies2,
+                               PicChargedSpecies&  a_picSpecies3,
+                               PicChargedSpecies&  a_picSpecies4,
                          const DomainGrid&  a_mesh,
                          const Real         a_dt_sec ) const;
 
-      void intraSpeciesFusion( PicSpecies&  a_picSpecies1,
-                               PicSpecies&  a_picSpecies3,
-                               PicSpecies&  a_picSpecies4,
-                               PicSpecies&  a_picSpecies3b,
-                               PicSpecies&  a_picSpecies4b,
+      void intraSpeciesFusion( PicChargedSpecies&  a_picSpecies1,
+                               PicChargedSpecies&  a_picSpecies3,
+                               PicChargedSpecies&  a_picSpecies4,
+                               PicChargedSpecies&  a_picSpecies5,
+                               PicChargedSpecies&  a_picSpecies3b,
+                               PicChargedSpecies&  a_picSpecies4b,
                          const DomainGrid&  a_mesh,
                          const Real         a_dt_sec ) const;
 
@@ -134,7 +140,8 @@ class Fusion : public Scattering
          DDb,  // D + D   ==> He3 + n
          DDab, // D + D   ==> T  + p and ==> He3 + n
          DT,   // D + T   ==> He4 + n
-         DHe3  // D + He3 ==> He4 + p
+         DHe3, // D + He3 ==> He4 + p
+         TT    // T + T ==> He4 + 2n
       };
 
       Real getSigma( Real& a_ratio_b, const Real  a_Erel_eV ) const;
@@ -142,6 +149,7 @@ class Fusion : public Scattering
       Real getDDbSigma( const Real  a_Erel_eV ) const;
       Real getDTSigma( const Real  a_Erel_eV ) const;
       Real getDHe3Sigma( const Real  a_Erel_eV ) const;
+      Real getTTSigma( const Real  a_Erel_eV ) const;
 
       // Parse the input database for parameters.
       void parseParameters( ParmParse&  a_pp )
@@ -154,8 +162,9 @@ class Fusion : public Scattering
           else if (fusion_type=="DDab") { m_fusion_type = DDab; }
           else if (fusion_type=="DT")   { m_fusion_type = DT; }
           else if (fusion_type=="DHe3") { m_fusion_type = DHe3; }
+          else if (fusion_type=="TT") { m_fusion_type = TT; }
           else {
-              MayDay::Error( "Fusion: invalid fusion_type. Valid types are DDa, DDb, DDab, DT, and DHe3" );
+              MayDay::Error( "Fusion: invalid fusion_type. Valid types are DDa, DDb, DDab, DT, and DHe3, TT" );
           }
           a_pp.query( "fmulti", m_fmulti );
 
@@ -179,6 +188,9 @@ class Fusion : public Scattering
               a_pp.get( "species4", m_sp4 );
               m_sp3b = m_sp3;
               m_sp4b = m_sp4;
+              if (m_fusion_type==TT) {
+                 a_pp.get( "species5", m_sp5 );
+              }
           }
 
       }
@@ -187,6 +199,7 @@ class Fusion : public Scattering
       std::string m_species2_name;
       std::string m_species3_name;
       std::string m_species4_name;
+      std::string m_species5_name = "none";
       std::string m_species3b_name;
       std::string m_species4b_name;
       mutable Real m_scatter_dt;    // (mean free time)
@@ -195,12 +208,14 @@ class Fusion : public Scattering
       int m_sp2;      // species 2 identifier
       int m_sp3;      // species 3 identifier
       int m_sp4;      // species 4 identifier
+      int m_sp5 = -1; // species 5 identifier
       int m_sp3b;     // species 3b identifier
       int m_sp4b;     // species 4b identifier
       Real m_mass1;   // species 1 mass / electron mass
       Real m_mass2;   // species 2 mass / electron mass
       Real m_mass3;   // species 3 mass / electron mass
       Real m_mass4;   // species 4 mass / electron mass
+      Real m_mass5 = 0.0;   // species 5 mass / electron mass
       Real m_mass3b;  // species 3b mass / electron mass
       Real m_mass4b;  // species 4b mass / electron mass
       Real m_mu;      // reduced mass / electron mass = mass1*mass2/(mass1+mass2)

@@ -1,7 +1,5 @@
-
 #include "Fusion.H"
 #include "MathUtils.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -20,23 +18,25 @@ void Fusion::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 {
     CH_TIME("Fusion::initialize()");
    
-    const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   
+    const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+    const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+    const int num_species = a_pic_species_intf.numSpecies();   
+
     // get pointer to species 1
-    CH_assert(m_sp1<pic_species_ptr_vect.size());
-    PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+    CH_assert(m_sp1<num_species);
+    const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
 
     // get pointer to species 2
-    CH_assert(m_sp2<pic_species_ptr_vect.size());
-    PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   
+    CH_assert(m_sp2<num_species);
+    const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+
     // get pointer to species 3
-    CH_assert(m_sp3<pic_species_ptr_vect.size());
-    PicSpeciesPtr this_species3(pic_species_ptr_vect[m_sp3]);
-   
+    CH_assert(m_sp3<num_species);
+    const PicChargedSpeciesPtr this_species3 = pic_species_ptr_vect[species_map[m_sp3]];
+
     // get pointer to species 4
-    CH_assert(m_sp4<pic_species_ptr_vect.size());
-    PicSpeciesPtr this_species4(pic_species_ptr_vect[m_sp4]);
+    CH_assert(m_sp4<num_species);
+    const PicChargedSpeciesPtr this_species4 = pic_species_ptr_vect[species_map[m_sp4]];
 
     // set the species names
     m_species1_name = this_species1->name();
@@ -82,13 +82,13 @@ void Fusion::initialize( const PicSpeciesInterface&  a_pic_species_intf,
         CH_assert(this_species4->charge()==1); // proton
         CH_assert(m_mass4>1836.0 && m_mass4<1837.0);
         //
-        PicSpeciesPtr this_species3b(pic_species_ptr_vect[m_sp3b]);
+        const PicChargedSpeciesPtr this_species3b = pic_species_ptr_vect[species_map[m_sp3b]];
         m_species3b_name = this_species3b->name();
         m_mass3b = this_species3b->mass();
         CH_assert(this_species3b->charge()==2); // He3 ion
         CH_assert(m_mass3b>5495.0 && m_mass3b<5496.0);
         //
-        PicSpeciesPtr this_species4b(pic_species_ptr_vect[m_sp4b]);
+        const PicChargedSpeciesPtr this_species4b = pic_species_ptr_vect[species_map[m_sp4b]];
         m_species4b_name = this_species4b->name();
         m_mass4b = this_species4b->mass();
         CH_assert(this_species4b->charge()==0); // neutron
@@ -118,8 +118,26 @@ void Fusion::initialize( const PicSpeciesInterface&  a_pic_species_intf,
         CH_assert(this_species4->charge()==1); // proton
         CH_assert(m_mass4>1836.0 && m_mass4<1837.0);
     }
+    else if (m_fusion_type==TT) {
+        // T + T ==> He4(3.79 MeV)  + 2n(3.77 MeV)
+        CH_assert(this_species1->charge()==1); // tritium ion
+        CH_assert(m_mass1>5496.0 && m_mass1<5497.0);
+        CH_assert(this_species2->charge()==1); // tritium ion
+        CH_assert(m_mass2>5496.0 && m_mass2<5497.0);
+        //
+        CH_assert(this_species3->charge()==2); // He4 ion
+        CH_assert(m_mass3>7294.0 && m_mass3<7295.0);
+        CH_assert(this_species4->charge()==0); // neutron
+        CH_assert(m_mass4>1838.0 && m_mass4<1839.0);
+        CH_assert(m_sp5<num_species);
+        const PicChargedSpeciesPtr this_species5 = pic_species_ptr_vect[species_map[m_sp5]];
+        m_species5_name = this_species5->name();
+        m_mass5 = this_species5->mass();          // species 5 mass / me
+        CH_assert(this_species5->charge()==0); // neutron
+        CH_assert(m_mass5>1838.0 && m_mass5<1839.0);
+    }
 
-    m_Q = (m_mass1 + m_mass2 - m_mass3 - m_mass4)*m_mcSq; // reaction energy in eV
+    m_Q = (m_mass1 + m_mass2 - m_mass3 - m_mass4 - m_mass5)*m_mcSq; // reaction energy in eV
     m_Qb = (m_mass1 + m_mass2 - m_mass3b - m_mass4b)*m_mcSq; // reaction energy in eV
 
     // define the fusion product diagnostic container
@@ -136,20 +154,22 @@ void Fusion::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 void Fusion::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) const 
 {
    CH_TIME("Fusion::setMeanFreeTime()");
-   
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   
-   if (!this_species1->scatter() || !this_species2->scatter()) return;
-   
+
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+
+   if (!this_species1->scatter() || !this_species2->scatter()) { return; }
+
    const bool setMoments = false;
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
+
    const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
- 
+
    setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
 
 }
@@ -220,27 +240,34 @@ void Fusion::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 {
     CH_TIME("Fusion::applyScattering()");
    
-    PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+    PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+    const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
       
-    PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-    PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+    PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+    PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
     if (!this_species1->scatter()) { return; }
     if (!this_species2->scatter()) { return; }
    
-    PicSpeciesPtr this_species3(pic_species_ptr_vect[m_sp3]);
-    PicSpeciesPtr this_species4(pic_species_ptr_vect[m_sp4]);
+    PicChargedSpeciesPtr this_species3 = pic_species_ptr_vect[species_map[m_sp3]];
+    PicChargedSpeciesPtr this_species4 = pic_species_ptr_vect[species_map[m_sp4]];
 
     if (m_fusion_type==DDa || m_fusion_type==DDb) {
         intraSpeciesFusion( *this_species1,
-                            *this_species3, *this_species4,
+                            *this_species3, *this_species4, *this_species4,
                             *this_species3, *this_species4, a_mesh, a_dt_sec );
     }
     else if (m_fusion_type==DDab) {
-        PicSpeciesPtr this_species3b(pic_species_ptr_vect[m_sp3b]);
-        PicSpeciesPtr this_species4b(pic_species_ptr_vect[m_sp4b]);
+        PicChargedSpeciesPtr this_species3b = pic_species_ptr_vect[species_map[m_sp3b]];
+        PicChargedSpeciesPtr this_species4b = pic_species_ptr_vect[species_map[m_sp4b]];
         intraSpeciesFusion( *this_species1,
-                            *this_species3, *this_species4,
+                            *this_species3, *this_species4, *this_species4,
                             *this_species3b, *this_species4b, a_mesh, a_dt_sec );
+    }
+    else if (m_fusion_type==TT) {
+        PicChargedSpeciesPtr this_species5 = pic_species_ptr_vect[species_map[m_sp5]];
+        intraSpeciesFusion( *this_species1,
+                            *this_species3, *this_species4, *this_species5,
+                            *this_species3, *this_species4, a_mesh, a_dt_sec );
     }
     else {
         interSpeciesFusion( *this_species1, *this_species2, 
@@ -249,11 +276,12 @@ void Fusion::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 
 }
 
-void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
-                                 PicSpecies&  a_species3, 
-                                 PicSpecies&  a_species4, 
-                                 PicSpecies&  a_species3b, 
-                                 PicSpecies&  a_species4b, 
+void Fusion::intraSpeciesFusion( PicChargedSpecies&  a_species1,
+                                 PicChargedSpecies&  a_species3,
+                                 PicChargedSpecies&  a_species4,
+                                 PicChargedSpecies&  a_species5,
+                                 PicChargedSpecies&  a_species3b,
+                                 PicChargedSpecies&  a_species4b,
                            const DomainGrid&  a_mesh,
                            const Real         a_dt_sec ) const
 {
@@ -290,6 +318,7 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
         // initialize lists needed to create new particles
         List<JustinsParticle> species3_pList, species3b_pList;
         List<JustinsParticle> species4_pList, species4b_pList;
+        List<JustinsParticle> species5_pList;
 
         // get references to the scattering species
         BinFab<JustinsParticlePtr>& thisBinFab1_ptr = data1_binfab_ptr[ditg];
@@ -484,6 +513,10 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                         }
                     }
 
+                    // use mass4 = mass4 + mass5 = 2*mass4 for TT kinematics
+                    // assuming beta4 = beta5 (both neutrons)
+                    if (m_fusion_type==TT) { mass4 += m_mass5; }
+
                     // compute total lab-frame energy before fusion
                     Real KE_before = 0.0;
 #ifdef RELATIVISTIC_PARTICLES
@@ -614,6 +647,34 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
                         species4b_pList.append(particle4);
 
                     }
+                    else if (m_fusion_type==TT) {
+
+                        // create the new helium4 split in two to preserve charge conservation
+                        const RealVect& Xp1 = part1_ptr->position();
+                        const RealVect& Xp2 = part2_ptr->position();
+                        JustinsParticle particle31(0.5*wp34, Xp1, up3);
+                        JustinsParticle particle32(0.5*wp34, Xp2, up3);
+
+                        // create the two new neutron at centroid location
+                        const RealVect Xpn = 0.5*(Xp1 + Xp2);
+                        JustinsParticle particle4(wp34, Xpn, up4);
+                        JustinsParticle particle5(wp34, Xpn, up4);
+
+                        // need to declare ID to make smoke tests not fail
+                        // better fix for future is to add option to remove IDs from outputs
+                        uint64_t ID = 0;
+                        particle31.setID(ID);
+                        particle32.setID(ID);
+                        particle4.setID(ID);
+                        particle5.setID(ID);
+
+                        // append new particle to the appropriate lists
+                        species3_pList.append(particle31);
+                        species3_pList.append(particle32);
+                        species4_pList.append(particle4);
+                        species5_pList.append(particle5);
+
+                    }
                     else {
 
                         // create particle 3 at location of particle 1
@@ -668,7 +729,12 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
         pData4[ditg].addItemsDestructive(species4_pList);
         CH_assert(species3_pList.length()==0);
         CH_assert(species4_pList.length()==0);
-  
+        if (m_fusion_type==TT) {
+            ParticleData<JustinsParticle>& pData5 = a_species5.partData();
+            pData5[ditg].addItemsDestructive(species5_pList);
+            CH_assert(species5_pList.length()==0);
+        }
+
         ParticleData<JustinsParticle>& pData3b = a_species3b.partData();
         ParticleData<JustinsParticle>& pData4b = a_species4b.partData();
         pData3b[ditg].addItemsDestructive(species3b_pList);
@@ -695,10 +761,10 @@ void Fusion::intraSpeciesFusion( PicSpecies&  a_species1,
 
 }
       
-void Fusion::interSpeciesFusion( PicSpecies&  a_species1,
-                                 PicSpecies&  a_species2, 
-                                 PicSpecies&  a_species3, 
-                                 PicSpecies&  a_species4, 
+void Fusion::interSpeciesFusion( PicChargedSpecies&  a_species1,
+                                 PicChargedSpecies&  a_species2, 
+                                 PicChargedSpecies&  a_species3, 
+                                 PicChargedSpecies&  a_species4, 
                            const DomainGrid&  a_mesh,
                            const Real         a_dt_sec ) const
 {
@@ -1154,6 +1220,7 @@ Real Fusion::getSigma( Real& a_ratio_b, const Real  a_Erel_eV ) const
    }
    else if (m_fusion_type==DT)   { sigma = getDTSigma(a_Erel_eV); }
    else if (m_fusion_type==DHe3) { sigma = getDHe3Sigma(a_Erel_eV); }
+   else if (m_fusion_type==TT)   { sigma = getTTSigma(a_Erel_eV); }
    return sigma;
 }
 
@@ -1307,6 +1374,45 @@ Real Fusion::getDHe3Sigma( const Real  a_Erel_eV ) const
  
       const Real bg = 68.7508;
       const Real numer = a1 + x*(a2 + x*a3);
+      const Real denom = 1.0 + x*(b1 + x*(b2 + x*(b3 + x*b4)));
+      const Real sf = numer/denom;
+      sigma = sf / (x * std::exp(bg/std::sqrt(x))); // cross section in mB
+      sigma = 0.001*sigma;   // cross section in Barns
+      sigma = 1.0e-28*sigma; // cross section m^2
+
+   }
+   return sigma;
+}
+
+Real Fusion::getTTSigma( const Real  a_Erel_eV ) const
+{
+   CH_TIME("Fusion::getDTTSigma()");
+
+   // cross section for T + T -> He4(3.79 MeV) + 2n(3.77 MeV)
+   // Fit not provided in Table IV of Bosch and Hale 1992
+   // Fit here obtained from JJVDW
+   // input energy in the center of mass frame (keV)
+   // Note that 1 Barn = 1e-28 m^2
+
+   const Real x = a_Erel_eV/1.0e3; // relative energy in keV
+
+   Real sigma = 0.0;
+   if (x > 0.5) {
+
+      Real a1, a2, a3, a4, a5, b1, b2, b3, b4;
+
+      a1 =  1.55664669e+05;
+      a2 = -1.11594261e+01;
+      a3 =  1.63727168e-01;
+      a4 = -9.37018943e-06;
+      a5 =  2.86549948e-08;
+      b1 =  2.61124209e-04;
+      b2 = -1.89760856e-06;
+      b3 =  1.32736774e-09;
+      b4 =  1.74931772e-15;
+
+      const Real bg = 38.0031824;
+      const Real numer = a1 + x*(a2 + x*(a3 + x*(a4 + x*a5)));
       const Real denom = 1.0 + x*(b1 + x*(b2 + x*(b3 + x*b4)));
       const Real sf = numer/denom;
       sigma = sf / (x * std::exp(bg/std::sqrt(x))); // cross section in mB

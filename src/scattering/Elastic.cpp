@@ -1,7 +1,5 @@
-
 #include "Elastic.H"
 #include "MathUtils.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -19,16 +17,18 @@ void Elastic::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("Elastic::initialize()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();
+
    // get pointer to species 1
-   CH_assert(m_sp1<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   CH_assert(m_sp1<num_species);
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
 
    // get pointer to species 2
-   CH_assert(m_sp2<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   
+   CH_assert(m_sp2<num_species);
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+
    // set the species names
    m_species1_name = this_species1->name();
    m_species2_name = this_species2->name();
@@ -125,19 +125,20 @@ void Elastic::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) 
 {
    CH_TIME("Elastic::setMeanFreeTime()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp1]);
-   
-   if(!this_species1->scatter() || !this_species2->scatter()) return;
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp1]];
+
+   if (!this_species1->scatter() || !this_species2->scatter()) { return; }
+
    const bool setMoments = false;
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
+
    const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
- 
+
    setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
 
 }
@@ -207,21 +208,22 @@ void Elastic::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
                          const Real                  a_dt_sec ) const
 {
    CH_TIME("Elastic::applyScattering()");
-   
-   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-      
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   if(!this_species1->scatter()) return;
-   if(!this_species2->scatter()) return;
-   
+
+   PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+
+   PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+   if (!this_species1->scatter()) { return; }
+   if (!this_species2->scatter()) { return; }
+
    // electron impact elastic: e + A => e + A
    electronImpact( *this_species1, *this_species2, a_mesh, a_dt_sec );
 
 }
       
-void Elastic::electronImpact( PicSpecies&  a_picSpecies1,
-                              PicSpecies&  a_picSpecies2, 
+void Elastic::electronImpact( PicChargedSpecies&  a_picSpecies1,
+                              PicChargedSpecies&  a_picSpecies2, 
                         const DomainGrid&  a_mesh,
                         const Real         a_dt_sec ) const
 {

@@ -165,7 +165,7 @@ Real MathUtils::linearInterp( int&                a_index,
    while (a_X0 < a_X[index]) { index--; }
    while (a_X0 > a_X[index+1]) { index++; }
 
-   Y0 = ( a_Y[index+1]*(a_X0 - a_Y[index])
+   Y0 = ( a_Y[index+1]*(a_X0 - a_X[index])
       +   a_Y[index]*(a_X[index+1] - a_X0) )
       / ( a_X[index+1] - a_X[index] );
 

@@ -3,7 +3,6 @@
 
 #include "REAL.H"
 #include "PicSpeciesInterface.H"
-#include "PicSpecies.H"
 #include "LevelData.H"
 
 #include "Vector.H"
@@ -24,6 +23,8 @@ typedef enum { ELASTIC,
                MONTE_CARLO_NULL, 
                COULOMB, 
                FUSION,
+               BREMSSTRAHLUNG,
+               IBREMSSTRAHLUNG,
                CHARGE_EXCHANGE } ScatteringType;
 
 typedef enum { PROBABILISTIC,
@@ -33,7 +34,6 @@ class Scattering
 {
    public:
 
-      //Scattering( const PicSpecies&  a_picSpecies, 
       Scattering( const int  a_verbosity );
    
       virtual ~Scattering() {;}
@@ -63,6 +63,12 @@ class Scattering
       virtual Real getFusionQb() const { return 0.0; }
       virtual Real getDeltaEfusion() const { return 0.0; }
       virtual void zeroDeltaEfusion() const {;} 
+      
+      virtual Real getDeltaEbremsstrahlung() const { return 0.0; }
+      virtual void zeroDeltaEbremsstrahlung() const {;} 
+
+      virtual Real getDeltaEIBremsstrahlung() const { return 0.0; }
+      virtual void zeroDeltaEIBremsstrahlung() const {;}
 
       LevelData<FArrayBox>& getFusionProducts() { return m_fusionProducts; }
       const LevelData<FArrayBox>& getFusionProducts() const { return m_fusionProducts; }

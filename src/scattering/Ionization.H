@@ -3,7 +3,6 @@
 
 #include "Scattering.H"
 #include "PicnicConstants.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
 
@@ -87,10 +86,10 @@ class Ionization : public Scattering
 
       void readCrossSectionFile();
 
-      void electronImpact( PicSpecies&  a_picSpecies1,
-                           PicSpecies&  a_picSpecies2,
-                           PicSpecies&  a_picSpeciesE,
-                           PicSpecies&  a_picSpeciesI,
+      void electronImpact( PicChargedSpecies&  a_picSpecies1,
+                           PicChargedSpecies&  a_picSpecies2,
+                           PicChargedSpecies&  a_picSpeciesE,
+                           PicChargedSpecies&  a_picSpeciesI,
                      const DomainGrid&  a_mesh,
                      const Real         a_dt_sec ) const;
       

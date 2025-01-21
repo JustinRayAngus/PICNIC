@@ -1133,7 +1133,7 @@ void dataFileIO::writeEMFieldPotential( const EMFields&  a_emfield,
 
 }
 
-void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
+void dataFileIO::writeSpeciesParticleFile( const PicChargedSpecies&  a_picSpecies,
                                            const int          a_species,
                                            const int          a_cur_step,
                                            const double       a_cur_time )
@@ -1239,7 +1239,100 @@ void dataFileIO::writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
    
 }
 
-void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
+void dataFileIO::writePhotonSpeciesParticleFile( const PicPhotonSpecies&  a_photonSpecies,
+                                                 const int          a_cur_step,
+                                                 const double       a_cur_time )
+{
+   CH_TIME("dataFileIO::writePhotonSpeciesParticleFile()");
+   // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+   
+   const int species_num = a_photonSpecies.species_num();   
+
+   if (!procID()) {
+      cout << "writing particle file for photon species " << species_num << endl;
+   }
+   
+   // get references to particle data   
+   const ParticleData<PhotonParticle>& a_Pdata = a_photonSpecies.partData();
+   
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const ProblemDomain& domain(m_mesh.getDomain());
+   
+   // create the species particle file
+   std::string base_dir = dirPrefix("particle");
+   stringstream s;
+   s << base_dir << "species" << species_num; 
+   std::string prefix = s.str();
+   std::string plotFileNameParts( plotFileName( prefix,
+                                                "parts",
+                                                a_cur_step ) );
+
+   HDF5Handle handleParts( plotFileNameParts.c_str(), HDF5Handle::CREATE );
+
+   // write the header stuff
+   HDF5HeaderData headerParts;
+   
+   Vector<string> vectNames;
+   char field_name[50];
+   char comp_name[50];
+   char coords[3];
+   coords[0] = '0';
+   coords[1] = '1';
+   coords[2] = '2';
+   if (m_mesh.anticyclic()) {
+      coords[1] = '2';
+      coords[2] = '1';
+   }
+
+   vectNames.clear();
+   vectNames.push_back("particle_weight");
+   for (int dir=0; dir<SpaceDim; dir++) {
+      sprintf(field_name, "particle_position_%c", coords[dir]);
+      vectNames.push_back(field_name);
+   }
+   for (int dir=0; dir<3; dir++) {
+      sprintf(field_name, "particle_velocity_%c", coords[dir]);
+      vectNames.push_back(field_name);
+   }
+   vectNames.push_back("particle_ID");
+
+   int numComps = vectNames.size();
+   for (int i=0; i<numComps; ++i) {
+      sprintf(comp_name, "particle_component_%d", i);
+      headerParts.m_string[comp_name] = vectNames[i];
+   }
+   headerParts.m_int["numPartComps"] = numComps;
+ 
+   headerParts.writeToFile(handleParts);
+
+   //
+   ///////////////////////////////////// 
+   //
+
+   const std::string groupName = std::string("species_data");
+   handleParts.setGroup(groupName);  
+
+   int totalParticleCount = a_Pdata.numParticles();
+   headerParts.m_int["num_particles"] = totalParticleCount;
+   headerParts.m_real["mass"]  = a_photonSpecies.mass();
+   headerParts.m_int["charge"] = a_photonSpecies.charge();
+   headerParts.m_int["step_number"] = a_cur_step;
+   headerParts.m_real["time"] = a_cur_time;
+   headerParts.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
+   headerParts.m_box["prob_domain"] = domain.domainBox();
+   
+   // write the header 
+   headerParts.writeToFile(handleParts);
+   
+   // write the particles
+   write(handleParts, grids);
+   writeParticlesToHDF(handleParts, a_Pdata, "particles", false );
+   
+   handleParts.close();
+   
+}
+
+void dataFileIO::writeSpeciesMomentsFile( const PicChargedSpecies&  a_picSpecies,
                                           const int          a_species,
                                           const int          a_cur_step,
                                           const double       a_cur_time,
@@ -1279,7 +1372,7 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    handleParts.setGroup("/");
 
    //
-   // write the header stuff
+   // write header information
    //
 
    HDF5HeaderData headerParts;
@@ -1546,6 +1639,123 @@ void dataFileIO::writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
    handleParts.close();
 
 }
+       
+void dataFileIO::writePhotonSpeciesMomentsFile( const PicPhotonSpecies&  a_photonSpecies,
+                                                const int          a_cur_step, 
+                                                const double       a_cur_time )
+{
+    CH_TIME("dataFileIO::writePhotonSpeciesMomentFile()");
+    // See Chombo_3.2/lib/src/BoxTools/CH_HDF5.H for "write"
+   
+    const int species_num = a_photonSpecies.species_num();
+
+    if (!procID()) {cout << "writing moments file for photon species " << species_num << endl;}
+
+    // It is the job of the caller to maker sure the moments are set
+    const LevelData<FArrayBox>& density  = a_photonSpecies.getNumberDensity();
+    const LevelData<FArrayBox>& momentum = a_photonSpecies.getMomentumDensity();
+    const LevelData<FArrayBox>& energy   = a_photonSpecies.getEnergyDensity();
+
+    const DisjointBoxLayout& grids(m_mesh.getDBL());
+    const ProblemDomain& domain(m_mesh.getDomain());
+
+    // create the species moment file
+    std::string base_dir = dirPrefix("mesh");
+    stringstream s;
+    s << base_dir << "species" << species_num;
+    std::string prefix = s.str();
+    std::string plotFileNameParts( plotFileName( prefix,
+                                                 "moments",
+                                                 a_cur_step ) );
+
+    HDF5Handle handleParts( plotFileNameParts.c_str(), HDF5Handle::CREATE );
+
+    handleParts.setGroup("/");
+
+    //
+    // write header information
+    //
+
+    HDF5HeaderData headerParts;
+
+    Vector<string> vectNames;
+    char field_name[50];
+    char comp_name[50];
+    char coords[3];
+    coords[0] = '0';
+    coords[1] = '1';
+    coords[2] = '2';
+    if (m_mesh.anticyclic()) {
+       coords[1] = '2';
+       coords[2] = '1';
+    }
+
+    int numMeshComps = density.nComp() + momentum.nComp() + energy.nComp();
+    vectNames.push_back("density");
+    for (int dir=0; dir<momentum.nComp(); dir++) {
+        sprintf(field_name, "momentumDensity_%c", coords[dir]);
+        vectNames.push_back(field_name);
+    }
+    vectNames.push_back("energyDensity");
+    for (int i=0; i<numMeshComps; i++) {
+        sprintf(comp_name,"component_%d", i);
+        headerParts.m_string[comp_name] = vectNames[i];
+    }
+    headerParts.m_int["num_components"] = numMeshComps;
+    headerParts.writeToFile(handleParts);
+
+    const std::string groupName = std::string("species_data");
+    handleParts.setGroup(groupName);
+
+    headerParts.m_real["mass"] = a_photonSpecies.mass();
+    headerParts.m_int["charge"] = a_photonSpecies.charge();
+    headerParts.m_int["step_number"] = a_cur_step;
+    headerParts.m_real["time"] = a_cur_time;
+    headerParts.m_real["time_scale_SI"] = m_units.getScale(m_units.TIME);
+    headerParts.m_box["prob_domain"] = domain.domainBox();
+
+    // write the header 
+    headerParts.writeToFile(handleParts);
+
+    // write the moment data
+    LevelData<FArrayBox> momentData;
+    momentData.define(grids,numMeshComps,density.ghostVect());
+    for (DataIterator dit(grids); dit.ok(); ++dit) {
+        int compData = 0;
+        momentData[dit].copy(density[dit],0,compData,1);
+        compData = compData + 1;
+        for (int dir=0; dir<momentum.nComp(); dir++) {
+            momentData[dit].copy(momentum[dit],dir,compData,1);
+            compData = compData + 1;
+        }
+        momentData[dit].copy(energy[dit],0,compData,1);
+        compData = compData + 1;
+    }
+    write(handleParts, momentData.boxLayout());
+    write(handleParts, momentData, "data", density.ghostVect());
+
+    //
+    // write the macro particle count in each cell
+    //
+
+    const LevelData<FArrayBox>& Nppc  = a_photonSpecies.getNppc();
+
+    const std::string groupNppc_Name = std::string("cell_centered_nppc");
+    handleParts.setGroup(groupNppc_Name);
+
+    headerParts.clear();
+    headerParts.m_int["is_cellbox"] = 1;
+    headerParts.m_int["num_components"] = Nppc.nComp();
+    headerParts.m_box["prob_domain"] = domain.domainBox();
+    headerParts.writeToFile(handleParts);
+
+    write(handleParts, Nppc.boxLayout());
+    write(handleParts, Nppc, "data", Nppc.ghostVect());
+
+    // close the handle
+    handleParts.close();
+
+}
 
 void dataFileIO::writeFusionProductsDataFile( const ScatteringPtrVect&  a_scattering_ptr_vect,
                                               const int                 a_num_fusion,
@@ -1690,21 +1900,27 @@ void dataFileIO::writeCheckpointFusion( HDF5Handle&         a_handle,
    writeFusionProducts( a_handle, a_scattering_ptr_vect );
 }
 
-void dataFileIO::writeCheckpointPicSpecies( HDF5Handle&           a_handle,
-                                      const PicSpeciesInterface&  a_pic_species )
+void dataFileIO::writeCheckpointSpecies( HDF5Handle&           a_handle,
+                                   const PicSpeciesInterface&  a_pic_species )
 {
-   CH_TIME("dataFileIO::writeCheckpointPicSpecies()");
+   CH_TIME("dataFileIO::writeCheckpointSpecies()");
 
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species.getPtrVect();
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species.getChargedPtrVect();
    for (int sp=0; sp<pic_species_ptr_vect.size(); sp++) {
-      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
-      writeCheckpointParticles( a_handle, *species, sp );
+      const PicChargedSpeciesPtr species = pic_species_ptr_vect[sp];
+      writeCheckpointParticles( a_handle, *species, species->species_num() );
+   }
+
+   const PicPhotonSpeciesPtrVect& photon_species_ptr_vect = a_pic_species.getPhotonPtrVect();
+   for (int sp=0; sp<photon_species_ptr_vect.size(); sp++) {
+      const PicPhotonSpeciesPtr species = photon_species_ptr_vect[sp];
+      writeCheckpointPhotonParticles( a_handle, *species );
    }
 
 }
 
 void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
-                                     const PicSpecies&  a_picSpecies,
+                                     const PicChargedSpecies&  a_picSpecies,
                                      const int          a_species )
 {
    CH_TIME("dataFileIO::writeCheckpointParticles()");
@@ -1799,6 +2015,71 @@ void dataFileIO::writeCheckpointParticles( HDF5Handle&  a_handle,
    a_handle.setGroup("/");
 
 }
+
+void dataFileIO::writeCheckpointPhotonParticles( HDF5Handle&     a_handle,
+                                           const PicPhotonSpecies&  a_photonSpecies )
+{
+   CH_TIME("dataFileIO::writeCheckpointPhotonParticles()");
+
+   // get references to particle data   
+   const ParticleData<PhotonParticle>& a_Pdata = a_photonSpecies.partData();
+   const int species_num = a_photonSpecies.species_num();
+
+   const DisjointBoxLayout& grids(m_mesh.getDBL());
+   const ProblemDomain& domain(m_mesh.getDomain());
+
+   HDF5HeaderData headerParts;
+
+   stringstream s;
+   s << "species" << species_num;
+   const std::string groupName = std::string( s.str() + "_data");
+   a_handle.setGroup(groupName);
+
+   int totalParticleCount = a_Pdata.numParticles();
+   headerParts.m_int["species_number"] = species_num;
+   headerParts.m_int["num_particles"]  = totalParticleCount;
+   headerParts.m_real["mass"]  = a_photonSpecies.mass();
+   headerParts.m_int["charge"] = a_photonSpecies.charge();
+   headerParts.m_box["prob_domain"] = domain.domainBox();
+
+   const RealVect& massOut_lo = a_photonSpecies.getMassOut_lo();
+   const RealVect& massOut_hi = a_photonSpecies.getMassOut_hi();
+   const RealVect& momXOut_lo = a_photonSpecies.getMomXOut_lo();
+   const RealVect& momXOut_hi = a_photonSpecies.getMomXOut_hi();
+   const RealVect& momYOut_lo = a_photonSpecies.getMomYOut_lo();
+   const RealVect& momYOut_hi = a_photonSpecies.getMomYOut_hi();
+   const RealVect& momZOut_lo = a_photonSpecies.getMomZOut_lo();
+   const RealVect& momZOut_hi = a_photonSpecies.getMomZOut_hi();
+   const RealVect& energyOut_lo = a_photonSpecies.getEnergyOut_lo();
+   const RealVect& energyOut_hi = a_photonSpecies.getEnergyOut_hi();
+
+   for (int dir=0; dir<SpaceDim; dir++) {
+      if (domain.isPeriodic(dir)) { continue; }
+      std::string dirstr = std::to_string(dir);
+      headerParts.m_real["massOut_lo"+dirstr] = massOut_lo[dir];
+      headerParts.m_real["massOut_hi"+dirstr] = massOut_hi[dir];
+      headerParts.m_real["momXOut_lo"+dirstr] = momXOut_lo[dir];
+      headerParts.m_real["momXOut_hi"+dirstr] = momXOut_hi[dir];
+      headerParts.m_real["momYOut_lo"+dirstr] = momYOut_lo[dir];
+      headerParts.m_real["momYOut_hi"+dirstr] = momYOut_hi[dir];
+      headerParts.m_real["momZOut_lo"+dirstr] = momZOut_lo[dir];
+      headerParts.m_real["momZOut_hi"+dirstr] = momZOut_hi[dir];
+      headerParts.m_real["energyOut_lo"+dirstr] = energyOut_lo[dir];
+      headerParts.m_real["energyOut_hi"+dirstr] = energyOut_hi[dir];
+   }
+
+   // write the header 
+   headerParts.writeToFile(a_handle);
+
+   // write the particles
+   write(a_handle, grids);
+   writeParticlesToHDF(a_handle, a_Pdata, "particles", false );
+
+   // set group back to default group
+   a_handle.setGroup("/");
+
+}
+
 
 
 #include "NamespaceFooter.H"

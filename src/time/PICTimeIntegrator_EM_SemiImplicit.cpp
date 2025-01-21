@@ -146,7 +146,7 @@ void PICTimeIntegrator_EM_SemiImplicit::resetVariables( const Real a_time,
     m_nl_iter = 0;
 
     // reset particle values to those at beginning of time step
-    const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+    const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
     const int num_species = pic_species_ptr_vect.size();
     for (int sp=0; sp<num_species; sp++) {
         auto species(pic_species_ptr_vect[sp]);
@@ -161,7 +161,7 @@ void PICTimeIntegrator_EM_SemiImplicit::preTimeStep(  const Real a_time,
 {
   CH_TIME("PICTimeIntegrator_EM_SemiImplicit::preTimeStep()");
 
-  const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+  const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
   const int num_species = pic_species_ptr_vect.size();
   m_nl_iter = 0;
 
@@ -215,7 +215,7 @@ int PICTimeIntegrator_EM_SemiImplicit::timeStep( const Real  a_old_time,
   // new_time = old_time + dt. Note that Eg, xp, and vp
   // live at whole time steps, while Bg lives at half
 
-  const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+  const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
   const int num_species = pic_species_ptr_vect.size();
   const Real half_time = a_old_time + a_dt/2.0;
 

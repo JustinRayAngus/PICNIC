@@ -25,7 +25,7 @@ void PICTimeIntegrator_EM_Explicit::preTimeStep(  const Real a_time,
     CH_TIME("PICTimeIntegrator_EM_Explicit::preTimeStep()");
      
     const Real halfDt = 0.5*a_dt;
-    const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+    const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
     const int num_species = pic_species_ptr_vect.size();
 
     // initial advance of particles positions by 1/2 time step
@@ -79,7 +79,7 @@ int PICTimeIntegrator_EM_Explicit::timeStep( const Real  a_time,
    
     const Real halfDt = 0.5*a_dt;
     const Real half_time = a_time + halfDt;
-    const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+    const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
     const int num_species = pic_species_ptr_vect.size();
  
     // Step 1: advance B from t_{n} to t_{n+1/2} using E_{n+1/2}
@@ -164,7 +164,7 @@ int PICTimeIntegrator_EM_Explicit::timeStep( const Real  a_time,
 
     // convert positions from t_{n+1} to t_{n+3/2}
     for (int sp=0; sp<num_species; sp++) {
-        auto species(pic_species_ptr_vect[sp]);
+        auto species = pic_species_ptr_vect[sp];
         species->advancePositions_2ndHalf();
         species->applyBCs( false, time_E );
         if (m_average_v_deposit) { // convert vp from averaged to post-scatter

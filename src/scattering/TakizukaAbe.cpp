@@ -1,7 +1,5 @@
-
 #include "TakizukaAbe.H"
 #include "MathUtils.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -16,17 +14,17 @@ void TakizukaAbe::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("TakizukaAbe::initialize()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();   
+
    // get pointer to species 1 and assert collisions allowed
-   CH_assert(m_sp1<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   //CH_assert(this_sSpecies1->scatter());
-      
+   CH_assert(m_sp1<num_species);
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+
    // get pointer to species 2 and assert collisions allowed
-   CH_assert(m_sp2<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   //CH_assert(this_species2->scatter());
+   CH_assert(m_sp2<num_species);
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
 
    // set the species names
    m_species1_name = this_species1->name();
@@ -58,17 +56,18 @@ void TakizukaAbe::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_int
 {
    CH_TIME("TakizukaAbe::setMeanFreeTime()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   
-   if(!this_species1->scatter() || !this_species2->scatter()) return;
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+
+   if (!this_species1->scatter() || !this_species2->scatter()) { return; }
+
    const bool setMoments = false;
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
-   
-   if(m_sp1==m_sp2) setIntraMFT(numberDensity1,energyDensity1);
+
+   if (m_sp1==m_sp2) { setIntraMFT(numberDensity1,energyDensity1); }
    else {
       const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(setMoments);
       const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(setMoments);
@@ -244,23 +243,24 @@ void TakizukaAbe::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("TakizukaAbe::applyScattering()");
    
-   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-      
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   if(!this_species1->scatter()) return;
+   PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
 
-   if(m_sp1==m_sp2) {
+   PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   if (!this_species1->scatter()) { return; }
+
+   if (m_sp1==m_sp2) {
       applySelfScattering( *this_species1, a_mesh, a_dt_sec );
    }
    else {
-      PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-      if(!this_species2->scatter()) return;
+      PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+      if (!this_species2->scatter()) { return; }
       applyInterScattering( *this_species1, *this_species2, a_mesh, a_dt_sec );
    }
 
 }
       
-void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies, 
+void TakizukaAbe::applySelfScattering( PicChargedSpecies&  a_picSpecies, 
                                  const DomainGrid&  a_mesh,
                                  const Real         a_dt_sec ) const
 {
@@ -401,8 +401,8 @@ void TakizukaAbe::applySelfScattering( PicSpecies&  a_picSpecies,
    
 }
 
-void TakizukaAbe::applyInterScattering( PicSpecies&  a_picSpecies1,
-                                        PicSpecies&  a_picSpecies2, 
+void TakizukaAbe::applyInterScattering( PicChargedSpecies&  a_picSpecies1,
+                                        PicChargedSpecies&  a_picSpecies2, 
                                   const DomainGrid&  a_mesh,
                                   const Real         a_dt_sec ) const
 {

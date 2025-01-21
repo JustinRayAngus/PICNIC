@@ -77,7 +77,6 @@ void ScatteringUtils::computeDeltaU( std::array<Real,3>&  a_deltaU,
    
 }
 
-#ifdef RELATIVISTIC_PARTICLES
 void ScatteringUtils::LorentzTransform( Real&                gammapst,
                                         std::array<Real,3>&  upst,
                                   const Real                 gammap,
@@ -101,7 +100,6 @@ void ScatteringUtils::LorentzTransform( Real&                gammapst,
     }
 
 }
-#endif
 
 Real ScatteringUtils::semilogInterp( const std::vector<Real>&  a_X,
                                      const std::vector<Real>&  a_Y,

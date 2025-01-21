@@ -2,7 +2,7 @@
 #define _SPECIAL_OPERATOR_H_
 
 #include "REAL.H"
-#include "PicSpecies.H"
+#include "PicChargedSpecies.H"
 #include "LevelData.H"
 #include "CodeUnits.H"
 
@@ -23,7 +23,7 @@ class SpecialOperator
    
       virtual ~SpecialOperator() {;}
 
-      virtual void applyOp( PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+      virtual void applyOp( PicChargedSpeciesPtrVect&  a_pic_species_ptr_vect,
                       const Real&               a_dt ) const = 0;
 
       virtual void updateOp( const Real&  a_dt ) = 0;

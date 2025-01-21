@@ -10,7 +10,8 @@
 #ifndef PicSpeciesInterface_h
 #define PicSpeciesInterface_h
 
-#include "PicSpecies.H"
+#include "PicChargedSpecies.H"
+#include "PicPhotonSpecies.H"
 #include "CodeUnits.H"
 #include "DomainGrid.H"
 
@@ -41,16 +42,25 @@ public:
   Real cyclotronDt( const Real  a_wc0 );
 
   int numSpecies() const {return m_num_species;}
+  int numChargedSpecies() const {return m_num_pic_species;}
+  int numPhotonSpecies() const {return m_num_photon_species;}
+
   int writeSpeciesRho() const {return m_writeSpeciesChargeDensity;}
   int writeSpeciesSigma() const {return m_writeSpeciesSurfaceCharge;}
   int writeSpeciesJ() const {return m_writeSpeciesCurrentDensity;}
   int writeSpeciesNppc() const {return m_writeSpeciesNppc;}
   int writeSpeciesEnergyOffDiag() const {return m_writeSpeciesEnergyOffDiag;}
   int writeSpeciesEnergyFlux() const {return m_writeSpeciesEnergyFlux;}
+  
+  const std::vector<int>& getSpeciesMap() const {return m_species_map;}; 
+  const std::vector<SpeciesType>& getSpeciesType() const {return m_species_type;}; 
 
-  PicSpeciesPtrVect& getPtrVect() {return m_pic_species_ptr_vect;}; 
-  const PicSpeciesPtrVect& getPtrVect() const {return m_pic_species_ptr_vect;}; 
- 
+  PicChargedSpeciesPtrVect& getChargedPtrVect() {return m_pic_species_ptr_vect;}; 
+  const PicChargedSpeciesPtrVect& getChargedPtrVect() const {return m_pic_species_ptr_vect;}; 
+
+  PicPhotonSpeciesPtrVect& getPhotonPtrVect() {return m_photon_species_ptr_vect;};
+  const PicPhotonSpeciesPtrVect& getPhotonPtrVect() const {return m_photon_species_ptr_vect;};
+
   //void setChargeDensity();
   //void setChargeDensityOnFaces();
   void setChargeDensityOnNodes( const bool  a_use_filtering );
@@ -76,6 +86,9 @@ public:
   const LevelData<NodeFArrayBox>& getVirtualCurrentDensity() const {return m_currentDensity_virtual;}
   
   const LevelData<FArrayBox>& getDebyeLength() const {return m_DebyeLength;}
+  const LevelData<FArrayBox>& getNe() const {return m_Ne;}
+  const LevelData<FArrayBox>& getTe() const {return m_Te;}
+  const LevelData<FArrayBox>& getnuei() const {return m_nuei;}
 
   void preRHSOp( const bool       a_from_emjacobian, 
                  const EMFields&  a_emfields,
@@ -110,12 +123,29 @@ public:
               const bool                       a_from_emjacobian ); 
  
   void prepForScatter( const int   a_num_coulomb,
+                       const int   a_num_IB,
 		       const bool  a_from_scatterDt );
   void setDebyeLength();
+  void setTe();
+  void setNe();
+  void setnuei();
   
+  void advancePhotons( const Real  a_dt, const Real  a_cur_time )
+  {
+     if (m_num_photon_species==0) { return; }
+
+     setNe();
+     for (int sp=0; sp<m_num_photon_species; sp++) {
+        auto species = m_photon_species_ptr_vect[sp];
+        species->advancePhotons( a_dt, m_Ne );
+        species->applyBCs( false, a_cur_time );
+     }
+
+  }
+
   void postTimeStep( const int a_step_number ) {
      for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-        PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+        PicChargedSpeciesPtr species = m_pic_species_ptr_vect[sp];
         species->removeOutflowParticles();
 #if CH_SPACEDIM<3
 	// this is done here in order correctly set the virtual
@@ -125,12 +155,16 @@ public:
 #endif
         species->splitParticles(a_step_number);
      }
+     for (int sp=0; sp<m_photon_species_ptr_vect.size(); sp++) {
+        auto species = m_photon_species_ptr_vect[sp];
+        species->removeOutflowParticles();
+     }
   }
   
   bool forces() const {
      bool forces = false; 
      for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-        PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+        PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
         if( (species->charge()!=0) && (species->forces()) ) {
            forces = true;
            break;
@@ -142,7 +176,7 @@ public:
   InterpType getInterpForMassMatrix() const { 
      InterpType sp_interp = UNKNOWN;
      for (int sp=0; sp<m_pic_species_ptr_vect.size(); sp++) {
-        PicSpeciesPtr species(m_pic_species_ptr_vect[sp]);
+        PicChargedSpeciesPtr species(m_pic_species_ptr_vect[sp]);
         if(species->charge() == 0) continue;
         const InterpType& this_interp = species->getInterpType();
         if(sp_interp==UNKNOWN) sp_interp = this_interp;
@@ -225,13 +259,19 @@ private:
   bool m_mod_init_advance;
   
   int m_num_species;
+  int m_num_pic_species;
+  int m_num_photon_species;
 
   const DomainGrid& m_mesh;
   Real m_courant_dt;
 
   Real m_cvac_norm;
 
-  PicSpeciesPtrVect m_pic_species_ptr_vect;
+  //SpeciesPtrVect m_species_ptr_vect;
+  PicChargedSpeciesPtrVect m_pic_species_ptr_vect;
+  PicPhotonSpeciesPtrVect m_photon_species_ptr_vect;
+  std::vector<int> m_species_map;
+  std::vector<SpeciesType> m_species_type;
 
   mutable LevelData<FArrayBox> m_chargeDensity;
   mutable LevelData<FluxBox> m_chargeDensity_faces;
@@ -247,6 +287,8 @@ private:
 #endif
   
   LevelData<FArrayBox> m_DebyeLength;
+  LevelData<FArrayBox> m_Ne, m_Te;
+  LevelData<FArrayBox> m_nuei;
   
   // containers for semi-implicit mass matrix
   LevelData<EdgeDataBox> m_J0, m_E0;

@@ -1,4 +1,4 @@
-#include "PicSpeciesBC.H"
+#include "PicChargedSpeciesBC.H"
 #include "LoHiSide.H"
 #include "BCUtils.H"
 #include "FieldBCUtils.H"
@@ -8,13 +8,13 @@
 #include "NamespaceHeader.H"
 
 
-PicSpeciesBC::PicSpeciesBC( const std::string&  a_species_name,
-                            const Real          a_species_mass,
-                            const int           a_species_charge,
-                            const InterpType&   a_interpRhoToGrid,
-                            const DomainGrid&   a_mesh,
-                            const CodeUnits&    a_units,
-                            const int           a_verbosity )
+PicChargedSpeciesBC::PicChargedSpeciesBC( const std::string&  a_species_name,
+                                          const Real          a_species_mass,
+                                          const int           a_species_charge,
+                                          const InterpType&   a_interpRhoToGrid,
+                                          const DomainGrid&   a_mesh,
+                                          const CodeUnits&    a_units,
+                                          const int           a_verbosity )
    : m_species_name(a_species_name),
      m_species_mass(a_species_mass),
      m_species_charge(a_species_charge),
@@ -34,7 +34,7 @@ PicSpeciesBC::PicSpeciesBC( const std::string&  a_species_name,
 
 }
 
-PicSpeciesBC::~PicSpeciesBC()
+PicChargedSpeciesBC::~PicChargedSpeciesBC()
 {
    m_bdry_name.resize(0);
    m_bc_type.resize(0);
@@ -44,7 +44,7 @@ PicSpeciesBC::~PicSpeciesBC()
    m_inflow_list_vector.resize(0);
 }
 
-void PicSpeciesBC::parseParameters( ParmParse&  a_pp,
+void PicChargedSpeciesBC::parseParameters( ParmParse&  a_pp,
                               const CodeUnits&  a_units )
 {
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -142,11 +142,11 @@ void PicSpeciesBC::parseParameters( ParmParse&  a_pp,
    
 }
 
-void PicSpeciesBC::printParameters() const
+void PicChargedSpeciesBC::printParameters() const
 {
    if (procID()==0) {
       std::cout << std::endl;
-      std::cout << "PicSpeciesBC =======================================" << std::endl;
+      std::cout << "PicChargedSpeciesBC =======================================" << std::endl;
       std::cout << "  " << m_species_name << std::endl;
       for (int i(0); i<m_bc_type.size(); i++) {
          std::cout << "  " << m_bdry_name[i] << ": " << m_bc_type[i] << std::endl;
@@ -158,12 +158,12 @@ void PicSpeciesBC::printParameters() const
    }
 }
 
-void PicSpeciesBC::apply( List<JustinsParticle>&     a_outcast_list,
+void PicChargedSpeciesBC::apply( List<JustinsParticle>&     a_outcast_list,
                           LevelData<NodeFArrayBox>&  a_surfaceCharge,
                     const bool&                      a_intermediate_advance,
                     const Real&                      a_time )
 {
-   CH_TIME("PicSpeciesBC::apply()");
+   CH_TIME("PicChargedSpeciesBC::apply()");
    
    const ProblemDomain& domain(m_mesh.getDomain());
    const RealVect& Xmin(m_mesh.getXmin());
@@ -239,9 +239,9 @@ void PicSpeciesBC::apply( List<JustinsParticle>&     a_outcast_list,
    
 }
 
-void PicSpeciesBC::applyToRho( LevelData<FArrayBox>&  a_Rho )
+void PicChargedSpeciesBC::applyToRho( LevelData<FArrayBox>&  a_Rho )
 {
-   CH_TIME("PicSpeciesBC::applyToRho() (cells)");
+   CH_TIME("PicChargedSpeciesBC::applyToRho() (cells)");
  
    // loop over non-periodic boundaries and apply BCs to Rho
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -287,9 +287,9 @@ void PicSpeciesBC::applyToRho( LevelData<FArrayBox>&  a_Rho )
    
 }
 
-void PicSpeciesBC::applyToRho( LevelData<FluxBox>&  a_Rho )
+void PicChargedSpeciesBC::applyToRho( LevelData<FluxBox>&  a_Rho )
 {
-   CH_TIME("PicSpeciesBC::applyToRho() (faces)");
+   CH_TIME("PicChargedSpeciesBC::applyToRho() (faces)");
  
    // loop over non-periodic boundaries and apply BCs to Rho
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -348,9 +348,9 @@ void PicSpeciesBC::applyToRho( LevelData<FluxBox>&  a_Rho )
    
 }
 
-void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
+void PicChargedSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
 {
-   CH_TIME("PicSpeciesBC::applyToRho() (nodes)");
+   CH_TIME("PicChargedSpeciesBC::applyToRho() (nodes)");
  
    // The particles near a boundary will have some rho deposited to the ghost cells.
    // This rho is added back to the interior. For symmetry boundaries, this is equivalent
@@ -412,9 +412,9 @@ void PicSpeciesBC::applyToRho( LevelData<NodeFArrayBox>&  a_Rho )
    
 }
 
-void PicSpeciesBC::applyToRhoInGhosts( LevelData<NodeFArrayBox>&  a_Rho )
+void PicChargedSpeciesBC::applyToRhoInGhosts( LevelData<NodeFArrayBox>&  a_Rho )
 {
-   CH_TIME("PicSpeciesBC::applyToRhoInGhosts()");
+   CH_TIME("PicChargedSpeciesBC::applyToRhoInGhosts()");
  
    // this function fills the charge density container in the ghost cells
    // this is only needed when filtering is being used
@@ -464,11 +464,11 @@ void PicSpeciesBC::applyToRhoInGhosts( LevelData<NodeFArrayBox>&  a_Rho )
    
 }
 
-void PicSpeciesBC::createInflowParticles( const Real&  a_time,
+void PicChargedSpeciesBC::createInflowParticles( const Real&  a_time,
                                           const Real&  a_cnormDt,
                                           const ParticleData<JustinsParticle>&  a_data )
 {
-   CH_TIME("PicSpeciesBC::createInflowParticles()");
+   CH_TIME("PicChargedSpeciesBC::createInflowParticles()");
    
    // loop over non-periodic boundaries and create inflow particles
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
@@ -504,9 +504,9 @@ void PicSpeciesBC::createInflowParticles( const Real&  a_time,
        
 }
 
-void PicSpeciesBC::removeOutflowParticles( LevelData<NodeFArrayBox>&  a_surfaceCharge )
+void PicChargedSpeciesBC::removeOutflowParticles( LevelData<NodeFArrayBox>&  a_surfaceCharge )
 {
-   CH_TIME("PicSpeciesBC::removeOutflowParticles()");
+   CH_TIME("PicChargedSpeciesBC::removeOutflowParticles()");
    
    const RealVect& Xmin(m_mesh.getXmin());
    const RealVect& Xmax(m_mesh.getXmax());
@@ -545,7 +545,7 @@ void PicSpeciesBC::removeOutflowParticles( LevelData<NodeFArrayBox>&  a_surfaceC
    
 }
 
-void PicSpeciesBC::zeroDeltas( )
+void PicChargedSpeciesBC::zeroDeltas( )
 {
    for(int dir=0; dir<SpaceDim; dir++) {
       m_delta_MassOut_lo[dir] = 0.0;
@@ -572,10 +572,10 @@ void PicSpeciesBC::zeroDeltas( )
    }
 }   
 
-void PicSpeciesBC::injectInflowParticles( ParticleData<JustinsParticle>&  a_data,
+void PicChargedSpeciesBC::injectInflowParticles( ParticleData<JustinsParticle>&  a_data,
                                           LevelData<NodeFArrayBox>&       a_surfaceCharge )
 {
-   CH_TIME("PicSpeciesBC::injectInflowParticles()");
+   CH_TIME("PicChargedSpeciesBC::injectInflowParticles()");
  
    // this is used by iterative implicit solvers to inject all inflow particles
    // at the beginning of the time step
@@ -668,14 +668,14 @@ void PicSpeciesBC::injectInflowParticles( ParticleData<JustinsParticle>&  a_data
    
 }
 
-void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDensity,
+void PicChargedSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDensity,
                                           LevelData<NodeFArrayBox>&  a_currentDensity_virtual, 
                                     const MeshInterp&                a_meshInterp, 
                                     const InterpType                 a_interpJToGrid,
                                     const Real                       a_cnormDt,
                                     const bool                       a_from_explicit_solver )
 {
-   CH_TIME("PicSpeciesBC::depositInflowOutflowJ()");
+   CH_TIME("PicChargedSpeciesBC::depositInflowOutflowJ()");
    
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
    for (int b(0); b<bdry_layout.size(); b++) {
@@ -735,13 +735,13 @@ void PicSpeciesBC::depositInflowOutflowJ( LevelData<EdgeDataBox>&    a_currentDe
      
 }
 
-void PicSpeciesBC::enforcePeriodic( List<JustinsParticle>&  a_list,
+void PicChargedSpeciesBC::enforcePeriodic( List<JustinsParticle>&  a_list,
                               const int                     a_dir,
                               const Real                    a_leftEdge,
                               const Real                    a_rightEdge )
 {
 
-   CH_TIME("PicSpeciesBC::enforcePeriodic");
+   CH_TIME("PicChargedSpeciesBC::enforcePeriodic");
 
    Real Lbox = a_rightEdge - a_leftEdge;
 
@@ -764,10 +764,10 @@ void PicSpeciesBC::enforcePeriodic( List<JustinsParticle>&  a_list,
 
 }
 
-void PicSpeciesBC::axis( List<JustinsParticle>&  a_list,
+void PicChargedSpeciesBC::axis( List<JustinsParticle>&  a_list,
                    const int                     a_dir )
 {
-   CH_TIME("PicSpeciesBC::axis");
+   CH_TIME("PicChargedSpeciesBC::axis");
 
    ListIterator<JustinsParticle> lit(a_list);
    for(lit.begin(); lit.ok(); ++lit) {
@@ -806,12 +806,12 @@ void PicSpeciesBC::axis( List<JustinsParticle>&  a_list,
 
 }
 
-void PicSpeciesBC::symmetry_Lo( List<JustinsParticle>&  a_list,
+void PicChargedSpeciesBC::symmetry_Lo( List<JustinsParticle>&  a_list,
                           const int                     a_dir,
                           const Real                    a_leftEdge )
 {
 
-   CH_TIME("PicSpeciesBC::symmetry_Lo");
+   CH_TIME("PicChargedSpeciesBC::symmetry_Lo");
 
    ListIterator<JustinsParticle> lit(a_list);
    for(lit.begin(); lit.ok(); ++lit) {
@@ -835,12 +835,12 @@ void PicSpeciesBC::symmetry_Lo( List<JustinsParticle>&  a_list,
 
 }
 
-void PicSpeciesBC::symmetry_Hi( List<JustinsParticle>&  a_list,
+void PicChargedSpeciesBC::symmetry_Hi( List<JustinsParticle>&  a_list,
                           const int                     a_dir,
                           const Real                    a_rightEdge )
 {
 
-   CH_TIME("PicSpeciesBC::symmetry_Hi");
+   CH_TIME("PicChargedSpeciesBC::symmetry_Hi");
 
    ListIterator<JustinsParticle> lit(a_list);
    for(lit.begin(); lit.ok(); ++lit) {
@@ -869,13 +869,13 @@ void PicSpeciesBC::symmetry_Hi( List<JustinsParticle>&  a_list,
 
 }
 
-void PicSpeciesBC::outflow_Lo( List<JustinsParticle>&  a_outcast_list,
+void PicChargedSpeciesBC::outflow_Lo( List<JustinsParticle>&  a_outcast_list,
                                List<JustinsParticle>&  a_outflow_list,
                          const int                     a_dir,
                          const Real                    a_leftEdge )
 {
 
-   CH_TIME("PicSpeciesBC::outflow_Lo");
+   CH_TIME("PicChargedSpeciesBC::outflow_Lo");
 
    ListIterator<JustinsParticle> lit(a_outcast_list);
    for(lit.begin(); lit.ok();) {
@@ -893,13 +893,13 @@ void PicSpeciesBC::outflow_Lo( List<JustinsParticle>&  a_outcast_list,
 
 }
 
-void PicSpeciesBC::outflow_Hi( List<JustinsParticle>&  a_outcast_list,
+void PicChargedSpeciesBC::outflow_Hi( List<JustinsParticle>&  a_outcast_list,
                                List<JustinsParticle>&  a_outflow_list,
                          const int                     a_dir,
                          const Real                    a_rightEdge )
 {
 
-   CH_TIME("PicSpeciesBC::outflow_Hi");
+   CH_TIME("PicChargedSpeciesBC::outflow_Hi");
 
    ListIterator<JustinsParticle> lit(a_outcast_list);
    for(lit.begin(); lit.ok();) {
@@ -917,14 +917,14 @@ void PicSpeciesBC::outflow_Hi( List<JustinsParticle>&  a_outcast_list,
 
 }
 
-void PicSpeciesBC::inflow_Lo( List<JustinsParticle>&  a_outcast_list,
+void PicChargedSpeciesBC::inflow_Lo( List<JustinsParticle>&  a_outcast_list,
                               List<JustinsParticle>&  a_inflow_list,
                         const int                     a_dir,
                         const Real                    a_leftEdge,
                         const bool                    a_intermediate_advance )
 {
 
-   CH_TIME("PicSpeciesBC::inflow_Lo");
+   CH_TIME("PicChargedSpeciesBC::inflow_Lo");
    
    Real gbpsq, gammap;
 
@@ -1003,14 +1003,14 @@ void PicSpeciesBC::inflow_Lo( List<JustinsParticle>&  a_outcast_list,
 
 }
 
-void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
+void PicChargedSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
                               List<JustinsParticle>&  a_inflow_list,
                         const int                     a_dir,
                         const Real                    a_rightEdge,
                         const bool                    a_intermediate_advance )
 {
 
-   CH_TIME("PicSpeciesBC::inflow_Hi");
+   CH_TIME("PicChargedSpeciesBC::inflow_Hi");
    
    Real gbpsq, gammap;
 
@@ -1086,7 +1086,7 @@ void PicSpeciesBC::inflow_Hi( List<JustinsParticle>&  a_outcast_list,
 
 }
 
-void PicSpeciesBC::depositSurfaceChargeLo( FArrayBox&              a_sigma,
+void PicChargedSpeciesBC::depositSurfaceChargeLo( FArrayBox&              a_sigma,
                                      const Box&                    a_bdry_box,
 		                     const List<JustinsParticle>&  a_list,
                                      const int                     a_bdry_dir,
@@ -1094,7 +1094,7 @@ void PicSpeciesBC::depositSurfaceChargeLo( FArrayBox&              a_sigma,
 {
 
    if(m_species_charge==0) { return; }
-   CH_TIME("PicSpeciesBC::depositSurfaceChargeLo");
+   CH_TIME("PicChargedSpeciesBC::depositSurfaceChargeLo");
    
    // initialize the index for deposit on the boundary
    Box node_box = surroundingNodes(a_bdry_box);
@@ -1153,14 +1153,14 @@ void PicSpeciesBC::depositSurfaceChargeLo( FArrayBox&              a_sigma,
          
 }
 
-void PicSpeciesBC::depositSurfaceChargeHi( FArrayBox&              a_sigma,
+void PicChargedSpeciesBC::depositSurfaceChargeHi( FArrayBox&              a_sigma,
                                      const Box&                    a_bdry_box,
 		                     const List<JustinsParticle>&  a_list,
                                      const int                     a_bdry_dir,
                                      const Real                    a_rightEdge )
 {
    if(m_species_charge==0) { return; }
-   CH_TIME("PicSpeciesBC::depositSurfaceChargeHi");
+   CH_TIME("PicChargedSpeciesBC::depositSurfaceChargeHi");
    
    // initialize the index for deposit on the boundary
    Box node_box = surroundingNodes(a_bdry_box);
@@ -1219,7 +1219,7 @@ void PicSpeciesBC::depositSurfaceChargeHi( FArrayBox&              a_sigma,
 
 }
 
-void PicSpeciesBC::extractSurfaceChargeLo( FArrayBox&              a_sigma,
+void PicChargedSpeciesBC::extractSurfaceChargeLo( FArrayBox&              a_sigma,
                                      const Box&                    a_bdry_box,
 		                     const List<JustinsParticle>&  a_list,
                                      const int                     a_bdry_dir,
@@ -1228,7 +1228,7 @@ void PicSpeciesBC::extractSurfaceChargeLo( FArrayBox&              a_sigma,
 {
 
    if(m_species_charge==0) { return; }
-   CH_TIME("PicSpeciesBC::extractSurfaceChargeLo");
+   CH_TIME("PicChargedSpeciesBC::extractSurfaceChargeLo");
    
    // initialize the index for deposit on the boundary
    Box node_box = surroundingNodes(a_bdry_box);
@@ -1292,7 +1292,7 @@ void PicSpeciesBC::extractSurfaceChargeLo( FArrayBox&              a_sigma,
          
 }
 
-void PicSpeciesBC::extractSurfaceChargeHi( FArrayBox&              a_sigma,
+void PicChargedSpeciesBC::extractSurfaceChargeHi( FArrayBox&              a_sigma,
                                      const Box&                    a_bdry_box,
 		                     const List<JustinsParticle>&  a_list,
                                      const int                     a_bdry_dir,
@@ -1300,7 +1300,7 @@ void PicSpeciesBC::extractSurfaceChargeHi( FArrayBox&              a_sigma,
                                      const bool                    a_intermediate_advance )
 {
    if(m_species_charge==0) { return; }
-   CH_TIME("PicSpeciesBC::extractSurfaceChargeHi");
+   CH_TIME("PicChargedSpeciesBC::extractSurfaceChargeHi");
    
    // initialize the index for deposit on the boundary
    Box node_box = surroundingNodes(a_bdry_box);
@@ -1364,21 +1364,21 @@ void PicSpeciesBC::extractSurfaceChargeHi( FArrayBox&              a_sigma,
 
 }
 
-void PicSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
+void PicChargedSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
                         const int                     a_dir,
                         const Real                    a_leftEdge )
 {
 
-   CH_TIME("PicSpeciesBC::remove_Lo");
-   
+   CH_TIME("PicChargedSpeciesBC::remove_Lo");
+
    Real gbpsq, gammap;
 
    ListIterator<JustinsParticle> lit(a_list);
-   for(lit.begin(); lit.ok();) {
-      
+   for (lit.begin(); lit.ok();) {
+
       JustinsParticle& this_particle = lit();
       RealVect& this_x = this_particle.position();
-      if(this_x[a_dir] < a_leftEdge) {
+      if (this_x[a_dir] < a_leftEdge) {
 
          const Real& wp = lit().weight();
          const std::array<Real,3>& up = lit().velocity();
@@ -1405,21 +1405,21 @@ void PicSpeciesBC::remove_Lo( List<JustinsParticle>&  a_list,
 
 }
 
-void PicSpeciesBC::remove_Hi( List<JustinsParticle>&  a_list,
+void PicChargedSpeciesBC::remove_Hi( List<JustinsParticle>&  a_list,
                         const int                     a_dir,
                         const Real                    a_rightEdge )
 {
 
-   CH_TIME("PicSpeciesBC::remove_Hi");
+   CH_TIME("PicChargedSpeciesBC::remove_Hi");
 
    Real gbpsq, gammap;
 
    ListIterator<JustinsParticle> lit(a_list);
-   for(lit.begin(); lit.ok();) {
-      
+   for (lit.begin(); lit.ok();) {
+
       JustinsParticle& this_particle = lit();
       RealVect& this_x = this_particle.position();
-      if(this_x[a_dir] >= a_rightEdge) {
+      if (this_x[a_dir] >= a_rightEdge) {
 
          const Real& wp = lit().weight();
          const std::array<Real,3>& up = lit().velocity();

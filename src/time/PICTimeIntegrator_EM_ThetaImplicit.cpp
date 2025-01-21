@@ -181,7 +181,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::resetVariables( const Real a_time,
     m_nl_iter = 0;
 
     // reset particle values to those at beginning of time step
-    const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+    const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
     const int num_species = pic_species_ptr_vect.size();
     for (int sp=0; sp<num_species; sp++) {
         auto species(pic_species_ptr_vect[sp]);
@@ -212,7 +212,7 @@ void PICTimeIntegrator_EM_ThetaImplicit::preTimeStep( const Real a_time,
   m_nlsolver->verbose(this_verbosity);
 
   // update old particle values and create inflow particles
-  const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+  const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
   const int num_species = pic_species_ptr_vect.size();
   for (int sp=0; sp<num_species; sp++) {
     auto species(pic_species_ptr_vect[sp]);
@@ -308,7 +308,7 @@ int PICTimeIntegrator_EM_ThetaImplicit::timeStep( const Real  a_old_time,
   m_fields->updatePhysicalState( m_U, new_time, (m_curl2?e_only:e_and_b) );
 
   // update particles from half_time to new time
-  const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
+  const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
   const int num_species = pic_species_ptr_vect.size();
   for (int sp=0; sp<num_species; sp++) {
     auto species(pic_species_ptr_vect[sp]);

@@ -1,7 +1,5 @@
-
 #include "ChargeExchange.H"
 #include "MathUtils.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -18,16 +16,18 @@ void ChargeExchange::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("ChargeExchange::initialize()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();
+ 
    // get pointer to species 1
-   CH_assert(m_sp1<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   CH_assert(m_sp1<num_species);
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
    CH_assert(this_species1->charge()>0); // assert ion
 
    // get pointer to species 2
-   CH_assert(m_sp2<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   CH_assert(m_sp2<num_species);
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
    CH_assert(this_species2->charge()==0); // assert neutral
 
    // set the species names
@@ -56,15 +56,16 @@ void ChargeExchange::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_
 {
    CH_TIME("ChargeExchange::setMeanFreeTime()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   
-   if(!this_species1->scatter() || !this_species2->scatter()) return;
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+
+   if (!this_species1->scatter() || !this_species2->scatter()) { return; }
+
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity();
    const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity();
-   
+
    const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity();
    const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity();
    setInterMFT(numberDensity1,energyDensity1,numberDensity2,energyDensity2);
@@ -184,20 +185,21 @@ void ChargeExchange::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
                                 const Real                  a_dt_sec ) const
 {
    CH_TIME("ChargeExchange::applyScattering()");
-      
-   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   if(!this_species1->scatter()) return;
-   if(!this_species2->scatter()) return;
+
+   PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+   if (!this_species1->scatter()) { return; }
+   if (!this_species2->scatter()) { return; }
 
    // treat ion is primary
    ionImpact( *this_species1, *this_species2, a_mesh, a_dt_sec );
 
 }
       
-void ChargeExchange::ionImpact( PicSpecies&  a_picSpecies1,
-                                PicSpecies&  a_picSpecies2, 
+void ChargeExchange::ionImpact( PicChargedSpecies&  a_picSpecies1,
+                                PicChargedSpecies&  a_picSpecies2, 
                           const DomainGrid&  a_mesh,
                           const Real         a_dt_sec ) const
 {

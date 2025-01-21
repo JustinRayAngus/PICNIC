@@ -1,7 +1,6 @@
 
 #include "Ionization.H"
 #include "MathUtils.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -19,23 +18,25 @@ void Ionization::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("Ionization::initialize()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();   
+
    // get pointer to species 1
-   CH_assert(m_sp1<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   CH_assert(m_sp1<num_species);
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
 
    // get pointer to species 2
-   CH_assert(m_sp2<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   CH_assert(m_sp2<num_species);
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
    
    // get pointer to electron species
-   CH_assert(m_spE<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_speciesE(pic_species_ptr_vect[m_spE]);
+   CH_assert(m_spE<num_species);
+   const PicChargedSpeciesPtr this_speciesE = pic_species_ptr_vect[species_map[m_spE]];
    
    // get pointer to ion species
-   CH_assert(m_spI<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_speciesI(pic_species_ptr_vect[m_spI]);
+   CH_assert(m_spI<num_species);
+   const PicChargedSpeciesPtr this_speciesI = pic_species_ptr_vect[species_map[m_spI]];
 
    // set the species names
    m_species1_name = this_species1->name();
@@ -113,11 +114,12 @@ void Ionization::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf
 {
    CH_TIME("Ionization::setMeanFreeTime()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   const PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
    
-   if(!this_species1->scatter() || !this_species2->scatter()) return;
+   if (!this_species1->scatter() || !this_species2->scatter()) { return; }
    
    const bool setMoments = false;
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
@@ -195,15 +197,16 @@ void Ionization::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("Ionization::applyScattering()");
    
-   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-      
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-   if(!this_species1->scatter()) return;
-   if(!this_species2->scatter()) return;
-   
-   PicSpeciesPtr this_speciesE(pic_species_ptr_vect[m_spE]);
-   PicSpeciesPtr this_speciesI(pic_species_ptr_vect[m_spI]);
+   PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+
+   PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+   if (!this_species1->scatter()) { return; }
+   if (!this_species2->scatter()) { return; }
+
+   PicChargedSpeciesPtr this_speciesE = pic_species_ptr_vect[species_map[m_spE]];
+   PicChargedSpeciesPtr this_speciesI = pic_species_ptr_vect[species_map[m_spI]];
 
    // electron impact ionizaton e + A => e + e + A+
    electronImpact( *this_species1, *this_species2, 
@@ -211,10 +214,10 @@ void Ionization::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 
 }
       
-void Ionization::electronImpact( PicSpecies&  a_picSpecies1,
-                                 PicSpecies&  a_picSpecies2, 
-                                 PicSpecies&  a_picSpeciesE, 
-                                 PicSpecies&  a_picSpeciesI, 
+void Ionization::electronImpact( PicChargedSpecies&  a_picSpecies1,
+                                 PicChargedSpecies&  a_picSpecies2, 
+                                 PicChargedSpecies&  a_picSpeciesE, 
+                                 PicChargedSpecies&  a_picSpeciesI, 
                            const DomainGrid&  a_mesh,
                            const Real         a_dt_sec ) const
 {

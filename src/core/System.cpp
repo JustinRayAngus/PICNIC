@@ -333,7 +333,6 @@ void System::initialize( const int           a_cur_step,
                               a_cur_time, a_restart_file_name );
 
    // initialize the scattering operators
-   //m_pic_species->prepForScatter(m_scattering->numCoulomb(),true);
    m_scattering->initialize( *m_pic_species, *m_mesh, a_restart_file_name );
 
    // initialize the electromagnetic fields
@@ -344,10 +343,12 @@ void System::initialize( const int           a_cur_step,
       if (m_implicit_advance) {
          m_pic_species->initializeMassMatrices( *m_emfields, a_cur_dt, a_restart_file_name );
       }
-      m_pic_species->setCurrentDensity( *m_emfields, a_cur_dt, true );
-      const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
-      const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
-      m_emfields->setCurrentDensity( pic_J, pic_Jv );
+      if (m_advance_method != PIC_DSMC) {
+         m_pic_species->setCurrentDensity( *m_emfields, a_cur_dt, true );
+         const LevelData<EdgeDataBox>& pic_J = m_pic_species->getCurrentDensity();
+         const LevelData<NodeFArrayBox>& pic_Jv = m_pic_species->getVirtualCurrentDensity();
+         m_emfields->setCurrentDensity( pic_J, pic_Jv );
+      }
    }
 
    m_time_integrator->initialize(a_restart_file_name);
@@ -398,14 +399,16 @@ void System::writePlotFile( const int     a_cur_step,
    const bool writeEnergyFlux = m_pic_species->writeSpeciesEnergyFlux();
    if (writeJ) { CH_assert(!m_emfields.isNull()); }
 
-   const PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
-   const int num_species = pic_species_ptr_vect.size();
-   for (int sp=0; sp<num_species; sp++) {
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
+   const int num_charged_species = pic_species_ptr_vect.size();
+   for (int sp=0; sp<num_charged_species; sp++) {
 
-      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
+      PicChargedSpeciesPtr species = pic_species_ptr_vect[sp];
       species->setNumberDensity();
       species->setMomentumDensity();
       species->setEnergyDensity();
+      
+      const int sp_num = species->species_num();
 
       if (writeNppc) { species->setNppc(); }
       if (writeEnergyOffDiag) { species->setEnergyOffDiag(); }
@@ -413,7 +416,7 @@ void System::writePlotFile( const int     a_cur_step,
 
       // write the species mesh data file
       if (species->charge() == 0) {
-         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time,
+         m_dataFile->writeSpeciesMomentsFile( *species, sp_num, a_cur_step, a_cur_time,
                                               false, false, false, writeNppc,
                                               writeEnergyOffDiag, writeEnergyFlux );
       }
@@ -430,14 +433,34 @@ void System::writePlotFile( const int     a_cur_step,
             m_pic_species->finalizeSettingJ( species_J, species_Jv, *m_emfields );
          }
 
-         m_dataFile->writeSpeciesMomentsFile( *species, sp, a_cur_step, a_cur_time,
+         m_dataFile->writeSpeciesMomentsFile( *species, sp_num, a_cur_step, a_cur_time,
                                               writeRho, writeSigma, writeJ, writeNppc,
                                               writeEnergyOffDiag, writeEnergyFlux );
       }
 
       // write the species particle data file
       if (a_plot_parts) {
-         m_dataFile->writeSpeciesParticleFile( *species, sp, a_cur_step, a_cur_time );
+         m_dataFile->writeSpeciesParticleFile( *species, sp_num, a_cur_step, a_cur_time );
+      }
+
+   }
+
+   // write photon species data
+   const PicPhotonSpeciesPtrVect& photon_species_ptr_vect = m_pic_species->getPhotonPtrVect();
+   const int num_photon_species = photon_species_ptr_vect.size();
+   for (int sp=0; sp<num_photon_species; sp++) {
+
+      PicPhotonSpeciesPtr species = photon_species_ptr_vect[sp];
+      species->setNumberDensity();
+      species->setMomentumDensity();
+      species->setEnergyDensity();
+      species->setNppc();
+         
+      m_dataFile->writePhotonSpeciesMomentsFile( *species, a_cur_step, a_cur_time );
+
+      // write the species particle data file
+      if (a_plot_parts) {
+         m_dataFile->writePhotonSpeciesParticleFile( *species, a_cur_step, a_cur_time );
       }
 
    }
@@ -509,24 +532,45 @@ void System::writeHistFile( const int   a_cur_step,
        energyFusion_joules = m_scattering->fusionEnergy();
    }
 
-   // compute the species probes
+   Real energyBremsstrahlung_joules;
+   Real energyIBremsstrahlung_joules;
+   if (m_bremsstrahlung_probes) {
+       m_scattering->setBremsstrahlungProbes();
+       energyBremsstrahlung_joules = m_scattering->bremsstrahlungEnergy();
+       energyIBremsstrahlung_joules = m_scattering->ibremsstrahlungEnergy();
+   }
+   
    const int numSpecies = m_pic_species->numSpecies();
+   const std::vector<int>& species_map = m_pic_species->getSpeciesMap();
+   const std::vector<SpeciesType>& species_type = m_pic_species->getSpeciesType();
+   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getChargedPtrVect();
+   const PicPhotonSpeciesPtrVect& photon_species_ptr_vect = m_pic_species->getPhotonPtrVect();
+
+   // compute the pic and photon species probes
    std::vector<int> num_particles(numSpecies);
    std::vector<vector<Real>> global_moments(numSpecies);
    std::vector<vector<Real>> bdry_moments(numSpecies);
    std::vector<vector<Real>> species_solver(numSpecies);
    std::vector<Real> max_wpdt(numSpecies);
    std::vector<Real> max_wcdt(numSpecies);
-   PicSpeciesPtrVect& pic_species_ptr_vect = m_pic_species->getPtrVect();
    for (int sp=0; sp<numSpecies; sp++) {
       if (!m_species_probes[sp]) { continue; }
-      PicSpeciesPtr species(pic_species_ptr_vect[sp]);
-      num_particles[sp] = species->numParticles();
-      species->globalMoments(global_moments.at(sp));
-      if (m_species_bdry_probes) { species->bdryMoments(bdry_moments.at(sp)); }
-      max_wpdt.at(sp) = species->max_wpdt(*m_units,a_cur_dt);
-      max_wcdt.at(sp) = max_wc0dt*abs(species->charge())/species->mass();
-      if (m_species_solver_probes) { species->picardParams(species_solver.at(sp)); }
+      if (species_type[sp]==PIC_CHARGED) {
+         const PicChargedSpeciesPtr species = pic_species_ptr_vect[species_map[sp]];
+         num_particles[sp] = species->numParticles();
+         species->globalMoments(global_moments.at(sp));
+         if (m_species_bdry_probes) { species->bdryMoments(bdry_moments.at(sp)); }
+         max_wpdt.at(sp) = species->max_wpdt(*m_units,a_cur_dt);
+         max_wcdt.at(sp) = max_wc0dt*abs(species->charge())/species->mass();
+         if (m_species_solver_probes) { species->picardParams(species_solver.at(sp)); }
+      }
+      if (species_type[sp]==PIC_PHOTON) {
+         const PicPhotonSpeciesPtr species = photon_species_ptr_vect[species_map[sp]];
+         num_particles[sp] = species->numParticles();
+         species->globalMoments(global_moments.at(sp));
+         if (m_species_bdry_probes) { species->bdryMoments(bdry_moments.at(sp)); }
+      }
    }
 
    //
@@ -576,29 +620,52 @@ void System::writeHistFile( const int   a_cur_step,
          if (m_fusion_probes) {
             histFile << energyFusion_joules << " ";
          }
+         if (m_bremsstrahlung_probes) {
+            histFile << energyBremsstrahlung_joules << " ";
+            histFile << energyIBremsstrahlung_joules << " ";
+         }
          for (int sp=0; sp<numSpecies; sp++) {
             if (!m_species_probes[sp]) { continue; }
-            histFile << num_particles[sp] << " ";
-            std::vector<Real>& species_moments = global_moments.at(sp);
-            for (int mom=0; mom<species_moments.size(); ++mom) {
-               histFile << species_moments.at(mom) << " ";
-            }
-            histFile << max_wpdt.at(sp) << " ";
-            histFile << max_wcdt.at(sp) << " ";
-            if (m_species_bdry_probes) {
-               std::vector<Real>& this_bdry_moment = bdry_moments.at(sp);
-               const int num_per_dir = this_bdry_moment.size()/SpaceDim;
-               for (int dir=0; dir<SpaceDim; ++dir) {
-                  if (m_is_periodic[dir]) { continue; }
-                  for (int mom=0; mom<num_per_dir; ++mom) {
-                     histFile << this_bdry_moment.at(mom+dir*num_per_dir) << " ";
+            if (species_type[sp]==PIC_CHARGED) {
+               histFile << num_particles[sp] << " ";
+               std::vector<Real>& species_moments = global_moments.at(sp);
+               for (int mom=0; mom<species_moments.size(); ++mom) {
+                  histFile << species_moments.at(mom) << " ";
+               }
+               histFile << max_wpdt.at(sp) << " ";
+               histFile << max_wcdt.at(sp) << " ";
+               if (m_species_bdry_probes) {
+                  std::vector<Real>& this_bdry_moment = bdry_moments.at(sp);
+                  const int num_per_dir = this_bdry_moment.size()/SpaceDim;
+                  for (int dir=0; dir<SpaceDim; ++dir) {
+                     if (m_is_periodic[dir]) { continue; }
+                     for (int mom=0; mom<num_per_dir; ++mom) {
+                        histFile << this_bdry_moment.at(mom+dir*num_per_dir) << " ";
+                     }
+                  }
+               }
+               if (m_species_solver_probes) {
+                  std::vector<Real>& this_species_solver = species_solver.at(sp);
+                  for (int its=0; its<this_species_solver.size(); ++its) {
+                     histFile << this_species_solver.at(its) << " ";
                   }
                }
             }
-            if (m_species_solver_probes) {
-               std::vector<Real>& this_species_solver = species_solver.at(sp);
-               for (int its=0; its<this_species_solver.size(); ++its) {
-                  histFile << this_species_solver.at(its) << " ";
+            else if (species_type[sp]==PIC_PHOTON) {
+               histFile << num_particles[sp] << " ";
+               std::vector<Real>& species_moments = global_moments.at(sp);
+               for (int mom=0; mom<species_moments.size(); ++mom) {
+                  histFile << species_moments.at(mom) << " ";
+               }
+               if (m_species_bdry_probes) {
+                  std::vector<Real>& this_bdry_moment = bdry_moments.at(sp);
+                  const int num_per_dir = this_bdry_moment.size()/SpaceDim;
+                  for (int dir=0; dir<SpaceDim; ++dir) {
+                     if (m_is_periodic[dir]) { continue; }
+                     for (int mom=0; mom<num_per_dir; ++mom) {
+                        histFile << this_bdry_moment.at(mom+dir*num_per_dir) << " ";
+                     }
+                  }
                }
             }
          }
@@ -662,7 +729,13 @@ void System::setupHistFile(const int a_cur_step)
    pphist.query("fusion_probes", m_fusion_probes);
    if (!procID()) { cout << "fusion_probes = " << m_fusion_probes << endl; }
 
+   m_bremsstrahlung_probes = false;
+   pphist.query("bremsstrahlung_probes", m_bremsstrahlung_probes);
+   if (!procID()) { cout << "bremsstrahlung_probes = " << m_bremsstrahlung_probes << endl; }
+
    const int numSpecies = m_pic_species->numSpecies();
+   const std::vector<SpeciesType>& species_type = m_pic_species->getSpeciesType();
+
    if (numSpecies>0) {
       m_species_probes.resize(numSpecies,false);
       for (int species=0; species<numSpecies; species++) {
@@ -762,105 +835,174 @@ void System::setupHistFile(const int a_cur_step)
       ss.str(std::string());
    }
 
+   if (m_bremsstrahlung_probes) {
+      stringstream ss;
+      ss << "#" << probe_names.size() << " bremsstrahlung energy [Joules]";
+      probe_names.push_back(ss.str());
+      ss.str(std::string());
+      ss << "#" << probe_names.size() << " ibremsstrahlung energy [Joules]";
+      probe_names.push_back(ss.str());
+      ss.str(std::string());
+   }
+
    for ( int species=0; species<numSpecies; species++) {
       if (!m_species_probes[species]) { continue; }
-      stringstream ss;
-      ss << "#" << probe_names.size() << " species " << species << ": macro particles";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      ss << "#" << probe_names.size() << " species " << species << ": mass [kg]";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      ss << "#" << probe_names.size() << " species " << species << ": X-momentum [kg-m/s]";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      ss << "#" << probe_names.size() << " species " << species << ": Y-momentum [kg-m/s]";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      ss << "#" << probe_names.size() << " species " << species << ": Z-momentum [kg-m/s]";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      ss << "#" << probe_names.size() << " species " << species << ": energy [Joules]";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      ss << "#" << probe_names.size() << " species " << species << ": max wp*dt";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      ss << "#" << probe_names.size() << " species " << species << ": max wc*dt";
-      probe_names.push_back(ss.str());
-      ss.str(std::string());
-      if (m_species_bdry_probes) {
-      for (int dir=0; dir<SpaceDim; dir++) {
-         if (m_is_periodic[dir]) { continue; }
+      if (species_type[species]==PIC_CHARGED) {
          stringstream ss;
-         ss << "#" << probe_names.size() << " species " << species << ": mass out from lo-side, dir = " << dir << " [kg]";
+         ss << "#" << probe_names.size() << " species " << species << ": macro particles";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": mass out from hi-side, dir = " << dir << " [kg]";
+         ss << "#" << probe_names.size() << " species " << species << ": mass [kg]";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+         ss << "#" << probe_names.size() << " species " << species << ": X-momentum [kg-m/s]";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum [kg-m/s]";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum [kg-m/s]";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+         ss << "#" << probe_names.size() << " species " << species << ": energy [Joules]";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+         ss << "#" << probe_names.size() << " species " << species << ": max wp*dt";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+         ss << "#" << probe_names.size() << " species " << species << ": max wc*dt";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": energy out from lo-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": energy out from hi-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": mass in from lo-side, dir = " << dir << " [kg]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": mass in from hi-side, dir = " << dir << " [kg]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": energy in from lo-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str());
-         ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": energy in from hi-side, dir = " << dir << " [Joules]";
-         probe_names.push_back(ss.str());
+         if (m_species_bdry_probes) {
+            for (int dir=0; dir<SpaceDim; dir++) {
+               if (m_is_periodic[dir]) { continue; }
+               stringstream ss;
+               ss << "#" << probe_names.size() << " species " << species << ": mass out from lo-side, dir = " << dir << " [kg]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": mass out from hi-side, dir = " << dir << " [kg]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": X-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Y-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Z-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": energy out from lo-side, dir = " << dir << " [Joules]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": energy out from hi-side, dir = " << dir << " [Joules]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": mass in from lo-side, dir = " << dir << " [kg]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": mass in from hi-side, dir = " << dir << " [kg]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": X-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Y-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": Z-momentum in from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": energy in from lo-side, dir = " << dir << " [Joules]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " species " << species << ": energy in from hi-side, dir = " << dir << " [Joules]";
+               probe_names.push_back(ss.str());
+            }
+         }
+         if (m_species_solver_probes) {
+            ss << "#" << probe_names.size() << " species " << species << ": avg picard its";
+            probe_names.push_back(ss.str());
+            ss.str(std::string());
+            ss << "#" << probe_names.size() << " species " << species << ": max avg picard its";
+            probe_names.push_back(ss.str());
+            ss.str(std::string());
+         }
       }
-      }
-      if (m_species_solver_probes) {
-         ss << "#" << probe_names.size() << " species " << species << ": avg picard its";
+      else if (species_type[species]==PIC_PHOTON) {
+         stringstream ss;
+         ss << "#" << probe_names.size() << " photon species " << species << ": macro particles";
          probe_names.push_back(ss.str());
          ss.str(std::string());
-         ss << "#" << probe_names.size() << " species " << species << ": max avg picard its";
+         ss << "#" << probe_names.size() << " photon species " << species << ": mass [weight]";
          probe_names.push_back(ss.str());
          ss.str(std::string());
+         ss << "#" << probe_names.size() << " photon species " << species << ": X-momentum [kg-m/s]";
+         probe_names.push_back(ss.str());
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " photon species " << species << ": Y-momentum [kg-m/s]";
+         probe_names.push_back(ss.str());
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " photon species " << species << ": Z-momentum [kg-m/s]";
+         probe_names.push_back(ss.str());
+         ss.str(std::string());
+         ss << "#" << probe_names.size() << " photon species " << species << ": energy [Joules]";
+         probe_names.push_back(ss.str());
+         ss.str(std::string());
+         if (m_species_bdry_probes) {
+            for (int dir=0; dir<SpaceDim; dir++) {
+               if (m_is_periodic[dir]) { continue; }
+               stringstream ss;
+               ss << "#" << probe_names.size() << " photon species " << species << ": mass out from lo-side, dir = " << dir << " [weight]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": mass out from hi-side, dir = " << dir << " [weight]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": X-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": X-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": Y-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": Y-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": Z-momentum out from lo-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": Z-momentum out from hi-side, dir = " << dir << " [kg-m/s]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": energy out from lo-side, dir = " << dir << " [Joules]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+               ss << "#" << probe_names.size() << " photon species " << species << ": energy out from hi-side, dir = " << dir << " [Joules]";
+               probe_names.push_back(ss.str());
+               ss.str(std::string());
+            }
+         }
       }
    }
 
@@ -955,8 +1097,8 @@ void System::writeCheckpointFile( HDF5Handle&  a_handle,
       m_dataFile->writeCheckpointEMFields( a_handle, write_old_data, *m_emfields );
    }
 
-   // write the particle data
-   m_dataFile->writeCheckpointPicSpecies( a_handle,  *m_pic_species);
+   // write the species data
+   m_dataFile->writeCheckpointSpecies( a_handle,  *m_pic_species);
 
    // write solver probes
    int l_exit_status=0, nl_exit_status=0;
@@ -1079,6 +1221,9 @@ void System::timeStep( const Real  a_cur_time,
       }
    }
 
+   // advance photon positions from t_{n} to t_{n+1}
+   m_pic_species->advancePhotons(a_dt, a_cur_time);
+
    // advance particles in time by a_dt via collisions
    if (m_advance_method!=PIC_EM_EXPLICIT) {  scatterParticles( a_dt ); }
 
@@ -1106,7 +1251,7 @@ void System::postTimeStep( Real&        a_cur_time,
 
    // apply special operators
    if (m_specialOps) {
-      m_specialOps->applyOp(m_pic_species->getPtrVect(),a_dt);
+      m_specialOps->applyOp(m_pic_species->getChargedPtrVect(),a_dt);
       m_specialOps->updateOp(a_dt);
    }
 
@@ -1155,7 +1300,8 @@ void System::scatterParticles( const Real&  a_dt )
    const Real tscale = m_units->getScale(m_units->TIME);
    const Real dt_sec = a_dt*tscale;
 
-   m_pic_species->prepForScatter(m_scattering->numCoulomb(),false);
+   const int numIB = m_scattering->numIBremsstrahlung();
+   m_pic_species->prepForScatter(m_scattering->numCoulomb(),numIB,false);
    m_scattering->applyScattering( *m_pic_species, *m_mesh, dt_sec );
 
 }
@@ -1182,7 +1328,8 @@ Real System::scatterDt( const int a_step_number )
 
    Real scatterDt = DBL_MAX;
    if (m_scattering->numScatter()>0) {
-      m_pic_species->prepForScatter(m_scattering->numCoulomb(),true);
+      const int numIB = m_scattering->numIBremsstrahlung();
+      m_pic_species->prepForScatter(m_scattering->numCoulomb(),numIB,true);
       scatterDt = m_scattering->scatterDt( *m_pic_species );
       const Real tscale = m_units->getScale(m_units->TIME);
       scatterDt = scatterDt/tscale;

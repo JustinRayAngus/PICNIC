@@ -3,7 +3,6 @@
 
 #include "Scattering.H"
 #include "PicnicConstants.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
 
@@ -67,8 +66,8 @@ class ChargeExchange : public Scattering
       
    private:
       
-      void ionImpact( PicSpecies&  a_picSpecies1,
-                      PicSpecies&  a_picSpecies2,
+      void ionImpact( PicChargedSpecies&  a_picSpecies1,
+                      PicChargedSpecies&  a_picSpecies2,
                 const DomainGrid&  a_mesh,
                 const Real         a_dt_sec ) const;
       

@@ -23,6 +23,7 @@
 #include "NamespaceHeader.H"
 
 typedef enum {number, density, momentum, energy, energyOffDiag, energyFlux} MomentType;
+typedef enum {photon_number, photon_density, photon_momentum, photon_energy} PhotonMomentType;
 typedef enum {UNKNOWN, NGP, CIC, TSC, W4, CC0, CC1} InterpType;
 
 /**
@@ -158,6 +159,13 @@ public:
          const Real&       a_species_mass,
          const MomentType  a_momentType ) const; // JRA const
 
+  /// Deposit photon particles in a_particleList onto a_rho.
+  /// The type of interpolation to perform is passed in as an argument.
+  template <class P>
+  void photonMoment( FArrayBox&  a_moment,
+               const List<P>&    a_particleList,
+               const PhotonMomentType  a_momentType ) const; // JRA const
+
    // set the particle weights using a grid-profile for density
    //
    template <class P>
@@ -244,9 +252,17 @@ private:
                  const RealVect&    a_dx,
                  const RealVect&    a_position,
                  const std::array<Real,3>&   a_velocity,
-                 const Real&        a_species_mass,
-                 const Real&        a_weight,
-                 const MomentType&  a_momentType ) const; // JRA const;
+                 const Real         a_weight,
+                 const Real         a_species_mass,
+                 const MomentType   a_momentType ) const; // JRA const;
+  
+  void momentPhotonParticle( FArrayBox&   a_moment,
+                       const RealVect&    a_domainLeftEdge,
+                       const RealVect&    a_dx,
+                       const RealVect&    a_position,
+                       const std::array<Real,3>&   a_velocity,
+                       const Real         a_weight,
+                       const PhotonMomentType  a_momentType ) const; // JRA const;
 
   void setParticleWeight( Real&       a_weight,
                     const Real&       a_partsPerCell,

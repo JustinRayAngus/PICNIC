@@ -2,7 +2,6 @@
 #include "VariableHardSphere.H"
 #include "CodeUnits.H"
 #include "MathUtils.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -17,27 +16,28 @@ void VariableHardSphere::initialize( const PicSpeciesInterface&  a_pic_species_i
 {
    CH_TIME("VariableHardSphere::initialize()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();   
 
    int this_sp = m_sp1;
-   CH_assert(m_sp1<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species(pic_species_ptr_vect[this_sp]);
+   CH_assert(m_sp1<num_species);
+   const PicChargedSpeciesPtr this_species = pic_species_ptr_vect[species_map[this_sp]];
 
    //if(!this_species->scatter()) return;
    //CH_assert(this_species->scatter()); // assert that collisions are allowed for this species
 
    CH_assert(this_species->charge()==0);      
-   
-   if(m_sp1==m_sp2) { // self scattering
+
+   if (m_sp1==m_sp2) { // self scattering
 
       m_species1_name = this_species->name();
       m_species2_name = this_species->name();
-      
+
       m_mass1 = this_species->mass(); // normalized mass
       m_mass2 = this_species->mass(); // normalized mass
- 
+
       // define alpha and Aconst
-      //
       m_alpha = 4./(2.*m_eta-1.);
       const Real Mass_kg = m_mass1*Constants::ME; // species mass [kg]
       const Real VT0 = sqrt(Constants::KB*m_T0/Mass_kg);     // reference thermal speed [m/s]
@@ -57,16 +57,17 @@ void VariableHardSphere::setMeanFreeTime( const PicSpeciesInterface&  a_pic_spec
 {
    CH_TIME("VariableHardSphere::setMeanFreeTime()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-      
-   const PicSpeciesPtr this_species1 = pic_species_ptr_vect[m_sp1];
-   if(!this_species1->scatter()) return;
-   
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+
+   const PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   if (!this_species1->scatter()) { return; }
+
    const bool setMoments = false;
    const LevelData<FArrayBox>& numberDensity1 = this_species1->getNumberDensity(setMoments);
    const LevelData<FArrayBox>& energyDensity1 = this_species1->getEnergyDensity(setMoments);
 
-   if(m_sp1==m_sp2) setIntraMFT(numberDensity1,energyDensity1);
+   if (m_sp1==m_sp2) { setIntraMFT(numberDensity1,energyDensity1); }
    else {
       //const LevelData<FArrayBox>& numberDensity2 = this_species2->getNumberDensity(false);
       //const LevelData<FArrayBox>& energyDensity2 = this_species2->getEnergyDensity(false);
@@ -196,23 +197,24 @@ void VariableHardSphere::applyScattering( PicSpeciesInterface&  a_pic_species_in
 {
    CH_TIME("VariableHardSphere::applyScattering()");
    
-   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
       
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   if(!this_species1->scatter()) return;
+   PicChargedSpeciesPtr this_species1 = pic_species_ptr_vect[species_map[m_sp1]];
+   if (!this_species1->scatter()) { return; }
 
-   if(m_sp1==m_sp2) {
+   if (m_sp1==m_sp2) {
       applySelfScattering( *this_species1, a_mesh, a_dt_sec );
    }
    else {
-      PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
-      if(!this_species2->scatter()) return;
+      PicChargedSpeciesPtr this_species2 = pic_species_ptr_vect[species_map[m_sp2]];
+      if (!this_species2->scatter()) { return; }
       applyInterScattering( *this_species1, *this_species2, a_mesh, a_dt_sec );
    }
 
 }
       
-void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies, 
+void VariableHardSphere::applySelfScattering( PicChargedSpecies&  a_picSpecies, 
                                         const DomainGrid&  a_mesh,
                                         const Real         a_dt_sec ) const
 {
@@ -395,8 +397,8 @@ void VariableHardSphere::applySelfScattering( PicSpecies&  a_picSpecies,
    
 }
 
-void VariableHardSphere::applyInterScattering( PicSpecies&  a_picSpecies1,
-                                               PicSpecies&  a_picSpecies2, 
+void VariableHardSphere::applyInterScattering( PicChargedSpecies&  a_picSpecies1,
+                                               PicChargedSpecies&  a_picSpecies2, 
                                          const DomainGrid&  a_mesh,
                                          const Real         a_dt_sec ) const
 {

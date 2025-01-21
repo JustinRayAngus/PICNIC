@@ -1,4 +1,4 @@
-#include "PicSpecies.H"
+#include "PicChargedSpecies.H"
 #include <cmath>
 #include "PicnicConstants.H"
 #include "BoxIterator.H"
@@ -15,28 +15,23 @@
 
 #include "NamespaceHeader.H"
 
-PicSpecies::PicSpecies( ParmParse&         a_ppspc,
-                        const int          a_species,
-                        const string&      a_name,
-                        const DomainGrid&  a_mesh )
-   : m_species(a_species),
-     m_mass(),
-     m_charge(),
+PicChargedSpecies::PicChargedSpecies( ParmParse&         a_ppspc,
+                                const int          a_species,
+                                const string&      a_name,
+                                const DomainGrid&  a_mesh )
+   : Species(a_ppspc,a_species,a_name,a_mesh),
      m_Uint(0.0),
      m_push_type(PLANAR),
      m_species_bc(NULL),
      m_interpRhoToGrid(CIC),
      m_interpJToGrid(CIC),
      m_interpEToParts(CIC),
-     m_motion(true),
-     m_forces(true),
-     m_scatter(false),
      m_write_all_part_comps(false),
      m_charge_conserving_deposit(false),
-     m_mesh(a_mesh),
      m_meshInterp(nullptr)
 {
-   m_name = a_name;
+
+   CH_assert(m_mass>0.0); // should not be a photon
 
    std::string push_type_str = "PLANAR";
    if (m_mesh.axisymmetric()) {
@@ -122,12 +117,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
    a_ppspc.query( "suborbit_fast_particles", m_suborbit_fast_particles );
    if (m_suborbit_fast_particles) {  m_use_suborbit_model = true; }
 
-   a_ppspc.get( "mass", m_mass );
-   a_ppspc.get( "charge", m_charge ); 
    a_ppspc.query( "potential", m_Uint );
-   a_ppspc.query( "motion", m_motion );
-   a_ppspc.query( "forces", m_forces );
-   a_ppspc.query( "scatter", m_scatter );
    a_ppspc.query( "write_all_comps", m_write_all_part_comps );
 
    // query for particle splitting parameters
@@ -247,7 +237,7 @@ PicSpecies::PicSpecies( ParmParse&         a_ppspc,
 
 }
 
-PicSpecies::~PicSpecies()
+PicChargedSpecies::~PicChargedSpecies()
 {
    if(m_species_bc!=NULL) {
       delete m_species_bc;
@@ -259,11 +249,11 @@ PicSpecies::~PicSpecies()
    }
 }
 
-void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
-                        const Real   a_cnormDt, 
-                        const bool   a_byHalfDt )
+void PicChargedSpecies::applyForces( List<JustinsParticle>&  a_pList,
+                               const Real   a_cnormDt, 
+                               const bool   a_byHalfDt )
 {
-   CH_TIME("PicSpecies::applyForces()");
+   CH_TIME("PicChargedSpecies::applyForces()");
     
    if (a_pList.length()==0) return;
 
@@ -350,7 +340,7 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
    
    if (m_push_type==CYL_CYL) {
       PicSpeciesUtils::applyForces_CYL_CYL( a_pList, m_fnorm_const, a_cnormDt,
-                                           a_byHalfDt, m_mesh.anticyclic() );
+                                            a_byHalfDt, m_mesh.anticyclic() );
    }
    else if (m_push_type==SPH_SPH) {
       PicSpeciesUtils::applyForces_SPH_SPH( a_pList, m_fnorm_const, a_cnormDt,
@@ -358,7 +348,7 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
    }
    else if (m_push_type==CYL_HYB) {
       PicSpeciesUtils::applyForces_CYL_HYB( a_pList, m_fnorm_const, a_cnormDt,
-                                          m_mesh.anticyclic() );
+                                            m_mesh.anticyclic() );
    }
    else if (m_push_type==SPH_HYB) {
       PicSpeciesUtils::applyForces_SPH_HYB( a_pList, m_fnorm_const, a_cnormDt );
@@ -470,19 +460,19 @@ void PicSpecies::applyForces( List<JustinsParticle>&  a_pList,
 
 }
 
-void PicSpecies::advancePositionsExplicit( const Real  a_full_dt,
-                                           const bool  a_half_step )
+void PicChargedSpecies::advancePositionsExplicit( const Real  a_full_dt,
+                                            const bool  a_half_step )
 {
-   if(!m_motion) return;
-   CH_TIME("PicSpecies::advancePositionsExplicit()");
+   if (!m_motion) { return; }
+   CH_TIME("PicChargedSpecies::advancePositionsExplicit()");
    
    const Real cnormDt = m_cvac_norm*a_full_dt;
    Real dt_factor = 1.0;
-   if(a_half_step) dt_factor = 0.5; 
+   if (a_half_step) { dt_factor = 0.5; }
 
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
-   for(dit.begin(); dit.ok(); ++dit) {
+   for (dit.begin(); dit.ok(); ++dit) {
       ListBox<JustinsParticle>& box_list = m_data[dit];
       List<JustinsParticle>& pList = box_list.listItems();
       advancePositionsExplicit( pList, cnormDt*dt_factor );
@@ -490,33 +480,33 @@ void PicSpecies::advancePositionsExplicit( const Real  a_full_dt,
 
 }
 
-void PicSpecies::advancePositionsExplicit( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::advancePositionsExplicit( List<JustinsParticle>&  a_pList,
                                      const Real                    a_cnormDt )
 {
-   CH_TIME("PicSpecies::advancePositionsExplicit() from particles");
+   CH_TIME("PicChargedSpecies::advancePositionsExplicit() from particles");
    
    // xp^{n+1} = xp^{n} + vp*cnormDt;
    // vpbar = upbar/gamma, gamma = sqrt(1 + upbar^2)
 
    ListIterator<JustinsParticle> lit(a_pList);
-   for(lit.begin(); lit.ok(); ++lit) {
+   for (lit.begin(); lit.ok(); ++lit) {
       RealVect& xp = lit().position();
       const RealVect& xpold = lit().position_old();
       const std::array<Real,3>& up = lit().velocity();
 #ifdef RELATIVISTIC_PARTICLES
       Real gammap = sqrt(1.0 + up[0]*up[0] + up[1]*up[1] + up[2]*up[2]);
-      for(int dir=0; dir<SpaceDim; dir++) xp[dir] = xpold[dir] + up[dir]/gammap*a_cnormDt;
+      for (int dir=0; dir<SpaceDim; dir++) { xp[dir] = xpold[dir] + up[dir]/gammap*a_cnormDt; }
 #else
-      for(int dir=0; dir<SpaceDim; dir++) xp[dir] = xpold[dir] + up[dir]*a_cnormDt;
+      for (int dir=0; dir<SpaceDim; dir++) { xp[dir] = xpold[dir] + up[dir]*a_cnormDt; }
 #endif
    }
 
 }
 
-void PicSpecies::advancePositionsImplicit( const Real  a_full_dt )
+void PicChargedSpecies::advancePositionsImplicit( const Real  a_full_dt )
 {
    if(!m_motion) return;
-   CH_TIME("PicSpecies::advancePositionsImplicit()");
+   CH_TIME("PicChargedSpecies::advancePositionsImplicit()");
   
    const Real cnormDt = m_cvac_norm*a_full_dt;
 
@@ -530,10 +520,10 @@ void PicSpecies::advancePositionsImplicit( const Real  a_full_dt )
 
 }
 
-void PicSpecies::advancePositionsImplicit( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::advancePositionsImplicit( List<JustinsParticle>&  a_pList,
                                      const Real                    a_cnormDt )
 {
-   CH_TIME("PicSpecies::advancePositionsImplicit() from particles");
+   CH_TIME("PicChargedSpecies::advancePositionsImplicit() from particles");
    
    // advance particle positions by half dt
 
@@ -570,10 +560,10 @@ void PicSpecies::advancePositionsImplicit( List<JustinsParticle>&  a_pList,
 
 }
 
-void PicSpecies::advancePositions_CYL_CAR( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::advancePositions_CYL_CAR( List<JustinsParticle>&  a_pList,
                                      const Real                    a_cnormDt )
 {
-   CH_TIME("PicSpecies::advancePositions_CYL_CAR() from particles");
+   CH_TIME("PicChargedSpecies::advancePositions_CYL_CAR() from particles");
    
    // advance particle positions by half dt using CAR method in CYL geometry
 
@@ -623,10 +613,10 @@ void PicSpecies::advancePositions_CYL_CAR( List<JustinsParticle>&  a_pList,
 }
 
 #if CH_SPACEDIM==1
-void PicSpecies::advancePositions_SPH_CAR( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::advancePositions_SPH_CAR( List<JustinsParticle>&  a_pList,
                                      const Real                    a_cnormDt )
 {
-   CH_TIME("PicSpecies::advancePositions_SPH_CAR() from particles");
+   CH_TIME("PicChargedSpecies::advancePositions_SPH_CAR() from particles");
    
    // advance particle positions by half dt using CAR method in SPH geometry
    
@@ -665,12 +655,12 @@ void PicSpecies::advancePositions_SPH_CAR( List<JustinsParticle>&  a_pList,
 }
 #endif
 
-void PicSpecies::stepNormTransfer( List<JustinsParticle>&  a_in_pList,
+void PicChargedSpecies::stepNormTransfer( List<JustinsParticle>&  a_in_pList,
                                    List<JustinsParticle>&  a_out_pList,
                              const Real                    a_cnormDt, 
                              const bool                    a_reverse )
 {
-   CH_TIME("PicSpecies::stepNormTransfer()");
+   CH_TIME("PicChargedSpecies::stepNormTransfer()");
 
    // Check for convergence of xpbar-xpold and vpbar(xpbar)*cnormDt/2.
    // Note that vpbar has to be updated after xpbar before coming here.
@@ -742,12 +732,12 @@ void PicSpecies::stepNormTransfer( List<JustinsParticle>&  a_in_pList,
 
 }
 
-void PicSpecies::stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
+void PicChargedSpecies::stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
                                            List<JustinsParticle>&  a_out_pList,
                                      const Real                    a_cnormDt,
                                      const bool                    a_reverse )
 {
-   CH_TIME("PicSpecies::stepNormTransfer_CYL_CAR()");
+   CH_TIME("PicChargedSpecies::stepNormTransfer_CYL_CAR()");
 
    // Check for convergence of xpbar-xpold and vpbar(xpbar)*cnormDt/2.
    // Note that vpbar has to be updated after xpbar before coming here.
@@ -829,12 +819,12 @@ void PicSpecies::stepNormTransfer_CYL_CAR( List<JustinsParticle>&  a_in_pList,
 }
 
 #if CH_SPACEDIM==1
-void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
+void PicChargedSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
                                            List<JustinsParticle>&  a_out_pList,
                                      const Real                    a_cnormDt,
                                      const bool                    a_reverse )
 {
-   CH_TIME("PicSpecies::stepNormTransfer_SPH_CAR()");
+   CH_TIME("PicChargedSpecies::stepNormTransfer_SPH_CAR()");
 
    // Check for convergence of rpbar-xpold and vrpbar(rpbar)*cnormDt/2.
 
@@ -901,11 +891,11 @@ void PicSpecies::stepNormTransfer_SPH_CAR( List<JustinsParticle>&  a_in_pList,
 }
 #endif
 
-void PicSpecies::transferFastParticles()
+void PicChargedSpecies::transferFastParticles()
 {
    if(!m_suborbit_fast_particles) { return; }
    if(m_interpJToGrid != CC1) { return; }
-   CH_TIME("PicSpecies::transferFastParticles()");
+   CH_TIME("PicChargedSpecies::transferFastParticles()");
 
    // This function is called from preRHSOp::setMassMatrices() prior to 
    // call to species->accumulateMassMatrices(). It is used to handle
@@ -965,14 +955,14 @@ void PicSpecies::transferFastParticles()
 
 }
 
-void PicSpecies::advanceInflowPartToBdry( RealVect&            a_xpold,
-                                          Real&                a_cnormDt_sub,
-                                    const Real                 a_cnormDt,
-                                    const std::array<Real,3>&  a_upold,
-                                    const int                  a_bdry_dir,
-                                    const int                  a_bdry_side )
+void PicChargedSpecies::advanceInflowPartToBdry( RealVect&            a_xpold,
+                                                 Real&                a_cnormDt_sub,
+                                           const Real                 a_cnormDt,
+                                           const std::array<Real,3>&  a_upold,
+                                           const int                  a_bdry_dir,
+                                           const int                  a_bdry_side )
 {
-   CH_TIME("PicSpecies::advanceInflowPartToBdry()");
+   CH_TIME("PicChargedSpecies::advanceInflowPartToBdry()");
          
    // free-streaming advance of inflow particle to the physical boundary
 
@@ -1004,9 +994,9 @@ void PicSpecies::advanceInflowPartToBdry( RealVect&            a_xpold,
       
 }
 
-void PicSpecies::advancePositions_2ndHalf()
+void PicChargedSpecies::advancePositions_2ndHalf()
 {
-   CH_TIME("PicSpecies::advancePositions_2ndHalf()");
+   CH_TIME("PicChargedSpecies::advancePositions_2ndHalf()");
    
    if (!m_motion) return;
    if (m_push_type==CYL_CAR) return;
@@ -1022,7 +1012,7 @@ void PicSpecies::advancePositions_2ndHalf()
 
 }
 
-void PicSpecies::advancePositions_2ndHalf( List<JustinsParticle>&  a_pList )
+void PicChargedSpecies::advancePositions_2ndHalf( List<JustinsParticle>&  a_pList )
 {
    ListIterator<JustinsParticle> lit(a_pList);
    for(lit.begin(); lit.ok(); ++lit) {
@@ -1034,10 +1024,10 @@ void PicSpecies::advancePositions_2ndHalf( List<JustinsParticle>&  a_pList )
    }
 }
 
-void PicSpecies::checkForNAN( List<JustinsParticle>&  a_pList,
-                        const std::string&  a_string )
+void PicChargedSpecies::checkForNAN( List<JustinsParticle>&  a_pList,
+                               const std::string&  a_string )
 {
-   CH_TIME("PicSpecies::checkForNAN()");
+   CH_TIME("PicChargedSpecies::checkForNAN()");
  
       ListIterator<JustinsParticle> lit(a_pList);
       for(lit.begin(); lit.ok(); ++lit) {
@@ -1073,9 +1063,9 @@ void PicSpecies::checkForNAN( List<JustinsParticle>&  a_pList,
    
 }
 
-void PicSpecies::checkForNAN( const std::string&  a_string )
+void PicChargedSpecies::checkForNAN( const std::string&  a_string )
 {
-   CH_TIME("PicSpecies::checkForNAN()");
+   CH_TIME("PicChargedSpecies::checkForNAN()");
  
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
@@ -1087,13 +1077,13 @@ void PicSpecies::checkForNAN( const std::string&  a_string )
    
 }
 
-void PicSpecies::applyBCs( const bool  a_intermediate_advance,
-                           const Real  a_time )
+void PicChargedSpecies::applyBCs( const bool  a_intermediate_advance,
+                                  const Real  a_time )
 {
-   CH_TIME("PicSpecies::applyBCs()");
- 
-   if(!m_motion) return;
- 
+   CH_TIME("PicChargedSpecies::applyBCs()");
+
+   if (!m_motion) { return; }
+
    // gather outcast particles
    m_data.gatherOutcast();
    //if(!a_intermediate_advance) m_data.gatherOutcast(); // JRA, testing
@@ -1105,9 +1095,9 @@ void PicSpecies::applyBCs( const bool  a_intermediate_advance,
 
    // remap the outcasts
    m_data.remapOutcast();
-   if(!m_data.isClosed()) {
+   if (!m_data.isClosed()) {
       List<JustinsParticle>& outcast_list = m_data.outcast();
-      cout << "m_data is not closed in PicSpecies::applyBCs() " << endl;
+      cout << "m_data is not closed in PicChargedSpecies::applyBCs() " << endl;
       cout << "procID() = " << procID() << endl;
       cout << "species = " << m_species << endl;
       cout << "outcast_list.length() = " << outcast_list.length() << endl;
@@ -1120,14 +1110,14 @@ void PicSpecies::applyBCs( const bool  a_intermediate_advance,
       }
       exit(EXIT_FAILURE);
    } 
-   
+
 }
 
-void PicSpecies::advanceVelocities( const Real  a_full_dt, 
-                                    const bool  a_half_step )
+void PicChargedSpecies::advanceVelocities( const Real  a_full_dt, 
+                                           const bool  a_half_step )
 {
    if(!m_forces) return;
-   CH_TIME("PicSpecies::advanceVelocities()");
+   CH_TIME("PicChargedSpecies::advanceVelocities()");
    
    const Real cnormDt = a_full_dt*m_cvac_norm;
  
@@ -1143,10 +1133,10 @@ void PicSpecies::advanceVelocities( const Real  a_full_dt,
 
 }
 
-void PicSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
+void PicChargedSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
 {
    if(!m_forces) return;
-   CH_TIME("PicSpecies::advanceVelocities_2ndHalf()");
+   CH_TIME("PicChargedSpecies::advanceVelocities_2ndHalf()");
    
    if(m_push_type==CYL_HYB) {
 
@@ -1209,10 +1199,10 @@ void PicSpecies::advanceVelocities_2ndHalf( const Real  a_dt )
 
 }
 
-void PicSpecies::averageVelocities()
+void PicChargedSpecies::averageVelocities()
 {
    if(!m_forces) return;
-   CH_TIME("PicSpecies::averageVelocities()");
+   CH_TIME("PicChargedSpecies::averageVelocities()");
    
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
@@ -1235,9 +1225,9 @@ void PicSpecies::averageVelocities()
 
 }
 
-void PicSpecies::advanceVelocities_2ndHalf( List<JustinsParticle>&  a_pList )
+void PicChargedSpecies::advanceVelocities_2ndHalf( List<JustinsParticle>&  a_pList )
 {
-   CH_TIME("PicSpecies::advanceVelocities_2ndHalf() from pList");
+   CH_TIME("PicChargedSpecies::advanceVelocities_2ndHalf() from pList");
 
    ListIterator<JustinsParticle> lit(a_pList);
    for(lit.begin(); lit.ok(); ++lit) {
@@ -1253,10 +1243,10 @@ void PicSpecies::advanceVelocities_2ndHalf( List<JustinsParticle>&  a_pList )
 
 }
 
-void PicSpecies::advanceVelocities_CYL_HYB_2ndHalf( const Real  a_dt,
+void PicChargedSpecies::advanceVelocities_CYL_HYB_2ndHalf( const Real  a_dt,
                                         List<JustinsParticle>&  a_pList )
 {
-   CH_TIME("PicSpecies::advanceVelocities_CYL_HYB_2ndHalf()");
+   CH_TIME("PicChargedSpecies::advanceVelocities_CYL_HYB_2ndHalf()");
    
    // convert particle velocities from CYL at t_{n+1/2} to CYL at t_{n+1}
    // 1) use thetapbar to convert time-centered up from CYL to CAR
@@ -1313,10 +1303,10 @@ void PicSpecies::advanceVelocities_CYL_HYB_2ndHalf( const Real  a_dt,
 
 }
 
-void PicSpecies::advanceVelocities_SPH_HYB_2ndHalf( const Real  a_dt,
+void PicChargedSpecies::advanceVelocities_SPH_HYB_2ndHalf( const Real  a_dt,
                                         List<JustinsParticle>&  a_pList )
 {
-   CH_TIME("PicSpecies::advanceVelocities_SPH_HYB_2ndHalf()");
+   CH_TIME("PicChargedSpecies::advanceVelocities_SPH_HYB_2ndHalf()");
    
    // convert particle velocities from SPH at t_{n+1/2} to CYL at t_{n+1}
    // 1) use thpbar and phpbar to convert time-centered up from SPH to CAR
@@ -1379,9 +1369,9 @@ void PicSpecies::advanceVelocities_SPH_HYB_2ndHalf( const Real  a_dt,
 
 }
 
-void PicSpecies::advanceParticles_CYL_CAR_2ndHalf( List<JustinsParticle>&  a_pList )
+void PicChargedSpecies::advanceParticles_CYL_CAR_2ndHalf( List<JustinsParticle>&  a_pList )
 {
-   CH_TIME("PicSpecies::advanceParticles_CYL_CAR_2ndHalf()");
+   CH_TIME("PicChargedSpecies::advanceParticles_CYL_CAR_2ndHalf()");
    
    // convert particle positions and velocities from CAR at t_{n+1/2} to CAR at t_{n+1}
    // convert new time velocities from CAR to CYL
@@ -1434,9 +1424,9 @@ void PicSpecies::advanceParticles_CYL_CAR_2ndHalf( List<JustinsParticle>&  a_pLi
 }
 
 #if CH_SPACEDIM==1
-void PicSpecies::advanceParticles_SPH_CAR_2ndHalf( List<JustinsParticle>&  a_pList )
+void PicChargedSpecies::advanceParticles_SPH_CAR_2ndHalf( List<JustinsParticle>&  a_pList )
 {
-   CH_TIME("PicSpecies::advanceParticles_SPH_CAR_2ndHalf()");
+   CH_TIME("PicChargedSpecies::advanceParticles_SPH_CAR_2ndHalf()");
 
    // convert particle positions and velocities from CAR at t_{n+1/2} to CAR at t_{n+1}
    // convert new time velocities from CAR to SPH
@@ -1488,7 +1478,7 @@ void PicSpecies::advanceParticles_SPH_CAR_2ndHalf( List<JustinsParticle>&  a_pLi
 #endif
 
 #if CH_SPACEDIM<3
-void PicSpecies::rebaseVirtualPositions()
+void PicChargedSpecies::rebaseVirtualPositions()
 {
    if(!m_mesh.axisymmetric()) return;
     
@@ -1502,9 +1492,9 @@ void PicSpecies::rebaseVirtualPositions()
 
 }
 
-void PicSpecies::rebaseVirtualPositions( List<JustinsParticle>&  a_pList )
+void PicChargedSpecies::rebaseVirtualPositions( List<JustinsParticle>&  a_pList )
 {
-   CH_TIME("PicSpecies::rebaseVirtualPositions() from pList");
+   CH_TIME("PicChargedSpecies::rebaseVirtualPositions() from pList");
 
    const int nComps = 4-CH_SPACEDIM; 
 
@@ -1536,13 +1526,13 @@ void PicSpecies::rebaseVirtualPositions( List<JustinsParticle>&  a_pList )
 }
 #endif
 
-void PicSpecies::applyInertialForces( const Real  a_dt, 
+void PicChargedSpecies::applyInertialForces( const Real  a_dt, 
                                       const bool  a_use_avg_velocity,
                                       const bool  a_update_positions,
                                       const bool  a_half_positions )
 {
    if(m_push_type!=CYL_BORIS) return;
-   CH_TIME("PicSpecies::applyInertialForces()");
+   CH_TIME("PicChargedSpecies::applyInertialForces()");
 
    // See Delzanno JCP 2013
 
@@ -1601,10 +1591,10 @@ void PicSpecies::applyInertialForces( const Real  a_dt,
 
 }
 
-void PicSpecies::advanceParticles( const EMFields&  a_emfields,
+void PicChargedSpecies::advanceParticles( const EMFields&  a_emfields,
                                    const Real       a_dt )
 {
-   CH_TIME("PicSpecies::advanceParticles()");
+   CH_TIME("PicChargedSpecies::advanceParticles()");
    
    // xpbar = xpn + dt/2*upbar/(0.5*(gammap_new + gammap_old))
    // upbar = upn + dt/2*q/m*(Ep(xpbar) + upbar/gammap_bar x Bp(xpbar))
@@ -1621,10 +1611,10 @@ void PicSpecies::advanceParticles( const EMFields&  a_emfields,
 
 }
 
-void PicSpecies::advanceParticlesIteratively( const EMFields&  a_emfields,
+void PicChargedSpecies::advanceParticlesIteratively( const EMFields&  a_emfields,
                                               const Real       a_dt )
 {
-   CH_TIME("PicSpecies::advanceParticlesIteratively()");
+   CH_TIME("PicChargedSpecies::advanceParticlesIteratively()");
    
    // Picard method for coupled half dt advance of particle positions and velocities
    // xpbar = xpn + dt/2*upbar/(0.5*(gammap_new + gammap_old))
@@ -1725,9 +1715,9 @@ void PicSpecies::advanceParticlesIteratively( const EMFields&  a_emfields,
  
 }
 
-void PicSpecies::mergeSubOrbitParticles()
+void PicChargedSpecies::mergeSubOrbitParticles()
 {
-   CH_TIME("PicSpecies::mergeSubOrbitParticles()");
+   CH_TIME("PicChargedSpecies::mergeSubOrbitParticles()");
    if(!m_use_suborbit_model) return;
 
    // this function is called at the end of the pic advance prior to
@@ -1756,9 +1746,9 @@ void PicSpecies::mergeSubOrbitParticles()
 
 }
 
-void PicSpecies::removeOutflowParticles()
+void PicChargedSpecies::removeOutflowParticles()
 {
-   CH_TIME("PicSpecies::removeOutflowParticles()");
+   CH_TIME("PicChargedSpecies::removeOutflowParticles()");
    
    if(!m_motion) return;
     
@@ -1781,26 +1771,26 @@ void PicSpecies::removeOutflowParticles()
    
 }
 
-void PicSpecies::createInflowParticles( const Real  a_time, 
+void PicChargedSpecies::createInflowParticles( const Real  a_time, 
                                         const Real  a_dt  )
 {
-   CH_TIME("PicSpecies::createInflowParticles()");
+   CH_TIME("PicChargedSpecies::createInflowParticles()");
    if(!m_motion) return;
 
    const Real cnormDt = a_dt*m_cvac_norm;
    m_species_bc->createInflowParticles( a_time, cnormDt, m_data );
 }
 
-void PicSpecies::injectInflowParticles()
+void PicChargedSpecies::injectInflowParticles()
 {
-   CH_TIME("PicSpecies::injectInflowParticles()");
+   CH_TIME("PicChargedSpecies::injectInflowParticles()");
    if( m_suborbit_inflowJ ) { return; }
    else { m_species_bc->injectInflowParticles( m_data, m_surfaceCharge_nodes ); }
 }
 
-void PicSpecies::resetParticles()
+void PicChargedSpecies::resetParticles()
 {
-   CH_TIME("PicSpecies::resetParticles()");
+   CH_TIME("PicChargedSpecies::resetParticles()");
 
    // put the suborbit particles back in main list
    mergeSubOrbitParticles();
@@ -1828,9 +1818,9 @@ void PicSpecies::resetParticles()
 
 }
 
-void PicSpecies::updateOldParticlePositions()
+void PicChargedSpecies::updateOldParticlePositions()
 {
-   CH_TIME("PicSpecies::updateOldParticlePositions()");
+   CH_TIME("PicChargedSpecies::updateOldParticlePositions()");
    
    if(!m_motion) return;
     
@@ -1854,10 +1844,10 @@ void PicSpecies::updateOldParticlePositions()
 
 }
 
-void PicSpecies::updateOldParticleVelocities()
+void PicChargedSpecies::updateOldParticleVelocities()
 {
    if(!m_forces) return;
-   CH_TIME("PicSpecies::updateOldParticleVelocities()");
+   CH_TIME("PicChargedSpecies::updateOldParticleVelocities()");
     
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
@@ -1876,9 +1866,9 @@ void PicSpecies::updateOldParticleVelocities()
 
 }
 
-void PicSpecies::setStableDt()
+void PicChargedSpecies::setStableDt()
 {
-   CH_TIME("PicSpecies::setStableDt()");
+   CH_TIME("PicChargedSpecies::setStableDt()");
    
    // set the stable time step based on particles crossing a grid cell
    const RealVect& dX(m_mesh.getdX());
@@ -1920,9 +1910,9 @@ void PicSpecies::setStableDt()
 
 }
 
-void PicSpecies::binTheParticles()
+void PicChargedSpecies::binTheParticles()
 {
-   CH_TIME("PicSpecies::binTheParticles()");
+   CH_TIME("PicChargedSpecies::binTheParticles()");
    
    ///////////////////////////////////////////////////////////
    //
@@ -1956,7 +1946,7 @@ void PicSpecies::binTheParticles()
    }
 }
 
-void PicSpecies::initialize( const CodeUnits&    a_units,
+void PicChargedSpecies::initialize( const CodeUnits&    a_units,
                              const Real          a_time,
                              const std::string&  a_restart_file_name )
 {
@@ -2036,7 +2026,7 @@ void PicSpecies::initialize( const CodeUnits&    a_units,
    
    // define BCs object for this species
    int verbosity = 1; 
-   m_species_bc = new PicSpeciesBC( m_name, m_mass, m_charge, m_interpRhoToGrid, 
+   m_species_bc = new PicChargedSpeciesBC( m_name, m_mass, m_charge, m_interpRhoToGrid, 
                                     m_mesh, a_units, verbosity );
       
    if(m_interp_bc_check) { // only used for charge-conserving schemes so far
@@ -2056,7 +2046,7 @@ void PicSpecies::initialize( const CodeUnits&    a_units,
 
 }
 
-void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
+void PicChargedSpecies::initializeFromInputFile( const CodeUnits&  a_units )
 {
    if(!procID()) cout << "Initializing pic species " << m_name  << " from input file..." << endl;
    int verbosity=0;
@@ -2152,7 +2142,7 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
       ParmParse pptemp0IC( spctemp0IC.c_str() );
       RefCountedPtr<GridFunction> gridFunctionTemp0 = gridFactory.create(pptemp0IC,m_mesh,verbosity);
       gridFunctionTemp0->assign( tempProfile, m_mesh, this_time );
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          m_temperature[dit].copy(tempProfile[dit],0,0,1);
       }
    
@@ -2160,7 +2150,7 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
       ParmParse pptemp1IC( spctemp1IC.c_str() );
       RefCountedPtr<GridFunction> gridFunctionTemp1 = gridFactory.create(pptemp1IC,m_mesh,verbosity);
       gridFunctionTemp1->assign( tempProfile, m_mesh, this_time );
-      for(DataIterator dit(grids); dit.ok(); ++dit) {
+      for (DataIterator dit(grids); dit.ok(); ++dit) {
          m_temperature[dit].copy(tempProfile[dit],0,1,1);
       }
    
@@ -2473,7 +2463,7 @@ void PicSpecies::initializeFromInputFile( const CodeUnits&  a_units )
 
 }
 
-void PicSpecies::perturbPositions()
+void PicChargedSpecies::perturbPositions()
 {
 
    if(!procID()) cout << "perturb positions for species: " << m_name << endl;
@@ -2538,7 +2528,7 @@ void PicSpecies::perturbPositions()
 
 }
 
-void PicSpecies::initializeFromRestartFile( const Real          a_time,
+void PicChargedSpecies::initializeFromRestartFile( const Real          a_time,
                                             const std::string&  a_restart_file_name )
 {
    if(!procID()) cout << "Initializing pic species " << m_name  << " from restart file..." << endl;
@@ -2621,7 +2611,7 @@ void PicSpecies::initializeFromRestartFile( const Real          a_time,
 
 }
 
-void PicSpecies::setNppc() const
+void PicChargedSpecies::setNppc() const
 {
     
    const DisjointBoxLayout& grids = m_Nppc.disjointBoxLayout();
@@ -2641,9 +2631,9 @@ void PicSpecies::setNppc() const
      
 }
 
-void PicSpecies::setNumberDensity() const
+void PicChargedSpecies::setNumberDensity() const
 {
-   CH_TIME("PicSpecies::setNumberDensity()");
+   CH_TIME("PicChargedSpecies::setNumberDensity()");
     
    const Real volume_scale = m_mesh.getVolumeScale();
    const DisjointBoxLayout& grids = m_density.disjointBoxLayout();
@@ -2669,9 +2659,9 @@ void PicSpecies::setNumberDensity() const
      
 }
 
-void PicSpecies::setMomentumDensity() const
+void PicChargedSpecies::setMomentumDensity() const
 {
-   CH_TIME("PicSpecies::setMomentumDensity()");
+   CH_TIME("PicChargedSpecies::setMomentumDensity()");
     
    const Real volume_scale = m_mesh.getVolumeScale();
    const DisjointBoxLayout& grids = m_momentum.disjointBoxLayout();
@@ -2698,9 +2688,9 @@ void PicSpecies::setMomentumDensity() const
      
 }
 
-void PicSpecies::setEnergyDensity() const
+void PicChargedSpecies::setEnergyDensity() const
 {
-   CH_TIME("PicSpecies::setEnergyDensity()");
+   CH_TIME("PicChargedSpecies::setEnergyDensity()");
     
    const Real volume_scale = m_mesh.getVolumeScale();
    const DisjointBoxLayout& grids = m_energy.disjointBoxLayout();
@@ -2727,9 +2717,9 @@ void PicSpecies::setEnergyDensity() const
      
 }
 
-void PicSpecies::setEnergyOffDiag() const
+void PicChargedSpecies::setEnergyOffDiag() const
 {
-   CH_TIME("PicSpecies::setEnergyOffDiag()");
+   CH_TIME("PicChargedSpecies::setEnergyOffDiag()");
     
    const Real volume_scale = m_mesh.getVolumeScale();
    const DisjointBoxLayout& grids = m_energyOffDiag.disjointBoxLayout();
@@ -2756,9 +2746,9 @@ void PicSpecies::setEnergyOffDiag() const
      
 }
 
-void PicSpecies::setEnergyDensityFlux() const
+void PicChargedSpecies::setEnergyDensityFlux() const
 {
-   CH_TIME("PicSpecies::setEnergyDensityFlux()");
+   CH_TIME("PicChargedSpecies::setEnergyDensityFlux()");
     
    const Real volume_scale = m_mesh.getVolumeScale();
    const DisjointBoxLayout& grids = m_energyFlux.disjointBoxLayout();
@@ -2785,9 +2775,9 @@ void PicSpecies::setEnergyDensityFlux() const
      
 }
 
-void PicSpecies::splitParticlesFromBinFab()
+void PicChargedSpecies::splitParticlesFromBinFab()
 {
-   CH_TIME("PicSpecies::splitParticlesFromBinFab()");
+   CH_TIME("PicChargedSpecies::splitParticlesFromBinFab()");
 
    // apply particle splitting algorithm. Requires scattering to be used.
 
@@ -2888,9 +2878,9 @@ void PicSpecies::splitParticlesFromBinFab()
 
 }
 
-void PicSpecies::setNumberDensityFromBinFab() const
+void PicChargedSpecies::setNumberDensityFromBinFab() const
 {
-   CH_TIME("PicSpecies::setNumberDensityFromBinFab()");
+   CH_TIME("PicChargedSpecies::setNumberDensityFromBinFab()");
    
    JustinsParticle* this_part_ptr = NULL;  
     
@@ -2938,9 +2928,9 @@ void PicSpecies::setNumberDensityFromBinFab() const
      
 }
 
-void PicSpecies::setMomentumDensityFromBinFab() const
+void PicChargedSpecies::setMomentumDensityFromBinFab() const
 {
-   CH_TIME("PicSpecies::setMomentumDensityFromBinFab()");
+   CH_TIME("PicChargedSpecies::setMomentumDensityFromBinFab()");
    
    JustinsParticle* this_part_ptr = NULL;  
     
@@ -2997,9 +2987,9 @@ void PicSpecies::setMomentumDensityFromBinFab() const
      
 }
 
-void PicSpecies::setEnergyDensityFromBinFab() const
+void PicChargedSpecies::setEnergyDensityFromBinFab() const
 {
-   CH_TIME("PicSpecies::setEnergyDensityFromBinFab()");
+   CH_TIME("PicChargedSpecies::setEnergyDensityFromBinFab()");
    
    JustinsParticle* this_part_ptr = NULL;  
     
@@ -3056,9 +3046,9 @@ void PicSpecies::setEnergyDensityFromBinFab() const
      
 }
 
-void PicSpecies::setChargeDensity()
+void PicChargedSpecies::setChargeDensity()
 {
-   CH_TIME("PicSpecies::setChargeDensity()");
+   CH_TIME("PicChargedSpecies::setChargeDensity()");
     
    CH_assert(m_charge != 0);
       
@@ -3095,9 +3085,9 @@ void PicSpecies::setChargeDensity()
 
 }
 
-void PicSpecies::setChargeDensityOnFaces()
+void PicChargedSpecies::setChargeDensityOnFaces()
 {
-   CH_TIME("PicSpecies::setChargeDensityOnFaces()");
+   CH_TIME("PicChargedSpecies::setChargeDensityOnFaces()");
     
    CH_assert(m_charge != 0);
       
@@ -3141,9 +3131,9 @@ void PicSpecies::setChargeDensityOnFaces()
 
 }
 
-void PicSpecies::setChargeDensityOnNodes( const bool  a_use_filtering )
+void PicChargedSpecies::setChargeDensityOnNodes( const bool  a_use_filtering )
 {
-   CH_TIME("PicSpecies::setChargeDensityOnNodes()");
+   CH_TIME("PicChargedSpecies::setChargeDensityOnNodes()");
     
    CH_assert(m_charge != 0);
       
@@ -3191,10 +3181,10 @@ void PicSpecies::setChargeDensityOnNodes( const bool  a_use_filtering )
    
 }
 
-void PicSpecies::setCurrentDensity( const Real  a_dt,
+void PicChargedSpecies::setCurrentDensity( const Real  a_dt,
                                     const bool  a_from_explicit_solver )
 {
-   CH_TIME("PicSpecies::setCurrentDensity()");
+   CH_TIME("PicChargedSpecies::setCurrentDensity()");
     
    CH_assert(m_charge != 0);
    
@@ -3262,11 +3252,11 @@ void PicSpecies::setCurrentDensity( const Real  a_dt,
 
 }
 
-void PicSpecies::advanceInflowParticlesAndSetJ( const EMFields&  a_emfields,
+void PicChargedSpecies::advanceInflowParticlesAndSetJ( const EMFields&  a_emfields,
                                                 const Real       a_dt,
                                                 const bool       a_from_emjacobian )
 {
-   CH_TIME("PicSpecies::advanceInflowParticlesAndSetJ()");
+   CH_TIME("PicChargedSpecies::advanceInflowParticlesAndSetJ()");
    if(!m_suborbit_inflowJ) { return; }
    
    SpaceUtils::zero( m_inflowJ );
@@ -3331,11 +3321,11 @@ void PicSpecies::advanceInflowParticlesAndSetJ( const EMFields&  a_emfields,
 
 }
 
-void PicSpecies::advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
+void PicChargedSpecies::advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
                                                   const Real       a_dt,
                                                   const bool       a_from_emjacobian )
 {
-   CH_TIME("PicSpecies::advanceSubOrbitParticlesAndSetJ()");
+   CH_TIME("PicChargedSpecies::advanceSubOrbitParticlesAndSetJ()");
 
    SpaceUtils::zero( m_suborbitJ );
    SpaceUtils::zero( m_suborbitJ_virtual );
@@ -3383,7 +3373,7 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( const EMFields&  a_emfields,
 
 }
 
-void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pList,
                                                   EdgeDataBox&            a_local_J,
                                                   FArrayBox&              a_local_Jv,
                                             const EMFields&     a_emfields,
@@ -3396,7 +3386,7 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pLis
                                             const Real          a_dt,
                                             const bool          a_from_emjacobian )
 {
-   CH_TIME("PicSpecies::advanceSubOrbitParticlesAndSetJ (from box)");
+   CH_TIME("PicChargedSpecies::advanceSubOrbitParticlesAndSetJ (from box)");
 
    int axisymm_car_push = 0;
    if (m_push_type==CYL_CAR) { axisymm_car_push = 1; }
@@ -3678,7 +3668,7 @@ void PicSpecies::advanceSubOrbitParticlesAndSetJ( List<JustinsParticle>&  a_pLis
 
 }
 
-void PicSpecies::accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx, 
+void PicChargedSpecies::accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx, 
                                          LevelData<EdgeDataBox>&    a_sigma_xy,
                                          LevelData<EdgeDataBox>&    a_sigma_xz,
 #if CH_SPACEDIM==1
@@ -3694,7 +3684,7 @@ void PicSpecies::accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx,
                                    const EMFields&                  a_emfields,
                                    const Real                       a_dt ) const
 {
-   CH_TIME("PicSpecies::accumulateMassMatrices()");
+   CH_TIME("PicChargedSpecies::accumulateMassMatrices()");
    if( m_charge==0 ) return;
 
    const DisjointBoxLayout& grids(m_mesh.getDBL());
@@ -3770,11 +3760,11 @@ void PicSpecies::accumulateMassMatrices( LevelData<EdgeDataBox>&    a_sigma_xx,
   
 }
 
-void PicSpecies::interpolateEfieldToParticles( const EMFields&  a_emfields )
+void PicChargedSpecies::interpolateEfieldToParticles( const EMFields&  a_emfields )
 {
   if(!m_forces) return;
   if(m_charge==0.0) return;
-  CH_TIME("PicSpecies::interpolateEfieldToParticles()");
+  CH_TIME("PicChargedSpecies::interpolateEfieldToParticles()");
   
   const int blank_B = 1;
  
@@ -3821,11 +3811,11 @@ void PicSpecies::interpolateEfieldToParticles( const EMFields&  a_emfields )
 
 }
 
-void PicSpecies::interpolateFieldsToParticles( const EMFields&  a_emfields )
+void PicChargedSpecies::interpolateFieldsToParticles( const EMFields&  a_emfields )
 {
   if(!m_forces) return;
   if(m_charge==0.0) return;
-  CH_TIME("PicSpecies::interpolateFieldsToParticles()");
+  CH_TIME("PicChargedSpecies::interpolateFieldsToParticles()");
    
   const DisjointBoxLayout& grids(m_mesh.getDBL());
    
@@ -3873,13 +3863,13 @@ void PicSpecies::interpolateFieldsToParticles( const EMFields&  a_emfields )
 
 }
 
-void PicSpecies::interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
                                          const EdgeDataBox&  a_Efield_inPlane,
                                          const FluxBox&      a_Bfield_inPlane )
 {
    if(!m_forces) return;
    if(m_charge==0.0) return;
-   CH_TIME("PicSpecies::interpolateFieldsToParticles() from particle list");
+   CH_TIME("PicChargedSpecies::interpolateFieldsToParticles() from particle list");
    
    m_meshInterp->interpolateEMfieldsToPart( a_pList,
                                             a_Efield_inPlane[0],
@@ -3892,7 +3882,7 @@ void PicSpecies::interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
    
 }
 
-void PicSpecies::interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
                                          const EdgeDataBox&  a_Efield_inPlane,
                                          const FluxBox&      a_Bfield_inPlane,
                                          const FArrayBox&    a_Efield_virtual,
@@ -3900,7 +3890,7 @@ void PicSpecies::interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
 {
    if(!m_forces) return;
    if(m_charge==0.0) return;
-   CH_TIME("PicSpecies::interpolateFieldsToParticles() from particle list");
+   CH_TIME("PicChargedSpecies::interpolateFieldsToParticles() from particle list");
 
 //#define NEW_EM_INTERP_METHOD
 #ifdef NEW_EM_INTERP_METHOD   
@@ -3926,7 +3916,7 @@ void PicSpecies::interpolateFieldsToParticles( List<JustinsParticle>&  a_pList,
 
 }
 
-void PicSpecies::interpolateFieldsToParticle( JustinsParticle&  a_particle,
+void PicChargedSpecies::interpolateFieldsToParticle( JustinsParticle&  a_particle,
                                         const EdgeDataBox&      a_Efield_inPlane,
                                         const FluxBox&          a_Bfield_inPlane,
                                         const FArrayBox&        a_Efield_virtual,
@@ -3934,7 +3924,7 @@ void PicSpecies::interpolateFieldsToParticle( JustinsParticle&  a_particle,
 {
    if(!m_forces) return;
    if(m_charge==0.0) return;
-   CH_TIME("PicSpecies::interpolateFieldsToParticle() single particle");
+   CH_TIME("PicChargedSpecies::interpolateFieldsToParticle() single particle");
 
    m_meshInterp->interpolateEMfieldsToPart( a_particle,
                                             a_Efield_inPlane[0],
@@ -3955,12 +3945,12 @@ void PicSpecies::interpolateFieldsToParticle( JustinsParticle&  a_particle,
 
 }
 
-void PicSpecies::addExternalFieldsToParticles( const EMFields&  a_emfields )
+void PicChargedSpecies::addExternalFieldsToParticles( const EMFields&  a_emfields )
 {
    if(!m_forces) return;
    if(m_charge==0.0) return;
    if(!a_emfields.externalFields()) return;
-   CH_TIME("PicSpecies::addExternalFieldsToParticles()");
+   CH_TIME("PicChargedSpecies::addExternalFieldsToParticles()");
    
    const BoxLayout& BL = m_data.getBoxes();
    DataIterator dit(BL);
@@ -3974,13 +3964,13 @@ void PicSpecies::addExternalFieldsToParticles( const EMFields&  a_emfields )
    
 }
 
-void PicSpecies::addExternalFieldsToParticles( List<JustinsParticle>&  a_pList, 
+void PicChargedSpecies::addExternalFieldsToParticles( List<JustinsParticle>&  a_pList, 
                                          const EMFields&               a_emfields )
 {
    if(!m_forces) return;
    if(m_charge==0.0) return;
    if(!a_emfields.externalFields()) return;
-   CH_TIME("PicSpecies::addExternalFieldsToParticles() from particle list");
+   CH_TIME("PicChargedSpecies::addExternalFieldsToParticles() from particle list");
    
    std::array<Real,3> extE;
    std::array<Real,3> extB;
@@ -4005,7 +3995,7 @@ void PicSpecies::addExternalFieldsToParticles( List<JustinsParticle>&  a_pList,
 
 }
   
-void PicSpecies::inspectBinFab( const LevelData<BinFab<JustinsParticlePtr>>&  a_binfab_ptr)
+void PicChargedSpecies::inspectBinFab( const LevelData<BinFab<JustinsParticlePtr>>&  a_binfab_ptr)
 {
    JustinsParticle* this_part_ptr = NULL;  
    const DisjointBoxLayout& grids = a_binfab_ptr.disjointBoxLayout();
@@ -4058,7 +4048,7 @@ void PicSpecies::inspectBinFab( const LevelData<BinFab<JustinsParticlePtr>>&  a_
 
 }
 
-void PicSpecies::createMeshInterp()
+void PicChargedSpecies::createMeshInterp()
 {
 
    const ProblemDomain& domain(m_mesh.getDomain()); 
@@ -4074,9 +4064,9 @@ void PicSpecies::createMeshInterp()
 
 }
 
-void PicSpecies::globalMoments(std::vector<Real>&  a_global_moments) const
+void PicChargedSpecies::globalMoments(std::vector<Real>&  a_global_moments) const
 {
-   CH_TIME("PicSpecies::globalMoments()");
+   CH_TIME("PicChargedSpecies::globalMoments()");
 
    Real mass_local = 0.0;
    Real momX_local = 0.0;
@@ -4139,7 +4129,7 @@ void PicSpecies::globalMoments(std::vector<Real>&  a_global_moments) const
 
 }
 
-Real PicSpecies::max_wpdt(const CodeUnits&  a_units,
+Real PicChargedSpecies::max_wpdt(const CodeUnits&  a_units,
                           const Real&       a_dt)
 {
    Real max_density_local = 0.0;
@@ -4168,9 +4158,9 @@ Real PicSpecies::max_wpdt(const CodeUnits&  a_units,
 
 }
 
-void PicSpecies::bdryMoments(std::vector<Real>&  a_bdry_moments)
+void PicChargedSpecies::bdryMoments(std::vector<Real>&  a_bdry_moments)
 {
-   CH_TIME("PicSpecies::bdryMoments()");
+   CH_TIME("PicChargedSpecies::bdryMoments()");
    
    const RealVect& delta_MassOut_lo = m_species_bc->getDeltaMassOut_lo();
    const RealVect& delta_MassOut_hi = m_species_bc->getDeltaMassOut_hi();
@@ -4287,7 +4277,7 @@ void PicSpecies::bdryMoments(std::vector<Real>&  a_bdry_moments)
 
 }
 
-void PicSpecies::picardParams(std::vector<Real>&  a_solver_params)
+void PicChargedSpecies::picardParams(std::vector<Real>&  a_solver_params)
 {
 
    Real avg_pi = avg_picard_its();   
@@ -4303,7 +4293,7 @@ void PicSpecies::picardParams(std::vector<Real>&  a_solver_params)
 
 }
 
-Real PicSpecies::avg_picard_its()
+Real PicChargedSpecies::avg_picard_its()
 {
    // Return the average number of picard iterations over all particles for
    // this species. This is meant to represent an average number of picard 
@@ -4328,7 +4318,7 @@ Real PicSpecies::avg_picard_its()
    
 }
 
-Real PicSpecies::max_avg_picard_its()
+Real PicChargedSpecies::max_avg_picard_its()
 {
 
    // returns the maximum average number of picard iterations amongst the processors
@@ -4346,7 +4336,7 @@ Real PicSpecies::max_avg_picard_its()
 
 }
 
-Real PicSpecies::minimumParticleWeight( const LevelData<FArrayBox>&  a_density,
+Real PicChargedSpecies::minimumParticleWeight( const LevelData<FArrayBox>&  a_density,
                                         const RealVect&              a_sXmin,
                                         const RealVect&              a_sXmax,
                                         const Real                   a_numDen_scale,
@@ -4408,7 +4398,7 @@ Real PicSpecies::minimumParticleWeight( const LevelData<FArrayBox>&  a_density,
 
 }
 
-Real PicSpecies::minimumJacobian( const RealVect&  a_sXmin,
+Real PicChargedSpecies::minimumJacobian( const RealVect&  a_sXmin,
                                   const RealVect&  a_sXmax ) const
 {
    Real min_Jacobian_local = DBL_MAX;
@@ -4461,7 +4451,7 @@ Real PicSpecies::minimumJacobian( const RealVect&  a_sXmin,
 
 }
 
-void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList ) const
+void PicChargedSpecies::inspectParticles( List<JustinsParticle>&  a_pList ) const
 {
             
    ListIterator<JustinsParticle> lit(a_pList);
@@ -4489,7 +4479,7 @@ void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList ) const
       
 }
 
-void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList,
+void PicChargedSpecies::inspectParticles( List<JustinsParticle>&  a_pList,
                              const bool          a_print_fields,
                              const Box&          a_cell_box,
                              const EdgeDataBox&  a_Efield_inPlane,
@@ -4567,13 +4557,6 @@ void PicSpecies::inspectParticles( List<JustinsParticle>&  a_pList,
    }
 
 }
-
-bool PicSpecies::isSpecies( const string&  a_name ) const
-{
-   if(name() == a_name) return true;
-   return false;
-}
-
 
 #include "NamespaceFooter.H"
 

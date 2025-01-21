@@ -12,7 +12,9 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
      m_model_search_count_max(99),
      m_izn_energy_joules(0.0),
      m_exc_energy_joules(0.0),
-     m_fus_energy_joules(0.0)
+     m_fus_energy_joules(0.0),
+     m_bre_energy_joules(0.0),
+     m_ibr_energy_joules(0.0)
 {
 
    ParmParse pp_scatter("scattering");
@@ -39,6 +41,8 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
    ScatteringPtrVect coulomb_ptr_vect;
    ScatteringPtrVect elastic_ptr_vect;
    ScatteringPtrVect fusion_ptr_vect;
+   ScatteringPtrVect bremsstrahlung_ptr_vect;
+   ScatteringPtrVect ibremsstrahlung_ptr_vect;
    ScatteringPtrVect inelastic_ptr_vect;
    
    if(!procID()) cout << "ScatteringInterface: Creating scattering objects..." << endl;
@@ -48,7 +52,7 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
    bool coulomb_all = false;
    pp_scatterC.query("all",coulomb_all);
    if(coulomb_all) {
-      const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+      const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
       createAllCoulomb( coulomb_ptr_vect, pic_species_ptr_vect, pp_scatterC );
    } 
 
@@ -74,6 +78,12 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
          else if(this_scattering->getScatteringType()==FUSION) {
             fusion_ptr_vect.push_back(this_scattering);
          }
+         else if(this_scattering->getScatteringType()==BREMSSTRAHLUNG) {
+            bremsstrahlung_ptr_vect.push_back(this_scattering);
+         }
+         else if(this_scattering->getScatteringType()==IBREMSSTRAHLUNG) {
+            ibremsstrahlung_ptr_vect.push_back(this_scattering);
+         }
          else {
             inelastic_ptr_vect.push_back(this_scattering);
          }
@@ -86,12 +96,16 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
    m_num_coulomb = coulomb_ptr_vect.size();
    m_num_elastic = elastic_ptr_vect.size();
    m_num_fusion = fusion_ptr_vect.size();
+   m_num_bremsstrahlung = bremsstrahlung_ptr_vect.size();
+   m_num_ibremsstrahlung = ibremsstrahlung_ptr_vect.size();
    m_num_inelastic = inelastic_ptr_vect.size();
 
    // concatenate the different ptr vects to m_scattering_ptr_vect
    m_scattering_ptr_vect = coulomb_ptr_vect;
    m_scattering_ptr_vect.append( elastic_ptr_vect );
    m_scattering_ptr_vect.append( fusion_ptr_vect );
+   m_scattering_ptr_vect.append( bremsstrahlung_ptr_vect );
+   m_scattering_ptr_vect.append( ibremsstrahlung_ptr_vect );
    m_scattering_ptr_vect.append( inelastic_ptr_vect );
         
    if(!procID()) {
@@ -100,6 +114,7 @@ ScatteringInterface::ScatteringInterface( const PicSpeciesInterface&  a_pic_spec
       cout << "num_coulomb   = " << m_num_coulomb << endl;
       cout << "num_elastic   = " << m_num_elastic << endl;
       cout << "num_fusion    = " << m_num_fusion << endl;
+      cout << "num_bremss    = " << m_num_bremsstrahlung << endl;
       cout << "num_inelastic = " << m_num_inelastic << endl;
       cout << endl;
    }
@@ -155,12 +170,26 @@ ScatteringInterface::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
    }
    offset += m_num_elastic;
    
-   // do fusion next to last
+   // do fusion next
    for (int sct=offset; sct<offset+m_num_fusion; sct++) {
       ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
       this_scattering->applyScattering( a_pic_species_intf, a_mesh, a_dt_sec );
    }
    offset += m_num_fusion;
+   
+   // do bremsstrahlung next
+   for (int sct=offset; sct<offset+m_num_bremsstrahlung; sct++) {
+      ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+      this_scattering->applyScattering( a_pic_species_intf, a_mesh, a_dt_sec );
+   }
+   offset += m_num_bremsstrahlung;
+   
+   // do inverse bremsstrahlung next
+   for (int sct=offset; sct<offset+m_num_ibremsstrahlung; sct++) {
+      ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+      this_scattering->applyScattering( a_pic_species_intf, a_mesh, a_dt_sec );
+   }
+   offset += m_num_ibremsstrahlung;
    
    // do inelastic last
    for (int sct=offset; sct<offset+m_num_inelastic; sct++) {
@@ -245,6 +274,53 @@ void ScatteringInterface::setFusionProbes()
 
 }
 
+void ScatteringInterface::setBremsstrahlungProbes()
+{  
+   CH_TIME("ScatteringInterface::setBremsstrahlungProbes()");
+   
+   Real deltaE_bre_local = 0.0;
+   Real deltaE_ibr_local = 0.0;
+   for (int sct=0; sct<m_scattering_ptr_vect.size(); sct++) {
+      ScatteringPtr this_scattering(m_scattering_ptr_vect[sct]);
+      if(this_scattering->getScatteringType()==BREMSSTRAHLUNG) {
+         deltaE_bre_local += this_scattering->getDeltaEbremsstrahlung();
+         this_scattering->zeroDeltaEbremsstrahlung();
+      }
+      if(this_scattering->getScatteringType()==IBREMSSTRAHLUNG) {
+         deltaE_ibr_local += this_scattering->getDeltaEIBremsstrahlung();
+         this_scattering->zeroDeltaEIBremsstrahlung();
+      }
+   }
+
+   Real deltaE_bre_global = 0.0;
+#ifdef CH_MPI
+   MPI_Allreduce( &deltaE_bre_local,
+                  &deltaE_bre_global,
+                  1,
+                  MPI_DOUBLE,
+                  MPI_SUM,
+                  MPI_COMM_WORLD );
+#else
+   deltaE_bre_global = deltaE_bre_local;   
+#endif
+
+   Real deltaE_ibr_global = 0.0;
+#ifdef CH_MPI
+   MPI_Allreduce( &deltaE_ibr_local,
+                  &deltaE_ibr_global,
+                  1,
+                  MPI_DOUBLE,
+                  MPI_SUM,
+                  MPI_COMM_WORLD );
+#else
+   deltaE_ibr_global = deltaE_ibr_local;   
+#endif
+
+   m_bre_energy_joules += deltaE_bre_global;
+   m_ibr_energy_joules += deltaE_ibr_global;
+
+}
+
 Real
 ScatteringInterface::scatterDt( const PicSpeciesInterface&  a_pic_species_intf )
 {
@@ -280,6 +356,10 @@ ScatteringInterface::writeCheckpoint( HDF5Handle&  a_handle )
 
    setFusionProbes();
    header.m_real["fus_energy_joules"] = m_fus_energy_joules;
+   
+   setBremsstrahlungProbes();
+   header.m_real["bre_energy_joules"] = m_bre_energy_joules;
+   header.m_real["ibr_energy_joules"] = m_ibr_energy_joules;
 
    header.writeToFile(a_handle);
 }
@@ -294,6 +374,8 @@ ScatteringInterface::readCheckpoint( HDF5Handle&  a_handle,
    m_izn_energy_joules = header.m_real["izn_energy_joules"];
    m_exc_energy_joules = header.m_real["exc_energy_joules"];
    m_fus_energy_joules = header.m_real["fus_energy_joules"];
+   m_bre_energy_joules = header.m_real["bre_energy_joules"];
+   m_ibr_energy_joules = header.m_real["ibr_energy_joules"];
    
    if (m_num_fusion==0) { return; }
 
@@ -333,7 +415,7 @@ ScatteringInterface::readCheckpoint( HDF5Handle&  a_handle,
 
 void 
 ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
-                                 const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                                 const PicChargedSpeciesPtrVect&  a_pic_species_ptr_vect,
                                  const ParmParse&          a_pp_scatterC ) const
 {
          
@@ -347,13 +429,14 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
   // create like-like species first
   for (int sp1=0; sp1<a_pic_species_ptr_vect.size(); sp1++) {
 
-    const PicSpeciesPtr this_picSpecies(a_pic_species_ptr_vect[sp1]);
-    const bool use_scattering = this_picSpecies->scatter();
-    const int charge = this_picSpecies->charge();
+    const PicChargedSpeciesPtr species = a_pic_species_ptr_vect[sp1];
+    const bool use_scattering = species->scatter();
+    const int charge = species->charge();
     if (!use_scattering || charge==0) { continue; }
             
     // Create scattering object and add it to the scattering vector
-    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp1, a_pp_scatterC, 1 );
+    const int sp_num = species->species_num();
+    ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp_num, sp_num, a_pp_scatterC, 1 );
     a_coulomb_ptr_vect.push_back(this_scattering);
             
   }
@@ -361,20 +444,22 @@ ScatteringInterface::createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
   // create unlike species second
   for (int sp1=0; sp1<a_pic_species_ptr_vect.size()-1; sp1++) {
 
-    const PicSpeciesPtr this_picSpecies1(a_pic_species_ptr_vect[sp1]);
-    const bool use_scattering1 = this_picSpecies1->scatter();
-    const int charge1 = this_picSpecies1->charge();
+    const PicChargedSpeciesPtr species1 = a_pic_species_ptr_vect[sp1];
+    const bool use_scattering1 = species1->scatter();
+    const int charge1 = species1->charge();
     if (!use_scattering1 || charge1==0) { continue; }
     
     for (int sp2=sp1+1; sp2<a_pic_species_ptr_vect.size(); sp2++) {
     
-      PicSpeciesPtr this_picSpecies2(a_pic_species_ptr_vect[sp2]);
-      bool use_scattering2 = this_picSpecies2->scatter();
-      int charge2 = this_picSpecies2->charge();
+      PicChargedSpeciesPtr species2 = a_pic_species_ptr_vect[sp2];
+      bool use_scattering2 = species2->scatter();
+      int charge2 = species2->charge();
       if (!use_scattering2 || charge2==0) { continue; }
                
       // Create scattering object and add it to the scattering vector
-      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1, sp2, a_pp_scatterC, 1 );
+      const int sp1_num = species1->species_num();
+      const int sp2_num = species2->species_num();
+      ScatteringPtr this_scattering = scatteringFactory.createCoulomb( sp1_num, sp2_num, a_pp_scatterC, 1 );
       a_coulomb_ptr_vect.push_back(this_scattering);
 
     }

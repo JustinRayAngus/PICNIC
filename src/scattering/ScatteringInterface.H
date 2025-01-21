@@ -10,7 +10,6 @@
 #ifndef ScatteringInterface_h
 #define ScatteringInterface_h
 
-#include "PicSpecies.H"
 #include "PicSpeciesInterface.H"
 
 #include "Scattering.H"
@@ -39,6 +38,8 @@ public:
 
   void setFusionProbes();
 
+  void setBremsstrahlungProbes();
+
   const ScatteringPtrVect& getScatterPtrVect() { return m_scattering_ptr_vect; }
 
   int numScatter() const { return m_scattering_ptr_vect.size(); }
@@ -46,6 +47,10 @@ public:
   int numCoulomb() const { return m_num_coulomb; }
 
   int numFusion() const { return m_num_fusion; }
+
+  int numBremsstrahlung() const { return m_num_bremsstrahlung; }
+
+  int numIBremsstrahlung() const { return m_num_ibremsstrahlung; }
 
   Real scatterDt( const PicSpeciesInterface&  a_pic_species_intf );
 
@@ -55,6 +60,10 @@ public:
 
   Real fusionEnergy() const { return m_fus_energy_joules; }
 
+  Real bremsstrahlungEnergy() const { return m_bre_energy_joules; }
+
+  Real ibremsstrahlungEnergy() const { return m_ibr_energy_joules; }
+
   void writeCheckpoint( HDF5Handle&  a_handle );
 
   void readCheckpoint( HDF5Handle&  a_handle,
@@ -63,7 +72,7 @@ public:
 private:
 
   void createAllCoulomb( ScatteringPtrVect&  a_coulomb_ptr_vect,
-                   const PicSpeciesPtrVect&  a_pic_species_ptr_vect,
+                   const PicChargedSpeciesPtrVect&  a_pic_species_ptr_vect,
                    const ParmParse&          a_pp_scatterC ) const;
 
   bool m_verbosity;    
@@ -74,12 +83,16 @@ private:
   int m_num_coulomb = 0;
   int m_num_elastic = 0;
   int m_num_fusion = 0;
+  int m_num_bremsstrahlung = 0;
+  int m_num_ibremsstrahlung = 0;
   int m_num_inelastic = 0;
   ScatteringPtrVect m_scattering_ptr_vect;
   //
   Real m_izn_energy_joules = 0.0;
   Real m_exc_energy_joules = 0.0;
   Real m_fus_energy_joules = 0.0;
+  Real m_bre_energy_joules = 0.0;
+  Real m_ibr_energy_joules = 0.0;
 
 };
 

@@ -3,7 +3,6 @@
 
 #include "Scattering.H"
 #include "PicnicConstants.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
 
@@ -108,14 +107,14 @@ class MonteCarloNull : public Scattering
       
       void printCrossSections() const;
 
-      void electronImpact( PicSpecies&  a_picSpecies1,
-                           PicSpecies&  a_picSpecies2,
-                           std::vector<PicSpeciesPtr>&  a_exc_species, 
-                           std::vector<PicSpeciesPtr>&  a_dis_species1, 
-                           std::vector<PicSpeciesPtr>&  a_dis_species2, 
-                           std::vector<PicSpeciesPtr>&  a_dis_species3, 
-                           std::vector<PicSpeciesPtr>&  a_izn_speciesE, 
-                           std::vector<PicSpeciesPtr>&  a_izn_speciesI, 
+      void electronImpact( PicChargedSpecies&  a_picSpecies1,
+                           PicChargedSpecies&  a_picSpecies2,
+                           std::vector<PicChargedSpeciesPtr>&  a_exc_species, 
+                           std::vector<PicChargedSpeciesPtr>&  a_dis_species1, 
+                           std::vector<PicChargedSpeciesPtr>&  a_dis_species2, 
+                           std::vector<PicChargedSpeciesPtr>&  a_dis_species3, 
+                           std::vector<PicChargedSpeciesPtr>&  a_izn_speciesE, 
+                           std::vector<PicChargedSpeciesPtr>&  a_izn_speciesI, 
                      const DomainGrid&  a_mesh,
                      const Real         a_dt_sec ) const;
       

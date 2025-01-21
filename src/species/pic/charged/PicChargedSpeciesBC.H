@@ -1,5 +1,5 @@
-#ifndef _PIC_SPECIES_BC_H_
-#define _PIC_SPECIES_BC_H_
+#ifndef _PIC_CHARGED_SPECIES_BC_H_
+#define _PIC_CHARGED_SPECIES_BC_H_
 
 #include "DomainGrid.H"
 #include "ParmParse.H"
@@ -13,11 +13,11 @@
 
 #include "NamespaceHeader.H"
 
-class PicSpeciesBC
+class PicChargedSpeciesBC
 {
    public:
    
-   PicSpeciesBC( const std::string&  a_species_name,
+   PicChargedSpeciesBC( const std::string&  a_species_name,
                  const Real          a_species_mass,
                  const int           a_species_charge,
                  const InterpType&   a_interpRhoToGrid,
@@ -25,7 +25,7 @@ class PicSpeciesBC
                  const CodeUnits&    a_units,
                  const int           a_verbosity );
 
-   ~PicSpeciesBC();
+   ~PicChargedSpeciesBC();
    
    void apply( List<JustinsParticle>&     a_outcast_list,
                LevelData<NodeFArrayBox>&  a_surfaceCharge,

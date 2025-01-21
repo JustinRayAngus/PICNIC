@@ -9,6 +9,8 @@
 #include "TakizukaAbe.H"
 #include "Coulomb.H"
 #include "Fusion.H"
+#include "Bremsstrahlung.H"
+#include "IBremsstrahlung.H"
 #include "Elastic.H"
 #include "Ionization.H"
 #include "ChargeExchange.H"
@@ -92,6 +94,12 @@ RefCountedPtr<Scattering> ScatteringFactory::create( ParmParse&    a_pp,
    }
    else if (model == "fusion" || model == "FUSION") {
       result = RefCountedPtr<Scattering>( new Fusion( a_pp, a_verbosity ) );
+   }
+   else if (model == "bremsstrahlung") {
+      result = RefCountedPtr<Scattering>( new Bremsstrahlung( a_pp, a_verbosity ) );
+   }
+   else if (model == "ibremsstrahlung") {
+      result = RefCountedPtr<Scattering>( new IBremsstrahlung( a_pp, a_verbosity ) );
    }
    else if (model == "cex" || model=="CEX") {
       result = RefCountedPtr<Scattering>( new ChargeExchange( a_pp, a_weight_method, a_verbosity ) );

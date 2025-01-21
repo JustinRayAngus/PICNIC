@@ -172,9 +172,9 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
                            const RealVect&    a_dx,
                            const RealVect&    a_position,
                            const std::array<Real,3>&   a_velocity,
-                           const Real&        a_weight, 
-                           const Real&        a_species_mass, 
-                           const MomentType&  a_momentType ) const // JRA const
+                           const Real         a_weight, 
+                           const Real         a_species_mass, 
+                           const MomentType   a_momentType ) const // JRA const
 
 { 
   //CH_TIME("MeshInterp::momentParticle()"); // timer here seems to affect time spent here...
@@ -213,7 +213,7 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
       break;
     case energy:
 #ifdef RELATIVISTIC_PARTICLES
-      for (int n=0; n<3; n++) gammap += a_velocity[n]*a_velocity[n];
+      for (int n=0; n<3; n++) { gammap += a_velocity[n]*a_velocity[n]; }
       gammap = sqrt(gammap);
 #endif
       kernal = a_species_mass/(gammap + 1.0);
@@ -231,7 +231,7 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
       break;
     case energyOffDiag:
 #ifdef RELATIVISTIC_PARTICLES
-      for (int n=0; n<3; n++) gammap += a_velocity[n]*a_velocity[n];
+      for (int n=0; n<3; n++) { gammap += a_velocity[n]*a_velocity[n]; }
       gammap = sqrt(gammap);
 #endif
       kernal = a_species_mass/(gammap + 1.0);
@@ -249,11 +249,11 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
       break;
     case energyFlux:
 #ifdef RELATIVISTIC_PARTICLES
-      for (int n=0; n<3; n++) gammap += a_velocity[n]*a_velocity[n];
+      for (int n=0; n<3; n++) { gammap += a_velocity[n]*a_velocity[n]; }
       gammap = sqrt(gammap);
 #endif
       kernal = 0.0;
-      for (int n=0; n<3; n++) kernal += a_velocity[n]*a_velocity[n];
+      for (int n=0; n<3; n++) { kernal += a_velocity[n]*a_velocity[n]; }
       kernal *= a_species_mass/(gammap + 1.0);
       kernal0 = kernal*a_velocity[0];
       kernal1 = kernal*a_velocity[1];
@@ -270,6 +270,64 @@ void MeshInterp::momentParticle( FArrayBox&   a_moment,
     default:
       MayDay::Error("Invalid moment type in MeshInterp::momentParticle");
     }
+}
+
+void MeshInterp::momentPhotonParticle( FArrayBox&   a_moment,
+                                 const RealVect&    a_domainLeftEdge,
+                                 const RealVect&    a_dx,
+                                 const RealVect&    a_position,
+                                 const std::array<Real,3>&   a_velocity,
+                                 const Real         a_weight, 
+                                 const PhotonMomentType   a_momentType ) const // JRA const
+
+{ 
+  
+  Real kernal, kernal0, kernal1, kernal2;
+  switch (a_momentType)
+    {
+    case photon_number:
+      FORT_COUNT_DEPOSIT( CHF_FRA1(a_moment, 0),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position) );
+      break;
+    case photon_density:
+      kernal = 1.0;
+      FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, 0),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position),
+                   CHF_CONST_REAL(kernal),
+                   CHF_CONST_REAL(a_weight) );
+      break;
+    case photon_momentum:
+      kernal0 = a_velocity[0];
+      kernal1 = a_velocity[1];
+      kernal2 = a_velocity[2];
+      FORT_MOMENT3V_DEPOSIT( CHF_FRA(a_moment),
+                      CHF_CONST_REALVECT(a_domainLeftEdge),
+                      CHF_CONST_REALVECT(a_dx),
+                      CHF_CONST_REALVECT(a_position),
+                      CHF_CONST_REAL(kernal0),
+                      CHF_CONST_REAL(kernal1),
+                      CHF_CONST_REAL(kernal2),
+                      CHF_CONST_REAL(a_weight) );
+      break;
+    case photon_energy:
+      kernal = 0.0;
+      for (int n=0; n<3; n++) { kernal += a_velocity[n]*a_velocity[n]; }
+      kernal = std::sqrt(kernal);
+      FORT_MOMENT_DEPOSIT( CHF_FRA1(a_moment, 0),
+                   CHF_CONST_REALVECT(a_domainLeftEdge),
+                   CHF_CONST_REALVECT(a_dx),
+                   CHF_CONST_REALVECT(a_position),
+                   CHF_CONST_REAL(kernal),
+                   CHF_CONST_REAL(a_weight) );
+      break;
+    default:
+      MayDay::Error("Invalid moment type in MeshInterp::momentPhotonParticle");
+    }
+
 }
 
 void MeshInterp::setParticleWeight( Real&       a_weight,

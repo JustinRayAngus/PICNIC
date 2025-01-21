@@ -1,7 +1,6 @@
 
 #include "Coulomb.H"
 #include "MathUtils.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "JustinsParticlePtr.H"
 #include "ParticleData.H"
@@ -17,17 +16,19 @@ void Coulomb::initialize( const PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("Coulomb::initialize()");
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+   const int num_species = a_pic_species_intf.numSpecies();   
 
    m_count.define(a_mesh.getDBL(),1,IntVect::Zero);
 
    // get pointer to species 1 and assert collisions allowed
-   CH_assert(m_sp1<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
+   CH_assert(m_sp1<num_species);
+   PicChargedSpeciesPtr this_species1(pic_species_ptr_vect[species_map[m_sp1]]);
       
    // get pointer to species 2 and assert collisions allowed
-   CH_assert(m_sp2<pic_species_ptr_vect.size());
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   CH_assert(m_sp2<num_species);
+   PicChargedSpeciesPtr this_species2(pic_species_ptr_vect[species_map[m_sp2]]);
 
    // set the species names
    m_species1_name = this_species1->name();
@@ -78,11 +79,13 @@ void Coulomb::setMeanFreeTime( const PicSpeciesInterface&  a_pic_species_intf ) 
    
    const LevelData<FArrayBox>& LDe_m = a_pic_species_intf.getDebyeLength();
    
-   const PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+   const PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
    
-   if (!this_species1->scatter() || !this_species2->scatter()) return;
+   PicChargedSpeciesPtr this_species1(pic_species_ptr_vect[species_map[m_sp1]]);
+   PicChargedSpeciesPtr this_species2(pic_species_ptr_vect[species_map[m_sp2]]);
+   
+   if (!this_species1->scatter() || !this_species2->scatter()) { return; }
    
    const bool setMoments = false;
    const LevelData<FArrayBox>& numDen1 = this_species1->getNumberDensity(setMoments);
@@ -355,9 +358,11 @@ void Coulomb::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 {
    CH_TIME("Coulomb::applyScattering()");
       
-   PicSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getPtrVect();
-   PicSpeciesPtr this_species1(pic_species_ptr_vect[m_sp1]);
-   if (!this_species1->scatter()) return;
+   PicChargedSpeciesPtrVect& pic_species_ptr_vect = a_pic_species_intf.getChargedPtrVect();
+   const std::vector<int>& species_map = a_pic_species_intf.getSpeciesMap(); 
+
+   PicChargedSpeciesPtr this_species1(pic_species_ptr_vect[species_map[m_sp1]]);
+   if (!this_species1->scatter()) { return; }
 
    const LevelData<FArrayBox>& LDe_m = a_pic_species_intf.getDebyeLength();
    const Real dt_scatter = a_dt_sec/(double)m_Nsubcycles;
@@ -374,7 +379,7 @@ void Coulomb::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
          }
       }
       else {
-      PicSpeciesPtr this_species2(pic_species_ptr_vect[m_sp2]);
+      PicChargedSpeciesPtr this_species2(pic_species_ptr_vect[species_map[m_sp2]]);
       if (!this_species2->scatter()) return;
          switch (m_weight_method) {
             case PROBABILISTIC: // scatter larger weight particles with probability wmin/wmax
@@ -389,7 +394,7 @@ void Coulomb::applyScattering( PicSpeciesInterface&  a_pic_species_intf,
 
 }
 
-void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
+void Coulomb::applyIntraScattering_PROB( PicChargedSpecies&            a_picSpecies,
                                    const DomainGrid&            a_mesh,
                                    const LevelData<FArrayBox>&  a_LDe_m,
                                    const Real                   a_dt_sec ) const
@@ -476,7 +481,7 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
          std::shuffle(vector_part_ptrs.begin(),vector_part_ptrs.end(),global_rand_gen); 
          
          Real Wtot0 = 0.0;
-         Real Etot0 = 0.0;
+         long double Etot0 = 0.0;
          std::array<Real,3> ptot0 = {0.0,0.0,0.0};
          Real Efact = 0.5;
          if (m_enforce_conservations) { // save initial mass, momentum, and Energy
@@ -608,7 +613,7 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
 
             // enforce momentum conservation and compute deltaE
             for (int n=0; n<3; n++) { dBetaAvg[n] /= Wtot0; }
-            Real Etot1 = 0.0;
+            long double Etot1 = 0.0;
             for (lit.begin(); lit.ok(); ++lit) {
                part1_ptr = lit().getPointer();
                std::array<Real,3>& betap = part1_ptr->velocity();
@@ -658,8 +663,8 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
                const Real wp2 = part2_ptr->weight();
 
                // zero angle inelastic scatter
-               modEnergyPairwise( betap1, betap2, m_mass1*wp1, m_mass2*wp2, 
-                                  fmult_fact, Erel_cumm, deltaE );
+               ScatteringUtils::modEnergyPairwise( betap1, betap2, m_mass1*wp1, m_mass2*wp2,
+                                   m_energy_fraction*fmult_fact, Erel_cumm, deltaE );
                count += 1;
                if (deltaE==0.0) { break; }
                if (p==vector_part_ptrs.size()-1) {
@@ -719,7 +724,7 @@ void Coulomb::applyIntraScattering_PROB( PicSpecies&            a_picSpecies,
 
 }
 
-void Coulomb::applyIntraScattering_SK08( PicSpecies&            a_picSpecies, 
+void Coulomb::applyIntraScattering_SK08( PicChargedSpecies&            a_picSpecies, 
                                    const DomainGrid&            a_mesh,
                                    const LevelData<FArrayBox>&  a_LDe_m,
                                    const Real                   a_dt_sec ) const
@@ -908,8 +913,8 @@ void Coulomb::applyIntraScattering_SK08( PicSpecies&            a_picSpecies,
    
 }
 
-void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
-                                         PicSpecies&            a_picSpecies2, 
+void Coulomb::applyInterScattering_PROB( PicChargedSpecies&            a_picSpecies1,
+                                         PicChargedSpecies&            a_picSpecies2, 
                                    const DomainGrid&            a_mesh,
                                    const LevelData<FArrayBox>&  a_LDe_m,
                                    const Real                   a_dt_sec ) const
@@ -1014,10 +1019,10 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
          
          Real Wtot0 = 0.0, wp1_mean = 0.0, wp2_mean = 0.0;
          std::array<Real,3> ptot0 = {0.0,0.0,0.0};
-         Real Etot0 = 0.0;
-         Real Efact = 0.5;
+         long double Etot0 = 0.0;
+         long double Efact = 0.5;
          if (m_enforce_conservations) { // save initial mass, momentum, and Energy
-            Real Wtot01 = 0.0, Etot01 = 0.0;
+            long double Wtot01 = 0.0, Etot01 = 0.0;
             std::array<Real,3> ptot01 = {0.0,0.0,0.0};
             wp1_mean = 0.0;
             for (lit1.begin(); lit1.ok(); ++lit1) {
@@ -1044,7 +1049,7 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
             }
             wp1_mean /= numCell1; // mean particle weight for species 1
 
-            Real Wtot02 = 0.0, Etot02 = 0.0;
+            long double Wtot02 = 0.0, Etot02 = 0.0;
             std::array<Real,3> ptot02 = {0.0,0.0,0.0};
             for (lit2.begin(); lit2.ok(); ++lit2) {
                part2_ptr = lit2().getPointer();
@@ -1258,6 +1263,8 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
             else {
                deltaEp1 = wp1_mean*Etot11/Etotdenom*deltaE;
                deltaEp2 = wp2_mean*Etot12/Etotdenom*deltaE;
+               //deltaEp1 = Etot11/Etot1*deltaE;
+               //deltaEp2 = Etot12/Etot1*deltaE;
             }
 
             // sort particles by weight to bias adjusting particles below to
@@ -1300,8 +1307,8 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                const Real wp2 = part2_ptr->weight();
 
                // zero angle inelastic scatter
-               modEnergyPairwise( betap1, betap2, m_mass1*wp1, m_mass1*wp2, 
-                                  fmult1_fact, Erel1_cumm, deltaEp1);
+               ScatteringUtils::modEnergyPairwise( betap1, betap2, m_mass1*wp1, m_mass1*wp2,
+                                   m_energy_fraction*fmult1_fact, Erel1_cumm, deltaEp1 );
 
                if (p==vector_part1_ptrs.size()-1) {
                   loop1_count++;
@@ -1361,8 +1368,8 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
                const Real wp2 = part2_ptr->weight();
 
                // zero angle inelastic scatter
-               modEnergyPairwise( betap1, betap2, m_mass2*wp1, m_mass2*wp2,
-                                  fmult2_fact, Erel2_cumm, deltaEp2 );
+               ScatteringUtils::modEnergyPairwise( betap1, betap2, m_mass2*wp1, m_mass2*wp2,
+                                   m_energy_fraction*fmult2_fact, Erel2_cumm, deltaEp2 );
 
                if (p==vector_part2_ptrs.size()-1) {
                   loop2_count++;
@@ -1426,8 +1433,8 @@ void Coulomb::applyInterScattering_PROB( PicSpecies&            a_picSpecies1,
    
 }
 
-void Coulomb::applyInterScattering_SK08( PicSpecies&            a_picSpecies1,
-                                         PicSpecies&            a_picSpecies2, 
+void Coulomb::applyInterScattering_SK08( PicChargedSpecies&            a_picSpecies1,
+                                         PicChargedSpecies&            a_picSpecies2, 
                                    const DomainGrid&            a_mesh,
                                    const LevelData<FArrayBox>&  a_LDe_m,
                                    const Real                   a_dt_sec ) const
@@ -1677,12 +1684,16 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
          } 
          else { // set random polar angle between zero and pi
             const Real theta = Constants::PI*MathUtils::rand();
-            m_costh = cos(theta);
-            m_sinth = sin(theta);
+            m_costh = std::cos(theta);
+            m_sinth = std::sin(theta);
          }
          break;
       case NANBU:
          setNANBUcosthsinth(m_s12);
+         break;
+      case BOBYLEV:
+         m_costh = 1.0 - std::min(m_s12,2.0);
+         m_sinth = std::sin(std::acos(m_costh));
          break;
       case NANBU_FAS:
          setNANBUFAScosthsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
@@ -1692,15 +1703,15 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
          break;
       case ISOTROPIC:
          const Real theta = Constants::PI*MathUtils::rand();
-         m_costh = cos(theta);
-         m_sinth = sin(theta);
+         m_costh = std::cos(theta);
+         m_sinth = std::sin(theta);
          break;
    }
 
    // set random azimuthal angle
    m_phi = Constants::TWOPI*MathUtils::rand();
-   m_cosphi = cos(m_phi);
-   m_sinphi = sin(m_phi);
+   m_cosphi = std::cos(m_phi);
+   m_sinphi = std::sin(m_phi);
 
    // define deltaU
    ScatteringUtils::computeDeltaU(a_deltaU,ux,uy,uz,m_costh,m_sinth,m_cosphi,m_sinphi);
@@ -1789,12 +1800,16 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
          } 
          else { // set random polar angle between zero and pi
             const Real theta = Constants::PI*MathUtils::rand();
-            m_costh = cos(theta);
-            m_sinth = sin(theta);
+            m_costh = std::cos(theta);
+            m_sinth = std::sin(theta);
          }
          break;
       case NANBU:
          setNANBUcosthsinth(m_s12);
+         break;
+      case BOBYLEV:
+         m_costh = 1.0 - std::min(m_s12,2.0);
+         m_sinth = std::sin(std::acos(m_costh));
          break;
       case NANBU_FAS:
          setNANBUFAScosthsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
@@ -1804,15 +1819,15 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
          break;
       case ISOTROPIC:
          const Real theta = Constants::PI*MathUtils::rand();
-         m_costh = cos(theta);
-         m_sinth = sin(theta);
+         m_costh = std::cos(theta);
+         m_sinth = std::sin(theta);
          break;
    }
 
    // set random azimuthal angle
    m_phi = Constants::TWOPI*MathUtils::rand();
-   m_cosphi = cos(m_phi);
-   m_sinphi = sin(m_phi);
+   m_cosphi = std::cos(m_phi);
+   m_sinphi = std::sin(m_phi);
 
    // rotate upst for particle 1 by scattering angles
    ScatteringUtils::rotateVelocity(upst,m_costh,m_sinth,m_cosphi,m_sinphi);

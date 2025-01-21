@@ -37,7 +37,7 @@ class Piston : public SpecialOperator
          }
       }
 
-      virtual void applyOp( PicSpeciesPtrVect&  a_pic_species_ptr_vect, 
+      virtual void applyOp( PicChargedSpeciesPtrVect&  a_pic_species_ptr_vect, 
                       const Real&               a_dt ) const
       {
          CH_TIME("Piston::applyOp()");
@@ -45,7 +45,7 @@ class Piston : public SpecialOperator
          const Real cnormDt = m_units.CvacNorm()*a_dt;
       
          for (int sp=0; sp<a_pic_species_ptr_vect.size(); sp++) {
-            PicSpeciesPtr species(a_pic_species_ptr_vect[sp]);
+            PicChargedSpeciesPtr species = a_pic_species_ptr_vect[sp];
    
             // This special operator does its own push, so check to make sure the species
             // motion is turned off

@@ -83,12 +83,16 @@ class dataFileIO
                                   HDF5Handle&      a_handle,
                                   HDF5HeaderData&  a_header );
       
-      void writeSpeciesParticleFile( const PicSpecies&  a_picSpecies,
+      void writeSpeciesParticleFile( const PicChargedSpecies&  a_picSpecies,
                                      const int          a_species, 
                                      const int          a_cur_step, 
                                      const double       a_cur_time );
-      
-      void writeSpeciesMomentsFile( const PicSpecies&  a_picSpecies,
+
+      void writePhotonSpeciesParticleFile( const PicPhotonSpecies&  a_photonSpecies,
+                                     const int          a_cur_step, 
+                                     const double       a_cur_time );
+
+      void writeSpeciesMomentsFile( const PicChargedSpecies&  a_picSpecies,
                                     const int          a_species, 
                                     const int          a_cur_step, 
                                     const double       a_cur_time,
@@ -98,6 +102,10 @@ class dataFileIO
                                     const bool         a_write_energy_off_diag,
                                     const bool         a_write_energy_flux,
                                     const bool         a_write_nppc );
+      
+       void writePhotonSpeciesMomentsFile( const PicPhotonSpecies&  a_photonSpecies,
+                                           const int                a_cur_step, 
+                                           const double             a_cur_time );
 
       void writeFusionProductsDataFile( const ScatteringPtrVect&  a_scattering_ptr_vect,
                                         const int                 a_num_fusion,
@@ -118,12 +126,16 @@ class dataFileIO
                               const int          a_write_old_data,
                               const EMFields&    a_emfield );
       
-      void writeCheckpointPicSpecies( HDF5Handle&           a_handle,
-                                const PicSpeciesInterface&  a_pic_species );
+      void writeCheckpointSpecies( HDF5Handle&           a_handle,
+                             const PicSpeciesInterface&  a_pic_species );
       
       void writeCheckpointParticles( HDF5Handle&  a_handle,
-                               const PicSpecies&  a_picSpecies,
+                               const PicChargedSpecies&  a_picSpecies,
                                const int          a_species );
+      
+      void writeCheckpointPhotonParticles( HDF5Handle&     a_handle,
+                                     const PicPhotonSpecies&  a_photonSpecies );
+      
       
    private:
 

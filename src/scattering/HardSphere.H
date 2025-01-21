@@ -3,7 +3,6 @@
 
 #include "Scattering.H"
 #include "PicnicConstants.H"
-#include "PicSpecies.H"
 #include "JustinsParticle.H"
 #include "ParticleData.H"
 
@@ -69,13 +68,13 @@ class HardSphere : public Scattering
    private:
 
       // scatter like species
-      void applySelfScattering( PicSpecies&  a_picSpecies, 
+      void applySelfScattering( PicChargedSpecies&  a_picSpecies, 
                           const DomainGrid&  a_mesh,
                           const Real         a_dt_sec ) const;
       
       // scatter unlike species
-      void applyInterScattering( PicSpecies&  a_picSpecies1,
-                                 PicSpecies&  a_picSpecies2,
+      void applyInterScattering( PicChargedSpecies&  a_picSpecies1,
+                                 PicChargedSpecies&  a_picSpecies2,
                            const DomainGrid&  a_mesh,
                            const Real         a_dt_sec ) const;
       

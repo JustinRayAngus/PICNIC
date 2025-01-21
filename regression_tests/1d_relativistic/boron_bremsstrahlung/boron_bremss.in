@@ -1,0 +1,173 @@
+#####################################################
+#TEST np=25, timelimit=00:05:00
+#####################################################
+#####################################################
+# Verbosity Definitions
+#####################################################
+simulation.verbosity = 10
+simulation.fixed_random_seed = 1983
+
+system.advance_method = "DSMC"
+
+#####################################################
+# Time Stepping Definitions
+#####################################################
+simulation.max_step            = 100 # 100000
+simulation.max_time            = 40.0
+simulation.fixed_dt            = 1.0e-2
+simulation.plot_parts_factor   = 1
+simulation.plot_on_restart     = false
+simulation.plot_on_final_step  = true
+simulation.plot_time_interval  = 2.0
+simulation.plot_prefix         = "plt"
+simulation.history             = true
+simulation.history_interval    = 100
+
+simulation.dt_parts_check_interval   = 100
+simulation.dt_scatter_check_interval = 100
+
+history.precision = 16
+history.bremsstrahlung_probes = true
+history.species0_probes = true
+history.species1_probes = true
+history.species2_probes = true
+
+#simulation.checkpoint_time_interval = 5000.0
+#simulation.restart_file = "checkpoint_data/chk000100.2d.hdf5"
+#simulation.wall_time_hrs = 0.95
+
+#####################################################
+# Computational Grid Definitions
+#####################################################
+grid.num_cells     = 100 
+grid.is_periodic   = 1
+grid.config_decomp = 5
+grid.geometry      = "cartesian"
+grid.num_ghosts    = 3
+
+grid.X_min = 0.0
+grid.X_max = 1.0
+grid.verbosity = 1
+
+#####################################################
+# Units Definitions
+#####################################################
+units.number_density = 1.0  # num/m^3
+units.temperature    = 1.0  # eV
+units.length         = 1.0e-6   # m
+units.time           = 1.0e-15  # s
+
+#####################################################
+# Fields Definitions
+#####################################################
+em_fields.use = true
+em_fields.advance = false
+#em_fields.advance_electric_field = 1 0 0
+#em_fields.advance_magnetic_field = 0 0 0
+em_fields.write_rho = true
+em_fields.write_divs = true
+em_fields.write_curls = true
+
+IC.em_fields.magnetic.0.type = "constant"
+IC.em_fields.magnetic.0.value = 0.0
+IC.em_fields.magnetic.1.type = "constant"
+IC.em_fields.magnetic.1.value = 0.0
+IC.em_fields.magnetic.2.type = "constant"
+IC.em_fields.magnetic.2.value = 0.0
+
+IC.em_fields.electric.0.type = "constant"
+IC.em_fields.electric.0.value = 0.0
+IC.em_fields.electric.1.type = "constant"
+IC.em_fields.electric.1.value = 0.0
+IC.em_fields.electric.2.type = "constant"
+IC.em_fields.electric.2.value = 0.0
+
+#####################################################
+# Species Definitions
+#####################################################
+pic_species.0.name   = "electron"
+pic_species.0.mass   = 1.0
+pic_species.0.charge = -1
+pic_species.0.motion = true
+pic_species.0.forces = false
+pic_species.0.scatter = true
+pic_species.0.interp_type_N = "TSC"
+pic_species.0.interp_type_J = "CC1"
+pic_species.0.interp_type_E = "CC1"
+pic_species.0.interp_bc_check = false
+pic_species.0.use_suborbit_model = false
+
+pic_species.1.name   = "boron11"
+pic_species.1.mass   = 20065.0 # 11.01*amu/me - 5
+pic_species.1.charge = 5
+pic_species.1.motion = true
+pic_species.1.forces = false
+pic_species.1.scatter = true
+pic_species.1.interp_type_N = "TSC"
+pic_species.1.interp_type_J = "CC1"
+pic_species.1.interp_type_E = "CC1"
+pic_species.1.interp_bc_check = false
+pic_species.1.use_suborbit_model = false
+
+IC.electron.parts_per_cell = 1024
+IC.electron.density.type = "constant"
+IC.electron.density.value = 5.47e30 # [number/m^3]
+IC.electron.use_float_for_weights = true
+IC.electron.temperature_0.type = "constant"
+IC.electron.temperature_0.value = 0.0e3 # [eV]
+IC.electron.temperature_1.type = "constant"
+IC.electron.temperature_1.value = 0.0e3 # [eV]
+IC.electron.temperature_2.type = "constant"
+IC.electron.temperature_2.value = 0.0e3 # [eV]
+IC.electron.velocity_0.type = "constant"
+IC.electron.velocity_0.value = 8.3423e8 # proper velocity for KE = 1 MeV
+IC.electron.velocity_1.type = "constant"
+IC.electron.velocity_1.value = 0.0
+IC.electron.velocity_2.type = "constant"
+IC.electron.velocity_2.value = 0.0
+
+IC.boron11.parts_per_cell = 1024
+IC.boron11.density.type = "constant"
+IC.boron11.density.value = 5.47e31 # [number/m^3] for rho = 1000 g/cm^3
+IC.boron11.use_float_for_weights = true
+IC.boron11.temperature_0.type = "constant"
+IC.boron11.temperature_0.value = 2.0e3 # [eV]
+IC.boron11.temperature_1.type = "constant"
+IC.boron11.temperature_1.value = 2.0e3 # [eV]
+IC.boron11.temperature_2.type = "constant"
+IC.boron11.temperature_2.value = 2.0e3 # [eV]
+IC.boron11.velocity_0.type = "constant"
+IC.boron11.velocity_0.value = 0.0
+IC.boron11.velocity_1.type = "constant"
+IC.boron11.velocity_1.value = 0.0
+IC.boron11.velocity_2.type = "constant"
+IC.boron11.velocity_2.value = 0.0
+
+pic_species.2.name   = "photon"
+pic_species.2.type   = "photon"
+pic_species.2.mass   = 0.0
+pic_species.2.charge = 0
+pic_species.2.motion = false
+pic_species.2.forces = false
+pic_species.2.scatter = true
+
+#####################################################
+# Scattering Definitions
+#####################################################
+
+scattering.coulomb.all = false
+scattering.coulomb.model = "COULOMB"
+scattering.coulomb.angular_scattering = "NANBU"
+scattering.coulomb.enforce_conservations = true
+
+scattering.0.model = "bremsstrahlung"
+scattering.0.atomic_number = 5
+scattering.0.create_photons = true
+scattering.0.fmulti = 1.0e2
+scattering.0.species1 = 0 # electron
+scattering.0.species2 = 1 # B11
+scattering.0.species3 = 2 # photon
+
+#####################################################
+
+

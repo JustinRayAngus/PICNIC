@@ -900,10 +900,10 @@ void MeshInterp::moment( FArrayBox&  a_moment,
 {
   //CH_TIME("MeshInterp::moment()");
 
-  if(a_momentType==momentum) CH_assert(a_moment.nComp()==3);
-  if(a_momentType==energy) CH_assert(a_moment.nComp()==3);
-  if(a_momentType==energyOffDiag) CH_assert(a_moment.nComp()==3);
-  if(a_momentType==energyFlux) CH_assert(a_moment.nComp()==3);
+  if (a_momentType==momentum) { CH_assert(a_moment.nComp()==3); }
+  if (a_momentType==energy) { CH_assert(a_moment.nComp()==3); }
+  if (a_momentType==energyOffDiag) { CH_assert(a_moment.nComp()==3); }
+  if (a_momentType==energyFlux) { CH_assert(a_moment.nComp()==3); }
 
   for (ListIterator<P> lit(a_particleList); lit; ++lit)
   {
@@ -919,6 +919,32 @@ void MeshInterp::moment( FArrayBox&  a_moment,
                      this_w,
                      a_species_mass,
                      a_momentType );
+   }
+}
+
+template <class P>
+void MeshInterp::photonMoment( FArrayBox&  a_moment,
+                         const List<P>&    a_particleList,
+                         const PhotonMomentType  a_momentType ) const // JRA const
+{
+
+   if (a_momentType==photon_number) { CH_assert(a_moment.nComp()==1); }
+   if (a_momentType==photon_density) { CH_assert(a_moment.nComp()==1); }
+   if (a_momentType==photon_momentum) { CH_assert(a_moment.nComp()==3); }
+   if (a_momentType==photon_energy) { CH_assert(a_moment.nComp()==1); }
+
+   for (ListIterator<P> lit(a_particleList); lit; ++lit) {
+      const P& this_particle = lit();
+      const RealVect& this_x = this_particle.position();
+      const std::array<Real,3>& this_v = this_particle.velocity(); // unit direction vector
+      const Real& this_w = this_particle.weight();
+      momentPhotonParticle( a_moment, 
+                            m_domainLeftEdge, 
+                            m_dx, 
+                            this_x, 
+                            this_v, 
+                            this_w,
+                            a_momentType );
    }
 }
 
