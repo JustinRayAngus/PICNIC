@@ -84,12 +84,10 @@ class Coulomb : public Scattering
             }
             else if (m_angular_scattering==NANBU_FAS) {
               std::cout << " angular scattering:     NANBU_FAS " << std::endl;
-              std::cout << "   limit_fas_theta_max:   " << (m_limit_fas_theta_max?"true":"false") << std::endl;
               std::cout << "   exclude electron fas:  " << (m_exclude_electron_fas?"true":"false") << std::endl;
             }
             else if (m_angular_scattering==NANBU_FAS_v2) {
               std::cout << " angular scattering:     NANBU_FAS_v2 " << std::endl;
-              std::cout << "   limit_fas_theta_max:   " << (m_limit_fas_theta_max?"true":"false") << std::endl;
               std::cout << "   exclude electron fas:  " << (m_exclude_electron_fas?"true":"false") << std::endl;
             }
             else if (m_angular_scattering==ISOTROPIC) {
@@ -113,6 +111,10 @@ class Coulomb : public Scattering
             }
             if (m_weight_method==CONSERVATIVE) {
               std::cout << " weight method:          CONSERVATIVE " << std::endl;
+            }
+            if (m_include_large_angle_scattering) {
+              std::cout << " include large angle scattering: " << (m_include_large_angle_scattering?"true":"false") << std::endl;
+              std::cout << " exclude electron LAS:    " << (m_exclude_electron_fas?"true":"false") << std::endl;
             }
             if (m_Clog>0.0) {
                std::cout << " fixed Clog =            " << m_Clog << std::endl;
@@ -177,7 +179,12 @@ class Coulomb : public Scattering
                         const LevelData<FArrayBox>&  a_numDensity2,
                         const LevelData<FArrayBox>&  a_momDensity2,
                         const LevelData<FArrayBox>&  a_eneDensity2 ) const;
-      
+
+      void SetPolarScattering( const Real  Clog,
+                               const Real  b0,
+                               const Real  bmin_qm,
+                               const Real  sigma_eff ) const;
+
       void GalileanScatter( std::array<Real,3>&  a_deltaU,
                       const std::array<Real,3>&  a_vp1,
                       const std::array<Real,3>&  a_vp2,
@@ -224,6 +231,8 @@ class Coulomb : public Scattering
          // look for specified scattering model
          std::string scatter_type_str;
          a_pp.query("angular_scattering",scatter_type_str);
+         a_pp.query("include_large_angle_scattering", m_include_large_angle_scattering );
+         a_pp.query("exclude_electron_fas", m_exclude_electron_fas );
          if (!scatter_type_str.empty()) {
             if (scatter_type_str=="TAKIZUKA" || scatter_type_str=="takizuka") {
                m_angular_scattering = TAKIZUKA;
@@ -231,31 +240,31 @@ class Coulomb : public Scattering
             else if (scatter_type_str=="NANBU" || scatter_type_str=="nanbu") {
                m_angular_scattering = NANBU;
             }
-            else if (scatter_type_str=="BOBYLEV") {
+            else if (scatter_type_str=="BOBYLEV" || scatter_type_str=="bobylev") {
                m_angular_scattering = BOBYLEV;
             }
             else if (scatter_type_str=="NANBU_FAS" || scatter_type_str=="nanbu_fas") {
                m_angular_scattering = NANBU_FAS;
             }
-            else if (scatter_type_str=="NANBU_FAS_v2" || scatter_type_str=="NANBU_FAS_JRA") {
-               // NANBU_FAS_JRA is for legacy purposes
+            else if (scatter_type_str=="NANBU_FAS_v2" || scatter_type_str=="nanbu_fas_v2") {
                m_angular_scattering = NANBU_FAS_v2;
             }
-            else if (scatter_type_str=="isotropic") {
+            else if (scatter_type_str=="ISOTROPIC" || scatter_type_str=="isotropic") {
                m_angular_scattering = ISOTROPIC;
             }
             else {
                cout << "angular_scattering = " << scatter_type_str << endl;
-               cout << " valid options: 1) takizuka, 2) nanbu " << endl;
+               cout << " valid options: takizuka, nanbu, bobylev " << endl;
                MayDay::Error( "Coulomb: invalid angular_scattering" );
             }
          }
 
-         if (m_angular_scattering==NANBU_FAS || m_angular_scattering==NANBU_FAS_v2) {
-            a_pp.query( "limit_fas_theta_max", m_limit_fas_theta_max );
-            a_pp.query( "exclude_electron_fas", m_exclude_electron_fas );
+         if (m_include_large_angle_scattering) {
+            CH_assert( m_angular_scattering==TAKIZUKA ||
+                       m_angular_scattering==NANBU ||
+                       m_angular_scattering==BOBYLEV );
          }
-         
+
          // look for specified weighted particle method
          std::string weight_method_str;
          a_pp.query("weight_method",weight_method_str);
@@ -316,8 +325,8 @@ class Coulomb : public Scattering
       bool m_enforce_conservations = false;
       bool m_print_correction_count = false;
       bool m_sort_weighted_particles = false;
-      bool m_limit_fas_theta_max = false;
       bool m_exclude_electron_fas = true;
+      bool m_include_large_angle_scattering = false;
       Real m_energy_fraction;
       Real m_energy_fraction_max;
       int m_beta_weight_exponent = 1;
@@ -357,66 +366,37 @@ class Coulomb : public Scattering
                                          const Real  Clog,
                                          const Real  b0,
                                          const Real  bmin_qm,
-                                         const Real  bmax,
                                          const Real  sigma_eff ) const
       {
          // set costh and sinth using NANBU method extended to include single large angle
          // scattering events (i.e., full angle scattering) via Higginson JCP 2017.
 
-         // s12_min (where N = 1) is Clog*b0^2/(bmax^2-bmin_R^2).
-         // However, when bmin in Clog is set by bmin_qm rather than b0/2,
-         // then the FAS model is not solvable. Using bmin_R set to some fraction
-         // of bmin_qm helps with solvability, but not gauranteed. Default is to use
-         // the expression by Higginson 2017 for s12_min so the equations are solvable.
-         // However, it should be mentioned that this means one will do pure Rutherford
-         // even though N > 1 when bmin>b0/2.
+         // compute bmax from Clog to avoid potential solvability issues
+         const Real bperp_sq = b0*b0/4.0;
+         const Real bmin_sq = bmin_qm*bmin_qm;
+         const Real bmax_sq = std::exp(2.0*Clog)*(bperp_sq + bmin_sq) - bperp_sq;
 
          // set s12_min (where N ~= 1). Factor of 1.33 is for solvability at Clog = 2
          Real s12_min = 1.33*4.0*Clog/(std::exp(2.0*Clog)-1.0);
 
-         // set minimum impact parameter for Rutherford scattering.
-         // bmin_R = 0.14*bmin_qm matches transition for 27.5 MeV alphas
-         // at 60 degrees observed experimentally. Using 0.5 for factor, which works
-         // better for electrons. However, really shouldn't use this for electrons.
-         Real bmin_R = 0.0;
-         Real theta_max = Constants::PI;
-         if (m_limit_fas_theta_max && bmin_qm>0.0) {
-            bmin_R = 0.5*bmin_qm;
-            theta_max = 2.0*std::atan(b0/2.0/bmin_R);
-            s12_min = 1.33*Clog*b0*b0/(bmax*bmax-bmin_R*bmin_R);
-         }
-         const Real costhmax = std::cos(theta_max);
-         const Real mu_max = (1.0 - costhmax)/2.0; // sin^2(theta_max/2)
-
-         if (bmin_R>bmax/2.0 || b0>bmax) {
-            setNANBUcosthsinth(s12);
-            return;
-         }
-
+         m_costh = 1.0;
+         m_sinth = 0.0;
          if (s12 < s12_min) { // do single scatter event
-            const Real theta_min = 2.0*std::atan(b0/2.0/bmax);  // minimum scatter angle
-            const Real mu_min = (1.0 - std::cos(theta_min))/2.0;
-            const Real sigma_R = Constants::PI*b0*b0/4.0*(1.0/mu_min - 1.0/mu_max);
-            const Real s12_L = sigma_R/sigma_eff*s12;
-            const Real PL = 1.0 - std::exp(-s12_L);
-            if (s12_L > 2.0) { setNANBUcosthsinth(s12); }
-            else if (MathUtils::rand()<PL) {
+            const Real N12 = s12/sigma_eff*Constants::PI*(bmax_sq - bmin_sq);
+            const Real PL = 1.0 - std::exp(-N12);
+            if (MathUtils::rand()<PL) {
                const Real RL = MathUtils::rand();
-               const Real costhmin = std::cos(theta_min);
-               const Real numer = RL*(costhmin - costhmax) - costhmin*(1.0-costhmax);
-               const Real denom = RL*(costhmin - costhmax) - (1.0 - costhmax);
-               m_costh = numer/denom;
+               const Real bsq = bmax_sq - RL*(bmax_sq - bmin_sq);
+               m_costh = (bsq - bperp_sq)/(bsq + bperp_sq);
                m_sinth = std::sqrt(1.0-m_costh*m_costh);
-            }
-            else {
-               m_costh = 1.0;
-               m_sinth = 0.0;
             }
          }
          else if (s12 < 0.5) { // use nanbu full angle scattering model
 
             // set coefficients alpha_g, sA, and muc = sin^2(theta_c/2.0)
             Real alpha_g, sA, muc;
+            const Real costhmax = (bmin_sq - bperp_sq)/(bmin_sq + bperp_sq);
+            const Real mu_max = (1.0 - costhmax)/2.0; // sin^2(theta_max/2)
             int success = setFAScoefficients( alpha_g, sA, muc, Clog, s12, mu_max );
             if (success<0 || muc!=muc) {
                cout << "setFAScoefficients() did not have success" << endl;
@@ -451,7 +431,6 @@ class Coulomb : public Scattering
                                              const Real  Clog,
                                              const Real  b0,
                                              const Real  bmin_qm,
-                                             const Real  bmax,
                                              const Real  sigma_eff ) const
       {
          // set costh and sinth using probability distribution function that is a linear
@@ -463,18 +442,16 @@ class Coulomb : public Scattering
          // 3) P(theta) merges identically to modified Rutherfod for N = 1
          // 4) No solvability issues when b_min in Clog is not set by b0/2
 
-         // set minimum impact parameter for Rutherford scattering
-         // bmin_R = 0.14*bmin_qm matches transition for 27.5 MeV alphas
-         // at 60 degrees observed experimentally. 0.5 works better for original FAS.
-         Real bmin_R = 0.0;
-         Real theta_max = Constants::PI;
-         if (m_limit_fas_theta_max && bmin_qm>0.0) {
-            bmin_R = 0.5*bmin_qm;
-            theta_max = 2.0*std::atan(b0/2.0/bmin_R);
-         }
-         const Real mu_max = (1.0 - std::cos(theta_max))/2.0; // sin^2(theta_max/2)
+         // compute bmax from Clog
+         const Real bperp_sq = b0*b0/4.0;
+         const Real bmin_sq = bmin_qm*bmin_qm;
+         const Real bmax_sq = std::exp(2.0*Clog)*(bperp_sq + bmin_sq) - bperp_sq;
 
-         if (bmin_R>bmax/2.0 || b0>bmax || s12>0.6) {
+         // set minimum impact parameter for Rutherford scattering
+         const Real costhmax = (bmin_sq - bperp_sq)/(bmin_sq + bperp_sq);
+         const Real mu_max = (1.0 - costhmax)/2.0; // sin^2(theta_max/2)
+
+         if (s12>0.6) {
             setNANBUcosthsinth(s12);
             return;
          }
@@ -487,15 +464,10 @@ class Coulomb : public Scattering
 
          // compute s12_Nmin where N = sigma_R*n*u12*dt = 1
          // and s12_Nmax where N = Nmax
-         const Real sig_ratio = b0*b0/4.0/(bmax*bmax - bmin_R*bmin_R); // sig90/sigR
+         const Real sig_ratio = bperp_sq/(bmax_sq - bmin_sq); // sig90/sigR
          const Real s12_Nmin = 4.0*Clog*sig_ratio;
          Real s12_Nmax = Nmax*s12_Nmin; // may be overwritten below
 
-         // there is a lower cutoff to Nmax set by variance of Rutherford
-         // equal to variance of Nanbu 97:
-         // 1 - exp(-s12) ~= s12 = s12/(2*Clog)*log((mu_max+mu_tr)/mu_tr)
-         // This only occurs for small Clog and when bmin in Clog is set by
-         // bmin_R and not by b0/2. Ensure Nmax is at least twice this value.
          const Real Nmax_min = 2.0*mutr_factor*mu_max/(std::exp(2.0*Clog)-1.0)/s12_Nmin;
          if (Nmax<Nmax_min) {
             Nmax = Nmax_min;

@@ -139,7 +139,6 @@ void PICTimeIntegrator_EM_SemiImplicit::resetVariables( const Real a_time,
 
     // reset the field values to those at the start of the time step
     m_E = m_Eold;
-    int offset = 0;
     m_fields->updatePhysicalState( m_E, a_time, e_only );
 
     // reset the nonlinear iteration to zero

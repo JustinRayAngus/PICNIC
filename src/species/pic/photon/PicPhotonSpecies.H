@@ -127,8 +127,8 @@ public:
   
 private:
 
-  MeshInterp* m_meshInterp;
   PicPhotonSpeciesBC* m_species_bc;
+  MeshInterp* m_meshInterp;
 
   Real m_cvac_norm;
   

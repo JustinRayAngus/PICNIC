@@ -231,8 +231,8 @@ IC.helium4.velocity_2.value = 0.0
 
 scattering.coulomb.all = true 
 scattering.coulomb.model = "COULOMB"
-scattering.coulomb.angular_scattering = "NANBU_FAS_v2"
-scattering.coulomb.limit_fas_theta_max = false
+scattering.coulomb.angular_scattering = "B13"
+scattering.coulomb.include_large_angle_scattering = true
 scattering.coulomb.exclude_electron_fas = true
 #scattering.coulomb.enforce_conservations = true
 #scattering.coulomb.sort_weighted_particles = true

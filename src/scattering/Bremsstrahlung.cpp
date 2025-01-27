@@ -307,6 +307,12 @@ void Bremsstrahlung::interSpeciesBremsstrahlung( PicChargedSpecies&  a_species1,
                     Real Ephoton_norm = MathUtils::linearInterp(index,m_sigmaC,m_k_eV,rand2); // [eV]
                     Ephoton_norm /= m_mcSq; // normalized units
 
+                    // limit Ephoton to KE in weighted center-of-momentum frame
+                    // This is needed for physical solution that conserves both momentum and energy
+                    const Real mime = wp2*m_mass2/(wp1*m_mass1);
+                    const Real KE_cm_norm = mime*(gammap1st-1.0)/(gammap1st - up1st_mag + mime);
+                    if (Ephoton_norm > 0.99*KE_cm_norm/fmulti) { Ephoton_norm = KE_cm_norm; }
+
                     // compute normalized photon momentum vector in IRF
                     std::array<Real,3> up3st;
                     up3st[0] = Ephoton_norm*dir_vec[0];
@@ -320,7 +326,6 @@ void Bremsstrahlung::interSpeciesBremsstrahlung( PicChargedSpecies&  a_species1,
                     // of energy and momentum assuming 1D kinematics
                     // gamma_e2 + mi/me*gamma_i2 = gamma_e1 + mi/me - Ephoton_irf_norm
                     // u_e2 + mi/me*u_i2 = u_e1 - Ephoton_irf_norm
-                    const Real mime = wp2*m_mass2/(wp1*m_mass1);
                     const Real A0 = up1st_mag - Eph_norm_weighted;
                     const Real B0 = gammap1st - Eph_norm_weighted + mime;
                     const Real D0 = 2.0*(gammap1st - up1st_mag)*Eph_norm_weighted

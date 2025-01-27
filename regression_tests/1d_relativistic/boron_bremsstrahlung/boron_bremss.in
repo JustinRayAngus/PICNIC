@@ -157,7 +157,7 @@ pic_species.2.scatter = true
 
 scattering.coulomb.all = false
 scattering.coulomb.model = "COULOMB"
-scattering.coulomb.angular_scattering = "NANBU"
+scattering.coulomb.angular_scattering = "BOBYLEV"
 scattering.coulomb.enforce_conservations = true
 
 scattering.0.model = "bremsstrahlung"

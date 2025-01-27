@@ -2,7 +2,7 @@
 : ${PICNIC_TEST_INPUTS_DIR:?"Please set PICNIC_TEST_INPUTS_DIR in your environment or manually above"}
 
 # Get the PICNIC executable name
-picnic_executable=$(ls $PICNIC_TEST_PICNIC_DIR/exec/picnic${PICNIC_TEST_DIM}d*.ex)
+picnic_executable=$(ls $PICNIC_TEST_PICNIC_DIR/exec_relativistic/picnic${PICNIC_TEST_DIM}d*.ex)
 echo "PICNIC executable is $picnic_executable"
 
 # create dir for baseline solutions

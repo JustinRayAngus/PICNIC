@@ -156,7 +156,6 @@ void PicPhotonSpeciesBC::apply( List<PhotonParticle>&     a_outcast_list,
    // second, loop over non-periodic boundaries again and apply outflow BCs
    for (int b(0); b<bdry_layout.size(); b++) {
       const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
       const int bdry_dir = this_bdry_layout.dir();
       const int bdry_side(this_bdry_layout.side());
       const std::string this_bc = m_bc_type[b];
@@ -195,7 +194,6 @@ void PicPhotonSpeciesBC::removeOutflowParticles()
    const BoundaryBoxLayoutPtrVect& bdry_layout = m_mesh.getBoundaryLayout();
    for (int b(0); b<bdry_layout.size(); b++) {
       const BoundaryBoxLayout& this_bdry_layout( *(bdry_layout[b]) );
-      const DisjointBoxLayout& bdry_grids( this_bdry_layout.disjointBoxLayout() );
       const int bdry_dir = this_bdry_layout.dir();
       const int bdry_side(this_bdry_layout.side());
       const std::string this_bc = m_bc_type[b];

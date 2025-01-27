@@ -215,7 +215,6 @@ void IBremsstrahlung::applyIBremsstrahlung( PicPhotonSpecies&      a_species1,
 
                JustinsParticlePtr& this_particle = litE();
                part2_ptr = this_particle.getPointer();
-               const Real wp2 = part2_ptr->weight();
                std::array<Real,3>& up2 = part2_ptr->velocity();
 
                // compute energy before momentum correction

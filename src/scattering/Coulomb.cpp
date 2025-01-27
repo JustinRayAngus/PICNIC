@@ -66,6 +66,9 @@ void Coulomb::initialize( const PicSpeciesInterface&  a_pic_species_intf,
          (m_angular_scattering==NANBU_FAS || m_angular_scattering==NANBU_FAS_v2)) {
          m_angular_scattering = NANBU;
       }
+      else if (m_exclude_electron_fas && m_include_large_angle_scattering) {
+         m_include_large_angle_scattering = false;
+      }
 
    }
 
@@ -1645,7 +1648,7 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
                          const Real                 a_dt_sec ) const
 {
    CH_TIME("Coulomb::GalileanScatter()");
-   
+
    // compute relative velocity (actually beta)
    Real ux = a_vp1[0]-a_vp2[0];
    Real uy = a_vp1[1]-a_vp2[1];
@@ -1661,10 +1664,11 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
    // compute s12 = 2.0*deltasq_var
    Real b0 = m_b90_fact/(m_mu*u*u + 2.0*m_EF_norm); // b0 = q1*q2/(4*pi*ep0*WR) = q1*q2/(2*pi*ep0*mu*u^2)
    const Real bmin_qm = m_bqm_fact/(m_mu*u + std::sqrt(2.0*m_EF_norm*m_mu));
-   const Real bmin = std::max(b0/2.0,bmin_qm);
    Real Clog = m_Clog;
    if (Clog==0.0 && u>0.0) {
-      Clog = 0.5*std::log(1.0 + a_bmax*a_bmax/bmin/bmin);
+      // this form for Clog comes from exact integration of Rutherford differential
+      // cross section using theta_min (for bmax) and theta_max (for bmin_qm)
+      Clog = 0.5*std::log( (b0*b0/4.0 + a_bmax*a_bmax)/(b0*b0/4.0 + bmin_qm*bmin_qm) );
       Clog = std::max(2.0,Clog);
    }
 
@@ -1674,39 +1678,8 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
    sigma_eff = std::min(sigma_eff,a_sigma_max);
    m_s12 = sigma_eff * a_den12 * u*Constants::CVAC * a_dt_sec;
 
-   switch (m_angular_scattering) {
-      case TAKIZUKA:
-         if (m_s12<2.0) { // sample from gaussian distribution  
-            const Real delta = sqrt(m_s12/2.0)*std::abs(MathUtils::randn());
-            const Real deltasq = delta*delta;
-            m_sinth = 2.0*delta/(1.0+deltasq); 
-            m_costh = 1.0 - 2.0*deltasq/(1.0+deltasq);
-         } 
-         else { // set random polar angle between zero and pi
-            const Real theta = Constants::PI*MathUtils::rand();
-            m_costh = std::cos(theta);
-            m_sinth = std::sin(theta);
-         }
-         break;
-      case NANBU:
-         setNANBUcosthsinth(m_s12);
-         break;
-      case BOBYLEV:
-         m_costh = 1.0 - std::min(m_s12,2.0);
-         m_sinth = std::sin(std::acos(m_costh));
-         break;
-      case NANBU_FAS:
-         setNANBUFAScosthsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
-         break;
-      case NANBU_FAS_v2:
-         setNANBUFAS_v2_costhsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
-         break;
-      case ISOTROPIC:
-         const Real theta = Constants::PI*MathUtils::rand();
-         m_costh = std::cos(theta);
-         m_sinth = std::sin(theta);
-         break;
-   }
+   // Set m_costh and m_sinth for polar angle scattering
+   SetPolarScattering( Clog, b0, bmin_qm, sigma_eff );
 
    // set random azimuthal angle
    m_phi = Constants::TWOPI*MathUtils::rand();
@@ -1715,7 +1688,7 @@ void Coulomb::GalileanScatter( std::array<Real,3>&  a_deltaU,
 
    // define deltaU
    ScatteringUtils::computeDeltaU(a_deltaU,ux,uy,uz,m_costh,m_sinth,m_cosphi,m_sinphi);
-               
+
 }
 
 void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
@@ -1776,10 +1749,11 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
    
    Real b0 = m_b90_fact/(muRst*vrelst*vrelst_invar + 2.0*m_EF_norm);
    const Real bmin_qm = m_bqm_fact/(muRst*vrelst + std::sqrt(2.0*m_EF_norm*muRst));
-   const Real bmin = std::max(b0/2.0,bmin_qm);
    Real Clog = m_Clog;
    if (Clog==0.0 && upstsq>0.0) {
-      Clog = 0.5*std::log(1.0 + a_bmax*a_bmax/bmin/bmin);
+      // this form for Clog comes from exact integration of Rutherford differential
+      // cross section using theta_min (for bmax) and theta_max (for bmin_qm)
+      Clog = 0.5*std::log( (b0*b0/4.0 + a_bmax*a_bmax)/(b0*b0/4.0 + bmin_qm*bmin_qm) );
       Clog = std::max(2.0,Clog);
    }
 
@@ -1789,6 +1763,106 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
    sigma_eff = std::min(sigma_eff,a_sigma_max);
    m_s12 = sigma_eff * a_den12 * vrelst*Constants::CVAC * a_dt_sec;
    m_s12 *= g1st*g2st/g1/g2;
+
+   // Set m_costh and m_sinth for polar angle scattering
+   SetPolarScattering( Clog, b0, bmin_qm, sigma_eff );
+
+   // set random azimuthal angle
+   m_phi = Constants::TWOPI*MathUtils::rand();
+   m_cosphi = std::cos(m_phi);
+   m_sinphi = std::sin(m_phi);
+
+   // rotate upst for particle 1 by scattering angles
+   ScatteringUtils::rotateVelocity(upst,m_costh,m_sinth,m_cosphi,m_sinphi);
+
+   // Lorentz transform particle 1 back to lab frame
+   ucmdotup = gcm*(vcm[0]*upst[0] + vcm[1]*upst[1] + vcm[2]*upst[2]);
+   upst_fact = gcm*(ucmdotup/(1.0+gcm) + g1st);
+   for (int n=0; n<3; n++) { a_up1[n] = upst[n] + upst_fact*vcm[n]; }
+
+   // Lorentz transform particle 2 back to lab frame (p2st + p1st = 0)
+   if (a_scatter2) {
+      //for (int n=0; n<3; n++) { upst[n] *= -a_mass1/a_mass2; }
+      //ucmdotup *= -a_mass1/a_mass2;
+      //upst_fact = gcm*(ucmdotup/(1.0+gcm) + g2st);
+      //for (int n=0; n<3; n++) { a_up2[n] = upst[n] + upst_fact*vcm[n]; }
+      // set proper velocity of particle 2 using momentum conservation
+      for (int n=0; n<3; n++) { a_up2[n] = (ptot[n] - a_mass1*a_up1[n])/a_mass2; }
+   }
+
+}
+
+void Coulomb::SetPolarScattering( const Real  Clog,
+                                  const Real  b0,
+                                  const Real  bmin_qm,
+                                  const Real  sigma_eff ) const
+{
+
+   // compute parameters for including large angle scattering
+   bool skip_small_angle_scattering = false;
+   if (m_include_large_angle_scattering) {
+
+      Real N12, N12_min, N12_tr;
+      Real bperp_sq, bmin_sq, bmax_sq, bc_sq, SL, ClogM;
+
+      // compute total number of Rutherford collisions
+      // N12 = pi*(bmax_sq - bmin_sq)*u12*n2*dt
+      bperp_sq = b0*b0/4.0;
+      bmin_sq = bmin_qm*bmin_qm;
+      bmax_sq = std::exp(2.0*Clog)*(bperp_sq + bmin_sq) - bperp_sq;
+      N12 = m_s12/sigma_eff*Constants::PI*(bmax_sq - bmin_sq);
+
+      // set cutoff impact parameter to bperp_sq + bmin_sq
+      bc_sq = bperp_sq + bmin_sq;
+
+      // specify thresholds for transition region
+      N12_min = 0.1; // N12 where bc = bmax (and thus SL = N12)
+      N12_tr = 80.0; // target N12 where bc = bperp
+
+      // truncate N12_tr if SL(N12=80) is larger than SL(N12_min)/2.0
+      // where SL = N12*(bc_sq - bmin_sq)/(bmax_sq - bmin_sq) is probability
+      // of scatter for impact parameter in range bmin_sq <= b <= bc_sq
+      const Real N12_tr0 = N12_min/2.0*(bmax_sq-bmin_sq)/(bc_sq-bmin_sq);
+      if (N12_tr0<N12_tr) { N12_tr = N12_tr0; }
+
+      // compute probability of large angle scatter (SL)
+      if (N12 <= N12_min) { // bc = bmax (pure Rutherford scattering)
+         SL = N12;
+      }
+      else if (N12 <= N12_tr) { // bc transitioning from bperp to bmax
+         const Real SL_tr = N12_tr*(bc_sq-bmin_sq)/(bmax_sq-bmin_sq);
+         const Real SL_min = N12_min;
+         SL = (N12 - N12_min)/(N12_tr - N12_min)*SL_tr
+            + (N12_tr - N12)/(N12_tr - N12_min)*SL_min;
+      }
+      else { // bc <= bperp (< is to limit SL to 0.1)
+         SL = std::min(0.1,N12*(bc_sq-bmin_sq)/(bmax_sq-bmin_sq));
+      }
+
+      // compute cutoff impact parameter for large angle events
+      bc_sq = bmin_sq + SL/N12*(bmax_sq-bmin_sq);
+
+      // modify s12 for small angle scattering in order to keep
+      // total variance equal to s12
+      ClogM = 0.5*std::log( (bperp_sq + bmax_sq)/(bperp_sq + bc_sq) );
+      m_s12 *= ClogM/Clog/(1.0-SL);
+
+      m_costh = 1.0;
+      m_sinth = 0.0;
+      const Real RL = MathUtils::rand();
+      if (RL<SL) { // do Rutherford scattering
+         const Real bsq = bc_sq - RL/SL*(bc_sq - bmin_sq);
+         m_costh = (bsq - bperp_sq)/(bsq + bperp_sq);
+         m_sinth = std::sqrt(1.0-m_costh*m_costh);
+         skip_small_angle_scattering = true;
+      }
+      else if (N12<=N12_min) {
+         skip_small_angle_scattering = true;
+      }
+
+   }
+
+   if (!skip_small_angle_scattering) {
 
    switch (m_angular_scattering) {
       case TAKIZUKA:
@@ -1812,10 +1886,10 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
          m_sinth = std::sin(std::acos(m_costh));
          break;
       case NANBU_FAS:
-         setNANBUFAScosthsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
+         setNANBUFAScosthsinth(m_s12, Clog, b0, bmin_qm, sigma_eff);
          break;
       case NANBU_FAS_v2:
-         setNANBUFAS_v2_costhsinth(m_s12, Clog, b0, bmin_qm, a_bmax, sigma_eff);
+         setNANBUFAS_v2_costhsinth(m_s12, Clog, b0, bmin_qm, sigma_eff);
          break;
       case ISOTROPIC:
          const Real theta = Constants::PI*MathUtils::rand();
@@ -1824,29 +1898,8 @@ void Coulomb::LorentzScatter( std::array<Real,3>&  a_up1,
          break;
    }
 
-   // set random azimuthal angle
-   m_phi = Constants::TWOPI*MathUtils::rand();
-   m_cosphi = std::cos(m_phi);
-   m_sinphi = std::sin(m_phi);
-
-   // rotate upst for particle 1 by scattering angles
-   ScatteringUtils::rotateVelocity(upst,m_costh,m_sinth,m_cosphi,m_sinphi);
-
-   // Lorentz transform particle 1 back to lab frame
-   ucmdotup = gcm*(vcm[0]*upst[0] + vcm[1]*upst[1] + vcm[2]*upst[2]);
-   upst_fact = gcm*(ucmdotup/(1.0+gcm) + g1st);
-   for (int n=0; n<3; n++) { a_up1[n] = upst[n] + upst_fact*vcm[n]; }
-  
-   // Lorentz transform particle 2 back to lab frame (p2st + p1st = 0)
-   if (a_scatter2) {
-      //for (int n=0; n<3; n++) { upst[n] *= -a_mass1/a_mass2; }
-      //ucmdotup *= -a_mass1/a_mass2;
-      //upst_fact = gcm*(ucmdotup/(1.0+gcm) + g2st);
-      //for (int n=0; n<3; n++) { a_up2[n] = upst[n] + upst_fact*vcm[n]; }
-      // set proper velocity of particle 2 using momentum conservation
-      for (int n=0; n<3; n++) { a_up2[n] = (ptot[n] - a_mass1*a_up1[n])/a_mass2; }
    }
- 
+
 }
 
 #include "NamespaceFooter.H"

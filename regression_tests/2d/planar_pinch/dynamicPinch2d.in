@@ -212,17 +212,17 @@ BC.deuterium.dir0_upper.type = "outflow"
 scattering.0.model = "COULOMB"
 scattering.0.speciesA = 0
 scattering.0.speciesB = 0
-scattering.0.angular_scattering = "NANBU"
+scattering.0.angular_scattering = "BOBYLEV"
 
 scattering.1.model = "COULOMB"
 scattering.1.speciesA = 1
 scattering.1.speciesB = 1
-scattering.1.angular_scattering = "NANBU"
+scattering.1.angular_scattering = "BOBYLEV"
 
 scattering.2.model = "COULOMB"
 scattering.2.speciesA = 1
 scattering.2.speciesB = 0
-scattering.2.angular_scattering = "NANBU"
+scattering.2.angular_scattering = "BOBYLEV"
 
 #####################################################
 
